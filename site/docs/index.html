@@ -1,0 +1,604 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>SayQL Docs</title>
+<meta name="description" content="How to install SayQL, connect your databases, choose an AI provider, ask in plain English and run SQL safely.">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='100 100 824 824'%3E%3Cdefs%3E%3ClinearGradient id='b' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%234F46E5'/%3E%3Cstop offset='1' stop-color='%237C3AED'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect x='100' y='100' width='824' height='824' rx='185' fill='url%28%23b%29'/%3E%3Ccircle cx='496' cy='478' r='196' fill='none' stroke='%23fff' stroke-width='96'/%3E%3Cpath d='M676 590 C 700 670 742 728 800 772 C 716 770 646 740 594 690 Z' fill='%23fff'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap">
+<script>
+  try { var t = localStorage.getItem("sayql-site-theme"); if (t === "light" || t === "dark") document.documentElement.setAttribute("data-theme", t); } catch (e) {}
+</script>
+<style>
+:root {
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+  --radius-sm: 3px;
+  --radius-md: 4px;
+  --radius-lg: 6px;
+  --radius-xl: 12px;
+  --page-w: 1180px;
+  --gutter: max(16px, env(safe-area-inset-left, 0px));
+
+  color-scheme: light;
+  --color-bg: #eceef1;
+  --color-page: #f7f8fa;
+  --color-surface: #ffffff;
+  --color-surface-muted: #f6f7f9;
+  --color-surface-sunken: #f0f2f5;
+  --color-surface-hover: #eef1f5;
+  --color-surface-selected: #dde8fb;
+  --color-border: #d6dae0;
+  --color-border-subtle: #e6e9ed;
+  --color-border-strong: #b9c0ca;
+  --color-text: #1d2125;
+  --color-text-muted: #56606b;
+  --color-text-subtle: #8a939d;
+  --color-accent: #1f6feb;
+  --color-accent-hover: #1a5fd0;
+  --color-accent-soft: #e5efff;
+  --color-focus-ring: rgba(31, 111, 235, 0.35);
+  --color-ai: #7048e8;
+  --color-ai-soft: #f1ecff;
+  --color-success: #1a7f37;
+  --color-success-soft: #e6f4ea;
+  --color-warning: #9a6700;
+  --color-warning-soft: #fff4d6;
+  --color-danger: #c62f37;
+  --color-danger-soft: #fdecec;
+  --color-kind-postgres: #336791;
+  --color-kind-mysql: #c47a00;
+  --color-kind-sqlite: #2f8f5b;
+  --color-kind-mssql: #b8312f;
+  --color-grid-header: #f3f5f8;
+  --color-grid-row-alt: #fafbfc;
+  --color-grid-number: #0b5cad;
+  --syn-keyword: #0b4fc4;
+  --syn-string: #1a7f37;
+  --syn-number: #b35900;
+  --syn-comment: #8a939d;
+  --syn-operator: #56606b;
+  --shadow-raised: 0 1px 2px rgba(15, 23, 42, 0.12);
+  --shadow-window: 0 30px 80px -20px rgba(15, 23, 42, 0.28), 0 8px 24px -8px rgba(15, 23, 42, 0.16);
+  --glow-a: rgba(31, 111, 235, 0.16);
+  --glow-b: rgba(112, 72, 232, 0.14);
+  --grid-line: rgba(15, 23, 42, 0.05);
+}
+
+/* Dark: same values as :root[data-theme="dark"] in tokens.css. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --color-bg: #17191d;
+    --color-page: #131518;
+    --color-surface: #1f2227;
+    --color-surface-muted: #24272d;
+    --color-surface-sunken: #1a1c20;
+    --color-surface-hover: #2a2e35;
+    --color-surface-selected: #253552;
+    --color-border: #33373e;
+    --color-border-subtle: #2a2d33;
+    --color-border-strong: #474c55;
+    --color-text: #e2e5e9;
+    --color-text-muted: #a3aab4;
+    --color-text-subtle: #727a85;
+    --color-accent: #4a8dff;
+    --color-accent-hover: #6aa2ff;
+    --color-accent-soft: #1e2d48;
+    --color-focus-ring: rgba(74, 141, 255, 0.4);
+    --color-ai: #a78bfa;
+    --color-ai-soft: #2a2341;
+    --color-success: #56c26f;
+    --color-success-soft: #1d3324;
+    --color-warning: #e3b341;
+    --color-warning-soft: #3a3016;
+    --color-danger: #f26b72;
+    --color-danger-soft: #3b1f23;
+    --color-kind-postgres: #6fa3d6;
+    --color-kind-mysql: #f0a833;
+    --color-kind-sqlite: #5ccb8d;
+    --color-kind-mssql: #f07a6e;
+    --color-grid-header: #262a30;
+    --color-grid-row-alt: #22252a;
+    --color-grid-number: #7fb4ff;
+    --syn-keyword: #6aa2ff;
+    --syn-string: #8fd19e;
+    --syn-number: #f0a868;
+    --syn-comment: #727a85;
+    --syn-operator: #a3aab4;
+    --shadow-raised: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-window: 0 30px 90px -20px rgba(0, 0, 0, 0.7), 0 8px 24px -8px rgba(0, 0, 0, 0.5);
+    --glow-a: rgba(74, 141, 255, 0.16);
+    --glow-b: rgba(167, 139, 250, 0.14);
+    --grid-line: rgba(255, 255, 255, 0.035);
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --color-bg: #17191d;
+  --color-page: #131518;
+  --color-surface: #1f2227;
+  --color-surface-muted: #24272d;
+  --color-surface-sunken: #1a1c20;
+  --color-surface-hover: #2a2e35;
+  --color-surface-selected: #253552;
+  --color-border: #33373e;
+  --color-border-subtle: #2a2d33;
+  --color-border-strong: #474c55;
+  --color-text: #e2e5e9;
+  --color-text-muted: #a3aab4;
+  --color-text-subtle: #727a85;
+  --color-accent: #4a8dff;
+  --color-accent-hover: #6aa2ff;
+  --color-accent-soft: #1e2d48;
+  --color-focus-ring: rgba(74, 141, 255, 0.4);
+  --color-ai: #a78bfa;
+  --color-ai-soft: #2a2341;
+  --color-success: #56c26f;
+  --color-success-soft: #1d3324;
+  --color-warning: #e3b341;
+  --color-warning-soft: #3a3016;
+  --color-danger: #f26b72;
+  --color-danger-soft: #3b1f23;
+  --color-kind-postgres: #6fa3d6;
+  --color-kind-mysql: #f0a833;
+  --color-kind-sqlite: #5ccb8d;
+  --color-kind-mssql: #f07a6e;
+  --color-grid-header: #262a30;
+  --color-grid-row-alt: #22252a;
+  --color-grid-number: #7fb4ff;
+  --syn-keyword: #6aa2ff;
+  --syn-string: #8fd19e;
+  --syn-number: #f0a868;
+  --syn-comment: #727a85;
+  --syn-operator: #a3aab4;
+  --shadow-raised: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-window: 0 30px 90px -20px rgba(0, 0, 0, 0.7), 0 8px 24px -8px rgba(0, 0, 0, 0.5);
+  --glow-a: rgba(74, 141, 255, 0.16);
+  --glow-b: rgba(167, 139, 250, 0.14);
+  --grid-line: rgba(255, 255, 255, 0.035);
+}
+
+* { box-sizing: border-box; }
+html { scroll-padding-top: 76px; }
+body { margin: 0; background: var(--color-page); color: var(--color-text); font: 400 16px/1.65 var(--font-sans); -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+a { color: var(--color-accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; border-radius: var(--radius-md); }
+code { font: 500 0.86em/1.4 var(--font-mono); background: var(--color-surface-sunken); border: 1px solid var(--color-border-subtle); padding: 1px 5px; border-radius: var(--radius-md); overflow-wrap: anywhere; }
+pre { margin: 0; padding: 14px 16px; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg); overflow-x: auto; font: 400 13px/1.6 var(--font-mono); }
+pre code { background: none; border: 0; padding: 0; font-size: inherit; }
+kbd { font: 500 12px/1 var(--font-mono); border: 1px solid var(--color-border); border-bottom-width: 2px; border-radius: var(--radius-sm); padding: 3px 6px; background: var(--color-surface); color: var(--color-text); white-space: nowrap; }
+.wrap { max-width: 1180px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+
+/* header (same as the landing page) */
+.nav { position: sticky; top: 0; z-index: 20; background: color-mix(in srgb, var(--color-page) 82%, transparent); backdrop-filter: saturate(160%) blur(12px); -webkit-backdrop-filter: saturate(160%) blur(12px); border-bottom: 1px solid var(--color-border-subtle); }
+.nav .wrap { display: flex; align-items: center; gap: 28px; height: 60px; }
+.brand { display: inline-flex; align-items: center; gap: 10px; font-weight: 700; font-size: 17px; color: var(--color-text); }
+.brand:hover { text-decoration: none; }
+.brand svg { width: 26px; height: 26px; }
+.brand .docs-tag { font: 600 12px/1 var(--font-sans); color: var(--color-text-subtle); border-left: 1px solid var(--color-border); padding-left: 10px; }
+.nav-links { display: flex; gap: 22px; font-size: 14px; }
+.nav-links a { color: var(--color-text-muted); }
+.nav-links a:hover, .nav-links a[aria-current="page"] { color: var(--color-text); text-decoration: none; }
+.nav-end { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.btn { display: inline-flex; align-items: center; gap: 8px; height: 38px; padding: 0 14px; border-radius: var(--radius-lg); border: 1px solid var(--color-accent); background: var(--color-accent); color: #fff; font: 600 14px/1 var(--font-sans); }
+.btn:hover { background: var(--color-accent-hover); text-decoration: none; }
+.btn svg { width: 16px; height: 16px; }
+.icon-btn { width: 36px; height: 36px; display: grid; place-items: center; border-radius: var(--radius-lg); border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text-muted); cursor: pointer; }
+.icon-btn svg { width: 16px; height: 16px; }
+.theme-dark-icon { display: none; }
+:root[data-theme="dark"] .theme-dark-icon { display: block; }
+:root[data-theme="dark"] .theme-light-icon { display: none; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .theme-dark-icon { display: block; } :root:not([data-theme="light"]) .theme-light-icon { display: none; } }
+@media (max-width: 860px) { .nav-links { display: none; } }
+@media (max-width: 420px) { .nav .btn span { display: none; } }
+
+/* layout */
+.layout { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 48px; padding-top: 40px; padding-bottom: 96px; }
+@media (max-width: 900px) { .layout { grid-template-columns: minmax(0, 1fr); gap: 20px; padding-top: 24px; } }
+.toc { position: sticky; top: 84px; align-self: start; max-height: calc(100vh - 100px); overflow: auto; font-size: 14px; }
+.toc h2 { font: 600 11px/1 var(--font-sans); letter-spacing: 0.08em; text-transform: uppercase; color: var(--color-text-subtle); margin: 0 0 10px; }
+.toc ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.toc a { display: block; padding: 5px 10px; border-radius: var(--radius-md); color: var(--color-text-muted); border-left: 2px solid transparent; }
+.toc a:hover { color: var(--color-text); background: var(--color-surface-hover); text-decoration: none; }
+.toc a.on { color: var(--color-accent); background: var(--color-accent-soft); font-weight: 600; }
+.toc-mobile { display: none; }
+@media (max-width: 900px) {
+  html { scroll-padding-top: 128px; }
+  .toc { display: none; }
+  .toc-mobile { display: block; position: sticky; top: 68px; z-index: 5; }
+  .toc-mobile select { width: 100%; height: 40px; padding: 0 12px; border: 1px solid var(--color-border); border-radius: var(--radius-lg); background: var(--color-surface); color: var(--color-text); font: 500 14px var(--font-sans); }
+}
+
+/* content */
+article { min-width: 0; max-width: 760px; }
+.intro h1 { margin: 0; font-size: clamp(32px, 5vw, 44px); line-height: 1.08; font-weight: 800; letter-spacing: -0.03em; }
+.intro p { margin: 14px 0 0; font-size: 18px; color: var(--color-text-muted); }
+.quick { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 28px; }
+@media (max-width: 640px) { .quick { grid-template-columns: minmax(0, 1fr); } }
+.quick a { display: grid; gap: 4px; padding: 16px; border: 1px solid var(--color-border); border-radius: var(--radius-xl); background: var(--color-surface); color: var(--color-text); }
+.quick a:hover { border-color: var(--color-accent); text-decoration: none; }
+.quick b { font-size: 15px; }
+.quick span { font-size: 14px; color: var(--color-text-muted); }
+section.doc { padding-top: 56px; }
+section.doc > h2 { margin: 0 0 6px; font-size: 28px; line-height: 1.15; font-weight: 700; letter-spacing: -0.02em; }
+section.doc > .sub { margin: 0 0 20px; color: var(--color-text-muted); }
+h3 { margin: 30px 0 8px; font-size: 18px; font-weight: 650; font-weight: 600; letter-spacing: -0.01em; }
+p { margin: 10px 0; }
+ul, ol.steps { margin: 10px 0; padding-left: 22px; display: grid; gap: 6px; }
+ol.steps { counter-reset: s; list-style: none; padding-left: 0; gap: 10px; }
+ol.steps > li { counter-increment: s; display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 10px; }
+ol.steps > li::before { content: counter(s); width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; background: var(--color-accent-soft); color: var(--color-accent); font: 700 12px/1 var(--font-sans); margin-top: 1px; }
+.table-wrap { overflow-x: auto; border: 1px solid var(--color-border); border-radius: var(--radius-lg); background: var(--color-surface); margin: 14px 0; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; vertical-align: top; padding: 10px 14px; border-bottom: 1px solid var(--color-border-subtle); }
+th { font-weight: 600; color: var(--color-text-muted); background: var(--color-grid-header); white-space: nowrap; }
+tr:last-child td { border-bottom: none; }
+.callout { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 10px; margin: 16px 0; padding: 12px 14px; border-radius: var(--radius-lg); border: 1px solid var(--color-border); background: var(--color-surface); font-size: 15px; }
+.callout svg { width: 18px; height: 18px; margin-top: 3px; }
+.callout.tip { border-color: color-mix(in srgb, var(--color-accent) 35%, transparent); background: var(--color-accent-soft); }
+.callout.tip svg { color: var(--color-accent); }
+.callout.safe { border-color: color-mix(in srgb, var(--color-success) 35%, transparent); background: var(--color-success-soft); }
+.callout.safe svg { color: var(--color-success); }
+.callout.warn { border-color: color-mix(in srgb, var(--color-warning) 40%, transparent); background: var(--color-warning-soft); }
+.callout.warn svg { color: var(--color-warning); }
+.callout p { margin: 0; }
+.trouble { display: grid; gap: 10px; }
+.trouble details { border: 1px solid var(--color-border); border-radius: var(--radius-lg); background: var(--color-surface); }
+.trouble summary { cursor: pointer; padding: 12px 16px; font-weight: 600; list-style: none; display: flex; justify-content: space-between; gap: 12px; }
+.trouble summary::-webkit-details-marker { display: none; }
+.trouble summary::after { content: "+"; color: var(--color-text-subtle); font-weight: 400; font-size: 20px; line-height: 1; }
+.trouble details[open] summary::after { content: "–"; }
+.trouble .body { padding: 0 16px 14px; color: var(--color-text-muted); }
+.trouble .body p:first-child { margin-top: 0; }
+
+footer { border-top: 1px solid var(--color-border-subtle); padding: 28px 0 40px; font-size: 13px; color: var(--color-text-subtle); }
+footer .wrap { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: center; }
+footer nav { display: flex; gap: 18px; margin-left: auto; flex-wrap: wrap; }
+footer a { color: var(--color-text-muted); }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <linearGradient id="logo-bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4F46E5"/><stop offset="1" stop-color="#7C3AED"/></linearGradient>
+    <symbol id="logo" viewBox="100 100 824 824">
+      <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#logo-bg)"/><circle cx="496" cy="478" r="196" fill="none" stroke="#fff" stroke-width="96"/><path d="M676 590 C 700 670 742 728 800 772 C 716 770 646 740 594 690 Z" fill="#fff"/>
+    </symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></g></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5z"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M12 4v11M7 10l5 5 5-5M5 20h14"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8v.5"/></g></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/></symbol>
+    <symbol id="i-warn" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 3L2 20h20z" stroke-linejoin="round"/><path d="M12 10v4M12 17v.5"/></g></symbol>
+  </defs>
+</svg>
+
+<header class="nav">
+  <div class="wrap">
+    <a class="brand" href="/" aria-label="SayQL home"><svg><use href="#logo"/></svg>SayQL<span class="docs-tag">Docs</span></a>
+    <nav class="nav-links" aria-label="Main">
+      <a href="/#features">Features</a>
+      <a href="/#security">Security</a>
+      <a href="/#pricing">Pricing</a>
+      <a href="/docs/" aria-current="page">Docs</a>
+      <a href="https://github.com/dithzz/sayql-releases/releases">Changelog</a>
+    </nav>
+    <div class="nav-end">
+      <button class="icon-btn" id="theme" type="button" aria-label="Switch between light and dark">
+        <svg class="theme-light-icon"><use href="#i-moon"/></svg>
+        <svg class="theme-dark-icon"><use href="#i-sun"/></svg>
+      </button>
+      <a class="btn" href="https://github.com/dithzz/sayql-releases/releases/latest"><svg><use href="#i-download"/></svg><span>Download</span></a>
+    </div>
+  </div>
+</header>
+
+<div class="wrap layout">
+  <nav class="toc" aria-label="On this page">
+    <h2>Documentation</h2>
+    <ol id="toc-list"></ol>
+  </nav>
+  <div class="toc-mobile"><select id="toc-select" aria-label="Jump to section"></select></div>
+
+  <article>
+    <div class="intro">
+      <h1>SayQL documentation</h1>
+      <p>Everything you need to install SayQL, connect your databases, pick an AI and turn plain English into SQL you can trust.</p>
+      <div class="quick">
+        <a href="#install"><b>Install</b><span>Download and open SayQL on macOS, Windows or Linux.</span></a>
+        <a href="#ai"><b>Choose your AI</b><span>Claude, OpenAI, Gemini, a local model and more.</span></a>
+        <a href="#ask"><b>Ask in English</b><span>Questions, follow-ups, fixes and Improve.</span></a>
+      </div>
+    </div>
+
+    <!-- ============ INSTALL ============ -->
+    <section class="doc" id="install" data-title="Install">
+      <h2>Install</h2>
+      <p class="sub">SayQL is a desktop app, downloaded straight from GitHub. There's no account and no app store.</p>
+      <p>Get the latest version from <a href="https://github.com/dithzz/sayql-releases/releases/latest">Releases</a> and pick the file for your computer:</p>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Your computer</th><th>Download</th></tr></thead>
+        <tbody>
+          <tr><td>Mac with Apple silicon (M1, M2, M3, M4)</td><td><code>SayQL_x.y.z_aarch64.dmg</code></td></tr>
+          <tr><td>Mac with an Intel processor</td><td><code>SayQL_x.y.z_x64.dmg</code></td></tr>
+          <tr><td>Windows</td><td><code>SayQL_x.y.z_x64-setup.exe</code> (or the <code>.msi</code>)</td></tr>
+          <tr><td>Linux</td><td><code>.AppImage</code> (any distribution), <code>.deb</code> (Debian, Ubuntu) or <code>.rpm</code> (Fedora, RHEL)</td></tr>
+        </tbody>
+      </table></div>
+      <p>Not sure which Mac you have? Apple menu → <b>About This Mac</b>: "Chip: Apple M…" means Apple silicon; "Processor: Intel" means Intel. Ignore the <code>.tar.gz</code> and <code>.sig</code> files: they're used by automatic updates.</p>
+
+      <h3>First launch</h3>
+      <p>Early-access builds aren't code-signed with Apple or Microsoft yet, so your computer asks you to confirm the first launch. You only do this once.</p>
+      <ol class="steps">
+        <li><div><b>macOS:</b> open the <code>.dmg</code> and drag SayQL into Applications. Open it from Applications and click <b>Done</b> on the warning. Then open <b>System Settings → Privacy &amp; Security</b>, scroll down, click <b>Open Anyway</b> next to "SayQL was blocked", and confirm.</div></li>
+        <li><div><b>Windows:</b> run the installer. On "Windows protected your PC", click <b>More info</b>, then <b>Run anyway</b>.</div></li>
+        <li><div><b>Linux:</b> make the AppImage executable (<code>chmod +x SayQL_*.AppImage</code>) and run it, or install the <code>.deb</code> or <code>.rpm</code> with your package manager.</div></li>
+      </ol>
+
+      <h3>The setup guide</h3>
+      <p>On first launch, SayQL walks you through four short steps: a welcome, <a href="#ai">choosing an AI</a>, <a href="#databases">choosing a database</a> (the built-in demo or your own), and a first question that writes and runs SQL in front of you. Every step can be skipped. To see it again, open <b>Settings</b> and click <b>Show the setup guide again</b> under About.</p>
+    </section>
+
+    <!-- ============ AI ============ -->
+    <section class="doc" id="ai" data-title="Choose your AI">
+      <h2>Choose your AI</h2>
+      <p class="sub">SayQL writes SQL with the AI provider you pick, using your own API key. Change it any time in <b>Settings</b> (the gear, top right).</p>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Provider</th><th>What you need</th></tr></thead>
+        <tbody>
+          <tr><td><b>Anthropic Claude</b> (recommended)</td><td>An API key from the <a href="https://console.anthropic.com/">Claude Console</a>.</td></tr>
+          <tr><td><b>OpenAI</b></td><td>An API key from the <a href="https://platform.openai.com/api-keys">OpenAI platform</a>.</td></tr>
+          <tr><td><b>Google Gemini</b></td><td>An API key from <a href="https://aistudio.google.com/apikey">Google AI Studio</a>.</td></tr>
+          <tr><td><b>OpenRouter</b></td><td>One key from <a href="https://openrouter.ai/keys">OpenRouter</a> for models from many labs.</td></tr>
+          <tr><td><b>Mistral</b>, <b>Groq</b>, <b>DeepSeek</b></td><td>An API key from that provider's console.</td></tr>
+          <tr><td><b>Ollama</b> (on your computer)</td><td><a href="https://ollama.com/">Ollama</a> installed and running, with a model pulled. No key.</td></tr>
+          <tr><td><b>LM Studio</b> (on your computer)</td><td><a href="https://lmstudio.ai/">LM Studio</a> with its local server started. No key.</td></tr>
+          <tr><td><b>Other (OpenAI-compatible)</b></td><td>The base URL of any server with an OpenAI-compatible API (Azure, vLLM, LiteLLM, a company gateway), and a key if it needs one.</td></tr>
+        </tbody>
+      </table></div>
+
+      <h3>Set it up</h3>
+      <ol class="steps">
+        <li><div>Open <b>Settings</b> and choose the <b>AI provider</b>.</div></li>
+        <li><div>Paste the API key. It's stored in your system keychain, never in a file.</div></li>
+        <li><div>For providers other than Claude, click <b>Load models</b>. This also checks the key and address. Pick a model, then <b>Save</b>.</div></li>
+      </ol>
+      <p>SayQL uses two models: a fast one that drafts SQL as you type, and a stronger one for fixing a rejected query and for <a href="#ask">Improve</a>. With Claude these default to Haiku and Opus. With other providers, leave the second empty to use the same model for both.</p>
+
+      <h3>Local models</h3>
+      <p>With Ollama or LM Studio, your questions and schema never leave your computer. For Ollama, install it, pull a model (for example <code>ollama pull llama3.2</code>) and keep it running. SayQL connects to <code>http://localhost:11434/v1</code> by default. LM Studio's local server is at <code>http://localhost:1234/v1</code>. Change the base URL in Settings if yours runs elsewhere.</p>
+
+      <div class="callout tip"><svg><use href="#i-info"/></svg><p><b>Claude API keys and workspaces.</b> If your key isn't tied to a workspace, add the workspace's ID (it starts with <code>wrkspc_</code>) in Settings. Use the ID from the Claude Console, not the workspace's name.</p></div>
+    </section>
+
+    <!-- ============ DATABASES ============ -->
+    <section class="doc" id="databases" data-title="Connect a database">
+      <h2>Connect a database</h2>
+      <p class="sub">SayQL connects straight from your computer to your database. There's no SayQL server in between.</p>
+      <p>Click <b>New connection</b> in the top bar, pick the type, fill in the details and click <b>Test</b>, then <b>Save</b>. Passwords are stored in your system keychain.</p>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Type</th><th>Default port</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td>PostgreSQL</td><td>5432</td><td>Turn on <b>Require SSL</b> for hosted databases.</td></tr>
+          <tr><td>MySQL / MariaDB</td><td>3306</td><td>Turn on <b>Require SSL</b> if your server requires it.</td></tr>
+          <tr><td>SQL Server / Azure SQL</td><td>1433</td><td>Azure SQL needs <b>Encrypt connection</b>, which is on by default.</td></tr>
+          <tr><td>SQLite</td><td>—</td><td>Pick the database file. A file is one database.</td></tr>
+        </tbody>
+      </table></div>
+
+      <h3>Every database on the server</h3>
+      <p>For server databases, the navigator lists every database your login can open, under <b>Databases</b>. Click one to open it. The <b>Database</b> field in the connection only sets which one opens first; leave it empty to use the server's default.</p>
+
+      <h3>SQL Server tips</h3>
+      <ul>
+        <li>Internal SQL Servers often use a self-signed certificate. If connecting fails with a certificate error, turn on <b>Trust server certificate</b>, but only for servers you know.</li>
+        <li>If the login works in other tools but not here, set the database to <code>master</code> (or leave it empty) and pick your database from the navigator.</li>
+      </ul>
+
+      <h3>The demo database</h3>
+      <p>SayQL comes with <b>Demo store</b>, a small SQLite shop with customers, orders and products, so you can try everything without connecting anything. Delete it with a right-click if you don't need it.</p>
+    </section>
+
+    <!-- ============ ASK ============ -->
+    <section class="doc" id="ask" data-title="Ask in plain English">
+      <h2>Ask in plain English</h2>
+      <p class="sub">Type what you need in the Ask box above the editor. The SQL appears in the editor as you type.</p>
+      <ul>
+        <li><b>Run it:</b> press <kbd>↵</kbd> in the Ask box, or <kbd>⌘↵</kbd> / <kbd>Ctrl+↵</kbd> anywhere. <kbd>⇧↵</kbd> adds a new line and <kbd>esc</kbd> clears the question.</li>
+        <li><b>Instant answers:</b> simple requests like "show customers" or "how many orders" are answered on your computer straight away, without calling the AI.</li>
+        <li><b>Follow-ups:</b> after running a query, say what to change: "only Canada", "remove the middle name", "sort by date". SayQL edits the query you have, and shows <b>Building on your last query</b>. Click <b>New query</b> to start fresh.</li>
+      </ul>
+
+      <h3>Point it at the right tables</h3>
+      <p>Click a table in the navigator to give it to the AI as context. <kbd>⌘</kbd>-click (or <kbd>Ctrl</kbd>-click) adds more, and <kbd>⇧</kbd>-click picks a range. Picked tables show as a pill in the Ask box. Click the eye on the pill to hide them from the AI without losing the selection. This helps most in large databases.</p>
+
+      <h3>Fix and Improve</h3>
+      <ul>
+        <li><b>Fix:</b> when the database rejects a query SayQL wrote, the stronger model reads the error, corrects the SQL and runs it again, once. If that fails too, you decide what to do next.</li>
+        <li><b>Improve:</b> click <b>Improve</b> above the editor to have the stronger model review the query against your question (joins, filters, dates, grouping, NULLs and the columns shown) and return the best version of it. If it's already right, it comes back unchanged.</li>
+      </ul>
+    </section>
+
+    <!-- ============ RUN ============ -->
+    <section class="doc" id="run" data-title="Run queries safely">
+      <h2>Run queries safely</h2>
+      <p class="sub">SayQL is built so that pointing it at a production database isn't scary.</p>
+      <div class="callout safe"><svg><use href="#i-shield"/></svg><p><b>Read-only by default.</b> SayQL checks every statement before it runs. Anything that could change data or structure (<code>INSERT</code>, <code>UPDATE</code>, <code>DELETE</code>, DDL and so on) stops and shows a confirmation first.</p></div>
+      <ul>
+        <li>Reads also run inside a read-only transaction (PostgreSQL and MySQL) or on a read-only connection (SQLite), so the database itself refuses writes. SQL Server has no read-only mode, so reads run in a transaction that's always rolled back. For production SQL Servers, use a login that can only read (<code>db_datareader</code>).</li>
+        <li>Results show up to 5,000 rows. Use <code>LIMIT</code> / <code>TOP</code> or filters for more focused results. <b>Copy as CSV</b> copies the rows shown.</li>
+      </ul>
+
+      <h3>Tabs and saved scripts</h3>
+      <ul>
+        <li><kbd>⌘T</kbd> opens a new SQL tab on the current database. Each tab keeps its own question, SQL and follow-up history.</li>
+        <li><kbd>⌘S</kbd> saves a tab as a script. Saved scripts appear under <b>Saved scripts</b> in the navigator and reopen on the database they were written for.</li>
+        <li>Closing a tab with unsaved SQL asks whether to save it first.</li>
+      </ul>
+    </section>
+
+    <!-- ============ NAVIGATOR ============ -->
+    <section class="doc" id="navigator" data-title="Navigator and right-click">
+      <h2>Navigator and right-click</h2>
+      <p class="sub">The panel on the left lists connections, databases, tables, views and columns, like DBeaver.</p>
+      <ul>
+        <li>Double-click a table to view its first 100 rows.</li>
+        <li>Type in <b>Filter tables and columns</b> to find something in a large schema.</li>
+        <li>Right-click anything for its actions:</li>
+      </ul>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Right-click on</th><th>Actions</th></tr></thead>
+        <tbody>
+          <tr><td>Connection</td><td>Connect, New SQL tab, Refresh, Edit connection, Copy name, Delete connection</td></tr>
+          <tr><td>Database</td><td>Open database, New SQL tab, Refresh, Copy name</td></tr>
+          <tr><td>Table or view</td><td>View data, Count rows, Generate SQL (SELECT; and INSERT, UPDATE, DELETE for tables), Add to AI context, Copy name, Copy as SQL reference, Refresh</td></tr>
+          <tr><td>Column</td><td>Copy name, Copy with table name</td></tr>
+          <tr><td>Saved script</td><td>Open, Copy name, Delete script</td></tr>
+        </tbody>
+      </table></div>
+      <p>Generated INSERT, UPDATE and DELETE open in a new tab without running. Their <code>WHERE</code> matches no rows until you fill it in, and running them still asks for confirmation.</p>
+    </section>
+
+    <!-- ============ MCP ============ -->
+    <section class="doc" id="mcp" data-title="Use SayQL from AI apps">
+      <h2>Use SayQL from AI apps (MCP)</h2>
+      <p class="sub">SayQL includes an MCP server, so AI assistants like Claude and Cursor can query your databases through the connections you saved in SayQL.</p>
+      <div class="callout warn"><svg><use href="#i-warn"/></svg><p><b>Not in the v0.1.0 downloads yet.</b> The MCP server program isn't bundled with the first release. It's coming in an upcoming update, and Settings will show you when it's available.</p></div>
+      <p>The assistant gets four tools: list connections, list databases, describe the schema, and run a read-only query. The same read-only rules apply. Results default to 100 rows, at most 1,000. Database passwords are never shared with the assistant, but query results are sent to it.</p>
+      <h3>Set it up</h3>
+      <p>Open <b>Settings → Use SayQL from AI apps (MCP)</b>. It shows the exact command and config for your install:</p>
+      <ul>
+        <li><b>Claude Code:</b> run the <code>claude mcp add</code> command it shows, in a terminal.</li>
+        <li><b>Claude Desktop:</b> merge the JSON it shows into <code>claude_desktop_config.json</code> and restart Claude Desktop.</li>
+        <li><b>Cursor and other MCP apps:</b> add a stdio server that runs the <code>sayql-mcp</code> path shown in Settings.</li>
+      </ul>
+    </section>
+
+    <!-- ============ UPDATES & PRIVACY ============ -->
+    <section class="doc" id="updates" data-title="Updates">
+      <h2>Updates</h2>
+      <p>SayQL checks for a new version when it starts. When one is available, an <b>Update to x.y.z</b> button appears in the status bar at the bottom. Click it to download, install and restart. Every update is signed, and SayQL refuses any update whose signature doesn't match.</p>
+      <p>On macOS, after an update the system may ask once whether SayQL can use its saved passwords in your keychain. Click <b>Always Allow</b>. All of SayQL's passwords and keys share one keychain item, so it's one prompt.</p>
+    </section>
+
+    <section class="doc" id="privacy" data-title="Privacy and data">
+      <h2>Privacy and data</h2>
+      <p>SayQL has no account, no server of its own and no telemetry. It sends data only to services you configure, and only when you use them:</p>
+      <div class="table-wrap"><table>
+        <thead><tr><th>When</th><th>What's sent</th><th>To</th></tr></thead>
+        <tbody>
+          <tr><td>You connect or run a query</td><td>Your login and your SQL</td><td>Your database</td></tr>
+          <tr><td>You ask in plain English</td><td>Your question; table and column names, types and keys; the previous query for follow-ups</td><td>Your AI provider</td></tr>
+          <tr><td>A query fails and SayQL fixes it</td><td>The query and the database's error</td><td>Your AI provider</td></tr>
+          <tr><td>An AI app uses SayQL over MCP</td><td>The schemas and query results it asks for</td><td>That AI app</td></tr>
+        </tbody>
+      </table></div>
+      <p>The rows in your tables are never sent to an AI provider by the Ask box. With a local model, nothing leaves your computer. Read the full <a href="https://github.com/dithzz/sayql-releases/blob/main/PRIVACY.md">privacy notice</a>.</p>
+    </section>
+
+    <!-- ============ SHORTCUTS ============ -->
+    <section class="doc" id="shortcuts" data-title="Keyboard shortcuts">
+      <h2>Keyboard shortcuts</h2>
+      <p class="sub">On Windows and Linux, use <kbd>Ctrl</kbd> where macOS uses <kbd>⌘</kbd>.</p>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Shortcut</th><th>What it does</th></tr></thead>
+        <tbody>
+          <tr><td><kbd>⌘T</kbd></td><td>New SQL tab on the current database</td></tr>
+          <tr><td><kbd>⌘S</kbd></td><td>Save the tab as a script</td></tr>
+          <tr><td><kbd>⌘↵</kbd></td><td>Run the query</td></tr>
+          <tr><td><kbd>↵</kbd> in the Ask box</td><td>Run, once the SQL is written</td></tr>
+          <tr><td><kbd>⇧↵</kbd> in the Ask box</td><td>New line</td></tr>
+          <tr><td><kbd>esc</kbd> in the Ask box</td><td>Clear the question</td></tr>
+          <tr><td><kbd>⌘</kbd>-click / <kbd>⇧</kbd>-click a table</td><td>Add to / pick a range of AI context</td></tr>
+          <tr><td>Arrow keys, <kbd>↵</kbd>, <kbd>esc</kbd></td><td>Move through, choose in and close a right-click menu</td></tr>
+        </tbody>
+      </table></div>
+    </section>
+
+    <!-- ============ TROUBLESHOOTING ============ -->
+    <section class="doc" id="troubleshooting" data-title="Troubleshooting">
+      <h2>Troubleshooting</h2>
+      <div class="trouble">
+        <details><summary>macOS says "Apple could not verify SayQL"</summary><div class="body"><p>That's expected for early-access builds. Click <b>Done</b>, then open System Settings → Privacy &amp; Security and click <b>Open Anyway</b>. If you trust the download, this also works in Terminal: <code>xattr -dr com.apple.quarantine /Applications/SayQL.app</code></p></div></details>
+        <details><summary>Windows shows "Windows protected your PC"</summary><div class="body"><p>Click <b>More info</b>, then <b>Run anyway</b>. You only need to do this once per installer.</p></div></details>
+        <details><summary>macOS keeps asking for my keychain password</summary><div class="body"><p>macOS asks once after each update of an unsigned build, because the app's signature changed. Click <b>Always Allow</b> (not just Allow) and it won't ask again until the next update.</p></div></details>
+        <details><summary>"Your API key was rejected"</summary><div class="body"><p>The key is wrong, revoked or out of credit. Paste it again in Settings. For non-Claude providers, <b>Load models</b> tells you straight away whether the key works.</p></div></details>
+        <details><summary>"This API key isn't tied to a workspace"</summary><div class="body"><p>Add your Claude workspace's ID (starting with <code>wrkspc_</code>) in Settings → Workspace ID. Use the ID, not the workspace's name.</p></div></details>
+        <details><summary>"Could not reach Ollama" (or LM Studio)</summary><div class="body"><p>The local server isn't running. Start Ollama (or run <code>ollama serve</code>), or start LM Studio's local server, then try again. Check the base URL in Settings if it runs on another port or computer.</p></div></details>
+        <details><summary>SQL Server: certificate errors</summary><div class="body"><p>The server uses a certificate your computer doesn't trust, which is common for internal servers. SQL Server always encrypts the login, so this can happen even with Encrypt connection off. Turn on <b>Trust server certificate</b> for servers you know.</p></div></details>
+        <details><summary>SQL Server: "Login failed" (error 18456)</summary><div class="body"><p>The server was reached but didn't accept the user and password. Check them, or try them in another SQL client. It can also mean the login is disabled, or the server only allows Windows or Entra sign-in.</p></div></details>
+        <details><summary>SQL Server: "Cannot open database" (error 4060)</summary><div class="body"><p>The login works but can't open the database you named. Check the name, or leave Database empty and pick one from the navigator.</p></div></details>
+        <details><summary>My results stop at 5,000 rows</summary><div class="body"><p>SayQL shows up to 5,000 rows per query to keep the app fast. Add a filter, <code>LIMIT</code> or <code>TOP</code>, or aggregate the data you need.</p></div></details>
+      </div>
+      <p>Still stuck? Ask in <a href="https://github.com/dithzz/sayql-releases/discussions">Discussions</a>.</p>
+    </section>
+
+    <section class="doc" id="license" data-title="License">
+      <h2>License</h2>
+      <p>SayQL Community Edition is free forever, for personal and commercial use. Read the <a href="https://github.com/dithzz/sayql-releases/blob/main/LICENSE.md">license</a>. Open-source components are credited in <code>THIRD-PARTY-NOTICES.txt</code>, included with the app.</p>
+    </section>
+  </article>
+</div>
+
+<footer>
+  <div class="wrap">
+    <a class="brand" href="/" style="font-size:14px"><svg style="width:20px;height:20px"><use href="#logo"/></svg>SayQL</a>
+    <span>© 2026 Adith L S. SayQL Community Edition.</span>
+    <nav aria-label="Footer"><a href="/">Home</a><a href="https://github.com/dithzz/sayql-releases/releases">Changelog</a><a href="https://github.com/dithzz/sayql-releases/discussions">Discussions</a><a href="https://github.com/dithzz/sayql-releases/blob/main/LICENSE.md">License</a><a href="https://github.com/dithzz/sayql-releases/blob/main/PRIVACY.md">Privacy</a></nav>
+  </div>
+</footer>
+
+<script>
+(function () {
+  var root = document.documentElement;
+  document.getElementById("theme").addEventListener("click", function () {
+    var t = root.getAttribute("data-theme") || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    var next = t === "dark" ? "light" : "dark";
+    root.setAttribute("data-theme", next);
+    try { localStorage.setItem("sayql-site-theme", next); } catch (e) {}
+  });
+
+  // The sidebar and the phone menu are built from the sections, so they never drift apart.
+  var sections = [].slice.call(document.querySelectorAll("section.doc"));
+  var list = document.getElementById("toc-list");
+  var select = document.getElementById("toc-select");
+  var links = sections.map(function (s) {
+    var li = document.createElement("li");
+    var a = document.createElement("a");
+    a.href = "#" + s.id;
+    a.textContent = s.dataset.title;
+    li.appendChild(a);
+    list.appendChild(li);
+    var o = document.createElement("option");
+    o.value = s.id;
+    o.textContent = s.dataset.title;
+    select.appendChild(o);
+    return a;
+  });
+  select.addEventListener("change", function () { location.hash = select.value; });
+
+  // Highlight the section being read.
+  function mark(id) {
+    links.forEach(function (a) { a.classList.toggle("on", a.getAttribute("href") === "#" + id); });
+    select.value = id;
+  }
+  if ("IntersectionObserver" in window) {
+    var visible = {};
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) { visible[e.target.id] = e.isIntersecting; });
+      var first = sections.find(function (s) { return visible[s.id]; });
+      if (first) mark(first.id);
+    }, { rootMargin: "-80px 0px -60% 0px" });
+    sections.forEach(function (s) { io.observe(s); });
+  }
+  mark(sections[0].id);
+})();
+</script>
+</body>
+</html>
