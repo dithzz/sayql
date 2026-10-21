@@ -11,6 +11,23 @@ use std::path::PathBuf;
 const CONNECTIONS_FILE: &str = "connections.json";
 const SETTINGS_FILE: &str = "settings.json";
 const SCRIPTS_FILE: &str = "scripts.json";
+/// The config folder name used before the app was renamed from AskDB.
+const LEGACY_DIR_NAME: &str = "com.askdb.app";
+
+/// Copies saved data from the pre-rename folder next to `dir`, the first time only (when
+/// `dir` has no connections yet). The old files are left in place.
+fn copy_legacy_files(dir: &std::path::Path) {
+    let legacy = dir.with_file_name(LEGACY_DIR_NAME);
+    if legacy == dir || dir.join(CONNECTIONS_FILE).exists() || !legacy.join(CONNECTIONS_FILE).exists() {
+        return;
+    }
+    for file in [CONNECTIONS_FILE, SETTINGS_FILE, SCRIPTS_FILE] {
+        let from = legacy.join(file);
+        if from.exists() {
+            let _ = std::fs::copy(&from, dir.join(file));
+        }
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -72,6 +89,7 @@ pub struct Store {
 impl Store {
     pub fn new(dir: PathBuf) -> Self {
         let _ = std::fs::create_dir_all(&dir);
+        copy_legacy_files(&dir);
         Store { dir }
     }
 
@@ -114,5 +132,29 @@ impl Store {
 
     pub fn save_scripts(&self, list: &[Script]) -> AppResult<()> {
         self.write(SCRIPTS_FILE, &list)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn copies_pre_rename_data_once_without_overwriting() {
+        let base = std::env::temp_dir().join(format!("sayql-store-{}", uuid::Uuid::new_v4()));
+        let legacy = base.join(LEGACY_DIR_NAME);
+        std::fs::create_dir_all(&legacy).unwrap();
+        std::fs::write(legacy.join(CONNECTIONS_FILE), r#"[{"id":"x","name":"Sales","kind":"mssql"}]"#).unwrap();
+        std::fs::write(legacy.join(SCRIPTS_FILE), "[]").unwrap();
+
+        let store = Store::new(base.join("com.sayql.app"));
+        assert_eq!(store.connections()[0].name, "Sales");
+        assert!(legacy.join(CONNECTIONS_FILE).exists(), "the old file stays");
+
+        // Later starts never overwrite the new folder.
+        std::fs::write(legacy.join(CONNECTIONS_FILE), "[]").unwrap();
+        let again = Store::new(base.join("com.sayql.app"));
+        assert_eq!(again.connections().len(), 1);
+        let _ = std::fs::remove_dir_all(base);
     }
 }

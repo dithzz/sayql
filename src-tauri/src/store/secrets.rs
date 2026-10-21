@@ -9,8 +9,18 @@ fn entry(account: &str) -> AppResult<keyring::Entry> {
     Ok(keyring::Entry::new(SERVICE, account)?)
 }
 
+/// The keychain service used before the app was renamed from AskDB.
+const LEGACY_SERVICE: &str = "com.askdb.app";
+
 fn get(account: &str) -> Option<String> {
-    entry(account).ok()?.get_password().ok().filter(|s| !s.is_empty())
+    let read = |service: &str| keyring::Entry::new(service, account).ok()?.get_password().ok().filter(|s| !s.is_empty());
+    if let Some(value) = read(SERVICE) {
+        return Some(value);
+    }
+    // Saved before the rename: copy it forward so nothing has to be entered again.
+    let legacy = read(LEGACY_SERVICE)?;
+    let _ = set(account, &legacy);
+    Some(legacy)
 }
 
 /// An empty value deletes the entry.
