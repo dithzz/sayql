@@ -32,8 +32,35 @@ pnpm test           # frontend and backend tests
 To work on the UI only, run `pnpm dev` and open http://localhost:1420. A mock backend serves demo data,
 so no database or AI key is needed.
 
-[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) explains the folder structure and code conventions. The
-README covers the optional integration tests against PostgreSQL, MySQL and SQL Server.
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) explains the folder structure and code conventions.
+
+### Integration tests against PostgreSQL, MySQL and SQL Server
+
+`pnpm test` covers SQLite only. The PostgreSQL, MySQL and SQL Server tests in
+`src-tauri/src/db/integration_tests.rs` are skipped unless you point them at a server. Pick a throwaway
+password for local test containers (SQL Server needs 8+ characters with upper and lower case, a digit and a
+symbol) and keep it out of the repository:
+
+```bash
+export SAYQL_TEST_DB_PASSWORD='<throwaway password>'
+docker run -d --name sayql-test-pg -e POSTGRES_PASSWORD="$SAYQL_TEST_DB_PASSWORD" -e POSTGRES_DB=sayql -p 55416:5432 postgres:16
+docker run -d --name sayql-test-mysql -e MYSQL_ROOT_PASSWORD="$SAYQL_TEST_DB_PASSWORD" -p 33806:3306 mysql:8
+docker run -d --platform linux/amd64 --name sayql-test-mssql -e ACCEPT_EULA=Y -e MSSQL_SA_PASSWORD="$SAYQL_TEST_DB_PASSWORD" -p 14334:1433 mcr.microsoft.com/mssql/server:2022-latest
+cd src-tauri
+SAYQL_TEST_PG_URL="postgres://postgres:$SAYQL_TEST_DB_PASSWORD@localhost:55416/sayql" \
+SAYQL_TEST_MYSQL_URL="mysql://root:$SAYQL_TEST_DB_PASSWORD@localhost:33806" \
+SAYQL_TEST_MSSQL_URL="mssql://sa:$SAYQL_TEST_DB_PASSWORD@localhost:14334/master" \
+cargo test --lib integration
+```
+
+The URLs take the form `scheme://user:password@host:port/database` (no percent-encoding). The tests drop and
+recreate the Postgres schemas `sayql_it` and `sayql_it_inv` and the MySQL and SQL Server databases `sayql_it`,
+so use throwaway servers. MySQL needs a few seconds after `docker run` before it accepts connections.
+
+### The MCP server in development
+
+`cargo build --bin sayql-mcp` builds it to `src-tauri/target/debug/sayql-mcp`. Point an MCP client at that path
+(for Claude Code: `claude mcp add --scope user sayql -- /path/to/sayql-mcp`).
 
 ## Making a change
 

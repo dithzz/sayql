@@ -1,87 +1,236 @@
+<div align="center">
+
+<img src="src-tauri/icons/128x128@2x.png" width="104" height="104" alt="SayQL logo">
+
 # SayQL
 
-An AI-first desktop database client. Type what you want in plain English; SQL appears as you type; press Enter to run it.
+**Say what you need. Get the SQL.**
 
-- **Databases:** PostgreSQL, MySQL / MariaDB, SQLite, Microsoft SQL Server / Azure SQL
-- **Stack:** Tauri 2 (Rust) + React + Monaco editor. Database drivers are `sqlx` and `tiberius` (SQL Server). Dependencies are MIT, Apache-2.0 and similarly permissive licenses (see `THIRD-PARTY-NOTICES.txt`).
-- **AI:** any provider. Claude is built in (Haiku 5.5 drafts, Opus 5.5 fixes, by default). OpenAI, Google Gemini, OpenRouter, Mistral, Groq, DeepSeek, Ollama, LM Studio and any other OpenAI-compatible API (with its base URL) work through one client. Ollama and LM Studio run on your computer, so nothing leaves it.
+An AI-first desktop database client. Type plain English, watch the SQL appear as you type,<br>
+and run it read-only by default, on PostgreSQL, MySQL, SQLite, SQL Server and Azure SQL, with the AI you choose.
 
-## How it stays fast
+[![Latest release](https://img.shields.io/github/v/release/dithzz/sayql-releases?label=release&color=4F46E5)](https://github.com/dithzz/sayql-releases/releases/latest)
+[![CI](https://github.com/dithzz/sayql/actions/workflows/ci.yml/badge.svg)](https://github.com/dithzz/sayql/actions/workflows/ci.yml)
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-7C3AED)](LICENSE)
+[![Platforms](https://img.shields.io/badge/platforms-macOS%20%7C%20Windows%20%7C%20Linux-475569)](https://github.com/dithzz/sayql-releases/releases/latest)
 
-1. The schema is read once on connect and cached.
-2. Simple requests ("show customers", "how many orders", "latest 20 reviews") are answered instantly from the schema with no AI call (`src/features/ask/fastPath.ts`).
-3. Repeated questions are served from an in-memory cache.
-4. Everything else goes to the AI provider 250 ms after you stop typing. The schema sits in a fixed prefix (a cached system block on Claude; automatic prefix caching where the provider has it), so only your question is processed fresh. The SQL streams into the editor, and each new keystroke cancels the request before it.
+[**Download**](https://github.com/dithzz/sayql-releases/releases/latest) · [Docs](https://sayql.vercel.app/docs/) · [Website](https://sayql.vercel.app) · [Discussions](https://github.com/dithzz/sayql-releases/discussions)
 
-## Safety
+<br>
 
-- Only the schema (table/column names, types, keys, enum values) and your question are sent to the AI provider you chose. Table data never is. API keys live in the OS keychain, one entry per provider.
-- A statement counts as read-only only if it starts with a reading keyword and contains no write keyword (outside strings and comments). Everything else needs confirmation.
-- Read queries also run inside a read-only transaction (`BEGIN READ ONLY` / `START TRANSACTION READ ONLY`) or, for SQLite, on a connection opened read-only, so the database itself rejects writes. SQL Server has no read-only mode: reads run in a transaction that is always rolled back. For production SQL Servers, connect with a login that only has `db_datareader`.
-- INSERT/UPDATE/DELETE/DDL require an explicit confirmation.
-- Passwords and the API key are stored in the OS keychain. Connection details go in `connections.json` in the app config dir.
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/hero-dark.png">
+  <img src=".github/assets/hero-light.png" alt="SayQL: the Ask box with the question 'Top 10 customers by total spend', the SQL it wrote, and the 10 result rows" width="100%">
+</picture>
 
-## Use SayQL from Claude (MCP)
+</div>
 
-`sayql-mcp` is an MCP server (stdio) that lets Claude Code or Claude Desktop use the connections saved in SayQL:
-`list_connections`, `list_databases`, `describe_schema` (with `search` for large databases) and `run_query`.
+## Why SayQL
 
-- **Read-only.** Queries go through the same checks as the app's read-only mode; anything that could change data
-  is refused and must be run in the SayQL app.
-- **Query results are sent to Claude**, unlike the Ask box, which only sends table and column names.
-- Passwords come from the OS keychain. On macOS, the first use asks to let `sayql-mcp` read SayQL's keychain items.
+Most people who work with data know what they want to ask, but not always how to write it in SQL. Chatbots
+can write a query, but they don't know your schema, can't run anything, and copy-pasting between windows gets
+old fast. SayQL puts the AI inside a real database client:
 
-Settings → "Use SayQL from Claude" shows the exact command and config. For Claude Code:
+- **SQL as you type.** A fast model drafts the query in about a second while you're still typing, and simple
+  requests like "show customers" are answered instantly on your machine with no AI call at all.
+- **Follow-ups that edit, not restart.** "Only Canada", "remove the middle name", "sort by date" change the
+  query you already have.
+- **Safe on production.** Queries run read-only, enforced by the database itself. Anything that could change
+  data stops and shows you the statement first.
+- **Your AI, your data.** Use Claude, OpenAI, Gemini or any OpenAI-compatible API with your own key, or a
+  local model so nothing leaves your computer. Table rows are never sent to the AI.
+- **A proper workbench.** Navigator, tabs, saved scripts, a Monaco editor and a fast results grid, in light
+  and dark mode.
 
-```bash
-claude mcp add --scope user sayql -- /path/to/sayql-mcp
+## Features
+
+<table>
+<tr>
+<td width="50%" valign="top">
+
+### Read-only by default
+
+SayQL checks every statement, and reads run in a read-only transaction or connection, so the database
+itself refuses writes (SQL Server rolls them back). `INSERT`, `UPDATE`, `DELETE` and DDL always stop for review.
+
+</td>
+<td width="50%" valign="top">
+
+### Right-click everything
+
+View data, count rows, generate `SELECT` / `INSERT` / `UPDATE` / `DELETE` templates, add tables to the AI's
+context and more, like DBeaver. Generated writes match no rows until you fill them in.
+
+</td>
+</tr>
+<tr>
+<td valign="top">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/write-confirm-dark.png">
+  <img src=".github/assets/write-confirm-light.png" alt="The confirmation shown before running an UPDATE statement" width="100%">
+</picture>
+</td>
+<td valign="top">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/context-menu-dark.png">
+  <img src=".github/assets/context-menu-light.png" alt="The navigator's right-click menu with the Generate SQL submenu open" width="100%">
+</picture>
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+
+### Any AI, including local models
+
+A first-run guide sets up your provider, checks the key, and gets you to a first query in about a minute.
+Claude is tuned with prompt caching; Ollama and LM Studio run entirely on your machine.
+
+</td>
+<td width="50%" valign="top">
+
+### Point it at the right tables
+
+Click, ⌘-click or ⇧-click tables in the navigator to give the AI context. They show as a pill in the Ask box
+that you can hide without losing the selection. When the database rejects a query SayQL wrote, it fixes it
+once automatically, and **Improve** reviews any query on request.
+
+</td>
+</tr>
+<tr>
+<td colspan="2">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/setup-ai-dark.png">
+  <img src=".github/assets/setup-ai-light.png" alt="The setup guide's Pick your AI step with Claude, OpenAI, Gemini and Ollama" width="100%">
+</picture>
+</td>
+</tr>
+</table>
+
+## Works with
+
+| Databases | AI providers |
+| --- | --- |
+| PostgreSQL | Anthropic Claude (recommended) |
+| MySQL / MariaDB | OpenAI · Google Gemini · OpenRouter |
+| SQLite | Mistral · Groq · DeepSeek |
+| Microsoft SQL Server | Ollama · LM Studio (on your computer) |
+| Azure SQL | Any OpenAI-compatible API (Azure, vLLM, LiteLLM, …) |
+
+For servers, the navigator lists every database your login can open, like DBeaver. A demo SQLite store is
+built in, so you can try everything without connecting anything.
+
+## Get started
+
+1. **Download** the installer for your computer from the
+   [latest release](https://github.com/dithzz/sayql-releases/releases/latest): `.dmg` for macOS (`aarch64`
+   for Apple silicon, `x64` for Intel), `-setup.exe` or `.msi` for Windows, `.AppImage`, `.deb` or `.rpm`
+   for Linux.
+2. **Open it.** Early-access builds aren't code-signed yet, so confirm the first launch once: on macOS,
+   System Settings → Privacy & Security → **Open Anyway**; on Windows, **More info → Run anyway**.
+3. **Follow the setup guide:** pick your AI, use the demo database or connect your own, and ask your first
+   question.
+
+The [docs](https://sayql.vercel.app/docs/) cover every step, each AI provider and database, and
+[troubleshooting](https://sayql.vercel.app/docs/troubleshooting/). SayQL updates itself: when a new version is
+out, **Update to x.y.z** appears in the status bar, and every update is signature-checked.
+
+## Your data
+
+SayQL has no account, no server of its own and no telemetry. It connects straight from your machine to your
+database, and sends data only to services you configure:
+
+| When | What's sent | Where |
+| --- | --- | --- |
+| You ask in plain English | Your question and the schema (table and column names, types, keys) | Your AI provider |
+| A query fails and SayQL fixes it | The query and the database's error message | Your AI provider |
+| You run a query | Your SQL | Your database |
+
+**Rows in your tables are never sent to an AI provider by the Ask box.** Database passwords and API keys are
+kept in your OS keychain (macOS Keychain, Windows Credential Manager or Secret Service), never in files. With
+Ollama or LM Studio, nothing leaves your computer. Details: [PRIVACY.md](PRIVACY.md).
+
+## How it works
+
+```
+ You type ──▶ instant local answer? ──yes──▶ SQL
+                     │ no
+                     ▼
+          cached answer? ──yes──▶ SQL
+                     │ no
+                     ▼
+   AI provider (after 250 ms idle) ──streams──▶ editor ──Run──▶ read-only check ──▶ your database
+   schema in a cached prompt prefix                                  │
+                                                             writes stop for confirmation
 ```
 
-In development the binary is `src-tauri/target/debug/sayql-mcp` (`cargo build --bin sayql-mcp`). Release bundles
-must ship it next to the app executable (Tauri `bundle.externalBin`; see docs/RELEASING.md).
+- The schema is read once per database and cached. On large schemas, SayQL sends the tables relevant to the
+  question; when you pick tables, it sends those plus the tables they connect to.
+- The schema sits in a fixed prompt prefix (prompt caching on Claude, automatic prefix caching where the
+  provider has it), so each keystroke only sends your question fresh. Every new keystroke cancels the
+  request before it.
+- A statement counts as read-only only if it starts with a reading keyword and contains no write keyword
+  outside strings and comments. Reads then run inside `BEGIN READ ONLY` / `START TRANSACTION READ ONLY`, or on a
+  read-only SQLite connection, so the database rejects writes even if a check were wrong. SQL Server has no
+  read-only mode, so reads run in a transaction that's always rolled back. For production SQL Servers, use a
+  login with only `db_datareader`.
 
-## Development
+## Use SayQL from AI apps (MCP)
 
-You need Rust (stable), Node.js LTS, pnpm 10 and the [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) for your platform; see [CONTRIBUTING.md](CONTRIBUTING.md).
+SayQL includes an MCP server, `sayql-mcp`, that lets Claude Code, Claude Desktop, Cursor and other MCP apps
+use the connections you saved in SayQL: `list_connections`, `list_databases`, `describe_schema` and
+`run_query`. It's read-only, with the same checks as the app. Results are capped (100 rows by default, 1,000
+at most) and are sent to that app. Passwords never are.
+
+> **Note:** the MCP server isn't bundled with the v0.1.0 downloads yet. It's coming in the next release.
+> Until then, build it from source (`cargo build --bin sayql-mcp`); see [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Build from source
+
+You need Rust (stable), Node.js LTS, pnpm 10 and the
+[Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) for your platform.
 
 ```bash
+git clone https://github.com/dithzz/sayql.git
+cd sayql
 pnpm install
 pnpm tauri dev      # run the app
-pnpm test           # frontend + backend tests
-pnpm tauri build    # release bundle
+pnpm test           # frontend and backend tests
+pnpm tauri build    # installers for your platform
 ```
 
-A demo SQLite store database is created on first launch.
+To work on the UI without the Rust backend, run `pnpm dev` and open http://localhost:1420: a mock backend
+serves demo data, so you need no database or AI key.
 
-To work on the UI without the Rust backend, run `pnpm dev` and open http://localhost:1420 in a browser; a mock backend serves demo data.
+**Stack:** [Tauri 2](https://tauri.app) (Rust) with React, TypeScript and the
+[Monaco](https://microsoft.github.io/monaco-editor/) editor. Database drivers are
+[`sqlx`](https://github.com/launchbadge/sqlx) and [`tiberius`](https://github.com/prisma/tiberius) (SQL
+Server). [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) explains the structure and conventions, and
+[docs/RELEASING.md](docs/RELEASING.md) covers signing, updates and publishing.
 
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the folder structure and code conventions.
+## Roadmap
 
-### Integration tests against PostgreSQL, MySQL and SQL Server
+- **MCP server in the downloads**, so AI apps can use SayQL without building it.
+- **The SayQL agent:** a side panel that works through whole questions ("why do some accounts have no
+  invoices?") with read-only queries, and answers with every claim linked to the query behind it.
+- **Signed builds** for macOS and Windows, removing the first-launch confirmation.
 
-`pnpm test` covers SQLite only. The PostgreSQL and MySQL tests in `src-tauri/src/db/integration_tests.rs` are skipped unless you point them at a server:
-
-Pick a throwaway password for the local test containers (SQL Server needs 8+ characters with upper and lower case,
-a digit and a symbol) and keep it out of the repository:
-
-```bash
-export SAYQL_TEST_DB_PASSWORD='<throwaway password>'
-docker run -d --name sayql-test-pg -e POSTGRES_PASSWORD="$SAYQL_TEST_DB_PASSWORD" -e POSTGRES_DB=sayql -p 55416:5432 postgres:16
-docker run -d --name sayql-test-mysql -e MYSQL_ROOT_PASSWORD="$SAYQL_TEST_DB_PASSWORD" -p 33806:3306 mysql:8
-docker run -d --platform linux/amd64 --name sayql-test-mssql -e ACCEPT_EULA=Y -e MSSQL_SA_PASSWORD="$SAYQL_TEST_DB_PASSWORD" -p 14334:1433 mcr.microsoft.com/mssql/server:2022-latest
-cd src-tauri
-SAYQL_TEST_PG_URL="postgres://postgres:$SAYQL_TEST_DB_PASSWORD@localhost:55416/sayql" \
-SAYQL_TEST_MYSQL_URL="mysql://root:$SAYQL_TEST_DB_PASSWORD@localhost:33806" \
-SAYQL_TEST_MSSQL_URL="mssql://sa:$SAYQL_TEST_DB_PASSWORD@localhost:14334/master" \
-cargo test --lib integration
-```
-
-The URLs take the form `scheme://user:password@host:port/database` (no percent-encoding). The tests drop and recreate the Postgres schemas `sayql_it` and `sayql_it_inv` and the MySQL and SQL Server databases `sayql_it`, so use throwaway servers. MySQL needs a few seconds after `docker run` before it accepts connections.
-
-## License
-
-SayQL is open source under the [Apache License 2.0](LICENSE). The SayQL name and logo aren't covered by the license: forks must use their own (see [NOTICE](NOTICE)). [PRIVACY.md](PRIVACY.md) says what SayQL sends and where. Open-source components are credited in `THIRD-PARTY-NOTICES.txt`; regenerate it before each release with `python3 scripts/third_party_notices.py`. The license, notices and privacy notice ship inside the app bundle.
+Ideas and votes are welcome in [Discussions](https://github.com/dithzz/sayql-releases/discussions).
 
 ## Contributing
 
-Contributions are welcome. [CONTRIBUTING.md](CONTRIBUTING.md) covers setup (prerequisites for each platform), conventions and how to open a pull request. Please follow the [Code of Conduct](CODE_OF_CONDUCT.md), and report security problems privately as described in [SECURITY.md](SECURITY.md).
+Contributions are welcome: bug reports, ideas, docs and code. [CONTRIBUTING.md](CONTRIBUTING.md) covers
+setup for each platform, the integration tests, conventions and how to open a pull request. Please follow the
+[Code of Conduct](CODE_OF_CONDUCT.md), and report security problems privately as described in
+[SECURITY.md](SECURITY.md).
+
+## License
+
+SayQL is open source under the [Apache License 2.0](LICENSE). The SayQL name and logo aren't covered by the
+license, so forks need their own (see [NOTICE](NOTICE)). Open-source components are credited in
+`THIRD-PARTY-NOTICES.txt` (regenerate with `python3 scripts/third_party_notices.py`), which ships with the app
+along with the license, notices and [privacy notice](PRIVACY.md).
+
+<div align="center">
+<br>
+<sub>Built with Tauri, Rust and React · <a href="https://sayql.vercel.app">sayql.vercel.app</a></sub>
+</div>

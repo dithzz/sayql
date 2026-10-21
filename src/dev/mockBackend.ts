@@ -117,6 +117,26 @@ const result: QueryResult = {
   elapsedMs: 12,
 };
 
+/** What SAMPLE_SQL returns: the same columns and row count the query asks for. */
+const topCustomers: QueryResult = {
+  columns: ["customer_id", "customer", "country", "orders", "total_spend"],
+  rows: [
+    [214, "Ava Smith", "USA", 31, 18420.5],
+    [87, "Liam Patel", "India", 27, 16935.0],
+    [342, "Noah Garcia", "Spain", 26, 15210.75],
+    [19, "Emma Kim", "South Korea", 24, 14388.2],
+    [156, "Olivia Nguyen", "Australia", 22, 13702.4],
+    [401, "Arjun Müller", "Germany", 21, 12950.0],
+    [63, "Priya Rossi", "Italy", 20, 12118.65],
+    [278, "Mateo Silva", "Brazil", 19, 11640.3],
+    [125, "Sofia Haddad", "Canada", 18, 10987.1],
+    [330, "Kenji Watanabe", "Japan", 17, 10402.85],
+  ],
+  rowsAffected: null,
+  truncated: false,
+  elapsedMs: 9,
+};
+
 const SAMPLE_SQL = `SELECT c.id AS customer_id,
        c.first_name || ' ' || c.last_name AS customer,
        c.country,
@@ -165,7 +185,8 @@ export function installMockBackend() {
           return a.id === "demo" ? null : { databases: ["analytics", "master", "sales", "staging"], current: "master" };
         case "run_query":
           if (String(a.sql).includes("first_nme")) return Promise.reject("Invalid column name 'first_nme'.");
-          return /^\s*(update|delete|insert|drop)/i.test(String(a.sql)) && !a.allowWrite ? Promise.reject("WRITE_CONFIRM") : result;
+          if (/^\s*(update|delete|insert|drop)/i.test(String(a.sql)) && !a.allowWrite) return Promise.reject("WRITE_CONFIRM");
+          return String(a.sql).includes("ORDER BY total_spend DESC") ? topCustomers : result;
         case "generate_sql":
           void streamSql(Number(a.reqId), mockAnswer(String(a.question), a.task as { kind: string }));
           return null;
