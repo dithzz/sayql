@@ -1,143 +1,103 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { commands, type ConnectionConfig, type DatabaseList, type Schema, type Target } from "../../api";
 import { errorText } from "../../lib/errors";
-import { sameTarget } from "./target";
+import { targetKey } from "./target";
+
+/** Loading state of one database's schema. */
+export interface SchemaState {
+  schema: Schema | null;
+  loading: boolean;
+  error: string | null;
+}
+
+const EMPTY: SchemaState = { schema: null, loading: false, error: null };
 
 export interface ConnectionsState {
   connections: ConnectionConfig[];
-  active: ConnectionConfig | null;
-  /** The open database; `null` until a connection is open. */
-  target: Target | null;
-  /** Name of the open database, for display (the server's default when none was chosen). */
-  databaseName: string | null;
+  connection: (id: string) => ConnectionConfig | null;
   /** The server's databases per connection; `null` for SQLite, absent while loading. */
   databases: Record<string, DatabaseList | null>;
-  schema: Schema | null;
-  loadingSchema: boolean;
-  error: string | null;
-  open: (connectionId: string) => void;
-  openDatabase: (database: string) => void;
-  refresh: () => void;
-  /** Record a connection saved by the connection dialog, and open it. */
+  schemaState: (t: Target | null) => SchemaState;
+  /** Loads the target's schema unless it is loaded or loading (`refresh` always reloads). */
+  ensure: (t: Target, refresh?: boolean) => void;
+  /** Name of the target's database, for display (the server default when none was chosen). */
+  databaseName: (t: Target | null) => string | null;
+  /** Record a connection saved by the connection dialog; its schemas reload on next use. */
   upsert: (c: ConnectionConfig) => void;
   /** Record a connection deleted by the connection dialog. */
   remove: (id: string) => void;
-  dismissError: () => void;
+  dismissError: (t: Target) => void;
 }
 
-/** Saved connections, the open database and its schema. Opens the first connection on start. */
+/** Saved connections, each server's database list, and the schemas of opened databases. */
 export function useConnections(initial: ConnectionConfig[]): ConnectionsState {
   const [connections, setConnections] = useState(initial);
-  const [target, setTarget] = useState<Target | null>(null);
   const [databases, setDatabases] = useState<Record<string, DatabaseList | null>>({});
-  const [schema, setSchema] = useState<Schema | null>(null);
-  const [loadingSchema, setLoadingSchema] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  // Ignore responses for a target that is no longer the latest one opened.
-  const latest = useRef<Target | null>(null);
+  const [schemas, setSchemas] = useState<Record<string, SchemaState>>({});
+  // What is loaded or loading, readable synchronously so `ensure` never double-loads.
+  const requested = useRef(new Set<string>());
+  const listed = useRef(new Set<string>());
 
-  const load = useCallback(async (t: Target, refresh: boolean) => {
-    latest.current = t;
-    setTarget(t);
-    setLoadingSchema(true);
-    setError(null);
-    if (!refresh) setSchema(null);
-    try {
-      const s = refresh ? await commands.refreshSchema(t) : await commands.openDatabase(t);
-      if (sameTarget(latest.current, t)) setSchema(s);
-    } catch (e) {
-      if (sameTarget(latest.current, t)) setError(`Could not open the database: ${errorText(e)}`);
-    } finally {
-      if (sameTarget(latest.current, t)) setLoadingSchema(false);
-    }
-  }, []);
+  const patch = (key: string, s: Partial<SchemaState>) =>
+    setSchemas((all) => ({ ...all, [key]: { ...(all[key] ?? EMPTY), ...s } }));
 
-  const loadDatabaseList = useCallback(async (connectionId: string) => {
-    try {
-      const list = await commands.listDatabases(connectionId);
-      setDatabases((all) => ({ ...all, [connectionId]: list }));
-    } catch {
+  const loadDatabaseList = useCallback((c: ConnectionConfig) => {
+    if (c.kind === "sqlite" || listed.current.has(c.id)) return;
+    listed.current.add(c.id);
+    commands.listDatabases(c.id).then(
+      (list) => setDatabases((all) => ({ ...all, [c.id]: list })),
       // Listing needs extra permissions on some servers; the open database still works.
-      setDatabases((all) => ({ ...all, [connectionId]: null }));
-    }
+      () => setDatabases((all) => ({ ...all, [c.id]: null })),
+    );
   }, []);
 
-  /** Opens a connection on the database from its settings (or the server default). */
-  const openConnection = useCallback(
-    (c: ConnectionConfig) => {
-      load({ connectionId: c.id, database: c.database.trim() || null }, false);
-      if (c.kind !== "sqlite") loadDatabaseList(c.id);
+  const ensure = useCallback(
+    (t: Target, refresh = false) => {
+      const key = targetKey(t);
+      const c = connections.find((x) => x.id === t.connectionId);
+      if (!c || (!refresh && requested.current.has(key))) return;
+      requested.current.add(key);
+      if (refresh) listed.current.delete(c.id);
+      loadDatabaseList(c);
+      patch(key, { loading: true, error: null });
+      (refresh ? commands.refreshSchema(t) : commands.openDatabase(t)).then(
+        (schema) => patch(key, { schema, loading: false }),
+        (e) => {
+          requested.current.delete(key); // allow a retry
+          patch(key, { loading: false, error: `Could not open the database: ${errorText(e)}` });
+        },
+      );
     },
-    [load, loadDatabaseList],
+    [connections, loadDatabaseList],
   );
 
-  useEffect(() => {
-    if (initial[0]) openConnection(initial[0]);
-    // Only on mount: `initial` is the bootstrap snapshot.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const open = useCallback(
-    (id: string) => {
-      const c = connections.find((x) => x.id === id);
-      if (c && id !== target?.connectionId) openConnection(c);
-    },
-    [connections, openConnection, target],
-  );
-
-  const list = target ? databases[target.connectionId] : undefined;
-  const databaseName = target ? (target.database ?? list?.current ?? null) : null;
-
-  const openDatabase = useCallback(
-    (database: string) => {
-      if (!target || database === databaseName) return;
-      load({ connectionId: target.connectionId, database }, false);
-    },
-    [databaseName, load, target],
-  );
-
-  const refresh = useCallback(() => {
-    if (!target) return;
-    load(target, true);
-    loadDatabaseList(target.connectionId);
-  }, [load, loadDatabaseList, target]);
-
-  const upsert = useCallback(
-    (c: ConnectionConfig) => {
-      setConnections((all) => (all.some((x) => x.id === c.id) ? all.map((x) => (x.id === c.id ? c : x)) : [...all, c]));
-      // The details may have changed, so always reconnect.
-      openConnection(c);
-    },
-    [openConnection],
-  );
-
-  const remove = useCallback(
-    (id: string) => {
-      setConnections((all) => all.filter((x) => x.id !== id));
-      if (id === target?.connectionId) {
-        latest.current = null;
-        setTarget(null);
-        setSchema(null);
-        setLoadingSchema(false);
-      }
-    },
-    [target],
-  );
+  /** Drops everything cached for a connection. */
+  const forget = (id: string) => {
+    const prefix = `${id}/`;
+    requested.current.forEach((k) => k.startsWith(prefix) && requested.current.delete(k));
+    listed.current.delete(id);
+    setSchemas((all) => Object.fromEntries(Object.entries(all).filter(([k]) => !k.startsWith(prefix))));
+    setDatabases((all) => {
+      const { [id]: _, ...rest } = all;
+      return rest;
+    });
+  };
 
   return {
     connections,
-    active: connections.find((c) => c.id === target?.connectionId) ?? null,
-    target,
-    databaseName,
+    connection: (id) => connections.find((c) => c.id === id) ?? null,
     databases,
-    schema,
-    loadingSchema,
-    error,
-    open,
-    openDatabase,
-    refresh,
-    upsert,
-    remove,
-    dismissError: () => setError(null),
+    schemaState: (t) => (t ? (schemas[targetKey(t)] ?? EMPTY) : EMPTY),
+    ensure,
+    databaseName: (t) => (t ? (t.database ?? databases[t.connectionId]?.current ?? null) : null),
+    upsert: (c) => {
+      setConnections((all) => (all.some((x) => x.id === c.id) ? all.map((x) => (x.id === c.id ? c : x)) : [...all, c]));
+      forget(c.id);
+    },
+    remove: (id) => {
+      setConnections((all) => all.filter((x) => x.id !== id));
+      forget(id);
+    },
+    dismissError: (t) => patch(targetKey(t), { error: null }),
   };
 }

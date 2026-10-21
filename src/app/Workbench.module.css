@@ -68,7 +68,19 @@
   background: var(--color-surface-muted);
 }
 
-/* editor area */
+/* editor area: tab bar over the open tabs */
+.editorArea {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+.tabBody {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
 .editor {
   flex: 1;
   min-height: 0;

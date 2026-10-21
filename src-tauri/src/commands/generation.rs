@@ -7,7 +7,7 @@ use crate::store::secrets;
 use tauri::{AppHandle, State};
 
 /// Starts streaming SQL for `question`; results arrive as `ai://` events tagged with `req_id`.
-/// Supersedes any generation still running.
+/// Supersedes the generation still running in the same `slot` (one per editor tab).
 #[tauri::command]
 pub fn generate_sql(
     app: AppHandle,
@@ -16,6 +16,7 @@ pub fn generate_sql(
     database: Option<String>,
     question: String,
     req_id: u64,
+    slot: String,
 ) -> AppResult<()> {
     let live = state.schema(&Target::new(id, database))?;
     let api_key = secrets::api_key().ok_or("Add your Claude API key in Settings to generate SQL.")?;
@@ -30,11 +31,11 @@ pub fn generate_sql(
         question,
     };
     let handle = tauri::async_runtime::spawn(ai::stream_sql(app, state.http.clone(), request));
-    state.replace_generation(handle);
+    state.replace_generation(&slot, handle);
     Ok(())
 }
 
 #[tauri::command]
-pub fn cancel_generation(state: State<'_, AppState>) {
-    state.cancel_generation();
+pub fn cancel_generation(state: State<'_, AppState>, slot: String) {
+    state.cancel_generation(&slot);
 }

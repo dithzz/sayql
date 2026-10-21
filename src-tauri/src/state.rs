@@ -43,7 +43,8 @@ pub struct AppState {
     pub init_lock: tokio::sync::Mutex<()>,
     pools: Mutex<HashMap<Target, DbPool>>,
     schemas: Mutex<HashMap<Target, Arc<LoadedSchema>>>,
-    generation: Mutex<Option<JoinHandle<()>>>,
+    /// The running AI generation per slot (one slot per editor tab).
+    generations: Mutex<HashMap<String, JoinHandle<()>>>,
 }
 
 impl AppState {
@@ -61,7 +62,7 @@ impl AppState {
             init_lock: tokio::sync::Mutex::new(()),
             pools: Mutex::new(HashMap::new()),
             schemas: Mutex::new(HashMap::new()),
-            generation: Mutex::new(None),
+            generations: Mutex::new(HashMap::new()),
         })
     }
 
@@ -97,15 +98,15 @@ impl AppState {
         self.schemas.lock().unwrap().retain(|t, _| t.connection_id != connection_id);
     }
 
-    /// Makes `handle` the current AI generation, aborting the previous one.
-    pub fn replace_generation(&self, handle: JoinHandle<()>) {
-        if let Some(prev) = self.generation.lock().unwrap().replace(handle) {
+    /// Makes `handle` the slot's AI generation, aborting the one it replaces.
+    pub fn replace_generation(&self, slot: &str, handle: JoinHandle<()>) {
+        if let Some(prev) = self.generations.lock().unwrap().insert(slot.to_string(), handle) {
             prev.abort();
         }
     }
 
-    pub fn cancel_generation(&self) {
-        if let Some(prev) = self.generation.lock().unwrap().take() {
+    pub fn cancel_generation(&self, slot: &str) {
+        if let Some(prev) = self.generations.lock().unwrap().remove(slot) {
             prev.abort();
         }
     }

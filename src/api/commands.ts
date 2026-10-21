@@ -18,9 +18,10 @@ export const commands = {
   runQuery: (t: Target, sql: string, allowWrite: boolean) =>
     invoke<QueryResult>("run_query", { id: t.connectionId, database: t.database, sql, allowWrite }),
 
-  generateSql: (t: Target, question: string, reqId: number) =>
-    invoke<void>("generate_sql", { id: t.connectionId, database: t.database, question, reqId }),
-  cancelGeneration: () => invoke<void>("cancel_generation"),
+  /** `slot` scopes cancellation: a new request replaces the previous one in the same slot (editor tab). */
+  generateSql: (t: Target, question: string, reqId: number, slot: string) =>
+    invoke<void>("generate_sql", { id: t.connectionId, database: t.database, question, reqId, slot }),
+  cancelGeneration: (slot: string) => invoke<void>("cancel_generation", { slot }),
 
   saveSettings: (model: string, apiKey: string | null, workspaceId: string) =>
     invoke<Settings>("save_settings", { model, apiKey, workspaceId }),

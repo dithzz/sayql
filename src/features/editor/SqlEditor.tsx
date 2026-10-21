@@ -11,13 +11,17 @@ export interface SqlEditorProps {
   /** ⌘↵ / Ctrl+↵ inside the editor. */
   onRun: () => void;
   schema: Schema | null;
+  /** Only the visible editor's schema feeds autocomplete. */
+  active: boolean;
 }
 
-export function SqlEditor({ value, onChange, onRun, schema }: SqlEditorProps) {
+export function SqlEditor({ value, onChange, onRun, schema, active }: SqlEditorProps) {
   const { resolved } = useTheme();
   const runRef = useLatest(onRun);
 
-  useEffect(() => setCompletionSchema(schema), [schema]);
+  useEffect(() => {
+    if (active) setCompletionSchema(schema);
+  }, [active, schema]);
 
   return (
     <Editor

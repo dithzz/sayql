@@ -1,0 +1,9 @@
+.tab {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+.tab[hidden] {
+  display: none;
+}

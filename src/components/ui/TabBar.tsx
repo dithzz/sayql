@@ -1,0 +1,61 @@
+import type { ReactNode } from "react";
+import { Plus, X } from "lucide-react";
+import { cx } from "../../lib/cx";
+import { IconButton } from "./Button";
+import styles from "./TabBar.module.css";
+
+export interface TabItem {
+  id: string;
+  label: string;
+  /** Secondary text after the label, e.g. the database. */
+  detail?: string;
+  icon?: ReactNode;
+  title?: string;
+}
+
+export interface TabBarProps {
+  items: TabItem[];
+  activeId: string | null;
+  onSelect: (id: string) => void;
+  onClose: (id: string) => void;
+  onAdd?: () => void;
+  addLabel?: string;
+}
+
+/** Editor tabs: click to switch, × or middle-click to close. */
+export function TabBar({ items, activeId, onSelect, onClose, onAdd, addLabel = "New tab" }: TabBarProps) {
+  return (
+    <div className={styles.bar}>
+      <div className={styles.tabs} role="tablist">
+        {items.map((t) => (
+          <div
+            key={t.id}
+            role="tab"
+            aria-selected={t.id === activeId}
+            title={t.title}
+            className={cx(styles.tab, t.id === activeId && styles.active)}
+            onClick={() => onSelect(t.id)}
+            onAuxClick={(e) => e.button === 1 && onClose(t.id)}
+          >
+            {t.icon && <span className={styles.icon}>{t.icon}</span>}
+            <span className={styles.label}>
+              {t.label}
+              {t.detail && <span className={styles.detail}> · {t.detail}</span>}
+            </span>
+            <IconButton
+              icon={X}
+              label={`Close ${t.label}`}
+              size="sm"
+              className={styles.close}
+              onClick={(e) => {
+                e.stopPropagation();
+                onClose(t.id);
+              }}
+            />
+          </div>
+        ))}
+      </div>
+      {onAdd && <IconButton icon={Plus} label={addLabel} size="sm" className={styles.add} onClick={onAdd} />}
+    </div>
+  );
+}

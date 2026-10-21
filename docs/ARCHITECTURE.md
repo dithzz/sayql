@@ -9,13 +9,14 @@ src/
   main.tsx              entry: global styles, dev-only mock backend, <App/>
   app/                  the window shell; composes features, owns no business logic
     App.tsx             ThemeProvider + bootstrap gate
-    Workbench.tsx       layout: TopBar, Navigator | (SQL Editor / Results), StatusBar, dialogs
+    Workbench.tsx       layout: TopBar, Navigator | tabs, StatusBar, dialogs; the navigator follows the active tab
+    QueryTab.tsx        one editor tab: Ask bar + SQL editor over results, bound to one database
     TopBar.tsx, StatusBar.tsx, SqlWorkspace.tsx, useBootstrap.ts
   api/                  the only place that calls Tauri
     commands.ts         typed invoke() wrappers, one per Rust command
     events.ts           AI streaming event subscription
     types.ts            shapes mirrored from the Rust serde structs
-  components/ui/        reusable, feature-agnostic primitives (Button, Dialog, Panel, SplitPane, TreeRow, Form…)
+  components/ui/        reusable, feature-agnostic primitives (Button, Dialog, Panel, SplitPane, TabBar, TreeRow, Form…)
   features/             one folder per product area; each exports its public API from index.ts
     ask/                plain-English input, instant fast path, AI generation hook
     connections/        connection dialog, kinds metadata, useConnections
@@ -25,6 +26,7 @@ src/
     results/            virtualized DataGrid, ResultsPanel, CSV/format helpers
     schema/             dialect-aware SQL helpers (quoting, qualified names)
     settings/           settings dialog and state
+    tabs/               open editor tabs (persisted), each bound to a (connection, database) target
     theme/              ThemeProvider (system/light/dark) and toggle
   hooks/                generic hooks (useLatest, usePersistentState)
   lib/                  generic utilities (cx, storage, errors)

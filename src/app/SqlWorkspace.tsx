@@ -9,6 +9,8 @@ import styles from "./Workbench.module.css";
 export interface SqlWorkspaceProps {
   connectionName: string;
   schema: Schema | null;
+  /** Whether this is the visible tab. */
+  active: boolean;
   askRef: RefObject<HTMLTextAreaElement | null>;
   question: string;
   onQuestionChange: (q: string) => void;
@@ -61,7 +63,7 @@ export function SqlWorkspace(p: SqlWorkspaceProps) {
         onRetry={p.onRetry}
       />
       <div className={styles.editor}>
-        <SqlEditor value={p.sql} onChange={p.onSqlChange} onRun={p.onRun} schema={p.schema} />
+        <SqlEditor value={p.sql} onChange={p.onSqlChange} onRun={p.onRun} schema={p.schema} active={p.active} />
       </div>
     </Panel>
   );

@@ -1,0 +1,87 @@
+.bar {
+  display: flex;
+  align-items: stretch;
+  flex-shrink: 0;
+  height: var(--tab-h);
+  background: var(--color-surface-muted);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.tabs {
+  display: flex;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.tab {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  max-width: 240px;
+  padding: 0 var(--space-1) 0 var(--space-3);
+  border-right: 1px solid var(--color-border-subtle);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  cursor: default;
+}
+.tab:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+}
+.active,
+.active:hover {
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+/* The accent line marks the active tab, as in DBeaver. */
+.active::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--color-accent);
+}
+/* Joins the active tab to the editor below it. */
+.active::after {
+  content: "";
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--color-surface);
+}
+
+.icon {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.label {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.detail {
+  color: var(--color-text-subtle);
+}
+
+.close {
+  visibility: hidden;
+}
+.tab:hover .close,
+.active .close {
+  visibility: visible;
+}
+
+.add {
+  align-self: center;
+  margin: 0 var(--space-1);
+}

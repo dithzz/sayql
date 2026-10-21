@@ -16,7 +16,12 @@ export type GenerationStatus =
   | { kind: "error"; message: string; fixInSettings: boolean };
 
 export interface SqlGenerationOptions {
+  /** Fixed for the life of the hook: one hook per editor tab. */
   target: Target | null;
+  /** Cancellation scope on the backend; the tab id. */
+  slot: string;
+  initialQuestion?: string;
+  onQuestionChange?: (question: string) => void;
   schema: Schema | null;
   model: string;
   hasApiKey: boolean;
@@ -36,24 +41,30 @@ function cleanSql(s: string): string {
 
 const normalize = (q: string) => q.trim().toLowerCase().replace(/\s+/g, " ");
 
+// Shared by every tab: request ids must be unique across tabs because AI events are
+// broadcast, and the same question on the same database is instant in any tab.
+let lastRequestId = 0;
+const answers = new Map<string, string>();
+
 /**
  * Turns the question into SQL as the person types:
  * instant local answers for simple requests, a per-question cache, and otherwise a
- * debounced, streamed AI request. Each new request supersedes the previous one.
+ * debounced, streamed AI request. Each new request supersedes the previous one
+ * in the same tab.
  */
 export function useSqlGeneration(options: SqlGenerationOptions) {
-  const [question, setQuestionState] = useState("");
+  const [question, setQuestionState] = useState(options.initialQuestion ?? "");
   const [status, setStatus] = useState<GenerationStatus>({ kind: "idle" });
 
   const opts = useLatest(options);
   const statusRef = useLatest(status);
+  /** The request this tab is waiting for; 0 when none. */
   const reqId = useRef(0);
   const buffer = useRef("");
   const firstTokenMs = useRef<number | null>(null);
   const inFlightQuestion = useRef("");
   const runWhenReady = useRef(false);
   const debounce = useRef<number | undefined>(undefined);
-  const cache = useRef(new Map<string, string>());
 
   const cacheKey = (q: string) => `${targetKey(opts.current.target)}|${opts.current.model}|${normalize(q)}`;
 
@@ -70,9 +81,9 @@ export function useSqlGeneration(options: SqlGenerationOptions) {
   /** Drops any request in flight; its events will be ignored. */
   const cancel = useCallback(() => {
     clearDebounce();
-    reqId.current++;
-    void commands.cancelGeneration();
-  }, []);
+    reqId.current = 0;
+    void commands.cancelGeneration(opts.current.slot);
+  }, [opts]);
 
   const start = useCallback(
     (q: string) => {
@@ -83,12 +94,13 @@ export function useSqlGeneration(options: SqlGenerationOptions) {
         fail("Add your Claude API key in Settings to turn English into SQL.");
         return;
       }
-      const id = ++reqId.current;
+      const id = ++lastRequestId;
+      reqId.current = id;
       buffer.current = "";
       firstTokenMs.current = null;
       inFlightQuestion.current = q;
       setStatus({ kind: "writing" });
-      commands.generateSql(target, q, id).catch((e) => id === reqId.current && fail(errorText(e)));
+      commands.generateSql(target, q, id, opts.current.slot).catch((e) => id === reqId.current && fail(errorText(e)));
     },
     [fail, opts],
   );
@@ -109,7 +121,7 @@ export function useSqlGeneration(options: SqlGenerationOptions) {
         if (e.error) return fail(e.error);
         const sql = cleanSql(buffer.current).trimEnd();
         opts.current.onSql(sql);
-        cache.current.set(cacheKey(inFlightQuestion.current), sql);
+        answers.set(cacheKey(inFlightQuestion.current), sql);
         // Still typing: a newer request is about to start, so stay in "writing".
         if (debounce.current !== undefined) return;
         setStatus({ kind: "done", firstTokenMs: firstTokenMs.current, totalMs: e.totalMs });
@@ -126,6 +138,7 @@ export function useSqlGeneration(options: SqlGenerationOptions) {
   const setQuestion = useCallback(
     (text: string) => {
       setQuestionState(text);
+      opts.current.onQuestionChange?.(text);
       runWhenReady.current = false;
       clearDebounce();
       if (!text.trim()) {
@@ -134,7 +147,7 @@ export function useSqlGeneration(options: SqlGenerationOptions) {
         return;
       }
       const instant = fastPath(text, opts.current.schema);
-      const cached = cache.current.get(cacheKey(text));
+      const cached = answers.get(cacheKey(text));
       if (instant ?? cached) {
         cancel();
         opts.current.onSql((instant ?? cached)!);
@@ -147,14 +160,6 @@ export function useSqlGeneration(options: SqlGenerationOptions) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [cancel, start],
   );
-
-  // A different database: start over.
-  const currentTarget = targetKey(options.target);
-  useEffect(() => {
-    cancel();
-    setQuestionState("");
-    setStatus({ kind: "idle" });
-  }, [currentTarget, cancel]);
 
   /**
    * Call when the person asks to run. Returns true if the SQL is still being written —
