@@ -530,6 +530,23 @@ section.block { padding: 96px 0; }
 .checks.compact .ck svg { width: 11px; height: 11px; }
 .price-note { font-size: 13px; color: var(--color-text-subtle); }
 
+/* downloads */
+.downloads { display: inline-flex; align-items: center; gap: 7px; font-size: 14px; font-weight: 600; color: var(--color-text-muted); }
+.downloads svg { width: 15px; height: 15px; color: var(--color-success); }
+.downloads[hidden], [data-downloads][hidden] { display: none; }
+
+/* testimonials */
+#testimonials[hidden] { display: none; }
+.quotes { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
+.quote { margin: 0; border: 1px solid var(--color-border); border-radius: var(--radius-xl); background: var(--color-surface); padding: 24px; display: grid; gap: 18px; align-content: space-between; }
+.quote blockquote { margin: 0; font-size: 16px; line-height: 1.6; color: var(--color-text); }
+.quote blockquote::before { content: "“"; display: block; font: 700 40px/0.6 var(--font-sans); color: var(--color-ai); margin-bottom: 10px; }
+.quote figcaption { display: flex; align-items: center; gap: 12px; }
+.quote .avatar { width: 40px; height: 40px; border-radius: 50%; flex: none; object-fit: cover; background: var(--color-ai-soft); color: var(--color-ai); display: grid; place-items: center; font-weight: 700; font-size: 14px; }
+.quote .who { display: grid; gap: 1px; font-size: 14px; }
+.quote .who b { font-weight: 600; }
+.quote .who span { color: var(--color-text-subtle); }
+
 /* faq */
 .faq { max-width: 820px; margin: 0 auto; display: grid; }
 .faq details { border-bottom: 1px solid var(--color-border); }
@@ -643,6 +660,7 @@ footer a { text-decoration: none; } footer a:hover { color: var(--color-text); }
         <a class="btn btn-primary btn-lg" href="#download"><svg><use href="#i-download"/></svg>Get Sayql for desktop</a>
         <a class="btn btn-lg" href="#how">See how it works</a>
       </div>
+      <p class="downloads" data-downloads hidden><svg><use href="#i-download"/></svg><span data-downloads-count></span> downloads</p>
       <p class="hero-note">PostgreSQL · MySQL · SQLite · SQL Server · Azure SQL &nbsp;—&nbsp; with Claude, OpenAI, Gemini or a model on your own computer</p>
     </div>
 
@@ -923,6 +941,19 @@ footer a { text-decoration: none; } footer a:hover { color: var(--color-text); }
   </div>
 </section>
 
+<!-- ================= TESTIMONIALS =================
+     Hidden until TESTIMONIALS in the script below has entries.
+     Only add real quotes, from real people, with their permission. -->
+<section class="block" id="testimonials" hidden style="padding-top:24px">
+  <div class="wrap">
+    <div class="sec-head center reveal">
+      <span class="eyebrow">From early users</span>
+      <h2>What people say after their first query</h2>
+    </div>
+    <div class="quotes" data-quotes></div>
+  </div>
+</section>
+
 <!-- ================= COMMUNITY EDITION ================= -->
 <section class="block" id="pricing" style="padding-top:24px">
   <div class="wrap">
@@ -978,7 +1009,7 @@ footer a { text-decoration: none; } footer a:hover { color: var(--color-text); }
       <a class="btn btn-lg" href="https://github.com/dithzz/sayql-releases/releases/latest">Windows</a>
       <a class="btn btn-lg" href="https://github.com/dithzz/sayql-releases/releases/latest">Linux</a>
     </div>
-    <div class="platforms"><span>Free forever</span><span>·</span><span>Personal and commercial use</span><span>·</span><span>Automatic, signed updates</span><span>·</span><span>Demo database included</span></div>
+    <div class="platforms"><span data-downloads hidden><span data-downloads-count></span> downloads</span><span data-downloads hidden>·</span><span>Free forever</span><span>·</span><span>Personal and commercial use</span><span>·</span><span>Automatic, signed updates</span><span>·</span><span>Demo database included</span></div>
 
     <div class="install reveal">
       <p class="install-head"><span class="ea">Early access</span> These builds aren't code-signed yet, so your computer asks you to confirm the first launch. You only do this once.</p>
@@ -1053,6 +1084,83 @@ footer a { text-decoration: none; } footer a:hover { color: var(--color-text); }
   } else {
     reveals.forEach(function (el) { el.classList.add("seen"); });
   }
+
+  /* ---------- download count ----------
+   * Installer downloads across all published releases, from GitHub's public API.
+   * Update packages and signatures aren't counted: those are updates, not new installs.
+   * Hidden below MIN_DOWNLOADS so a launch-day "3 downloads" never shows. */
+  var RELEASES_API = "https://api.github.com/repos/dithzz/sayql-releases/releases?per_page=100";
+  var MIN_DOWNLOADS = 100;
+  var INSTALLER = /\.(dmg|exe|msi|AppImage|deb|rpm)$/i;
+  var CACHE_KEY = "sayql-site-downloads";
+
+  function showDownloads(n) {
+    if (!(n >= MIN_DOWNLOADS)) return;
+    var text = n.toLocaleString("en-US");
+    document.querySelectorAll("[data-downloads-count]").forEach(function (el) { el.textContent = text; });
+    document.querySelectorAll("[data-downloads]").forEach(function (el) { el.hidden = false; });
+  }
+
+  (function loadDownloads() {
+    try {
+      var cached = JSON.parse(localStorage.getItem(CACHE_KEY) || "null");
+      // GitHub allows 60 unauthenticated requests an hour per visitor; an hour's cache is plenty.
+      if (cached && Date.now() - cached.at < 3600 * 1000) { showDownloads(cached.n); return; }
+    } catch (e) {}
+    if (!window.fetch) return;
+    fetch(RELEASES_API, { headers: { Accept: "application/vnd.github+json" } })
+      .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
+      .then(function (releases) {
+        var n = 0;
+        releases.forEach(function (rel) {
+          if (rel.draft) return;
+          (rel.assets || []).forEach(function (a) { if (INSTALLER.test(a.name)) n += a.download_count || 0; });
+        });
+        try { localStorage.setItem(CACHE_KEY, JSON.stringify({ n: n, at: Date.now() })); } catch (e) {}
+        showDownloads(n);
+      })
+      .catch(function () { /* offline or rate-limited: the page simply shows no count */ });
+  })();
+
+  /* ---------- testimonials ----------
+   * Real quotes only, from real people who agreed to be quoted. The section stays
+   * hidden while this list is empty. Example entry:
+   *   { quote: "…", name: "Jane Doe", role: "Data analyst", company: "Acme", photo: "" }
+   * `company` and `photo` (an image URL) are optional; without a photo, initials show. */
+  var TESTIMONIALS = [];
+
+  (function renderTestimonials() {
+    if (!TESTIMONIALS.length) return;
+    var box = document.querySelector("[data-quotes]");
+    TESTIMONIALS.forEach(function (t) {
+      var fig = document.createElement("figure");
+      fig.className = "quote reveal seen";
+      var q = document.createElement("blockquote");
+      q.textContent = t.quote;
+      var cap = document.createElement("figcaption");
+      var avatar;
+      if (t.photo) {
+        avatar = document.createElement("img");
+        avatar.src = t.photo;
+        avatar.alt = "";
+      } else {
+        avatar = document.createElement("span");
+        avatar.textContent = t.name.split(/\s+/).map(function (w) { return w[0]; }).slice(0, 2).join("").toUpperCase();
+      }
+      avatar.className = "avatar";
+      var who = document.createElement("span");
+      who.className = "who";
+      var name = document.createElement("b");
+      name.textContent = t.name;
+      var role = document.createElement("span");
+      role.textContent = t.company ? t.role + ", " + t.company : t.role;
+      who.append(name, role);
+      cap.append(avatar, who);
+      fig.append(q, cap);
+      box.appendChild(fig);
+    });
+    document.getElementById("testimonials").hidden = false;
+  })();
 
   /* ---------- agent timeline ---------- */
   var tls = document.querySelectorAll("#timeline .tl");
