@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!-- Placeholder brand icon. To rebrand, replace this file and run `pnpm tauri icon src-tauri/icons/app-icon.svg`. -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#4F46E5"/>
+      <stop offset="1" stop-color="#0EA5E9"/>
+    </linearGradient>
+  </defs>
+  <!-- Rounded square inside the macOS 824px safe area -->
+  <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#bg)"/>
+  <!-- Database cylinder -->
+  <g fill="none" stroke="#FFFFFF" stroke-width="40" stroke-linecap="round">
+    <ellipse cx="452" cy="340" rx="190" ry="62"/>
+    <path d="M262 340v300c0 34 85 62 190 62"/>
+    <path d="M642 340v150"/>
+    <path d="M262 490c0 34 85 62 190 62"/>
+  </g>
+  <!-- Speech bubble: "ask" -->
+  <path d="M560 560h240a40 40 0 0 1 40 40v130a40 40 0 0 1-40 40H680l-70 60v-60h-50a40 40 0 0 1-40-40V600a40 40 0 0 1 40-40z" fill="#FFFFFF"/>
+  <g fill="#4F46E5">
+    <circle cx="620" cy="665" r="22"/>
+    <circle cx="680" cy="665" r="22"/>
+    <circle cx="740" cy="665" r="22"/>
+  </g>
+</svg>
