@@ -1,0 +1,107 @@
+.ask {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.inputWrap {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: 7px var(--space-3);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-lg);
+  transition: border-color var(--duration-fast), box-shadow var(--duration-fast);
+}
+.inputWrap:focus-within {
+  border-color: var(--color-ai);
+  box-shadow: 0 0 0 3px var(--color-ai-soft);
+}
+
+.sparkle {
+  display: inline-flex;
+  flex-shrink: 0;
+  padding-top: 3px;
+  color: var(--color-ai);
+}
+
+.input {
+  flex: 1;
+  min-height: 22px;
+  max-height: 120px;
+  padding: 0;
+  border: none;
+  outline: none;
+  resize: none;
+  background: transparent;
+  font-size: var(--font-size-lg);
+  line-height: 22px;
+}
+.input::placeholder {
+  color: var(--color-text-subtle);
+}
+.input:focus-visible {
+  outline: none;
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  min-height: 22px;
+}
+
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-subtle);
+}
+.writing {
+  color: var(--color-ai);
+}
+.instant {
+  color: var(--color-success);
+}
+.done {
+  color: var(--color-text-muted);
+}
+.error {
+  color: var(--color-danger);
+}
+
+.examples {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-left: auto;
+}
+.example {
+  height: 22px;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-muted);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+.example:hover {
+  border-color: var(--color-ai);
+  color: var(--color-ai);
+}
+
+.hints {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-left: auto;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-subtle);
+}

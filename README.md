@@ -30,3 +30,7 @@ pnpm tauri build    # release bundle
 ```
 
 A demo SQLite store database is created on first launch.
+
+To work on the UI without the Rust backend, run `pnpm dev` and open http://localhost:1420 in a browser; a mock backend serves demo data.
+
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the folder structure and code conventions.

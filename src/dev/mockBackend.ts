@@ -1,0 +1,131 @@
+// Development only: lets the UI run in a plain browser (`pnpm dev`) with fake data,
+// for design work without the Rust backend. Never loaded inside the Tauri app.
+import { emit } from "@tauri-apps/api/event";
+import { mockIPC } from "@tauri-apps/api/mocks";
+import type { Bootstrap, QueryResult, Schema, Settings, Table } from "../api";
+
+const col = (name: string, data_type: string, primary_key = false) => ({
+  name,
+  data_type,
+  nullable: !primary_key,
+  primary_key,
+  enum_values: null,
+});
+
+const table = (name: string, rows: number, columns: Table["columns"], fks: Table["foreign_keys"] = []): Table => ({
+  schema: null,
+  name,
+  kind: "table",
+  columns,
+  foreign_keys: fks,
+  row_estimate: rows,
+});
+
+const schema: Schema = {
+  dialect: "SQLite",
+  tables: [
+    table("categories", 8, [col("id", "integer", true), col("name", "text")]),
+    table("customers", 500, [col("id", "integer", true), col("first_name", "text"), col("last_name", "text"), col("email", "text"), col("country", "text"), col("signed_up_at", "text")]),
+    table("order_items", 7500, [col("id", "integer", true), col("order_id", "integer"), col("product_id", "integer"), col("quantity", "integer"), col("unit_price", "real")], [
+      { column: "order_id", ref_table: "orders", ref_column: "id" },
+      { column: "product_id", ref_table: "products", ref_column: "id" },
+    ]),
+    table("orders", 3000, [col("id", "integer", true), col("customer_id", "integer"), col("status", "text"), col("ordered_at", "text"), col("shipped_at", "text")], [
+      { column: "customer_id", ref_table: "customers", ref_column: "id" },
+    ]),
+    table("products", 120, [col("id", "integer", true), col("name", "text"), col("category_id", "integer"), col("price", "real"), col("stock", "integer")], [
+      { column: "category_id", ref_table: "categories", ref_column: "id" },
+    ]),
+    { ...table("top_customers", -1, [col("customer_id", "integer"), col("total", "real")]), kind: "view" },
+  ],
+};
+
+const settings: Settings = {
+  model: "claude-haiku-5-5",
+  hasApiKey: true,
+  workspaceId: "",
+  models: [
+    { id: "claude-opus-5-5", label: "Claude Opus 5.5 — most accurate" },
+    { id: "claude-sonnet-5-5", label: "Claude Sonnet 5.5 — balanced" },
+    { id: "claude-haiku-5-5", label: "Claude Haiku 5.5 — fastest" },
+  ],
+};
+
+const boot: Bootstrap = {
+  connections: [
+    { id: "demo", name: "Demo store (SQLite)", kind: "sqlite", host: "", port: null, database: "", user: "", file: "/demo.sqlite", ssl: false },
+    { id: "pg", name: "analytics@prod-replica", kind: "postgres", host: "db.internal", port: 5432, database: "analytics", user: "readonly", file: "", ssl: true },
+    { id: "my", name: "shop@localhost", kind: "mysql", host: "localhost", port: 3306, database: "shop", user: "root", file: "", ssl: false },
+  ],
+  settings,
+};
+
+const names = ["Ava Smith", "Liam Patel", "Noah Garcia", "Emma Kim", "Olivia Nguyen", "Arjun Müller", "Priya Rossi", "Mateo Silva"];
+const result: QueryResult = {
+  columns: ["customer_id", "customer", "country", "orders", "total_spend", "last_order_at", "notes"],
+  rows: Array.from({ length: 240 }, (_, i) => [
+    i + 1,
+    names[i % names.length],
+    ["USA", "India", "UK", "Germany", "Japan"][i % 5],
+    20 - (i % 17),
+    Math.round((9800 - i * 31.7) * 100) / 100,
+    `2026-10-${String(1 + (i % 20)).padStart(2, "0")} 14:${String(i % 60).padStart(2, "0")}:00`,
+    i % 4 === 0 ? null : "repeat buyer",
+  ]),
+  rowsAffected: null,
+  truncated: false,
+  elapsedMs: 12,
+};
+
+const SAMPLE_SQL = `SELECT c.id AS customer_id,
+       c.first_name || ' ' || c.last_name AS customer,
+       c.country,
+       COUNT(DISTINCT o.id) AS orders,
+       ROUND(SUM(oi.quantity * oi.unit_price), 2) AS total_spend
+FROM customers c
+JOIN orders o ON o.customer_id = c.id
+JOIN order_items oi ON oi.order_id = o.id
+WHERE o.status NOT IN ('cancelled', 'refunded')
+GROUP BY c.id
+ORDER BY total_spend DESC
+LIMIT 10;`;
+
+async function streamSql(reqId: number) {
+  const started = performance.now();
+  const chunks = SAMPLE_SQL.match(/[\s\S]{1,18}/g) ?? [];
+  for (const [i, text] of chunks.entries()) {
+    await new Promise((r) => setTimeout(r, 25));
+    await emit("ai://delta", { reqId, text, firstTokenMs: i === 0 ? Math.round(performance.now() - started) : null });
+  }
+  await emit("ai://done", { reqId, error: null, totalMs: Math.round(performance.now() - started), cacheReadTokens: 1800 });
+}
+
+export function installMockBackend() {
+  mockIPC(
+    async (cmd, args) => {
+      const a = (args ?? {}) as Record<string, unknown>;
+      switch (cmd) {
+        case "init":
+          return boot;
+        case "open_connection":
+        case "refresh_schema":
+          await new Promise((r) => setTimeout(r, 300));
+          return schema;
+        case "run_query":
+          return /^\s*(update|delete|insert|drop)/i.test(String(a.sql)) && !a.allowWrite ? Promise.reject("WRITE_CONFIRM") : result;
+        case "generate_sql":
+          void streamSql(Number(a.reqId));
+          return null;
+        case "test_connection":
+          return "Connected. Found 6 tables and views.";
+        case "save_connection":
+          return { ...(a.config as object), id: (a.config as { id: string }).id || crypto.randomUUID() };
+        case "save_settings":
+          return { ...settings, model: a.model, workspaceId: a.workspaceId };
+        default:
+          return null;
+      }
+    },
+    { shouldMockEvents: true },
+  );
+}

@@ -1,0 +1,45 @@
+.filter {
+  position: relative;
+  flex-shrink: 0;
+  padding: var(--space-2);
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+.filterIcon {
+  position: absolute;
+  top: 50%;
+  left: calc(var(--space-2) + 8px);
+  transform: translateY(-50%);
+  color: var(--color-text-subtle);
+  pointer-events: none;
+}
+.filterInput {
+  padding-left: 26px;
+}
+
+.tree {
+  flex: 1;
+  overflow: auto;
+  padding: var(--space-1);
+}
+
+.connLabel {
+  font-weight: var(--font-weight-medium);
+}
+.mono {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+}
+.view {
+  font-style: italic;
+}
+.pk {
+  color: var(--color-warning);
+}
+.fk {
+  color: var(--color-accent);
+}
+.message {
+  padding: var(--space-1) var(--space-2) var(--space-1) 36px;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-subtle);
+}

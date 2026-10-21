@@ -1,10 +1,6 @@
-import { describe, expect, it, vi } from "vitest";
-
-vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
-vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn() }));
-
-import { fastPath } from "./fastpath";
-import type { Schema, Table } from "./api";
+import { describe, expect, it } from "vitest";
+import type { Schema, Table } from "../../api";
+import { fastPath } from "./fastPath";
 
 const table = (name: string, cols: string[], schema: string | null = null): Table => ({
   schema,

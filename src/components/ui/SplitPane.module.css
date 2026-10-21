@@ -1,0 +1,55 @@
+.split {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+}
+.horizontal {
+  flex-direction: row;
+}
+.vertical {
+  flex-direction: column;
+}
+
+.first {
+  flex-shrink: 0;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+.second {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.divider {
+  position: relative;
+  flex-shrink: 0;
+  background: var(--color-border);
+}
+.horizontal > .divider {
+  width: 1px;
+  cursor: col-resize;
+}
+.vertical > .divider {
+  height: 1px;
+  cursor: row-resize;
+}
+/* A wider invisible hit area around the 1px line. */
+.divider::after {
+  content: "";
+  position: absolute;
+  z-index: 10;
+}
+.horizontal > .divider::after {
+  inset: 0 -3px;
+}
+.vertical > .divider::after {
+  inset: -3px 0;
+}
+.divider:hover,
+.dragging {
+  background: var(--color-accent);
+}

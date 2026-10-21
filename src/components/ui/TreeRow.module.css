@@ -1,0 +1,57 @@
+.row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  height: var(--tree-row-h);
+  padding-right: var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-md);
+  white-space: nowrap;
+  cursor: default;
+}
+.row:hover {
+  background: var(--color-surface-hover);
+}
+.selected,
+.selected:hover {
+  background: var(--color-surface-selected);
+}
+
+.caret {
+  display: inline-flex;
+  flex-shrink: 0;
+  width: 14px;
+  color: var(--color-text-subtle);
+}
+
+.icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+}
+
+.label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.meta {
+  flex-shrink: 0;
+  margin-left: auto;
+  padding-left: var(--space-2);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-subtle);
+}
+
+/* Hover actions replace the meta text in the same spot. */
+.actions {
+  display: none;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+.row:hover .actions {
+  display: flex;
+}
+.row:hover .meta:has(+ .actions) {
+  display: none;
+}
