@@ -56,13 +56,14 @@ src-tauri/src/
   db/                   database access, no Tauri types
     mod.rs              Kind, ConnConfig, DbPool, QueryResult, public API
     connect.rs          pools per database kind
-    classify.rs         is_read_only (keyword check; the database enforces it too)
+    mssql_pool.rs       SQL Server connection (tiberius), Azure redirects, host,port parsing
+    classify.rs         is_read_only: reading first keyword and no write keyword anywhere
     execute.rs          run_query: read-only transactions, row cap, column headers
-    decode/             driver values → JSON for display (postgres binary wire format, mysql, sqlite)
+    decode/             driver values → JSON for display (postgres binary wire format, mysql, sqlite, mssql)
     introspect/         schema reading per database kind, shared assembly in mod.rs
     demo.rs, demo.sql   the bundled demo database
     tests.rs            SQLite end-to-end tests
-    integration_tests.rs  PostgreSQL/MySQL tests (opt-in via env vars, see README)
+    integration_tests.rs  PostgreSQL/MySQL/SQL Server tests (opt-in via env vars, see README)
   ai/                   Claude Messages API, no knowledge of Tauri commands
     mod.rs              stream_sql + event payloads, API error messages
     models.rs           offered models and per-model request options

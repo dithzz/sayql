@@ -1,4 +1,4 @@
-use super::{ConnConfig, DbPool, Kind, LitePools};
+use super::{ConnConfig, DbPool, Kind, LitePools, MssqlPool};
 use crate::error::AppResult;
 use sqlx::mysql::{MySqlConnectOptions, MySqlPoolOptions, MySqlSslMode};
 use sqlx::postgres::{PgConnectOptions, PgPoolOptions, PgSslMode};
@@ -70,6 +70,7 @@ pub async fn connect(cfg: &ConnConfig, password: Option<String>) -> AppResult<Db
                 ?;
             Ok(DbPool::Lite(LitePools { rw, ro }))
         }
+        Kind::Mssql => Ok(DbPool::Ms(MssqlPool::connect(cfg, Some(pw)).await?)),
     }
 }
 

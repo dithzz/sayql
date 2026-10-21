@@ -17,6 +17,7 @@ async fn demo_database_end_to_end() {
         user: String::new(),
         file: path.to_string_lossy().into_owned(),
         ssl: false,
+        trust_cert: false,
     };
     let pool = connect(&cfg, None).await.expect("connect");
 

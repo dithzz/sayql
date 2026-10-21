@@ -28,6 +28,7 @@ fn demo_connection(path: &Path) -> ConnConfig {
         user: String::new(),
         file: path.to_string_lossy().into_owned(),
         ssl: false,
+        trust_cert: false,
     }
 }
 

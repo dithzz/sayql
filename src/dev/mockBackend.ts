@@ -53,9 +53,10 @@ const settings: Settings = {
 
 const boot: Bootstrap = {
   connections: [
-    { id: "demo", name: "Demo store (SQLite)", kind: "sqlite", host: "", port: null, database: "", user: "", file: "/demo.sqlite", ssl: false },
-    { id: "pg", name: "analytics@prod-replica", kind: "postgres", host: "db.internal", port: 5432, database: "analytics", user: "readonly", file: "", ssl: true },
-    { id: "my", name: "shop@localhost", kind: "mysql", host: "localhost", port: 3306, database: "shop", user: "root", file: "", ssl: false },
+    { id: "demo", name: "Demo store (SQLite)", kind: "sqlite", host: "", port: null, database: "", user: "", file: "/demo.sqlite", ssl: false, trustCert: false },
+    { id: "pg", name: "analytics@prod-replica", kind: "postgres", host: "db.internal", port: 5432, database: "analytics", user: "readonly", file: "", ssl: true, trustCert: false },
+    { id: "my", name: "shop@localhost", kind: "mysql", host: "localhost", port: 3306, database: "shop", user: "root", file: "", ssl: false, trustCert: false },
+    { id: "ms", name: "sales@azure", kind: "mssql", host: "contoso.database.windows.net", port: 1433, database: "sales", user: "reader", file: "", ssl: true, trustCert: false },
   ],
   settings,
 };

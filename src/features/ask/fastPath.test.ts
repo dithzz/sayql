@@ -57,4 +57,15 @@ describe("fastPath", () => {
     const my: Schema = { dialect: "MySQL", tables: [table("order", ["id"])] };
     expect(fastPath("count orders", my)).toBe("SELECT COUNT(*) AS total_order\nFROM `order`;");
   });
+
+  it("uses TOP and [brackets] for SQL Server", () => {
+    const ms: Schema = {
+      dialect: "SQL Server",
+      tables: [table("Orders", ["OrderID", "CreatedAt"], "dbo"), table("user", ["id"], "sales")],
+    };
+    expect(fastPath("show orders", ms)).toBe("SELECT TOP 100 *\nFROM dbo.Orders;");
+    expect(fastPath("latest 5 orders", ms)).toBe("SELECT TOP 5 *\nFROM dbo.Orders\nORDER BY CreatedAt DESC;");
+    expect(fastPath("how many orders", ms)).toBe("SELECT COUNT(*) AS total_orders\nFROM dbo.Orders;");
+    expect(fastPath("sales users", ms)).toBe("SELECT TOP 100 *\nFROM sales.[user];");
+  });
 });

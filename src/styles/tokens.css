@@ -84,6 +84,7 @@
   --color-kind-postgres: #336791;
   --color-kind-mysql: #c47a00;
   --color-kind-sqlite: #2f8f5b;
+  --color-kind-mssql: #b8312f;
 
   --color-grid-header: #f3f5f8;
   --color-grid-row-alt: #fafbfc;
@@ -132,6 +133,7 @@
   --color-kind-postgres: #6fa3d6;
   --color-kind-mysql: #f0a833;
   --color-kind-sqlite: #5ccb8d;
+  --color-kind-mssql: #f07a6e;
 
   --color-grid-header: #262a30;
   --color-grid-row-alt: #22252a;

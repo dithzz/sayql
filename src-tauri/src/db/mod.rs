@@ -1,4 +1,4 @@
-//! Database access for PostgreSQL, MySQL and SQLite: connecting, running queries
+//! Database access for PostgreSQL, MySQL, SQLite and SQL Server: connecting, running queries
 //! safely, decoding values for display and reading the schema.
 
 mod classify;
@@ -7,12 +7,14 @@ mod decode;
 mod demo;
 mod execute;
 mod introspect;
+mod mssql_pool;
 
 pub use classify::is_read_only;
 pub use connect::connect;
 pub use demo::ensure_demo;
 pub use execute::run_query;
 pub use introspect::introspect;
+pub use mssql_pool::MssqlPool;
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -27,6 +29,8 @@ pub enum Kind {
     Postgres,
     Mysql,
     Sqlite,
+    /// Microsoft SQL Server and Azure SQL.
+    Mssql,
 }
 
 impl Kind {
@@ -35,6 +39,7 @@ impl Kind {
             Kind::Postgres => "PostgreSQL",
             Kind::Mysql => "MySQL",
             Kind::Sqlite => "SQLite",
+            Kind::Mssql => "SQL Server",
         }
     }
 }
@@ -56,8 +61,12 @@ pub struct ConnConfig {
     /// SQLite file path.
     #[serde(default)]
     pub file: String,
+    /// Require an encrypted connection.
     #[serde(default)]
     pub ssl: bool,
+    /// Accept the server's TLS certificate without verifying it (self-signed internal servers).
+    #[serde(default)]
+    pub trust_cert: bool,
 }
 
 #[derive(Clone)]
@@ -65,6 +74,7 @@ pub enum DbPool {
     Pg(PgPool),
     My(MySqlPool),
     Lite(LitePools),
+    Ms(MssqlPool),
 }
 
 /// SQLite runs every statement in a script and lets a script turn `PRAGMA query_only`

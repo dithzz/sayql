@@ -11,10 +11,12 @@ macro_rules! try_as {
 }
 
 
+mod mssql;
 mod mysql;
 mod postgres;
 mod sqlite;
 
+pub(crate) use mssql::ms_cell;
 pub(crate) use mysql::my_cell;
 pub(crate) use postgres::pg_cell;
 pub(crate) use sqlite::lite_cell;

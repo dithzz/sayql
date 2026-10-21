@@ -1,7 +1,7 @@
 // Instant SQL for simple requests ("show customers", "how many orders", "latest 20 reviews"),
 // built from the cached schema with no network call. Anything less certain goes to the AI.
 import type { Schema, Table } from "../../api";
-import { qualifiedName, quoteIdent, selectAllSql, tableRef } from "../schema/sql";
+import { qualifiedName, selectAllSql, selectRowsSql, tableRef } from "../schema/sql";
 
 function normalize(s: string): string {
   return s.toLowerCase().replace(/[_\s]+/g, " ").trim();
@@ -28,7 +28,7 @@ function findTable(schema: Schema, phrase: string): Table | null {
 
 /** The column to sort by for "latest": a creation timestamp if there is one, else the primary key. */
 function recencyColumn(t: Table): string | null {
-  const timestamp = t.columns.find((c) => /^(created|inserted|ordered|signed_up|updated)(_at|_on|_date)?$/i.test(c.name));
+  const timestamp = t.columns.find((c) => /^(created|inserted|ordered|signed_?up|updated)(_?at|_?on|_?date)?$/i.test(c.name));
   return (timestamp ?? t.columns.find((c) => c.primary_key))?.name ?? null;
 }
 
@@ -61,8 +61,7 @@ export function fastPath(question: string, schema: Schema | null): string | null
       const newest = !!order && /last|latest|newest|recent/.test(order);
       const col = newest ? recencyColumn(t) : null;
       if (newest && !col) return null;
-      const orderBy = col ? `\nORDER BY ${quoteIdent(col, dialect)} DESC` : "";
-      return `SELECT *\nFROM ${tableRef(t, dialect)}${orderBy}\nLIMIT ${n};`;
+      return selectRowsSql(t, dialect, n, col ?? undefined);
     }
   }
 

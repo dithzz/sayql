@@ -1,12 +1,14 @@
-//! Tests against real PostgreSQL and MySQL servers.
+//! Tests against real PostgreSQL, MySQL and SQL Server servers.
 //!
 //! Each test is skipped unless its URL is set, so `cargo test` passes without servers:
 //!
 //!   ASKDB_TEST_PG_URL=postgres://postgres:<password>@localhost:55416/askdb
 //!   ASKDB_TEST_MYSQL_URL=mysql://root:<password>@localhost:33806
+//!   ASKDB_TEST_MSSQL_URL=mssql://sa:<password>@localhost:14334/master
 //!
 //! The Postgres test drops and recreates the schemas `askdb_it` and `askdb_it_inv`;
-//! the MySQL test drops and recreates the database `askdb_it`. Nothing else is touched.
+//! the MySQL and SQL Server tests drop and recreate the database `askdb_it`.
+//! Nothing else is touched.
 
 use super::*;
 use crate::schema::Table;
@@ -58,15 +60,25 @@ async fn open(kind: Kind, t: &Target, database: &str) -> DbPool {
         user: t.user.clone(),
         file: String::new(),
         ssl: false,
+        // The SQL Server test container uses its auto-generated self-signed certificate.
+        trust_cert: kind == Kind::Mssql,
     };
     connect(&cfg, t.password.clone()).await.expect("connect")
+}
+
+/// Runs a T-SQL batch outside read-only mode.
+async fn mssql_batch(pool: &MssqlPool, sql: &str) -> Result<(), String> {
+    let mut conn = pool.acquire().await.map_err(|e| e.to_string())?;
+    let stream = conn.client().simple_query(sql).await.map_err(|e| e.to_string())?;
+    stream.into_results().await.map(|_| ()).map_err(|e| e.to_string())
 }
 
 /// Runs a multi-statement setup script outside read-only mode.
 async fn exec(pool: &DbPool, sql: &str) {
     let r = match pool {
-        DbPool::Pg(p) => sqlx::raw_sql(sql).execute(p).await.map(|_| ()),
-        DbPool::My(p) => sqlx::raw_sql(sql).execute(p).await.map(|_| ()),
+        DbPool::Pg(p) => sqlx::raw_sql(sql).execute(p).await.map(|_| ()).map_err(|e| e.to_string()),
+        DbPool::My(p) => sqlx::raw_sql(sql).execute(p).await.map(|_| ()).map_err(|e| e.to_string()),
+        DbPool::Ms(p) => mssql_batch(p, sql).await,
         DbPool::Lite(_) => unreachable!("SQLite is covered by the unit tests"),
     };
     r.unwrap_or_else(|e| panic!("setup failed: {e}\n{sql}"));
@@ -547,4 +559,106 @@ async fn mysql_integration() {
     .await;
 
     exec(&admin, "DROP DATABASE askdb_it").await;
+}
+
+const MS_SEED: &[&str] = &[
+    "CREATE SCHEMA sales",
+    "CREATE TABLE dbo.customers (id int IDENTITY PRIMARY KEY, name nvarchar(100) NOT NULL, email varchar(200) NULL)",
+    "CREATE TABLE sales.orders (id int PRIMARY KEY, customer_id int NOT NULL REFERENCES dbo.customers(id),
+       total decimal(12,2) NOT NULL, status varchar(20) NOT NULL)",
+    "CREATE VIEW sales.paid_orders AS SELECT id, total FROM sales.orders WHERE status = 'paid'",
+    "CREATE TABLE dbo.all_types (id int PRIMARY KEY, t_tiny tinyint, t_small smallint, t_big bigint, t_bit bit,
+       t_real real, t_float float, t_dec decimal(38,10), t_money money, t_nvarchar nvarchar(max), t_char char(3),
+       t_guid uniqueidentifier, t_bin varbinary(8), t_date date, t_time time(3), t_dt datetime, t_dt2 datetime2(7),
+       t_sdt smalldatetime, t_dto datetimeoffset(0), t_xml xml)",
+    "INSERT INTO dbo.customers (name, email) VALUES (N'Zoë', 'zoe@example.com'), (N'李雷', NULL), (N'O''Brien', 'ob@example.com')",
+    "INSERT INTO sales.orders VALUES (1, 1, 10.50, 'paid'), (2, 1, 99.99, 'pending'), (3, 2, 0.01, 'paid'),
+       (4, 3, 1234567890.12, 'shipped'), (5, 3, 5.00, 'paid')",
+    "INSERT INTO dbo.all_types VALUES (1, 255, -32768, 9007199254740993, 1, 1.1, 2.5,
+       12345678901234567890.0123456789, 12.34, N'héllo 世界', 'ab', '6F9619FF-8B86-D011-B42D-00C04FC964FF',
+       0xDEADBEEF, '2026-10-21', '13:45:30.123', '2026-10-21T13:45:30.997', '2026-10-21T13:45:30.1234567',
+       '2026-10-21T13:45:29', '2026-10-21T13:45:30+05:30', '<a>1</a>'),
+       (2, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL)",
+];
+
+#[tokio::test]
+async fn mssql_integration() {
+    let Some(t) = env_target("ASKDB_TEST_MSSQL_URL") else { return };
+    let admin = open(Kind::Mssql, &t, &t.database).await;
+    exec(&admin, "IF DB_ID('askdb_it') IS NOT NULL BEGIN ALTER DATABASE askdb_it SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE askdb_it; END").await;
+    exec(&admin, "CREATE DATABASE askdb_it").await;
+    let pool = open(Kind::Mssql, &t, "askdb_it").await;
+    for sql in MS_SEED {
+        exec(&pool, sql).await;
+    }
+
+    // ---- schema reading
+    let schema = introspect(&pool, Kind::Mssql).await.expect("introspect");
+    assert_eq!(schema.dialect, "SQL Server");
+    let tb = &schema.tables;
+    let names: Vec<String> = tb.iter().map(|t| t.qualified_name()).collect();
+    assert_eq!(names, ["dbo.all_types", "dbo.customers", "sales.orders", "sales.paid_orders"]);
+    let orders = table(tb, Some("sales"), "orders");
+    assert_eq!(pk_columns(orders), ["id"]);
+    assert_eq!(fks(orders), [fk("customer_id", "dbo.customers", "id")]);
+    assert_eq!(column(orders, "total").data_type, "decimal(12,2)");
+    assert_eq!(column(table(tb, Some("dbo"), "customers"), "name").data_type, "nvarchar(100)");
+    assert_eq!(column(table(tb, Some("dbo"), "all_types"), "t_nvarchar").data_type, "nvarchar(max)");
+    assert!(column(table(tb, Some("dbo"), "customers"), "email").nullable);
+    assert!(!column(orders, "status").nullable);
+    assert_eq!(table(tb, Some("sales"), "paid_orders").kind, "view");
+    assert_eq!(orders.row_estimate, Some(5));
+    assert_eq!(table(tb, Some("sales"), "paid_orders").row_estimate, None);
+
+    // ---- value decoding
+    let r = query(&pool, "SELECT * FROM dbo.all_types ORDER BY id", true).await;
+    check_row(
+        "mssql",
+        &r,
+        0,
+        &json!({
+            "id": 1, "t_tiny": 255, "t_small": -32768, "t_big": 9007199254740993_i64, "t_bit": true,
+            "t_real": 1.1, "t_float": 2.5, "t_dec": "12345678901234567890.0123456789", "t_money": 12.34,
+            "t_nvarchar": "héllo 世界", "t_char": "ab ", "t_guid": "6f9619ff-8b86-d011-b42d-00c04fc964ff",
+            "t_bin": "0xdeadbeef", "t_date": "2026-10-21", "t_time": "13:45:30.123",
+            "t_dt": "2026-10-21 13:45:30.997", "t_dt2": "2026-10-21 13:45:30.123456700",
+            "t_sdt": "2026-10-21 13:45:00", "t_dto": "2026-10-21 13:45:30 +05:30", "t_xml": "<a>1</a>",
+        }),
+    );
+    assert!(r.rows[1][1..].iter().all(Value::is_null), "{:?}", r.rows[1]);
+    let r = query(&pool, "SELECT status, COUNT(*) AS n, SUM(total) AS s FROM sales.orders GROUP BY status ORDER BY status", true).await;
+    assert_eq!(r.columns, ["status", "n", "s"]);
+    assert_eq!(r.rows[0], [json!("paid"), json!(3), json!("15.51")]);
+    let r = query(&pool, "SELECT id, name FROM dbo.customers WHERE 1 = 0", true).await;
+    assert_eq!(r.columns, ["id", "name"]);
+    assert!(r.rows.is_empty());
+
+    // ---- read-only mode: never changes data, however the statement is phrased
+    let count = || scalar(&pool, "SELECT COUNT(*) FROM sales.orders");
+    let before = count().await;
+    for sql in [
+        "DELETE FROM sales.orders",
+        "SELECT 1; DELETE FROM sales.orders",
+        "SELECT 1; COMMIT; DELETE FROM sales.orders",
+        "SELECT * INTO dbo.copied FROM sales.orders",
+        "WITH x AS (SELECT 1 AS a) DELETE FROM sales.orders",
+    ] {
+        assert!(run_query(&pool, sql, true).await.is_err(), "read-only mode allowed: {sql}");
+    }
+    assert_eq!(count().await, before, "a read-only statement changed data");
+    // 1 is the read-only wrapper's own transaction; a leaked one from earlier would make it 2.
+    assert_eq!(scalar(&pool, "SELECT @@TRANCOUNT").await, json!(1), "transaction left open");
+
+    // ---- row cap: cut off at 5000 rows, and the connection still works afterwards
+    let big = query(&pool, "SELECT a.object_id FROM sys.all_objects a CROSS JOIN sys.all_objects b", true).await;
+    assert!(big.truncated);
+    assert_eq!(big.rows.len(), MAX_ROWS);
+    assert_eq!(scalar(&pool, "SELECT 40 + 2").await, json!(42));
+
+    // ---- an approved write
+    let w = query(&pool, "UPDATE sales.orders SET status = 'paid' WHERE status = 'pending'", false).await;
+    assert_eq!(w.rows_affected, Some(1));
+
+    drop(pool);
+    exec(&admin, "ALTER DATABASE askdb_it SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE askdb_it").await;
 }

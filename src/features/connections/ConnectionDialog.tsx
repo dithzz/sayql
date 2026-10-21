@@ -6,7 +6,7 @@ import { errorText } from "../../lib/errors";
 import { DATABASE_KINDS, KIND_OPTIONS } from "./kinds";
 
 export function newConnection(): ConnectionConfig {
-  return { id: "", name: "", kind: "postgres", host: "localhost", port: 5432, database: "", user: "", file: "", ssl: false };
+  return { id: "", name: "", kind: "postgres", host: "localhost", port: 5432, database: "", user: "", file: "", ssl: false, trustCert: false };
 }
 
 function defaultName(c: ConnectionConfig): string {
@@ -86,7 +86,7 @@ export function ConnectionDialog({ initial, onClose, onSaved, onDeleted }: Conne
             ariaLabel="Database type"
             value={c.kind}
             options={KIND_OPTIONS}
-            onChange={(kind) => set({ kind, port: DATABASE_KINDS[kind].defaultPort })}
+            onChange={(kind) => set({ kind, port: DATABASE_KINDS[kind].defaultPort, ssl: DATABASE_KINDS[kind].defaultSsl })}
           />
         )}
       </Field>
@@ -104,7 +104,14 @@ export function ConnectionDialog({ initial, onClose, onSaved, onDeleted }: Conne
         <>
           <FieldRow>
             <Field label="Host" grow>
-              {(id) => <TextInput id={id} value={c.host} onChange={(e) => set({ host: e.target.value })} />}
+              {(id) => (
+                <TextInput
+                  id={id}
+                  value={c.host}
+                  placeholder={DATABASE_KINDS[c.kind].hostPlaceholder}
+                  onChange={(e) => set({ host: e.target.value })}
+                />
+              )}
             </Field>
             <Field label="Port">
               {(id) => (
@@ -137,7 +144,21 @@ export function ConnectionDialog({ initial, onClose, onSaved, onDeleted }: Conne
               )}
             </Field>
           </FieldRow>
-          <Checkbox label="Require SSL" checked={c.ssl} onChange={(ssl) => set({ ssl })} />
+          <Checkbox
+            label={c.kind === "mssql" ? "Encrypt connection" : "Require SSL"}
+            checked={c.ssl}
+            onChange={(ssl) => set({ ssl })}
+          />
+          {c.kind === "mssql" && (
+            <Field
+              label="Server certificate"
+              hint="Internal SQL Servers often use a self-signed certificate. Trust it only for servers you know, never for public ones."
+            >
+              {() => (
+                <Checkbox label="Trust server certificate" checked={c.trustCert} onChange={(trustCert) => set({ trustCert })} />
+              )}
+            </Field>
+          )}
         </>
       )}
 

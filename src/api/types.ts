@@ -1,6 +1,6 @@
 // Shapes returned by the Rust backend (src-tauri/src). Keep in sync with the serde structs there.
 
-export type DatabaseKind = "postgres" | "mysql" | "sqlite";
+export type DatabaseKind = "postgres" | "mysql" | "sqlite" | "mssql";
 
 export interface ConnectionConfig {
   id: string;
@@ -12,10 +12,13 @@ export interface ConnectionConfig {
   user: string;
   /** SQLite database file path. */
   file: string;
+  /** Require an encrypted connection. */
   ssl: boolean;
+  /** SQL Server: accept a self-signed server certificate. */
+  trustCert: boolean;
 }
 
-export type Dialect = "PostgreSQL" | "MySQL" | "SQLite";
+export type Dialect = "PostgreSQL" | "MySQL" | "SQLite" | "SQL Server";
 
 export interface Column {
   name: string;

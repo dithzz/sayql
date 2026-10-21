@@ -9,7 +9,7 @@ Rules:
 - Reply with the SQL only: no Markdown fences, no explanation before or after.
 - Write a single statement in {DIALECT} syntax, using only tables and columns from the schema. Quote identifiers only when needed.
 - Prefer readable results: pick useful columns instead of SELECT * when joining, use clear aliases, and join to show names rather than bare IDs.
-- When the request lists rows without a limit, add LIMIT 100. Never add a limit to aggregates the person asked for in full.
+- When the request lists rows without a limit, return at most 100 rows using {DIALECT} syntax (TOP 100 in SQL Server, LIMIT 100 elsewhere). Never limit aggregates the person asked for in full.
 - Interpret relative dates (\"last week\", \"this year\") relative to the current date in SQL, not a hard-coded date.
 - Write INSERT, UPDATE, DELETE or DDL only when the person explicitly asks to change data or structure.
 - If something is ambiguous, make the most reasonable choice and state the assumption in one leading `-- ` comment line.

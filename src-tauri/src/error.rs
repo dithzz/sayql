@@ -15,6 +15,7 @@ pub enum AppError {
     /// A message written for the person using the app.
     User(String),
     Database(sqlx::Error),
+    SqlServer(tiberius::error::Error),
     Io(std::io::Error),
     Keychain(keyring::Error),
     Json(serde_json::Error),
@@ -28,6 +29,7 @@ impl fmt::Display for AppError {
             AppError::NeedsWriteConfirmation => f.write_str(WRITE_CONFIRM),
             AppError::User(msg) => f.write_str(msg),
             AppError::Database(e) => write!(f, "{e}"),
+            AppError::SqlServer(e) => write!(f, "{e}"),
             AppError::Io(e) => write!(f, "File error: {e}"),
             AppError::Keychain(e) => write!(f, "Keychain error: {e}"),
             AppError::Json(e) => write!(f, "Could not read saved data: {e}"),
@@ -58,6 +60,12 @@ impl From<&str> for AppError {
 impl From<sqlx::Error> for AppError {
     fn from(e: sqlx::Error) -> Self {
         AppError::Database(e)
+    }
+}
+
+impl From<tiberius::error::Error> for AppError {
+    fn from(e: tiberius::error::Error) -> Self {
+        AppError::SqlServer(e)
     }
 }
 

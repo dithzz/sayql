@@ -1,5 +1,6 @@
 //! Reads tables, columns, keys, enum values and row estimates into a [`Schema`].
 
+mod mssql;
 mod mysql;
 mod postgres;
 mod sqlite;
@@ -11,10 +12,11 @@ use std::collections::{HashMap, HashSet};
 
 pub async fn introspect(pool: &DbPool, kind: Kind) -> AppResult<Schema> {
     let tables = match pool {
-        DbPool::Pg(p) => postgres::introspect(p).await,
-        DbPool::My(p) => mysql::introspect(p).await,
-        DbPool::Lite(p) => sqlite::introspect(&p.ro).await,
-    }?;
+        DbPool::Pg(p) => postgres::introspect(p).await?,
+        DbPool::My(p) => mysql::introspect(p).await?,
+        DbPool::Lite(p) => sqlite::introspect(&p.ro).await?,
+        DbPool::Ms(p) => mssql::introspect(p).await?,
+    };
     Ok(Schema { dialect: kind.dialect().to_string(), tables })
 }
 
