@@ -7,7 +7,7 @@
 ### Say what you need. It knows your schema.
 
 The safe way to query production databases, without being a SQL expert.<br>
-The right SQL in about a second, and nothing changes unless you say so.
+The right SQL in seconds, and nothing changes unless you say so.
 
 [![Latest release](https://img.shields.io/github/v/release/dithzz/sayql-releases?label=release&color=4F46E5)](https://github.com/dithzz/sayql-releases/releases/latest)
 [![CI](https://github.com/dithzz/sayql/actions/workflows/ci.yml/badge.svg)](https://github.com/dithzz/sayql/actions/workflows/ci.yml)
@@ -32,16 +32,15 @@ product managers, support and operations teams, and developers who only touch th
 Asking an engineer takes time; general chatbots don't know your schema and can't run anything safely.
 
 - **Safe on production, by design.** Queries run read-only, and the database itself enforces it. Anything that
-  could change data stops and shows you the exact statement first. Generated writes match no rows until you
-  fill them in.
+  could change data stops and shows you the exact statement first.
 - **It knows your schema.** Tables, columns and relationships across every database you connect, so the SQL
   uses your real names and joins, not guesses.
-- **Faster than writing it yourself.** The right SQL in about a second, streaming in while you type. Simple
+- **Faster than writing it yourself.** The right SQL in seconds, streaming in while you type. Simple
   requests are answered instantly on your machine, follow-ups edit the query you have ("only Canada",
   "sort by date"), and failed queries fix themselves once.
 - **Your AI, your data.** Use Claude, OpenAI, Gemini or any OpenAI-compatible API with your own key, or a local
   model so nothing leaves your computer. Table rows are never sent to the AI.
-- **A real database client.** Navigator, tabs, saved scripts, a proper editor and results grid. You see every
+- **Everything in one place.** Browse your tables, keep tabs open and save the queries you reuse. You see every
   query, so you learn SQL as you go.
 
 ## Features
@@ -50,9 +49,11 @@ Asking an engineer takes time; general chatbots don't know your schema and can't
 <tr>
 <td width="50%" valign="top">
 
-### Point it at the right tables
+### It knows your schema
 
-Click, ⌘-click or ⇧-click tables in the navigator to give the AI context. They show as a pill in the Ask box, which you can hide without losing the selection. Follow-ups edit the query you have, and the status line shows the model and how fast it answered.
+Ask in plain English, then refine it the same way: "only Canada", "sort by date". SayQL writes against your
+real tables, columns and relationships. Click tables in the navigator to point it at the right place, and if
+the database rejects a query, SayQL fixes it automatically.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset=".github/assets/feature-ask-dark.png">
@@ -62,35 +63,26 @@ Click, ⌘-click or ⇧-click tables in the navigator to give the AI context. Th
 </td>
 <td width="50%" valign="top">
 
-### Read-only by default
+### Safe on production
 
-SayQL checks every statement, and reads run in a read-only transaction or connection, so the database itself refuses writes (SQL Server rolls them back). <code>INSERT</code>, <code>UPDATE</code>, <code>DELETE</code> and DDL always stop for review.
+Every query runs read-only, and the database itself enforces it. Anything that could change data stops and
+shows you the exact statement first, so nothing changes by accident.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset=".github/assets/feature-write-confirm-dark.png">
-  <img src=".github/assets/feature-write-confirm-light.png" alt="The confirmation shown before running an UPDATE statement" width="100%">
+  <img src=".github/assets/feature-write-confirm-light.png" alt="SayQL asking for confirmation before running a statement that could change data" width="100%">
 </picture>
 
 </td>
 </tr>
 <tr>
-<td width="50%" valign="top">
+<td colspan="2" valign="top">
 
-### Right-click everything
+### Your AI, your data
 
-View data, count rows, generate <code>SELECT</code> / <code>INSERT</code> / <code>UPDATE</code> / <code>DELETE</code> templates, add tables to the AI's context and more, like DBeaver. Generated writes match no rows until you fill them in.
-
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/feature-context-menu-dark.png">
-  <img src=".github/assets/feature-context-menu-light.png" alt="The navigator's right-click menu with the Generate SQL submenu open" width="100%">
-</picture>
-
-</td>
-<td width="50%" valign="top">
-
-### Any AI, including local models
-
-A first-run guide sets up your provider and checks the key before saving. Claude is tuned with prompt caching; Ollama and LM Studio run entirely on your machine. When the database rejects a query SayQL wrote, it fixes it once automatically, and <b>Improve</b> reviews any query on request.
+Use Claude, OpenAI, Gemini or any OpenAI-compatible API with your own key, or run a model on your own computer
+with Ollama or LM Studio, so your questions never leave it. Table rows are never sent to the AI. A setup guide
+gets you to your first answer quickly.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset=".github/assets/feature-setup-ai-dark.png">
@@ -111,7 +103,7 @@ A first-run guide sets up your provider and checks the key before saving. Claude
 | Microsoft SQL Server | Ollama · LM Studio (on your computer) |
 | Azure SQL | Any OpenAI-compatible API (Azure, vLLM, LiteLLM, …) |
 
-For servers, the navigator lists every database your login can open, like DBeaver. A demo SQLite store is
+For servers, the navigator lists every database your login can open. A demo SQLite store is
 built in, so you can try everything without connecting anything.
 
 ## Get started
@@ -139,6 +131,7 @@ database, and sends data only to services you configure:
 | You ask in plain English | Your question and the schema (table and column names, types, keys) | Your AI provider |
 | A query fails and SayQL fixes it | The query and the database's error message | Your AI provider |
 | You run a query | Your SQL | Your database |
+| SayQL starts | The app version and your operating system, to check for updates | GitHub (dithzz/sayql-releases) |
 
 **Rows in your tables are never sent to an AI provider by the Ask box.** Database passwords and API keys are
 kept in your OS keychain (macOS Keychain, Windows Credential Manager or Secret Service), never in files. With
