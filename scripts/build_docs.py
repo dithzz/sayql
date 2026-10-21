@@ -127,6 +127,7 @@ def main() -> None:
             "TITLE": html.escape(p["title"]),
             "DESCRIPTION": html.escape(p["description"]),
             "GROUP": html.escape(p["group"]),
+            "URL": p["url"],
             "NAV": nav_html(pages, p),
             "CONTENT": p["body"].strip(),
             "ONPAGE": onpage_html(p["headings"]),

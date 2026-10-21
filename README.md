@@ -13,7 +13,7 @@ Plain English in, the right SQL out in about a second, faster than you could wri
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-7C3AED)](LICENSE)
 [![Platforms](https://img.shields.io/badge/platforms-macOS%20%7C%20Windows%20%7C%20Linux-475569)](https://github.com/dithzz/sayql-releases/releases/latest)
 
-[**Download**](https://github.com/dithzz/sayql-releases/releases/latest) · [Docs](https://sayql.vercel.app/docs/) · [Website](https://sayql.vercel.app) · [Discussions](https://github.com/dithzz/sayql-releases/discussions)
+[**Download**](https://github.com/dithzz/sayql-releases/releases/latest) · [Docs](https://sayql.vercel.app/docs/) · [Website](https://sayql.vercel.app) · [Discussions](https://github.com/dithzz/sayql/discussions)
 
 <br>
 
@@ -207,7 +207,17 @@ Server). [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) explains the structure and
   invoices?") with read-only queries, and answers with every claim linked to the query behind it.
 - **Signed builds** for macOS and Windows, removing the first-launch confirmation.
 
-Ideas and votes are welcome in [Discussions](https://github.com/dithzz/sayql-releases/discussions).
+Ideas and votes are welcome in [Discussions](https://github.com/dithzz/sayql/discussions).
+
+## Community
+
+- **Questions, ideas and feedback:** [Discussions](https://github.com/dithzz/sayql/discussions)
+- **Bugs and feature requests:** [Issues](https://github.com/dithzz/sayql/issues/new/choose)
+- **Want to help?** Start with a [good first issue](https://github.com/dithzz/sayql/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
+  or one marked [help wanted](https://github.com/dithzz/sayql/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22).
+- **What's new:** [CHANGELOG.md](CHANGELOG.md) and [releases](https://github.com/dithzz/sayql-releases/releases)
+
+If SayQL saves you time, a ⭐ helps other people find it.
 
 ## Contributing
 

@@ -16,18 +16,22 @@ src/
     commands.ts         typed invoke() wrappers, one per Rust command
     events.ts           AI streaming event subscription
     types.ts            shapes mirrored from the Rust serde structs
-  components/ui/        reusable, feature-agnostic primitives (Button, Dialog, Panel, SplitPane, TabBar, TreeRow, Form…)
+  components/ui/        reusable, feature-agnostic primitives (Button, Dialog, Panel, SplitPane, TabBar, TreeRow, Form,
+                        ContextMenu, BrandMark…)
   features/             one folder per product area; each exports its public API from index.ts
     ask/                plain-English input, instant fast path, AI generation hook
     connections/        connection dialog, kinds metadata, useConnections
     editor/             Monaco setup (offline, themed) and SqlEditor
-    navigator/          Database Navigator tree
+    navigator/          Database Navigator tree and its right-click menus
+    onboarding/         first-run setup guide and starter questions
     query/              useQueryRunner, write confirmation
     results/            virtualized DataGrid, ResultsPanel, CSV/format helpers
-    schema/             dialect-aware SQL helpers (quoting, qualified names)
-    settings/           settings dialog and state
+    schema/             dialect-aware SQL helpers (quoting, qualified names, SQL templates)
+    scripts/            saved scripts, save and close-tab dialogs
+    settings/           settings dialog (AI provider, models, MCP) and state
     tabs/               open editor tabs (persisted), each bound to a (connection, database) target
     theme/              ThemeProvider (system/light/dark) and toggle
+    updates/            update check and install from the status bar
   hooks/                generic hooks (useLatest, usePersistentState)
   lib/                  generic utilities (cx, storage, errors)
   styles/               tokens.css (design tokens, light + dark) and base.css
@@ -94,3 +98,12 @@ src-tauri/src/
 ## Previewing the UI without the backend
 
 `pnpm dev` and open http://localhost:1420 in a browser: `src/dev/mockBackend.ts` fakes the Rust commands with demo data, including streamed SQL. It is only loaded in development outside Tauri.
+
+## Outside the app
+
+```
+site/                 the website (landing page, built docs), deployed to Vercel
+docs-site/            docs source: pages/*.html and the template the docs build uses
+scripts/              build_docs.py (docs) and third_party_notices.py (credits shipped with the app)
+.github/              CI, the release workflow, issue and PR templates, README images
+```

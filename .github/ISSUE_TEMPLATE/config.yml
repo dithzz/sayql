@@ -1,7 +1,7 @@
 blank_issues_enabled: false
 contact_links:
   - name: Questions and feedback
-    url: https://github.com/dithzz/sayql-releases/discussions
+    url: https://github.com/dithzz/sayql/discussions
     about: Ask a question or share what you think in Discussions.
   - name: Documentation
     url: https://sayql.vercel.app/docs/
