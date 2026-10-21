@@ -112,6 +112,14 @@ fn explain(e: tiberius::error::Error) -> AppError {
     let text = e.to_string();
     if text.contains("certificate") || text.contains("UnknownIssuer") {
         format!("{text}\nThe server's certificate isn't trusted. If this is an internal server, turn on \"Trust server certificate\".").into()
+    } else if text.contains("code: 18456") {
+        // SQL Server reports every login problem the same way; the real reason is only in its log.
+        format!(
+            "{text}\nThe server was reached but refused the login. Check the user and password (if you copied it from a \
+             config file, remove any quotes or escaping). If they're right, clear Database and test again: if that \
+             works, this login can't open that database."
+        )
+        .into()
     } else {
         AppError::SqlServer(e)
     }
