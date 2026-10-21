@@ -1,0 +1,25 @@
+name: Feedback
+description: What you think of SayQL, what worked and what didn't
+labels: [feedback]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time! This is public, so please don't include passwords, API keys or private data.
+  - type: textarea
+    id: feedback
+    attributes:
+      label: Your feedback
+      description: What you tried, what worked, what didn't, and what you'd like next. If SayQL wrote the wrong SQL, the question you asked helps a lot.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: SayQL version
+      placeholder: "0.1.0"
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options: [macOS (Apple silicon), macOS (Intel), Windows, Linux]

@@ -9,6 +9,7 @@ import { selectAllSql } from "../features/schema/sql";
 import { SettingsDialog, useSettings } from "../features/settings";
 import { hasUnsavedChanges, useTabs, type EditorTab } from "../features/tabs";
 import { useUpdate } from "../features/updates";
+import { FeedbackDialog } from "../features/feedback";
 import { exampleQuestions, OnboardingDialog, type OnboardingStep } from "../features/onboarding";
 import { QueryTab } from "./QueryTab";
 import { StatusBar } from "./StatusBar";
@@ -22,6 +23,7 @@ type OpenDialog =
   | { kind: "saveScript"; tabId: string; closeAfter: boolean }
   | { kind: "closeTab"; tabId: string }
   | { kind: "deleteConnection"; connection: ConnectionConfig }
+  | { kind: "feedback" }
   | { kind: "deleteScript"; script: Script }
   | null;
 
@@ -341,6 +343,7 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
         modelNames={modelNames}
         aiReady={settings.aiReady}
         updates={updates}
+        onFeedback={() => setDialog({ kind: "feedback" })}
       />
 
       {dialog?.kind === "connection" && (
@@ -437,6 +440,7 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
           </p>
         </Dialog>
       )}
+      {dialog?.kind === "feedback" && <FeedbackDialog onClose={() => setDialog(null)} />}
       {dialog?.kind === "settings" && (
         <SettingsDialog
           settings={settings}

@@ -9,7 +9,7 @@ mod schema;
 mod state;
 mod store;
 
-use commands::{connections, generation, query, scripts, settings, updates};
+use commands::{app, connections, generation, query, scripts, settings, updates};
 use state::AppState;
 use tauri::Manager;
 
@@ -24,6 +24,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            app::app_info,
             connections::init,
             connections::save_connection,
             connections::delete_connection,

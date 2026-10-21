@@ -8,6 +8,8 @@ All notable changes to SayQL are listed here. Downloads are on the
 - **Setup guide** on first launch: pick your AI (the key is checked before saving), pick the demo or your own
   database, and run a first question. Reopen it from Settings.
 - **Claude API keys are checked** in the setup guide before they're saved, so a typo shows up straight away.
+- **Send feedback** from the status bar: a pre-filled GitHub issue (public), or a private form. Only the SayQL
+  version and operating system are added.
 - **Open source** under the Apache License 2.0, with contributor docs, a security policy and CI on pull requests.
 - **Docs** at [sayql.vercel.app/docs](https://sayql.vercel.app/docs/): install, AI providers, databases, MCP,
   shortcuts and troubleshooting.

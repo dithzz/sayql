@@ -11,6 +11,7 @@ import type {
   ProviderChoice,
   Settings,
   UpdateInfo,
+  AppInfo,
   Target,
 } from "./types";
 
@@ -43,6 +44,9 @@ export const commands = {
   deleteScript: (id: string) => invoke<void>("delete_script", { id }),
 
   mcpSetup: () => invoke<McpSetup>("mcp_setup"),
+
+  /** Version, OS and chip, for pre-filling feedback. */
+  appInfo: () => invoke<AppInfo>("app_info"),
 
   /** A newer release, or null (also when offline, and always in development builds). */
   checkUpdate: () => invoke<UpdateInfo | null>("check_update"),
