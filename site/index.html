@@ -264,7 +264,7 @@ code, .mono { font-family: var(--font-mono); }
   background: linear-gradient(100deg, var(--color-accent) 10%, var(--color-ai) 90%);
   -webkit-background-clip: text; background-clip: text; color: transparent;
 }
-.hero .lede { font-size: clamp(17px, 2.2vw, 20px); color: var(--color-text-muted); max-width: 640px; }
+.hero .lede { font-size: clamp(17px, 2.2vw, 20px); color: var(--color-text-muted); max-width: 640px; text-wrap: balance; }
 .hero-ctas { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
 .hero-note { font-size: 13px; color: var(--color-text-subtle); }
 
@@ -590,6 +590,10 @@ footer { border-top: 1px solid var(--color-border-subtle); padding: 48px 0 32px;
 @media (max-width: 760px) { .footer-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .footer-brand { grid-column: 1 / -1; } }
 .footer-brand { display: grid; gap: 10px; align-content: start; }
 .footer-brand p { color: var(--color-text-subtle); max-width: 34ch; }
+.footer-gh { display: inline-flex; align-items: center; gap: 8px; color: var(--color-text-muted); font-weight: 500; }
+.footer-gh svg { width: 18px; height: 18px; }
+.footer-gh:hover { color: var(--color-text); }
+a.icon-btn { text-decoration: none; }
 footer .brand { font-size: 15px; color: var(--color-text); }
 footer .brand svg { width: 22px; height: 22px; }
 .footer-col { display: grid; gap: 9px; align-content: start; }
@@ -632,6 +636,7 @@ footer a { text-decoration: none; } footer a:hover { color: var(--color-text); }
     <symbol id="i-sun" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></g></symbol>
     <symbol id="i-moon" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5z"/></symbol>
     <symbol id="i-arrow" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M13 6l6 6-6 6"/></symbol>
+    <symbol id="i-github" viewBox="0 0 24 24"><path fill="currentColor" d="M12 .3a12 12 0 0 0-3.8 23.38c.6.11.82-.26.82-.58 0-.29-.01-1.04-.02-2.04-3.34.73-4.04-1.61-4.04-1.61-.55-1.39-1.33-1.76-1.33-1.76-1.09-.74.08-.73.08-.73 1.2.09 1.84 1.24 1.84 1.24 1.07 1.83 2.81 1.3 3.49 1 .11-.78.42-1.3.76-1.6-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.14-.3-.54-1.52.1-3.18 0 0 1.01-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.28-1.55 3.29-1.23 3.29-1.23.64 1.66.24 2.88.12 3.18.77.84 1.23 1.91 1.23 3.22 0 4.61-2.8 5.62-5.48 5.92.43.37.82 1.1.82 2.22 0 1.6-.02 2.9-.02 3.29 0 .32.22.7.83.58A12 12 0 0 0 12 .3"/></symbol>
     <symbol id="i-download" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M12 4v11M7 10l5 5 5-5M5 20h14"/></symbol>
   </defs>
 </svg>
@@ -645,9 +650,9 @@ footer a { text-decoration: none; } footer a:hover { color: var(--color-text); }
       <a href="#pricing">Pricing</a>
       <a href="/docs/">Docs</a>
       <a href="https://github.com/dithzz/sayql-releases/releases">Changelog</a>
-      <a href="https://github.com/dithzz/sayql">GitHub</a>
     </nav>
     <div class="nav-end">
+      <a class="icon-btn" href="https://github.com/dithzz/sayql" aria-label="SayQL on GitHub" title="SayQL on GitHub"><svg><use href="#i-github"/></svg></a>
       <button class="icon-btn" id="theme" type="button" aria-label="Switch between light and dark">
         <svg class="theme-light-icon"><use href="#i-moon"/></svg>
         <svg class="theme-dark-icon"><use href="#i-sun"/></svg>
@@ -669,6 +674,7 @@ footer a { text-decoration: none; } footer a:hover { color: var(--color-text); }
       <div class="hero-ctas">
         <a class="btn btn-primary btn-lg" href="#download"><svg><use href="#i-download"/></svg>Get SayQL for desktop</a>
         <a class="btn btn-lg" href="#how">See how it works</a>
+        <a class="btn btn-lg" href="https://github.com/dithzz/sayql"><svg><use href="#i-github"/></svg>View on GitHub</a>
       </div>
       <p class="downloads" data-downloads hidden><svg><use href="#i-download"/></svg><span data-downloads-count></span> downloads</p>
       <p class="hero-note">PostgreSQL · MySQL · SQLite · SQL Server · Azure SQL &nbsp;—&nbsp; with Claude, OpenAI, Gemini or a model on your own computer</p>
@@ -1051,6 +1057,7 @@ footer a { text-decoration: none; } footer a:hover { color: var(--color-text); }
     <div class="footer-brand">
       <a class="brand" href="#top"><svg><use href="#logo"/></svg>SayQL</a>
       <p>The AI-first database client. Community Edition, free forever.</p>
+      <a class="footer-gh" href="https://github.com/dithzz/sayql"><svg><use href="#i-github"/></svg>dithzz/sayql</a>
     </div>
     <nav class="footer-col" aria-label="Product">
       <h3>Product</h3>
