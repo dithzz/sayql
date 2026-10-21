@@ -9,13 +9,15 @@ import { selectAllSql } from "../features/schema/sql";
 import { SettingsDialog, useSettings } from "../features/settings";
 import { hasUnsavedChanges, useTabs, type EditorTab } from "../features/tabs";
 import { useUpdate } from "../features/updates";
+import { exampleQuestions, OnboardingDialog, type OnboardingStep } from "../features/onboarding";
 import { QueryTab } from "./QueryTab";
 import { StatusBar } from "./StatusBar";
 import { TopBar } from "./TopBar";
 import styles from "./Workbench.module.css";
 
 type OpenDialog =
-  | { kind: "connection"; config: ConnectionConfig }
+  /** `fromSetup`: opened from the first-run setup, which resumes when it closes. */
+  | { kind: "connection"; config: ConnectionConfig; fromSetup?: boolean }
   | { kind: "settings" }
   | { kind: "saveScript"; tabId: string; closeAfter: boolean }
   | { kind: "closeTab"; tabId: string }
@@ -31,6 +33,11 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
   const { settings, setSettings, modelNames } = useSettings(boot.settings);
   const updates = useUpdate();
   const [dialog, setDialog] = useState<OpenDialog>(null);
+  // First launch: the setup shows until it's finished or dismissed. People who already
+  // have an AI provider working (from before the setup existed) never see it.
+  const [setupStep, setSetupStep] = useState<OnboardingStep | null>(() =>
+    !boot.settings.onboarded && !boot.settings.aiReady ? "welcome" : null,
+  );
 
   // The navigator follows the active tab, like DBeaver's "link with editor".
   const target = tabs.active?.target ?? null;
@@ -191,6 +198,17 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
   const suggestedName = (t: EditorTab) => t.title || t.question.trim().slice(0, 60) || `${tabLabel(t).db ?? tabLabel(t).name} query`;
 
   const openSettings = () => setDialog({ kind: "settings" });
+
+  const finishSetup = () => {
+    setSetupStep(null);
+    commands.finishOnboarding().then(setSettings, () => {});
+  };
+
+  /** Ends the setup with a tab that asks `question` and runs the answer. */
+  const trySetupQuestion = (question: string) => {
+    finishSetup();
+    if (target) tabs.open(target, { question, autoAsk: true });
+  };
   const openNewConnection = () => setDialog({ kind: "connection", config: newConnection() });
 
   return (
@@ -328,11 +346,15 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
       {dialog?.kind === "connection" && (
         <ConnectionDialog
           initial={dialog.config}
-          onClose={() => setDialog(null)}
+          onClose={() => {
+            setDialog(null);
+            if (dialog.fromSetup) setSetupStep("database");
+          }}
           onSaved={(c) => {
             setDialog(null);
             conn.upsert(c);
             openConnection(c);
+            if (dialog.fromSetup) setSetupStep("try");
           }}
           onDeleted={(id) => {
             setDialog(null);
@@ -418,11 +440,37 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
       {dialog?.kind === "settings" && (
         <SettingsDialog
           settings={settings}
+          onShowSetup={() => {
+            setDialog(null);
+            setSetupStep("welcome");
+          }}
           onClose={() => setDialog(null)}
           onSaved={(s) => {
             setDialog(null);
             setSettings(s);
           }}
+        />
+      )}
+      {setupStep && !dialog && (
+        <OnboardingDialog
+          settings={settings}
+          step={setupStep}
+          onStep={setSetupStep}
+          onSettingsSaved={setSettings}
+          demoAvailable={!!conn.connection("demo")}
+          onUseDemo={() => {
+            const demo = conn.connection("demo");
+            if (demo) openConnection(demo);
+            setSetupStep("try");
+          }}
+          onConnectOwn={() => {
+            setSetupStep(null);
+            setDialog({ kind: "connection", config: newConnection(), fromSetup: true });
+          }}
+          examples={exampleQuestions(schema, active?.id === "demo")}
+          onTry={trySetupQuestion}
+          onOpenSettings={openSettings}
+          onFinish={finishSetup}
         />
       )}
     </div>

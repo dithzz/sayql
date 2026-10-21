@@ -11,6 +11,8 @@ export interface SettingsDialogProps {
   settings: Settings;
   onClose: () => void;
   onSaved: (s: Settings) => void;
+  /** Reopens the first-run setup. */
+  onShowSetup: () => void;
 }
 
 /** What the form holds for one provider; kept per provider so switching back loses nothing. */
@@ -29,7 +31,7 @@ function privacyNote(p: AiProvider): string {
   return `Your question and table and column names are sent to ${to}, never the data in your tables.`;
 }
 
-export function SettingsDialog({ settings, onClose, onSaved }: SettingsDialogProps) {
+export function SettingsDialog({ settings, onClose, onSaved, onShowSetup }: SettingsDialogProps) {
   const [providerId, setProviderId] = useState(settings.provider);
   const [drafts, setDrafts] = useState<Record<string, Draft>>(() =>
     Object.fromEntries(settings.providers.map((p) => [p.id, draftOf(p)])),
@@ -212,7 +214,10 @@ export function SettingsDialog({ settings, onClose, onSaved }: SettingsDialogPro
         {() => (
           <p className={styles.about}>
             SayQL Community Edition {version}. Free forever, for personal and commercial use. The license, privacy
-            notice and third-party notices are included with the app.
+            notice and third-party notices are included with the app.{" "}
+            <button type="button" className={styles.link} onClick={onShowSetup}>
+              Show the setup guide again
+            </button>
           </p>
         )}
       </Field>

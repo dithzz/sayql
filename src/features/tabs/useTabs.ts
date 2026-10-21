@@ -11,6 +11,8 @@ export interface EditorTab {
   sql: string;
   /** Run `sql` when the tab first shows (table previews). */
   autoRun?: boolean;
+  /** Ask the AI `question` when the tab first shows, then run the result (first-run setup). */
+  autoAsk?: boolean;
   /** The query last run here, which follow-up requests build on. */
   lastRun?: PreviousQuery | null;
   /** Tables picked in the navigator (qualified names) that the AI should build on. */
@@ -33,7 +35,7 @@ interface TabsState {
   activeId: string | null;
 }
 
-export type NewTab = Partial<Pick<EditorTab, "title" | "question" | "sql" | "autoRun" | "scriptId" | "savedSql">>;
+export type NewTab = Partial<Pick<EditorTab, "title" | "question" | "sql" | "autoRun" | "autoAsk" | "scriptId" | "savedSql">>;
 
 /** Open editor tabs and which one is active. Remembered across launches. */
 export function useTabs() {

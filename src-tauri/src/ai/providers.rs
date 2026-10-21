@@ -55,7 +55,7 @@ pub const PROVIDERS: &[Provider] = &[
     Provider {
         id: ANTHROPIC,
         label: "Anthropic Claude",
-        note: "Recommended. Tuned for SayQL, with prompt caching for fast drafts.",
+        note: "Tuned for SayQL, with prompt caching for fast drafts.",
         api: Api::Anthropic,
         base_url: "https://api.anthropic.com",
         key: KeyNeed::Required,

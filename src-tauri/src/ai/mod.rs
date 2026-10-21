@@ -130,6 +130,11 @@ pub async fn stream_sql(app: AppHandle, http: reqwest::Client, r: GenRequest) {
     let _ = app.emit(EVENT_DONE, done);
 }
 
+/// Checks a Claude API key.
+pub async fn check_claude_key(http: &reqwest::Client, api_key: &str, workspace_id: Option<&str>) -> AppResult<()> {
+    anthropic::check_key(http, api_key, workspace_id).await
+}
+
 /// The models an OpenAI-compatible service offers; also checks its key and URL.
 pub async fn list_models(http: &reqwest::Client, label: &str, base_url: &str, api_key: Option<&str>) -> AppResult<Vec<String>> {
     openai::list_models(http, &openai::Service { label, base_url, api_key }).await

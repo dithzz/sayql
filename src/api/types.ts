@@ -93,6 +93,8 @@ export interface Settings {
   expertModel: string;
   /** The provider has what it needs (key, model) to write SQL. */
   aiReady: boolean;
+  /** The first-run setup was finished or dismissed. */
+  onboarded: boolean;
   workspaceId: string;
   /** Claude's models. */
   models: ModelOption[];

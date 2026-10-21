@@ -39,6 +39,7 @@ pub fn run() {
             generation::cancel_generation,
             settings::save_settings,
             settings::list_models,
+            settings::finish_onboarding,
             settings::mcp_setup,
             updates::check_update,
             updates::install_update,

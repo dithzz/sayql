@@ -7,6 +7,17 @@
   flex: 1;
   min-width: 0;
 }
+.link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-accent);
+  font: inherit;
+  cursor: pointer;
+}
+.link:hover {
+  text-decoration: underline;
+}
 .about {
   margin: 0;
   font-size: var(--font-size-sm);

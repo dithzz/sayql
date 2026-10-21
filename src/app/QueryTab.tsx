@@ -64,6 +64,25 @@ export function QueryTab({ tab, active, label, schema, settings, modelNames, onC
     if (!generation.requestRun()) runAndRemember(tab.sql, generation.question);
   };
 
+  // From the first-run setup: ask the tab's question as soon as it shows, then run the answer.
+  const runWhenAnswered = useRef(false);
+  useEffect(() => {
+    if (active && tab.autoAsk && schema) {
+      onChange({ autoAsk: false });
+      runWhenAnswered.current = true;
+      generation.setQuestion(tab.question);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active, tab.autoAsk, schema]);
+  useEffect(() => {
+    const kind = generation.status.kind;
+    if (!runWhenAnswered.current || kind === "idle" || kind === "writing") return;
+    runWhenAnswered.current = false;
+    // A write would still stop at the confirmation dialog; an error shows in the Ask box.
+    if (kind === "done" || kind === "instant") runAndRemember(tab.sql, generation.question);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [generation.status]);
+
   // Table previews run as soon as the tab is first shown.
   useEffect(() => {
     if (active && tab.autoRun && schema) {

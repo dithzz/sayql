@@ -51,6 +51,8 @@ export const commands = {
 
   /** Saves the choices for one provider and makes it the one that writes SQL. */
   saveSettings: (choice: ProviderChoice) => invoke<Settings>("save_settings", { ...choice }),
+  /** Marks the first-run setup as done so it isn't shown again. */
+  finishOnboarding: () => invoke<Settings>("finish_onboarding"),
   /** Model ids an AI provider offers; also checks the key and base URL. */
   listModels: (provider: string, baseUrl: string, apiKey: string | null) =>
     invoke<string[]>("list_models", { provider, baseUrl, apiKey }),

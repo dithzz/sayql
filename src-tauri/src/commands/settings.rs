@@ -15,6 +15,8 @@ pub struct SettingsView {
     expert_model: String,
     /// The provider has everything it needs (key, model) to write SQL.
     ai_ready: bool,
+    /// The first-run setup was finished or dismissed.
+    onboarded: bool,
     workspace_id: String,
     /// Claude's models; other providers list theirs on request (`list_models`).
     models: Vec<ModelOption>,
@@ -53,6 +55,7 @@ pub fn settings_view(s: &Settings) -> SettingsView {
         typing_model: active.typing_model.clone(),
         expert_model: active.model(true).to_string(),
         ai_ready: endpoint(s).is_ok(),
+        onboarded: s.onboarded,
         workspace_id: s.workspace_id.clone(),
         models: ai::MODELS.iter().map(|(id, label)| ModelOption { id, label }).collect(),
         providers: ai::PROVIDERS
@@ -171,6 +174,12 @@ pub async fn list_models(
 ) -> AppResult<Vec<String>> {
     let p = self::provider(&provider)?;
     if p.api == Api::Anthropic {
+        // Claude's models are fixed; this checks the key so a typo is caught before it's saved.
+        let key = api_key.map(|k| k.trim().to_string()).filter(|k| !k.is_empty()).or_else(|| secrets::api_key(p.id));
+        let key = key.ok_or_else(|| AppError::User("Paste your Claude API key first.".into()))?;
+        let workspace = valid_workspace_id(&state.store.settings().workspace_id)?;
+        let http = state.http.clone();
+        ai::check_claude_key(&http, &key, Some(workspace.as_str()).filter(|w| !w.is_empty())).await?;
         return Ok(ai::MODELS.iter().map(|(id, _)| id.to_string()).collect());
     }
     let typed = ai::clean_base_url(&base_url).map_err(AppError::User)?;
@@ -188,6 +197,15 @@ pub async fn list_models(
     }
     let http = state.http.clone();
     ai::list_models(&http, p.label, &url, key.as_deref()).await
+}
+
+/// Records that the first-run setup was finished or dismissed, so it isn't shown again.
+#[tauri::command]
+pub fn finish_onboarding(state: State<'_, AppState>) -> AppResult<SettingsView> {
+    let mut s = state.store.settings();
+    s.onboarded = true;
+    state.store.save_settings(&s)?;
+    Ok(settings_view(&s))
 }
 
 /// Where the `sayql-mcp` server binary is, for connecting Claude to SayQL.

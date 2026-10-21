@@ -89,6 +89,24 @@ pub(super) async fn run(
     }
 }
 
+/// Checks that an API key works, with the cheapest call there is (listing one model).
+pub(super) async fn check_key(http: &reqwest::Client, api_key: &str, workspace_id: Option<&str>) -> AppResult<()> {
+    let mut req = http
+        .get("https://api.anthropic.com/v1/models?limit=1")
+        .header("x-api-key", api_key)
+        .header("anthropic-version", API_VERSION)
+        .timeout(std::time::Duration::from_secs(20));
+    if let Some(ws) = workspace_id {
+        req = req.header("anthropic-workspace-id", ws);
+    }
+    let resp = req.send().await.map_err(|e| format!("Could not reach the Claude API: {e}"))?;
+    let status = resp.status().as_u16();
+    if !resp.status().is_success() {
+        return Err(api_error(status, &resp.text().await.unwrap_or_default()));
+    }
+    Ok(())
+}
+
 /// A message for a non-2xx API response. Mentions Settings when that's where the fix is.
 fn api_error(status: u16, body: &str) -> AppError {
     let msg = serde_json::from_str::<Value>(body)

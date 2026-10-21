@@ -51,6 +51,9 @@ pub struct Settings {
     /// Needed for API keys that aren't scoped to a workspace (`anthropic-workspace-id` header).
     #[serde(default)]
     pub workspace_id: String,
+    /// The first-run setup was finished or dismissed, so it isn't shown again.
+    #[serde(default)]
+    pub onboarded: bool,
 }
 
 /// How SayQL uses one AI provider.
@@ -114,6 +117,7 @@ impl Default for Settings {
             providers: BTreeMap::new(),
             demo_added: false,
             workspace_id: String::new(),
+            onboarded: false,
         }
     }
 }

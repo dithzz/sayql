@@ -61,6 +61,7 @@ const settings: Settings = {
   typingModel: "claude-haiku-5-5",
   expertModel: "claude-opus-5-5",
   aiReady: true,
+  onboarded: false,
   workspaceId: "",
   models: [
     { id: "claude-opus-5-5", label: "Claude Opus 5.5 — most accurate" },
@@ -70,7 +71,7 @@ const settings: Settings = {
   providers: [
     provider("anthropic", "Anthropic Claude", {
       api: "anthropic",
-      note: "Recommended. Tuned for SayQL, with prompt caching for fast drafts.",
+      note: "Tuned for SayQL, with prompt caching for fast drafts.",
       keyPlaceholder: "sk-ant-…",
       defaultBaseUrl: "https://api.anthropic.com",
       typingModel: "claude-haiku-5-5",
@@ -198,7 +199,11 @@ export function installMockBackend() {
           });
           return { ...settings };
         }
+        case "finish_onboarding":
+          settings.onboarded = true;
+          return { ...settings };
         case "list_models":
+          if (a.provider === "anthropic") return settings.models.map((m) => m.id);
           return a.provider === "ollama" ? ["llama3.3:70b", "qwen3:32b", "sqlcoder:15b"] : ["model-small", "model-large"];
         default:
           return null;
