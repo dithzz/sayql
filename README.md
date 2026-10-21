@@ -6,7 +6,8 @@
 
 ### Say what you need. It knows your schema.
 
-Plain English in, the right SQL out in about a second, faster than you could write it. Read-only unless you say so.
+The safe way to query production databases, without being a SQL expert.<br>
+The right SQL in about a second, and nothing changes unless you say so.
 
 [![Latest release](https://img.shields.io/github/v/release/dithzz/sayql-releases?label=release&color=4F46E5)](https://github.com/dithzz/sayql-releases/releases/latest)
 [![CI](https://github.com/dithzz/sayql/actions/workflows/ci.yml/badge.svg)](https://github.com/dithzz/sayql/actions/workflows/ci.yml)
@@ -26,21 +27,22 @@ Plain English in, the right SQL out in about a second, faster than you could wri
 
 ## Why SayQL
 
-Most people who work with data know what they want to ask, but not always how to write it in SQL. Chatbots
-can write a query, but they don't know your schema, can't run anything, and copy-pasting between windows gets
-old fast. SayQL puts the AI inside a real database client:
+**SayQL is for people who need answers from production databases but don't write SQL every day:** analysts,
+product managers, support and operations teams, and developers who only touch the database now and then.
+Asking an engineer takes time; general chatbots don't know your schema and can't run anything safely.
 
-- **Faster than writing it yourself.** A fast model drafts the query in about a second, streaming it into the
-  editor while you're still typing, and simple requests like "show customers" are answered instantly on your
-  machine with no AI call at all.
-- **Follow-ups that edit, not restart.** "Only Canada", "remove the middle name", "sort by date" change the
-  query you already have.
-- **Safe on production.** Queries run read-only, enforced by the database itself. Anything that could change
-  data stops and shows you the statement first.
-- **Your AI, your data.** Use Claude, OpenAI, Gemini or any OpenAI-compatible API with your own key, or a
-  local model so nothing leaves your computer. Table rows are never sent to the AI.
-- **A proper workbench.** Navigator, tabs, saved scripts, a Monaco editor and a fast results grid, in light
-  and dark mode.
+- **Safe on production, by design.** Queries run read-only, and the database itself enforces it. Anything that
+  could change data stops and shows you the exact statement first. Generated writes match no rows until you
+  fill them in.
+- **It knows your schema.** Tables, columns and relationships across every database you connect, so the SQL
+  uses your real names and joins, not guesses.
+- **Faster than writing it yourself.** The right SQL in about a second, streaming in while you type. Simple
+  requests are answered instantly on your machine, follow-ups edit the query you have ("only Canada",
+  "sort by date"), and failed queries fix themselves once.
+- **Your AI, your data.** Use Claude, OpenAI, Gemini or any OpenAI-compatible API with your own key, or a local
+  model so nothing leaves your computer. Table rows are never sent to the AI.
+- **A real database client.** Navigator, tabs, saved scripts, a proper editor and results grid. You see every
+  query, so you learn SQL as you go.
 
 ## Features
 
