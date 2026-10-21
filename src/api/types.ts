@@ -104,6 +104,18 @@ export interface McpSetup {
   exists: boolean;
 }
 
+/** A query saved from a tab; mirrors `store::Script` in src-tauri/src/store/mod.rs. */
+export interface Script {
+  id: string;
+  name: string;
+  connectionId: string;
+  database: string | null;
+  question: string;
+  sql: string;
+  /** Milliseconds since the Unix epoch. */
+  updatedAt: number;
+}
+
 export interface Bootstrap {
   connections: ConnectionConfig[];
   settings: Settings;

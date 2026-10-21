@@ -6,6 +6,7 @@ import type {
   GenerationTask,
   McpSetup,
   QueryResult,
+  Script,
   Schema,
   Settings,
   Target,
@@ -32,6 +33,11 @@ export const commands = {
   generateSql: (t: Target, question: string, reqId: number, slot: string, task: GenerationTask) =>
     invoke<void>("generate_sql", { id: t.connectionId, database: t.database, question, reqId, slot, task }),
   cancelGeneration: (slot: string) => invoke<void>("cancel_generation", { slot }),
+
+  listScripts: () => invoke<Script[]>("list_scripts"),
+  /** Creates the script when `id` is empty; returns it as stored. */
+  saveScript: (script: Script) => invoke<Script>("save_script", { script }),
+  deleteScript: (id: string) => invoke<void>("delete_script", { id }),
 
   mcpSetup: () => invoke<McpSetup>("mcp_setup"),
 

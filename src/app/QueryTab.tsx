@@ -22,10 +22,11 @@ export interface QueryTabProps {
   modelNames: ModelNames;
   onChange: (patch: Partial<EditorTab>) => void;
   onOpenSettings: () => void;
+  onSave: () => void;
 }
 
 /** One editor tab: Ask bar and SQL editor above, results below, bound to the tab's database. */
-export function QueryTab({ tab, active, label, schema, settings, modelNames, onChange, onOpenSettings }: QueryTabProps) {
+export function QueryTab({ tab, active, label, schema, settings, modelNames, onChange, onOpenSettings, onSave }: QueryTabProps) {
   const askRef = useRef<HTMLTextAreaElement>(null);
   const setSql = (sql: string) => onChange({ sql });
   const lastRun = tab.lastRun ?? null;
@@ -105,6 +106,7 @@ export function QueryTab({ tab, active, label, schema, settings, modelNames, onC
             running={query.running}
             onImprove={() => generation.improve(tab.sql)}
             canImprove={canUseAi && !busy && !!tab.sql.trim()}
+            onSave={onSave}
             onOpenSettings={onOpenSettings}
             onRetry={generation.retry}
             followUp={lastRun ? { onStartFresh: () => onChange({ lastRun: null }) } : undefined}

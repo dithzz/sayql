@@ -131,6 +131,14 @@ export function installMockBackend() {
         case "generate_sql":
           void streamSql(Number(a.reqId), mockAnswer(String(a.question), a.task as { kind: string }));
           return null;
+        case "list_scripts":
+          return [];
+        case "save_script": {
+          const script = a.script as { id: string };
+          return { ...script, id: script.id || crypto.randomUUID(), updatedAt: Date.now() };
+        }
+        case "delete_script":
+          return null;
         case "mcp_setup":
           return { path: "/Applications/AskDB.app/Contents/MacOS/askdb-mcp", exists: true };
         case "test_connection":

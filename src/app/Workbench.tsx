@@ -1,23 +1,31 @@
 import { useEffect, useRef, useState } from "react";
 import { Database, FileCode2, Server, Table2 } from "lucide-react";
-import type { Bootstrap, ConnectionConfig, Table, Target } from "../api";
-import { Alert, Button, EmptyState, ErrorBoundary, SplitPane, TabBar, type TabItem } from "../components/ui";
+import type { Bootstrap, ConnectionConfig, Script, Table, Target } from "../api";
+import { Alert, Button, Dialog, EmptyState, ErrorBoundary, SplitPane, TabBar, type TabItem } from "../components/ui";
 import { ConnectionDialog, DATABASE_KINDS, newConnection, targetKey, useConnections } from "../features/connections";
-import { DatabaseNavigator } from "../features/navigator";
+import { DatabaseNavigator, type NavigatorScript } from "../features/navigator";
+import { CloseTabDialog, SaveScriptDialog, useScripts } from "../features/scripts";
 import { selectAllSql } from "../features/schema/sql";
 import { SettingsDialog, useSettings } from "../features/settings";
-import { useTabs, type EditorTab } from "../features/tabs";
+import { hasUnsavedChanges, useTabs, type EditorTab } from "../features/tabs";
 import { QueryTab } from "./QueryTab";
 import { StatusBar } from "./StatusBar";
 import { TopBar } from "./TopBar";
 import styles from "./Workbench.module.css";
 
-type OpenDialog = { kind: "connection"; config: ConnectionConfig } | { kind: "settings" } | null;
+type OpenDialog =
+  | { kind: "connection"; config: ConnectionConfig }
+  | { kind: "settings" }
+  | { kind: "saveScript"; tabId: string; closeAfter: boolean }
+  | { kind: "closeTab"; tabId: string }
+  | { kind: "deleteScript"; script: Script }
+  | null;
 
 /** The main window. Owns no logic of its own: it wires the feature hooks to the feature views. */
 export function Workbench({ boot }: { boot: Bootstrap }) {
   const conn = useConnections(boot.connections);
   const tabs = useTabs();
+  const scripts = useScripts();
   const { settings, setSettings, modelNames } = useSettings(boot.settings);
   const [dialog, setDialog] = useState<OpenDialog>(null);
 
@@ -62,12 +70,67 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
     else if (conn.connections[0]) openConnection(conn.connections[0]);
   };
 
-  // ⌘T / Ctrl+T opens a new tab on the current database.
+  const tabById = (id: string) => tabs.tabs.find((t) => t.id === id) ?? null;
+  const scriptOf = (t: EditorTab) => (t.scriptId ? (scripts.scripts.find((s) => s.id === t.scriptId) ?? null) : null);
+
+  /** Saves the tab as a script (named `name`, or keeping its script's name) and marks it saved. */
+  const saveTab = async (t: EditorTab, name?: string) => {
+    const existing = scriptOf(t);
+    const saved = await scripts.save({
+      id: existing?.id ?? "",
+      name: name ?? existing?.name ?? t.title,
+      connectionId: t.target.connectionId,
+      database: t.target.database,
+      question: t.question,
+      sql: t.sql,
+      updatedAt: 0,
+    });
+    tabs.update(t.id, { scriptId: saved.id, title: saved.name, savedSql: t.sql });
+  };
+
+  /** Saves straight away when the tab already is a script; otherwise asks for a name first. */
+  const requestSave = (t: EditorTab, closeAfter = false) => {
+    if (!t.sql.trim()) return;
+    const ask = () => setDialog({ kind: "saveScript", tabId: t.id, closeAfter });
+    if (!scriptOf(t)) return ask();
+    saveTab(t).then(() => closeAfter && tabs.close(t.id), ask);
+  };
+
+  /** Closes the tab, first asking to save when that would lose SQL. */
+  const requestClose = (id: string) => {
+    const t = tabById(id);
+    if (t && hasUnsavedChanges(t)) setDialog({ kind: "closeTab", tabId: id });
+    else tabs.close(id);
+  };
+
+  const openScript = (id: string) => {
+    const s = scripts.scripts.find((x) => x.id === id);
+    if (!s) return;
+    const open = tabs.tabs.find((t) => t.scriptId === id);
+    if (open) return tabs.activate(open.id);
+    tabs.open(
+      { connectionId: s.connectionId, database: s.database },
+      { scriptId: s.id, title: s.name, sql: s.sql, question: s.question, savedSql: s.sql },
+    );
+  };
+
+  const deleteScript = async (s: Script) => {
+    await scripts.remove(s.id);
+    // Open tabs keep their SQL, now unsaved, so nothing is lost by accident.
+    tabs.tabs.filter((t) => t.scriptId === s.id).forEach((t) => tabs.update(t.id, { scriptId: undefined, savedSql: undefined }));
+  };
+
+  // ⌘T / Ctrl+T opens a new tab on the current database; ⌘S / Ctrl+S saves the active tab.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "t") {
+      if (!(e.metaKey || e.ctrlKey)) return;
+      const key = e.key.toLowerCase();
+      if (key === "t") {
         e.preventDefault();
         newTab();
+      } else if (key === "s" && tabs.active) {
+        e.preventDefault();
+        requestSave(tabs.active);
       }
     };
     window.addEventListener("keydown", onKey);
@@ -76,7 +139,8 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
 
   const previewTable = (t: Table) => {
     if (!target || !schema) return;
-    tabs.open(target, { title: t.name, sql: selectAllSql(t, schema.dialect), autoRun: true });
+    const sql = selectAllSql(t, schema.dialect);
+    tabs.open(target, { title: t.name, sql, savedSql: sql, autoRun: true });
   };
 
   const tabLabel = (t: EditorTab) => {
@@ -88,15 +152,30 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
   const tabItems: TabItem[] = tabs.tabs.map((t) => {
     const { name, db } = tabLabel(t);
     const c = conn.connection(t.target.connectionId);
-    const Icon = t.title ? Table2 : FileCode2;
+    // Named tabs are table previews, unless they are saved scripts.
+    const Icon = t.title && !t.scriptId ? Table2 : FileCode2;
     return {
       id: t.id,
       label: t.title || db || name,
       detail: t.title ? (db ?? name) : db ? name : undefined,
       title: [name, db, t.title].filter(Boolean).join(" / "),
       icon: <Icon size={14} color={c ? DATABASE_KINDS[c.kind].color : undefined} />,
+      dirty: hasUnsavedChanges(t),
     };
   });
+
+  const navigatorScripts: NavigatorScript[] = scripts.scripts.map((s) => {
+    const c = conn.connection(s.connectionId);
+    return {
+      id: s.id,
+      name: s.name,
+      location: c?.kind === "sqlite" ? c.name : (s.database ?? c?.database ?? c?.name ?? ""),
+      orphaned: !c,
+    };
+  });
+
+  /** A name to suggest when a tab is saved for the first time. */
+  const suggestedName = (t: EditorTab) => t.title || t.question.trim().slice(0, 60) || `${tabLabel(t).db ?? tabLabel(t).name} query`;
 
   const openSettings = () => setDialog({ kind: "settings" });
   const openNewConnection = () => setDialog({ kind: "connection", config: newConnection() });
@@ -150,6 +229,12 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
               onEdit={(c) => setDialog({ kind: "connection", config: c })}
               onRefresh={() => target && conn.ensure(target, true)}
               onPreviewTable={previewTable}
+              scripts={navigatorScripts}
+              onOpenScript={openScript}
+              onDeleteScript={(id) => {
+                const s = scripts.scripts.find((x) => x.id === id);
+                if (s) setDialog({ kind: "deleteScript", script: s });
+              }}
             />
           }
           second={
@@ -158,7 +243,7 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
                 items={tabItems}
                 activeId={tabs.active?.id ?? null}
                 onSelect={tabs.activate}
-                onClose={tabs.close}
+                onClose={requestClose}
                 onAdd={conn.connections.length ? newTab : undefined}
                 addLabel="New SQL tab (⌘T)"
               />
@@ -176,6 +261,7 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
                       modelNames={modelNames}
                       onChange={(patch) => tabs.update(t.id, patch)}
                       onOpenSettings={openSettings}
+                      onSave={() => requestSave(t)}
                     />
                     </ErrorBoundary>
                   );
@@ -231,6 +317,54 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
             tabs.closeWhere((t) => t.target.connectionId === id);
           }}
         />
+      )}
+      {dialog?.kind === "saveScript" && tabById(dialog.tabId) && (
+        <SaveScriptDialog
+          initialName={suggestedName(tabById(dialog.tabId)!)}
+          onCancel={() => setDialog(null)}
+          onSave={async (name) => {
+            await saveTab(tabById(dialog.tabId)!, name);
+            if (dialog.closeAfter) tabs.close(dialog.tabId);
+            setDialog(null);
+          }}
+        />
+      )}
+      {dialog?.kind === "closeTab" && tabById(dialog.tabId) && (
+        <CloseTabDialog
+          tabName={tabItems.find((i) => i.id === dialog.tabId)?.label ?? "this tab"}
+          onCancel={() => setDialog(null)}
+          onDiscard={() => {
+            tabs.close(dialog.tabId);
+            setDialog(null);
+          }}
+          onSave={() => {
+            setDialog(null);
+            requestSave(tabById(dialog.tabId)!, true);
+          }}
+        />
+      )}
+      {dialog?.kind === "deleteScript" && (
+        <Dialog
+          title={`Delete “${dialog.script.name}”?`}
+          size="sm"
+          onClose={() => setDialog(null)}
+          actions={
+            <>
+              <Button onClick={() => setDialog(null)}>Cancel</Button>
+              <Button
+                variant="danger"
+                onClick={() => {
+                  void deleteScript(dialog.script);
+                  setDialog(null);
+                }}
+              >
+                Delete
+              </Button>
+            </>
+          }
+        >
+          <p style={{ margin: 0 }}>The saved script is removed. If it’s open in a tab, the tab keeps its SQL as unsaved.</p>
+        </Dialog>
       )}
       {dialog?.kind === "settings" && (
         <SettingsDialog

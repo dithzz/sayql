@@ -11,6 +11,8 @@ export interface TabItem {
   detail?: string;
   icon?: ReactNode;
   title?: string;
+  /** Shows a dot until hovered, like an unsaved file. */
+  dirty?: boolean;
 }
 
 export interface TabBarProps {
@@ -42,11 +44,12 @@ export function TabBar({ items, activeId, onSelect, onClose, onAdd, addLabel = "
               {t.label}
               {t.detail && <span className={styles.detail}> · {t.detail}</span>}
             </span>
+            {t.dirty && <span className={styles.dirty} aria-label="Unsaved changes" />}
             <IconButton
               icon={X}
               label={`Close ${t.label}`}
               size="sm"
-              className={styles.close}
+              className={cx(styles.close, t.dirty && styles.closeDirty)}
               onClick={(e) => {
                 e.stopPropagation();
                 onClose(t.id);

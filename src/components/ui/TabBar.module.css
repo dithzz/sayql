@@ -81,6 +81,29 @@
   visibility: visible;
 }
 
+/* Unsaved: a dot where the close button sits; hovering swaps it for the button. */
+.dirty {
+  width: 8px;
+  height: 8px;
+  margin: 0 8px;
+  border-radius: var(--radius-pill);
+  background: var(--color-text-muted);
+  flex-shrink: 0;
+}
+.active .dirty {
+  background: var(--color-accent);
+}
+.closeDirty,
+.active .closeDirty {
+  display: none;
+}
+.tab:hover .dirty {
+  display: none;
+}
+.tab:hover .closeDirty {
+  display: inline-flex;
+}
+
 .add {
   align-self: center;
   margin: 0 var(--space-1);

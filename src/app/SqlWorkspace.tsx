@@ -1,5 +1,5 @@
 import type { RefObject } from "react";
-import { Eraser, FileCode2, Play, Wand2 } from "lucide-react";
+import { Eraser, FileCode2, Play, Save, Wand2 } from "lucide-react";
 import type { Schema } from "../api";
 import { Button, IconButton, Panel } from "../components/ui";
 import { AskBar, type GenerationStatus } from "../features/ask";
@@ -20,6 +20,8 @@ export interface SqlWorkspaceProps {
   /** Asks the expert model to review the SQL. */
   onImprove: () => void;
   canImprove: boolean;
+  /** Saves the tab as a script (⌘S). */
+  onSave: () => void;
   examples?: string[];
   sql: string;
   onSqlChange: (sql: string) => void;
@@ -40,6 +42,7 @@ export function SqlWorkspace(p: SqlWorkspaceProps) {
       subtitle={p.connectionName}
       actions={
         <>
+          <IconButton icon={Save} label="Save script (⌘S)" size="sm" onClick={p.onSave} disabled={!p.sql.trim()} />
           <IconButton icon={Eraser} label="Clear" size="sm" onClick={() => p.onSqlChange("")} disabled={!p.sql} />
           <Button
             size="sm"

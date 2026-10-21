@@ -1,5 +1,20 @@
 import { useMemo, useState } from "react";
-import { Database, Eye, Folder, KeyRound, Link2, Pencil, Plus, RefreshCw, Search, Server, Table2, Type } from "lucide-react";
+import {
+  Database,
+  Eye,
+  FileCode2,
+  Folder,
+  KeyRound,
+  Link2,
+  Pencil,
+  Plus,
+  RefreshCw,
+  Search,
+  Server,
+  Table2,
+  Trash2,
+  Type,
+} from "lucide-react";
 import type { ConnectionConfig, DatabaseList, Schema, Table } from "../../api";
 import { IconButton, Panel, Spinner, TextInput, TreeRow } from "../../components/ui";
 import { cx } from "../../lib/cx";
@@ -23,6 +38,19 @@ export interface DatabaseNavigatorProps {
   onRefresh: () => void;
   /** Double-click on a table. */
   onPreviewTable: (t: Table) => void;
+  scripts: NavigatorScript[];
+  onOpenScript: (id: string) => void;
+  onDeleteScript: (id: string) => void;
+}
+
+/** A saved script as listed in the navigator. */
+export interface NavigatorScript {
+  id: string;
+  name: string;
+  /** Where it runs, e.g. "Sales". */
+  location: string;
+  /** Its connection was deleted, so it can't be opened. */
+  orphaned: boolean;
 }
 
 /**
@@ -203,6 +231,31 @@ export function DatabaseNavigator(p: DatabaseNavigatorProps) {
           );
         })}
         {p.connections.length === 0 && <TreeRow depth={0} label={<span className={styles.message}>No connections yet</span>} />}
+        {p.scripts.length > 0 && (
+          <div role="group" className={styles.scripts}>
+            <TreeRow
+              depth={0}
+              expanded={!collapsed.has("scripts")}
+              icon={<Folder size={14} />}
+              label={<span className={styles.connLabel}>Saved scripts</span>}
+              meta={p.scripts.length}
+              onClick={() => setCollapsed((s) => toggle(s, "scripts"))}
+            />
+            {!collapsed.has("scripts") &&
+              p.scripts.map((s) => (
+                <TreeRow
+                  key={s.id}
+                  depth={1}
+                  icon={<FileCode2 size={14} />}
+                  label={<span className={cx(s.orphaned && styles.message)}>{s.name}</span>}
+                  meta={s.orphaned ? "connection removed" : s.location}
+                  title={s.orphaned ? "Its connection was deleted" : `Open ${s.name}`}
+                  onClick={() => !s.orphaned && p.onOpenScript(s.id)}
+                  actions={<IconButton icon={Trash2} label={`Delete ${s.name}`} size="sm" onClick={() => p.onDeleteScript(s.id)} />}
+                />
+              ))}
+          </div>
+        )}
       </div>
     </Panel>
   );

@@ -10,6 +10,7 @@ use std::path::PathBuf;
 
 const CONNECTIONS_FILE: &str = "connections.json";
 const SETTINGS_FILE: &str = "settings.json";
+const SCRIPTS_FILE: &str = "scripts.json";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -45,6 +46,23 @@ impl Default for Settings {
             workspace_id: String::new(),
         }
     }
+}
+
+/// A query the person saved from a tab, bound to the database it was written for.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Script {
+    pub id: String,
+    pub name: String,
+    pub connection_id: String,
+    #[serde(default)]
+    pub database: Option<String>,
+    #[serde(default)]
+    pub question: String,
+    pub sql: String,
+    /// Milliseconds since the Unix epoch.
+    #[serde(default)]
+    pub updated_at: u64,
 }
 
 pub struct Store {
@@ -88,5 +106,13 @@ impl Store {
 
     pub fn save_settings(&self, s: &Settings) -> AppResult<()> {
         self.write(SETTINGS_FILE, s)
+    }
+
+    pub fn scripts(&self) -> Vec<Script> {
+        self.read(SCRIPTS_FILE)
+    }
+
+    pub fn save_scripts(&self, list: &[Script]) -> AppResult<()> {
+        self.write(SCRIPTS_FILE, &list)
     }
 }

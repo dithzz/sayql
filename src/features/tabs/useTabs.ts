@@ -13,6 +13,15 @@ export interface EditorTab {
   autoRun?: boolean;
   /** The query last run here, which follow-up requests build on. */
   lastRun?: PreviousQuery | null;
+  /** The saved script this tab edits, if any. */
+  scriptId?: string;
+  /** The SQL as last saved (or as generated for a table preview); differs from `sql` when there are unsaved changes. */
+  savedSql?: string;
+}
+
+/** True when closing the tab would lose SQL. */
+export function hasUnsavedChanges(tab: EditorTab): boolean {
+  return tab.sql.trim() !== "" && tab.sql !== (tab.savedSql ?? "");
 }
 
 interface TabsState {
@@ -20,7 +29,7 @@ interface TabsState {
   activeId: string | null;
 }
 
-export type NewTab = Partial<Pick<EditorTab, "title" | "question" | "sql" | "autoRun">>;
+export type NewTab = Partial<Pick<EditorTab, "title" | "question" | "sql" | "autoRun" | "scriptId" | "savedSql">>;
 
 /** Open editor tabs and which one is active. Remembered across launches. */
 export function useTabs() {

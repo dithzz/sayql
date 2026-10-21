@@ -4,4 +4,5 @@
 pub mod connections;
 pub mod generation;
 pub mod query;
+pub mod scripts;
 pub mod settings;
