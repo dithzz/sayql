@@ -190,7 +190,7 @@ pub async fn list_models(
     ai::list_models(&http, p.label, &url, key.as_deref()).await
 }
 
-/// Where the `sayql-mcp` server binary is, for connecting Claude to Sayql.
+/// Where the `sayql-mcp` server binary is, for connecting Claude to SayQL.
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct McpSetup {

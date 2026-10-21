@@ -88,7 +88,7 @@ jobs:
           # commits don't exist there.
           releaseCommitish: main
           tagName: ${{ github.ref_name }}
-          releaseName: "Sayql Community Edition ${{ github.ref_name }}"
+          releaseName: "SayQL Community Edition ${{ github.ref_name }}"
           releaseBody: |
             Free forever, for personal and commercial use.
 

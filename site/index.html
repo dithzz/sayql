@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Sayql — Ask your database</title>
-<meta name="description" content="Sayql is a desktop database client that writes SQL as you type plain English, with the AI you choose. PostgreSQL, MySQL, SQLite and SQL Server. Read-only by default.">
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='100 100 824 824'%3E%3Cdefs%3E%3ClinearGradient id='b' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%234F46E5'/%3E%3Cstop offset='1' stop-color='%230EA5E9'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect x='100' y='100' width='824' height='824' rx='185' fill='url(%23b)'/%3E%3Cg fill='none' stroke='%23fff' stroke-width='40' stroke-linecap='round'%3E%3Cellipse cx='452' cy='340' rx='190' ry='62'/%3E%3Cpath d='M262 340v300c0 34 85 62 190 62M642 340v150M262 490c0 34 85 62 190 62'/%3E%3C/g%3E%3Cpath d='M560 560h240a40 40 0 0 1 40 40v130a40 40 0 0 1-40 40H680l-70 60v-60h-50a40 40 0 0 1-40-40V600a40 40 0 0 1 40-40z' fill='%23fff'/%3E%3C/svg%3E">
+<title>SayQL — Ask your database</title>
+<meta name="description" content="SayQL is a desktop database client that writes SQL as you type plain English, with the AI you choose. PostgreSQL, MySQL, SQLite and SQL Server. Read-only by default.">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='100 100 824 824'%3E%3Cdefs%3E%3ClinearGradient id='b' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%234F46E5'/%3E%3Cstop offset='1' stop-color='%237C3AED'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect x='100' y='100' width='824' height='824' rx='185' fill='url%28%23b%29'/%3E%3Ccircle cx='496' cy='478' r='196' fill='none' stroke='%23fff' stroke-width='96'/%3E%3Cpath d='M676 590 C 700 670 742 728 800 772 C 716 770 646 740 594 690 Z' fill='%23fff'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap">
@@ -610,12 +610,9 @@ footer a { text-decoration: none; } footer a:hover { color: var(--color-text); }
 
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
   <defs>
-    <linearGradient id="logo-bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4F46E5"/><stop offset="1" stop-color="#0EA5E9"/></linearGradient>
+    <linearGradient id="logo-bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4F46E5"/><stop offset="1" stop-color="#7C3AED"/></linearGradient>
     <symbol id="logo" viewBox="100 100 824 824">
-      <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#logo-bg)"/>
-      <g fill="none" stroke="#fff" stroke-width="44" stroke-linecap="round"><ellipse cx="452" cy="340" rx="190" ry="62"/><path d="M262 340v300c0 34 85 62 190 62M642 340v150M262 490c0 34 85 62 190 62"/></g>
-      <path d="M560 560h240a40 40 0 0 1 40 40v130a40 40 0 0 1-40 40H680l-70 60v-60h-50a40 40 0 0 1-40-40V600a40 40 0 0 1 40-40z" fill="#fff"/>
-      <g fill="#4F46E5"><circle cx="620" cy="665" r="22"/><circle cx="680" cy="665" r="22"/><circle cx="740" cy="665" r="22"/></g>
+      <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#logo-bg)"/><circle cx="496" cy="478" r="196" fill="none" stroke="#fff" stroke-width="96"/><path d="M676 590 C 700 670 742 728 800 772 C 716 770 646 740 594 690 Z" fill="#fff"/>
     </symbol>
     <symbol id="i-spark" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2l1.9 5.6L19.5 9.5l-5.6 1.9L12 17l-1.9-5.6L4.5 9.5l5.6-1.9L12 2zm7 11l.9 2.6 2.6.9-2.6.9L19 20l-.9-2.6-2.6-.9 2.6-.9L19 13z"/></symbol>
     <symbol id="i-table" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 10v10"/></g></symbol>
@@ -641,7 +638,7 @@ footer a { text-decoration: none; } footer a:hover { color: var(--color-text); }
 
 <header class="nav" id="nav">
   <div class="wrap">
-    <a class="brand" href="#top" aria-label="Sayql home"><svg><use href="#logo"/></svg>Sayql</a>
+    <a class="brand" href="#top" aria-label="SayQL home"><svg><use href="#logo"/></svg>SayQL</a>
     <nav class="nav-links" aria-label="Main">
       <a href="#features">Features</a>
       <a href="#security">Security</a>
@@ -667,9 +664,9 @@ footer a { text-decoration: none; } footer a:hover { color: var(--color-text); }
     <div class="hero-copy">
       <a class="badge" href="#pricing"><b>Community Edition</b> Free forever, for personal and commercial use <svg width="14" height="14"><use href="#i-arrow"/></svg></a>
       <h1>Say what you need.<br><span class="ai">Get the SQL.</span></h1>
-      <p class="lede">Sayql is a desktop database client that writes the query while you type plain English. You read it, run it and keep it. No SQL expertise needed, and nothing changes in your data unless you say so.</p>
+      <p class="lede">SayQL is a desktop database client that writes the query while you type plain English. You read it, run it and keep it. No SQL expertise needed, and nothing changes in your data unless you say so.</p>
       <div class="hero-ctas">
-        <a class="btn btn-primary btn-lg" href="#download"><svg><use href="#i-download"/></svg>Get Sayql for desktop</a>
+        <a class="btn btn-primary btn-lg" href="#download"><svg><use href="#i-download"/></svg>Get SayQL for desktop</a>
         <a class="btn btn-lg" href="#how">See how it works</a>
       </div>
       <p class="downloads" data-downloads hidden><svg><use href="#i-download"/></svg><span data-downloads-count></span> downloads</p>
@@ -677,10 +674,10 @@ footer a { text-decoration: none; } footer a:hover { color: var(--color-text); }
     </div>
 
     <div class="stage">
-      <div class="window" aria-label="Animated demo of Sayql writing SQL from plain English" role="img">
+      <div class="window" aria-label="Animated demo of SayQL writing SQL from plain English" role="img">
         <div class="titlebar">
           <div class="lights" aria-hidden="true"><i></i><i></i><i></i></div>
-          <div class="tb-brand"><svg><use href="#logo"/></svg>Sayql</div>
+          <div class="tb-brand"><svg><use href="#logo"/></svg>SayQL</div>
           <span class="conn-chip"><span class="dot"></span>Shop · PostgreSQL</span>
           <div class="tb-end"><span class="kbd">⌘T</span> new tab <span class="kbd">⌘↵</span> run</div>
         </div>
@@ -781,12 +778,12 @@ footer a { text-decoration: none; } footer a:hover { color: var(--color-text); }
     <div class="sec-head center reveal">
       <span class="eyebrow">How it works</span>
       <h2>From a question to an answer in three moves</h2>
-      <p>You stay in control the whole way. Sayql writes the query, you decide what runs.</p>
+      <p>You stay in control the whole way. SayQL writes the query, you decide what runs.</p>
     </div>
     <div class="steps">
       <article class="step reveal">
         <div class="step-vis"><div class="vis-ask"><svg class="spark"><use href="#i-spark"/></svg>orders over $500 last week<span class="caret"></span></div></div>
-        <div class="step-copy"><span class="n">01</span><h3>Type what you want</h3><p>Plain English, as you'd ask a colleague. Pick tables in the navigator to point Sayql at the right place.</p></div>
+        <div class="step-copy"><span class="n">01</span><h3>Type what you want</h3><p>Plain English, as you'd ask a colleague. Pick tables in the navigator to point SayQL at the right place.</p></div>
       </article>
       <article class="step reveal">
         <div class="step-vis"><div class="vis-code"><span class="tk-k">SELECT</span> id, total, created_at
@@ -816,7 +813,7 @@ footer a { text-decoration: none; } footer a:hover { color: var(--color-text); }
       <article class="feat big reveal">
         <div class="fi ai"><svg><use href="#i-loop"/></svg></div>
         <h3>Follow-ups that edit the query you have</h3>
-        <p>Say "remove the middle name" or "only Canada" and Sayql changes the current query instead of starting over.</p>
+        <p>Say "remove the middle name" or "only Canada" and SayQL changes the current query instead of starting over.</p>
         <div class="demo followup-demo">
           <div class="fd-msg"><span class="followup">Follow-up</span>remove the middle name</div>
           <div class="diff">
@@ -893,10 +890,10 @@ footer a { text-decoration: none; } footer a:hover { color: var(--color-text); }
         <p>AI writes the query. You and your database decide what it's allowed to do.</p>
       </div>
       <ul class="checks reveal">
-        <li><span class="ck"><svg><use href="#i-check"/></svg></span><div><b>Read-only unless you confirm</b><span>Sayql checks every statement, and the database itself runs reads in read-only transactions.</span></div></li>
+        <li><span class="ck"><svg><use href="#i-check"/></svg></span><div><b>Read-only unless you confirm</b><span>SayQL checks every statement, and the database itself runs reads in read-only transactions.</span></div></li>
         <li><span class="ck"><svg><use href="#i-check"/></svg></span><div><b>Your rows stay with you</b><span>Writing a query sends your question and table and column names to the AI you chose, never the data in your tables. With a local model, nothing leaves your computer at all.</span></div></li>
         <li><span class="ck"><svg><use href="#i-check"/></svg></span><div><b>Secrets live in your keychain</b><span>Database passwords and AI API keys are stored in the operating system's keychain, not in files.</span></div></li>
-        <li><span class="ck"><svg><use href="#i-check"/></svg></span><div><b>A desktop app, not a cloud service</b><span>Sayql connects straight from your machine to your database. There's no Sayql server in between.</span></div></li>
+        <li><span class="ck"><svg><use href="#i-check"/></svg></span><div><b>A desktop app, not a cloud service</b><span>SayQL connects straight from your machine to your database. There's no SayQL server in between.</span></div></li>
       </ul>
     </div>
     <div class="dialog reveal" aria-label="Example confirmation dialog">
@@ -917,8 +914,8 @@ footer a { text-decoration: none; } footer a:hover { color: var(--color-text); }
   <div class="wrap split">
     <div class="sec-head reveal" style="margin-bottom:0">
       <span class="eyebrow ai">Works with your AI apps</span>
-      <h2>Let your AI assistant query your databases through Sayql</h2>
-      <p>Sayql ships an MCP server. Connect it once to Claude, Cursor or any other MCP app, and your assistant can browse your schemas and run read-only queries using the connections you've already set up.</p>
+      <h2>Let your AI assistant query your databases through SayQL</h2>
+      <p>SayQL ships an MCP server. Connect it once to Claude, Cursor or any other MCP app, and your assistant can browse your schemas and run read-only queries using the connections you've already set up.</p>
       <p style="font-size:15px;color:var(--color-text-subtle)">Same read-only rules. Results capped. Database passwords never shared.</p>
     </div>
     <div class="chat reveal">
@@ -938,7 +935,7 @@ footer a { text-decoration: none; } footer a:hover { color: var(--color-text); }
   <div class="wrap">
     <div class="agent-card reveal">
       <div class="agent-copy">
-        <span class="eyebrow ai">Coming next · Sayql Agent</span>
+        <span class="eyebrow ai">Coming next · SayQL Agent</span>
         <h2>Ask for a goal, not just a query</h2>
         <p>"Why do some accounts have no invoices this month?" The agent searches the schema, runs read-only queries, checks what it finds and answers in plain words. Every claim links to the query behind it.</p>
         <p style="font-size:15px">It can propose changes. Only you can run them.</p>
@@ -961,16 +958,16 @@ footer a { text-decoration: none; } footer a:hover { color: var(--color-text); }
   <div class="wrap">
     <div class="sec-head center reveal">
       <span class="eyebrow">Community</span>
-      <h2 data-quotes-title>Why Sayql exists</h2>
+      <h2 data-quotes-title>Why SayQL exists</h2>
     </div>
     <div class="quotes reveal" data-quotes>
       <figure class="quote founder">
-        <blockquote>I'm not a SQL expert. I knew what I wanted to ask my databases, but not always how to write it. I wanted a client like DBeaver where I just say what I need in plain English and watch the SQL appear as I type. So I built Sayql, and made it free.</blockquote>
-        <figcaption><span class="avatar">A</span><span class="who"><b>Adith L S</b><span>Creator of Sayql</span></span></figcaption>
+        <blockquote>I'm not a SQL expert. I knew what I wanted to ask my databases, but not always how to write it. I wanted a client like DBeaver where I just say what I need in plain English and watch the SQL appear as I type. So I built SayQL, and made it free.</blockquote>
+        <figcaption><span class="avatar">A</span><span class="who"><b>Adith L S</b><span>Creator of SayQL</span></span></figcaption>
       </figure>
       <a class="quote invite" href="https://github.com/dithzz/sayql-releases/discussions" data-invite>
         <span class="invite-icon"><svg><use href="#i-spark"/></svg></span>
-        <span class="invite-copy"><b>Tried Sayql? Tell us what you think.</b><span>Share what worked, what didn't and what you'd like next. With your permission, your words may end up right here.</span></span>
+        <span class="invite-copy"><b>Tried SayQL? Tell us what you think.</b><span>Share what worked, what didn't and what you'd like next. With your permission, your words may end up right here.</span></span>
         <span class="invite-cta">Share feedback <svg><use href="#i-arrow"/></svg></span>
       </a>
     </div>
@@ -984,9 +981,9 @@ footer a { text-decoration: none; } footer a:hover { color: var(--color-text); }
       <div class="edition-copy">
         <span class="eyebrow" style="color:var(--color-success)">Pricing</span>
         <h2>Free. Forever. For work too.</h2>
-        <p>Sayql Community Edition costs nothing, and any version released under its license stays free. Use it at home, at work and for clients, on as many computers as you like. No account, no trial, no telemetry.</p>
+        <p>SayQL Community Edition costs nothing, and any version released under its license stays free. Use it at home, at work and for clients, on as many computers as you like. No account, no trial, no telemetry.</p>
         <div class="hero-ctas" style="justify-content:flex-start">
-          <a class="btn btn-primary btn-lg" href="#download"><svg><use href="#i-download"/></svg>Get Sayql Community Edition</a>
+          <a class="btn btn-primary btn-lg" href="#download"><svg><use href="#i-download"/></svg>Get SayQL Community Edition</a>
         </div>
       </div>
       <div class="price-card">
@@ -1011,13 +1008,13 @@ footer a { text-decoration: none; } footer a:hover { color: var(--color-text); }
   <div class="wrap">
     <div class="sec-head center reveal"><span class="eyebrow">Questions</span><h2>Good to know</h2></div>
     <div class="faq reveal">
-      <details open><summary>Is it really free?</summary><p>Yes. Sayql Community Edition is free for personal and commercial use, and any version released under its license stays free: you'll never be asked to pay for it. Your only cost is your AI provider's usage, which you pay to them directly with your own key. With a local model, it costs nothing at all.</p></details>
-      <details><summary>Do I need to know SQL?</summary><p>No. Sayql is built for people who know what they want to ask but not how to write it. Because the SQL is always in front of you, you'll pick it up along the way, and experts get a much faster editor.</p></details>
-      <details><summary>Which AI does Sayql use?</summary><p>Whichever you like. Claude, OpenAI, Google Gemini, Mistral, Groq, DeepSeek and OpenRouter are built in. Any other service with an OpenAI-compatible API works with its address. Ollama and LM Studio run models on your own computer. You pick a fast model for drafting while you type and, if you like, a stronger one for fixes and improvements, and you use your own API key.</p></details>
-      <details><summary>Does my data get sent anywhere?</summary><p>To write SQL, Sayql sends your question and the names of your tables and columns to the AI provider you chose. It doesn't send the rows in your tables. When a query fails, the SQL and the database's error message are sent so it can be fixed. With a local model through Ollama or LM Studio, none of this leaves your computer. Sayql connects straight from your machine to your database.</p></details>
+      <details open><summary>Is it really free?</summary><p>Yes. SayQL Community Edition is free for personal and commercial use, and any version released under its license stays free: you'll never be asked to pay for it. Your only cost is your AI provider's usage, which you pay to them directly with your own key. With a local model, it costs nothing at all.</p></details>
+      <details><summary>Do I need to know SQL?</summary><p>No. SayQL is built for people who know what they want to ask but not how to write it. Because the SQL is always in front of you, you'll pick it up along the way, and experts get a much faster editor.</p></details>
+      <details><summary>Which AI does SayQL use?</summary><p>Whichever you like. Claude, OpenAI, Google Gemini, Mistral, Groq, DeepSeek and OpenRouter are built in. Any other service with an OpenAI-compatible API works with its address. Ollama and LM Studio run models on your own computer. You pick a fast model for drafting while you type and, if you like, a stronger one for fixes and improvements, and you use your own API key.</p></details>
+      <details><summary>Does my data get sent anywhere?</summary><p>To write SQL, SayQL sends your question and the names of your tables and columns to the AI provider you chose. It doesn't send the rows in your tables. When a query fails, the SQL and the database's error message are sent so it can be fixed. With a local model through Ollama or LM Studio, none of this leaves your computer. SayQL connects straight from your machine to your database.</p></details>
       <details><summary>Can it break my database?</summary><p>Queries run read-only by default, and the database enforces it too. A statement that could change data, such as an UPDATE or DELETE, always stops and shows you a confirmation first.</p></details>
       <details><summary>Which databases and platforms are supported?</summary><p>PostgreSQL, MySQL, SQLite, Microsoft SQL Server and Azure SQL, on macOS, Windows and Linux.</p></details>
-      <details><summary>Why does my computer warn me when I first open it?</summary><p>Early-access builds aren't code-signed with Apple or Microsoft yet. Signing is a paid certificate, not a safety check of the app itself. Confirm the first launch once (the steps are under the download buttons) and it opens normally from then on. Updates are signed with Sayql's own key, and the app refuses any update that doesn't match it.</p></details>
+      <details><summary>Why does my computer warn me when I first open it?</summary><p>Early-access builds aren't code-signed with Apple or Microsoft yet. Signing is a paid certificate, not a safety check of the app itself. Confirm the first launch once (the steps are under the download buttons) and it opens normally from then on. Updates are signed with SayQL's own key, and the app refuses any update that doesn't match it.</p></details>
     </div>
   </div>
 </section>
@@ -1026,7 +1023,7 @@ footer a { text-decoration: none; } footer a:hover { color: var(--color-text); }
 <section class="cta" id="download">
   <div class="wrap">
     <h2 class="reveal">Your database is ready<br>to be asked.</h2>
-    <p class="reveal">Sayql Community Edition is free forever. Bring a key for the AI you like or run a model locally, connect a database, and ask your first question in under a minute. There's a demo database built in.</p>
+    <p class="reveal">SayQL Community Edition is free forever. Bring a key for the AI you like or run a model locally, connect a database, and ask your first question in under a minute. There's a demo database built in.</p>
     <div class="hero-ctas reveal">
       <a class="btn btn-primary btn-lg" href="https://github.com/dithzz/sayql-releases/releases/latest"><svg><use href="#i-download"/></svg>Download for macOS</a>
       <a class="btn btn-lg" href="https://github.com/dithzz/sayql-releases/releases/latest">Windows</a>
@@ -1037,7 +1034,7 @@ footer a { text-decoration: none; } footer a:hover { color: var(--color-text); }
     <div class="install reveal">
       <p class="install-head"><span class="ea">Early access</span> These builds aren't code-signed yet, so your computer asks you to confirm the first launch. You only do this once.</p>
       <div class="install-steps">
-        <div class="install-step"><b>macOS</b><span>Open Sayql and close the warning. Then go to <em>System Settings → Privacy &amp; Security</em> and click <em>Open Anyway</em>.</span></div>
+        <div class="install-step"><b>macOS</b><span>Open SayQL and close the warning. Then go to <em>System Settings → Privacy &amp; Security</em> and click <em>Open Anyway</em>.</span></div>
         <div class="install-step"><b>Windows</b><span>On "Windows protected your PC", click <em>More info</em>, then <em>Run anyway</em>.</span></div>
         <div class="install-step"><b>Linux</b><span>Make the <code>.AppImage</code> executable and run it, or install the <code>.deb</code>.</span></div>
       </div>
@@ -1050,7 +1047,7 @@ footer a { text-decoration: none; } footer a:hover { color: var(--color-text); }
 <footer>
   <div class="wrap footer-grid">
     <div class="footer-brand">
-      <a class="brand" href="#top"><svg><use href="#logo"/></svg>Sayql</a>
+      <a class="brand" href="#top"><svg><use href="#logo"/></svg>SayQL</a>
       <p>The AI-first database client. Community Edition, free forever.</p>
     </div>
     <nav class="footer-col" aria-label="Product">
@@ -1072,7 +1069,7 @@ footer a { text-decoration: none; } footer a:hover { color: var(--color-text); }
       <a href="https://github.com/dithzz/sayql-releases/blob/main/PRIVACY.md">Privacy</a>
     </nav>
   </div>
-  <div class="wrap footer-bottom">© 2026 Adith L S. Sayql Community Edition.</div>
+  <div class="wrap footer-bottom">© 2026 Adith L S. SayQL Community Edition.</div>
 </footer>
 
 <script>
@@ -1243,7 +1240,7 @@ footer a { text-decoration: none; } footer a:hover { color: var(--color-text); }
       title: "Top products",
       tables: ["products", "order_items"],
       question: "top 5 products by revenue last quarter",
-      caption: "Pick tables in the navigator to give Sayql context.",
+      caption: "Pick tables in the navigator to give SayQL context.",
       ms: "1.1 s",
       sql: "SELECT p.name,\n       SUM(oi.quantity * oi.unit_price) AS revenue\nFROM order_items oi\nJOIN products p ON p.id = oi.product_id\nJOIN orders o ON o.id = oi.order_id\nWHERE o.created_at >= DATE_TRUNC('quarter', NOW()) - INTERVAL '3 months'\n  AND o.created_at < DATE_TRUNC('quarter', NOW())\nGROUP BY p.name\nORDER BY revenue DESC\nLIMIT 5;",
       cols: [["name", "text"], ["revenue", "numeric"]],

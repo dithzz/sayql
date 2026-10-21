@@ -1,4 +1,4 @@
-Sayql Community Edition includes the open-source software listed below.
+SayQL Community Edition includes the open-source software listed below.
 Each package is used under its own license, reproduced here.
 
 541 packages.

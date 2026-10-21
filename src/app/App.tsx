@@ -14,7 +14,7 @@ export function App() {
       ) : (
         <div className={styles.splash}>
           {error ? (
-            <EmptyState icon={AlertOctagon} title="Sayql couldn't start">
+            <EmptyState icon={AlertOctagon} title="SayQL couldn't start">
               {error}
             </EmptyState>
           ) : (

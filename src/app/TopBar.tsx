@@ -1,6 +1,6 @@
-import { Database, DatabaseZap, Plus, Settings as SettingsIcon } from "lucide-react";
+import { Database, Plus, Settings as SettingsIcon } from "lucide-react";
 import type { ConnectionConfig, Schema } from "../api";
-import { Badge, Button, IconButton, ToolbarDivider } from "../components/ui";
+import { Badge, BrandMark, Button, IconButton, ToolbarDivider } from "../components/ui";
 import { DATABASE_KINDS } from "../features/connections";
 import { ThemeToggle } from "../features/theme";
 import styles from "./Workbench.module.css";
@@ -17,8 +17,8 @@ export function TopBar({ active, databaseName, schema, onNewConnection, onOpenSe
   return (
     <header className={styles.topbar}>
       <div className={styles.brand}>
-        <DatabaseZap size={18} className={styles.brandMark} />
-        Sayql
+        <BrandMark size={20} />
+        SayQL
       </div>
       <ToolbarDivider />
       <Button size="sm" variant="ghost" icon={Plus} onClick={onNewConnection}>

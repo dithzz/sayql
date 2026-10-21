@@ -1,6 +1,6 @@
-# Releasing Sayql
+# Releasing SayQL
 
-This guide covers building Sayql installers, signing them so macOS and Windows
+This guide covers building SayQL installers, signing them so macOS and Windows
 trust them, and shipping updates through the built-in updater.
 
 Nothing secret is committed to this repository. Every key, certificate and
@@ -20,7 +20,7 @@ repo has a placeholder, this guide says what replaces it.
 
 ## 0. Early access: unsigned releases, no app stores
 
-Sayql ships as a direct download from the public
+SayQL ships as a direct download from the public
 [`dithzz/sayql-releases`](https://github.com/dithzz/sayql-releases) repository,
 not through any app store. The source repository stays private.
 
@@ -28,7 +28,7 @@ Early-access builds are **not code-signed**. macOS builds are ad-hoc signed
 (`signingIdentity: "-"`), which is what lets macOS offer "Open Anyway" instead
 of calling the app damaged. Users confirm the first launch once:
 
-- **macOS:** open Sayql, dismiss the warning, then System Settings → Privacy &
+- **macOS:** open SayQL, dismiss the warning, then System Settings → Privacy &
   Security → **Open Anyway**.
 - **Windows:** "Windows protected your PC" → **More info → Run anyway**.
 - **Linux:** no warning. `chmod +x` the `.AppImage`, or install the `.deb`.
@@ -67,7 +67,7 @@ pnpm tauri build
 
 Output, for the machine's own architecture:
 
-- `src-tauri/target/release/bundle/macos/Sayql.app`
+- `src-tauri/target/release/bundle/macos/SayQL.app`
 - `src-tauri/target/release/bundle/dmg/Sayql_<version>_<arch>.dmg`
 
 Other targets:
@@ -80,7 +80,7 @@ pnpm tauri build --debug                           # faster build, devtools enab
 ```
 
 An unsigned build runs on the machine that built it. Anyone who downloads it
-gets a Gatekeeper warning ("Apple could not verify Sayql is free of
+gets a Gatekeeper warning ("Apple could not verify SayQL is free of
 malware…") and has to approve it in System Settings → Privacy & Security.
 That is fine for testing; paying customers need the signed and notarized
 build from the next section.
@@ -139,7 +139,7 @@ it stops a release that installed copies could never verify.
 ### Where updates are hosted
 
 The release workflow uploads `latest.json` and the signed update archives
-(`Sayql.app.tar.gz` and `.sig` on macOS) to the GitHub Release. Installed apps
+(`SayQL.app.tar.gz` and `.sig` on macOS) to the GitHub Release. Installed apps
 fetch `releases/latest/download/latest.json`, which only resolves to a release
 that is **published** (not a draft) and **not marked pre-release**.
 
@@ -157,7 +157,7 @@ Release builds check the feed once at startup (`check_update` in
 `src-tauri/src/commands/updates.rs`; development builds never check). When a
 newer version is published, the status bar shows **Update to x.y.z**. Clicking
 it runs `install_update`, which downloads the update, verifies its signature,
-installs it and restarts Sayql.
+installs it and restarts SayQL.
 
 ## 3. macOS: Developer ID signing and notarization
 
@@ -246,10 +246,10 @@ password from <https://account.apple.com>) and `APPLE_TEAM_ID`.
 ### Verify a build
 
 ```bash
-codesign --verify --deep --strict --verbose=2 src-tauri/target/release/bundle/macos/Sayql.app
-spctl --assess --type execute --verbose src-tauri/target/release/bundle/macos/Sayql.app
+codesign --verify --deep --strict --verbose=2 src-tauri/target/release/bundle/macos/SayQL.app
+spctl --assess --type execute --verbose src-tauri/target/release/bundle/macos/SayQL.app
 # expect: "accepted  source=Notarized Developer ID"
-xcrun stapler validate src-tauri/target/release/bundle/macos/Sayql.app
+xcrun stapler validate src-tauri/target/release/bundle/macos/SayQL.app
 ```
 
 Tauri notarizes and staples the `.app`, which is what Gatekeeper checks when
@@ -288,7 +288,7 @@ Azure Artifact Signing with
 
 ```json
 "windows": {
-  "signCommand": "trusted-signing-cli -e https://<region>.codesigning.azure.net -a <account> -c <certificate-profile> -d Sayql %1"
+  "signCommand": "trusted-signing-cli -e https://<region>.codesigning.azure.net -a <account> -c <certificate-profile> -d SayQL %1"
 }
 ```
 
@@ -350,7 +350,7 @@ To rename the app again:
 The Settings dialog points Claude at `sayql-mcp` next to the app's executable. To ship it, build it for each target
 and add it as a Tauri sidecar: copy `target/<triple>/release/sayql-mcp` to `src-tauri/binaries/sayql-mcp-<triple>`
 (e.g. `sayql-mcp-aarch64-apple-darwin`) and add `"externalBin": ["binaries/sayql-mcp"]` under `bundle` in
-`tauri.conf.json`. Tauri strips the triple and places it in `Sayql.app/Contents/MacOS/`. Sign it like the app.
+`tauri.conf.json`. Tauri strips the triple and places it in `SayQL.app/Contents/MacOS/`. Sign it like the app.
 
 ## Landing page
 

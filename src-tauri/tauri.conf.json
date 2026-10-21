@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Sayql",
+  "productName": "SayQL",
   "version": "0.1.0",
   "identifier": "com.sayql.app",
   "build": {
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "Sayql",
+        "title": "SayQL",
         "width": 1360,
         "height": 860,
         "minWidth": 900,
@@ -26,11 +26,11 @@
   "bundle": {
     "active": true,
     "targets": "all",
-    "publisher": "Sayql",
-    "copyright": "Copyright © 2026 Adith L S. Sayql Community Edition, free for personal and commercial use.",
+    "publisher": "SayQL",
+    "copyright": "Copyright © 2026 Adith L S. SayQL Community Edition, free for personal and commercial use.",
     "category": "DeveloperTool",
     "shortDescription": "AI-first database client",
-    "longDescription": "Sayql Community Edition is a free desktop database client for PostgreSQL, MySQL, SQLite, SQL Server and Azure SQL. Ask a question in plain English and get SQL as you type, written by the AI you choose, then run it against your database with a fast, keyboard-first editor.",
+    "longDescription": "SayQL Community Edition is a free desktop database client for PostgreSQL, MySQL, SQLite, SQL Server and Azure SQL. Ask a question in plain English and get SQL as you type, written by the AI you choose, then run it against your database with a fast, keyboard-first editor.",
     "licenseFile": "../LICENSE.md",
     "resources": {
       "../LICENSE.md": "LICENSE.md",

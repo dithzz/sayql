@@ -134,13 +134,13 @@ export type GenerationTask =
   | { kind: "fix"; sql: string; error: string }
   | { kind: "improve"; sql: string };
 
-/** A newer Sayql release on the update feed. */
+/** A newer SayQL release on the update feed. */
 export interface UpdateInfo {
   version: string;
   notes: string | null;
 }
 
-/** Where Sayql's MCP server binary is, for connecting Claude. */
+/** Where SayQL's MCP server binary is, for connecting Claude. */
 export interface McpSetup {
   path: string;
   exists: boolean;

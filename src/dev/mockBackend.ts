@@ -70,7 +70,7 @@ const settings: Settings = {
   providers: [
     provider("anthropic", "Anthropic Claude", {
       api: "anthropic",
-      note: "Recommended. Tuned for Sayql, with prompt caching for fast drafts.",
+      note: "Recommended. Tuned for SayQL, with prompt caching for fast drafts.",
       keyPlaceholder: "sk-ant-…",
       defaultBaseUrl: "https://api.anthropic.com",
       typingModel: "claude-haiku-5-5",
@@ -179,7 +179,7 @@ export function installMockBackend() {
         case "check_update":
           return null;
         case "mcp_setup":
-          return { path: "/Applications/Sayql.app/Contents/MacOS/sayql-mcp", exists: true };
+          return { path: "/Applications/SayQL.app/Contents/MacOS/sayql-mcp", exists: true };
         case "test_connection":
           return "Connected. Found 6 tables and views.";
         case "save_connection":

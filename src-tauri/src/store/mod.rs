@@ -53,7 +53,7 @@ pub struct Settings {
     pub workspace_id: String,
 }
 
-/// How Sayql uses one AI provider.
+/// How SayQL uses one AI provider.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ProviderSettings {

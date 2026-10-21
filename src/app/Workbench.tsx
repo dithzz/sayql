@@ -411,7 +411,7 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
           }
         >
           <p style={{ margin: 0 }}>
-            The saved connection and its password are removed from Sayql, and its tabs close. The database itself isn’t touched.
+            The saved connection and its password are removed from SayQL, and its tabs close. The database itself isn’t touched.
           </p>
         </Dialog>
       )}

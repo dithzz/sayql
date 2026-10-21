@@ -31,7 +31,7 @@ pub async fn install_update(app: AppHandle) -> AppResult<()> {
         .check()
         .await
         .map_err(|e| format!("Could not check for updates: {e}"))?
-        .ok_or("Sayql is already up to date.")?;
+        .ok_or("SayQL is already up to date.")?;
     update.download_and_install(|_, _| {}, || {}).await.map_err(|e| format!("The update could not be installed: {e}"))?;
     app.restart();
 }

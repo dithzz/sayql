@@ -1,4 +1,4 @@
--- Demo store database bundled with Sayql. Generated deterministically-ish with random().
+-- Demo store database bundled with SayQL. Generated deterministically-ish with random().
 PRAGMA foreign_keys = ON;
 
 CREATE TABLE categories (

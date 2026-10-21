@@ -1,6 +1,6 @@
 # Architecture
 
-Sayql is a Tauri 2 desktop app: a React + TypeScript UI (`src/`) on top of a Rust backend (`src-tauri/`). The UI never talks to a database or an AI provider directly; it calls typed Tauri commands.
+SayQL is a Tauri 2 desktop app: a React + TypeScript UI (`src/`) on top of a Rust backend (`src-tauri/`). The UI never talks to a database or an AI provider directly; it calls typed Tauri commands.
 
 ## Frontend layout (`src/`)
 

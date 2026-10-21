@@ -1,6 +1,6 @@
 //! An MCP server over stdio (`sayql-mcp`), so Claude (Claude Code, Claude Desktop) can use
-//! the person's saved Sayql connections. Read-only: anything that could change data is
-//! refused and has to be run in the Sayql app, where the person reviews it first.
+//! the person's saved SayQL connections. Read-only: anything that could change data is
+//! refused and has to be run in the SayQL app, where the person reviews it first.
 
 use crate::commands::connections::{load_schema, target_pool};
 use crate::db::{self, Kind};
@@ -22,11 +22,11 @@ const MAX_ROWS: usize = 1000;
 /// A schema bigger than this is listed by table name unless a search narrows it.
 const FULL_SCHEMA_CHARS: usize = 60_000;
 
-const INSTRUCTIONS: &str = "Sayql gives read-only access to the user's saved database connections \
+const INSTRUCTIONS: &str = "SayQL gives read-only access to the user's saved database connections \
 (PostgreSQL, MySQL, SQLite, SQL Server). Typical flow: list_connections, then list_databases for a \
 server connection, then describe_schema (pass `search` terms for large databases), then run_query. \
 Queries run read-only and the database itself enforces it where it can; statements that could change \
-data are refused, and the user must run those in the Sayql app. Keep results small (TOP/LIMIT) and \
+data are refused, and the user must run those in the SayQL app. Keep results small (TOP/LIMIT) and \
 select only the columns you need.";
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -69,7 +69,7 @@ impl SayqlServer {
         SayqlServer { state: Arc::new(state), tool_router: Self::tool_router() }
     }
 
-    #[tool(description = "List the database connections saved in Sayql (no passwords).")]
+    #[tool(description = "List the database connections saved in SayQL (no passwords).")]
     async fn list_connections(&self) -> String {
         let list: Vec<_> = self
             .state
@@ -104,8 +104,8 @@ impl SayqlServer {
                           Statements that could change data are refused.")]
     async fn run_query(&self, Parameters(p): Parameters<QueryParams>) -> Result<String, String> {
         if !db::is_read_only(&p.sql) {
-            return Err("Sayql's MCP access is read-only, and this statement could change data. \
-                        Show it to the user to run in the Sayql app, where they can review it."
+            return Err("SayQL's MCP access is read-only, and this statement could change data. \
+                        Show it to the user to run in the SayQL app, where they can review it."
                 .into());
         }
         let target = Target::new(p.connection_id, p.database);
@@ -177,7 +177,7 @@ fn describe(schema: &Schema, search: Option<&str>) -> String {
     format!("{header} Too large to describe in full; call again with `search` words for columns.\n{}", names.join("\n"))
 }
 
-/// Where the Sayql app keeps its files; `SAYQL_CONFIG_DIR` overrides (for tests).
+/// Where the SayQL app keeps its files; `SAYQL_CONFIG_DIR` overrides (for tests).
 fn app_dirs() -> Result<(PathBuf, PathBuf), String> {
     if let Ok(dir) = std::env::var("SAYQL_CONFIG_DIR") {
         let dir = PathBuf::from(dir);

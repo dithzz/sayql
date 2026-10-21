@@ -1,4 +1,4 @@
-//! The AI services Sayql can write SQL with. Claude has its own API; every other entry
+//! The AI services SayQL can write SQL with. Claude has its own API; every other entry
 //! speaks the OpenAI-compatible Chat Completions API, so one client covers them all.
 //! Anything not listed works through "Other" with its own base URL.
 
@@ -55,7 +55,7 @@ pub const PROVIDERS: &[Provider] = &[
     Provider {
         id: ANTHROPIC,
         label: "Anthropic Claude",
-        note: "Recommended. Tuned for Sayql, with prompt caching for fast drafts.",
+        note: "Recommended. Tuned for SayQL, with prompt caching for fast drafts.",
         api: Api::Anthropic,
         base_url: "https://api.anthropic.com",
         key: KeyNeed::Required,

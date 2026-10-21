@@ -1,4 +1,4 @@
-//! `sayql-mcp`: Sayql's MCP server for Claude, over stdio. See src/mcp.rs.
+//! `sayql-mcp`: SayQL's MCP server for Claude, over stdio. See src/mcp.rs.
 
 #[tokio::main]
 async fn main() {

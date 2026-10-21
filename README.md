@@ -1,4 +1,4 @@
-# Sayql
+# SayQL
 
 An AI-first desktop database client. Type what you want in plain English; SQL appears as you type; press Enter to run it.
 
@@ -21,17 +21,17 @@ An AI-first desktop database client. Type what you want in plain English; SQL ap
 - INSERT/UPDATE/DELETE/DDL require an explicit confirmation.
 - Passwords and the API key are stored in the OS keychain. Connection details go in `connections.json` in the app config dir.
 
-## Use Sayql from Claude (MCP)
+## Use SayQL from Claude (MCP)
 
-`sayql-mcp` is an MCP server (stdio) that lets Claude Code or Claude Desktop use the connections saved in Sayql:
+`sayql-mcp` is an MCP server (stdio) that lets Claude Code or Claude Desktop use the connections saved in SayQL:
 `list_connections`, `list_databases`, `describe_schema` (with `search` for large databases) and `run_query`.
 
 - **Read-only.** Queries go through the same checks as the app's read-only mode; anything that could change data
-  is refused and must be run in the Sayql app.
+  is refused and must be run in the SayQL app.
 - **Query results are sent to Claude**, unlike the Ask box, which only sends table and column names.
-- Passwords come from the OS keychain. On macOS, the first use asks to let `sayql-mcp` read Sayql's keychain items.
+- Passwords come from the OS keychain. On macOS, the first use asks to let `sayql-mcp` read SayQL's keychain items.
 
-Settings → "Use Sayql from Claude" shows the exact command and config. For Claude Code:
+Settings → "Use SayQL from Claude" shows the exact command and config. For Claude Code:
 
 ```bash
 claude mcp add --scope user sayql -- /path/to/sayql-mcp
@@ -78,4 +78,4 @@ The URLs take the form `scheme://user:password@host:port/database` (no percent-e
 
 ## License
 
-Sayql Community Edition is free for personal and commercial use, under the terms in [LICENSE.md](LICENSE.md). [PRIVACY.md](PRIVACY.md) says what Sayql sends and where. Open-source components are credited in `THIRD-PARTY-NOTICES.txt`; regenerate it before each release with `python3 scripts/third_party_notices.py`. All three files ship inside the app bundle.
+SayQL Community Edition is free for personal and commercial use, under the terms in [LICENSE.md](LICENSE.md). [PRIVACY.md](PRIVACY.md) says what SayQL sends and where. Open-source components are credited in `THIRD-PARTY-NOTICES.txt`; regenerate it before each release with `python3 scripts/third_party_notices.py`. All three files ship inside the app bundle.

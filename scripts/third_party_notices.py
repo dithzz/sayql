@@ -1,4 +1,4 @@
-"""Writes THIRD-PARTY-NOTICES.txt: every open-source package Sayql ships, with its license text.
+"""Writes THIRD-PARTY-NOTICES.txt: every open-source package SayQL ships, with its license text.
 
 Run from the repository root before each release (needs cargo and pnpm on PATH):
 
@@ -37,7 +37,7 @@ def rust_packages() -> list[dict]:
         ))
         used = {n["id"] for n in meta["resolve"]["nodes"]}
         for p in meta["packages"]:
-            if p["id"] in used and p.get("source"):  # skip Sayql itself
+            if p["id"] in used and p.get("source"):  # skip SayQL itself
                 seen[(p["name"], p["version"])] = {
                     "name": p["name"],
                     "version": p["version"],
@@ -77,7 +77,7 @@ def main() -> None:
         by_text.setdefault(text, []).append(p)
 
     lines = [
-        "Sayql Community Edition includes the open-source software listed below.",
+        "SayQL Community Edition includes the open-source software listed below.",
         "Each package is used under its own license, reproduced here.",
         "",
         f"{len(packages)} packages.",

@@ -207,11 +207,11 @@ export function SettingsDialog({ settings, onClose, onSaved }: SettingsDialogPro
         </>
       )}
 
-      <Field label="Use Sayql from AI apps (MCP)">{() => <ClaudeIntegration />}</Field>
+      <Field label="Use SayQL from AI apps (MCP)">{() => <ClaudeIntegration />}</Field>
       <Field label="About">
         {() => (
           <p className={styles.about}>
-            Sayql Community Edition {version}. Free forever, for personal and commercial use. The license, privacy
+            SayQL Community Edition {version}. Free forever, for personal and commercial use. The license, privacy
             notice and third-party notices are included with the app.
           </p>
         )}

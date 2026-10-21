@@ -65,8 +65,8 @@ impl<B: Backend> Vault<B> {
             let map = match self.backend.read(SERVICE, VAULT_ACCOUNT) {
                 Ok(None) => Ok(BTreeMap::new()),
                 // Never treat an unreadable item as empty: saving would erase every secret.
-                Ok(Some(json)) => serde_json::from_str(&json).map_err(|_| "Sayql's saved passwords in the keychain are unreadable.".to_string()),
-                Err(e) => Err(format!("Sayql couldn't read its saved passwords from the keychain ({e}). Restart Sayql to try again.")),
+                Ok(Some(json)) => serde_json::from_str(&json).map_err(|_| "SayQL's saved passwords in the keychain are unreadable.".to_string()),
+                Err(e) => Err(format!("SayQL couldn't read its saved passwords from the keychain ({e}). Restart SayQL to try again.")),
             }
             .map_err(|why| {
                 self.unavailable = Some(why.clone());
