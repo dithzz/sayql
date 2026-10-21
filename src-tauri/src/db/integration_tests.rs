@@ -6,6 +6,8 @@
 //!   SAYQL_TEST_MYSQL_URL=mysql://root:<password>@localhost:33806
 //!   SAYQL_TEST_MSSQL_URL=mssql://sa:<password>@localhost:14334/master
 //!
+//! (README.md shows how to start throwaway containers for these.)
+//!
 //! The Postgres test drops and recreates the schemas `sayql_it` and `sayql_it_inv`;
 //! the MySQL and SQL Server tests drop and recreate the database `sayql_it`.
 //! Nothing else is touched.
