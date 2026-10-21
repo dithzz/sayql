@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>SayQL — Ask your database</title>
-<meta name="description" content="Say what you need. SayQL knows your schema across all your databases and writes the right SQL in about a second. Open source, any AI, read-only by default.">
+<title>SayQL — Query production databases safely, in plain English</title>
+<meta name="description" content="The safe way to query production databases without being a SQL expert. Say what you need: SayQL knows your schema and writes the right SQL in about a second, read-only unless you say so. Open source, any AI.">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="SayQL">
-<meta property="og:title" content="SayQL: Say what you need. It knows your schema.">
-<meta property="og:description" content="Say what you need. SayQL knows your schema across all your databases and writes the right SQL in about a second. Open source, any AI, read-only by default.">
+<meta property="og:title" content="SayQL: query production databases safely, in plain English">
+<meta property="og:description" content="The safe way to query production databases without being a SQL expert. Say what you need: SayQL knows your schema and writes the right SQL in about a second, read-only unless you say so. Open source, any AI.">
 <meta property="og:url" content="https://sayql.vercel.app/">
 <meta property="og:image" content="https://sayql.vercel.app/og.png">
 <meta property="og:image:width" content="1280">
@@ -277,6 +277,7 @@ code, .mono { font-family: var(--font-mono); }
 }
 .hero .lede { font-size: clamp(17px, 2.2vw, 20px); color: var(--color-text-muted); max-width: 640px; text-wrap: balance; }
 .hero-ctas { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
+.hero .made-for { font-size: 14px; color: var(--color-text-subtle); margin-top: -10px; }
 .hero-note { font-size: 13px; color: var(--color-text-subtle); }
 
 /* ---------- app mock ---------- */
@@ -681,7 +682,8 @@ footer a { text-decoration: none; } footer a:hover { color: var(--color-text); }
     <div class="hero-copy">
       <a class="badge" href="#pricing"><b>Community Edition</b> Free forever, for personal and commercial use <svg width="14" height="14"><use href="#i-arrow"/></svg></a>
       <h1>Say what you need.<br><span class="ai">It knows your schema.</span></h1>
-      <p class="lede">Plain English in, the right SQL out in about a second, faster than you could write it. Read-only unless you say so.</p>
+      <p class="lede">The safe way to query production databases, without being a SQL expert. The right SQL in about a second, and nothing changes unless you say so.</p>
+      <p class="made-for">Made for analysts, product managers, support and operations, and developers who rarely write SQL.</p>
       <div class="hero-ctas">
         <a class="btn btn-primary btn-lg" href="#download"><svg><use href="#i-download"/></svg>Get SayQL for desktop</a>
         <a class="btn btn-lg" href="#how">See how it works</a>
