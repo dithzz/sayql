@@ -111,7 +111,11 @@ async fn open(config: &Config) -> AppResult<MssqlClient> {
 fn explain(e: tiberius::error::Error) -> AppError {
     let text = e.to_string();
     if text.contains("certificate") || text.contains("UnknownIssuer") {
-        format!("{text}\nThe server's certificate isn't trusted. If this is an internal server, turn on \"Trust server certificate\".").into()
+        format!(
+            "{text}\nThe server's certificate isn't trusted. SQL Server always encrypts the login, so this applies even \
+             with \"Encrypt connection\" off. If this is an internal server, turn on \"Trust server certificate\"."
+        )
+        .into()
     } else if text.contains("code: 18456") {
         // SQL Server reports every credential problem the same way; the real reason is only in its log.
         format!(
