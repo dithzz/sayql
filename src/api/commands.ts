@@ -3,7 +3,7 @@ import type {
   Bootstrap,
   ConnectionConfig,
   DatabaseList,
-  PreviousQuery,
+  GenerationTask,
   QueryResult,
   Schema,
   Settings,
@@ -28,10 +28,10 @@ export const commands = {
     invoke<QueryResult>("run_query", { id: t.connectionId, database: t.database, sql, allowWrite }),
 
   /** `slot` scopes cancellation: a new request replaces the previous one in the same slot (editor tab). */
-  generateSql: (t: Target, question: string, reqId: number, slot: string, previous: PreviousQuery | null) =>
-    invoke<void>("generate_sql", { id: t.connectionId, database: t.database, question, reqId, slot, previous }),
+  generateSql: (t: Target, question: string, reqId: number, slot: string, task: GenerationTask) =>
+    invoke<void>("generate_sql", { id: t.connectionId, database: t.database, question, reqId, slot, task }),
   cancelGeneration: (slot: string) => invoke<void>("cancel_generation", { slot }),
 
-  saveSettings: (model: string, apiKey: string | null, workspaceId: string) =>
-    invoke<Settings>("save_settings", { model, apiKey, workspaceId }),
+  saveSettings: (typingModel: string, expertModel: string, apiKey: string | null, workspaceId: string) =>
+    invoke<Settings>("save_settings", { typingModel, expertModel, apiKey, workspaceId }),
 };

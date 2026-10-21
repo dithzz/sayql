@@ -8,7 +8,8 @@ use tauri::State;
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SettingsView {
-    model: String,
+    typing_model: String,
+    expert_model: String,
     has_api_key: bool,
     workspace_id: String,
     models: Vec<ModelOption>,
@@ -23,7 +24,8 @@ struct ModelOption {
 /// What the UI may know about the settings: never the API key itself.
 pub fn settings_view(s: &Settings) -> SettingsView {
     SettingsView {
-        model: s.model.clone(),
+        typing_model: s.typing_model.clone(),
+        expert_model: s.expert_model.clone(),
         has_api_key: secrets::api_key().is_some(),
         workspace_id: s.workspace_id.clone(),
         models: ai::MODELS.iter().map(|(id, label)| ModelOption { id, label }).collect(),
@@ -34,19 +36,23 @@ pub fn settings_view(s: &Settings) -> SettingsView {
 #[tauri::command]
 pub fn save_settings(
     state: State<'_, AppState>,
-    model: String,
+    typing_model: String,
+    expert_model: String,
     api_key: Option<String>,
     workspace_id: String,
 ) -> AppResult<SettingsView> {
-    if !ai::is_known(&model) {
-        return Err(format!("Unknown model {model}").into());
+    for model in [&typing_model, &expert_model] {
+        if !ai::is_known(model) {
+            return Err(format!("Unknown model {model}").into());
+        }
     }
     let workspace_id = valid_workspace_id(&workspace_id)?;
     if let Some(key) = api_key {
         secrets::set_api_key(&key)?;
     }
     let mut s = state.store.settings();
-    s.model = model;
+    s.typing_model = typing_model;
+    s.expert_model = expert_model;
     s.workspace_id = workspace_id;
     state.store.save_settings(&s)?;
     Ok(settings_view(&s))

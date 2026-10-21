@@ -10,14 +10,17 @@ export interface SettingsDialogProps {
 }
 
 export function SettingsDialog({ settings, onClose, onSaved }: SettingsDialogProps) {
-  const [model, setModel] = useState(settings.model);
+  const [typingModel, setTypingModel] = useState(settings.typingModel);
+  const [expertModel, setExpertModel] = useState(settings.expertModel);
   const [apiKey, setApiKey] = useState("");
   const [workspaceId, setWorkspaceId] = useState(settings.workspaceId);
   const [error, setError] = useState<string | null>(null);
 
+  const modelOptions = settings.models.map((m) => ({ value: m.id, label: m.label }));
+
   const save = async () => {
     try {
-      onSaved(await commands.saveSettings(model, apiKey.trim() || null, workspaceId));
+      onSaved(await commands.saveSettings(typingModel, expertModel, apiKey.trim() || null, workspaceId));
     } catch (e) {
       setError(errorText(e));
     }
@@ -58,10 +61,14 @@ export function SettingsDialog({ settings, onClose, onSaved }: SettingsDialogPro
       >
         {(id) => <TextInput id={id} mono value={workspaceId} placeholder="wrkspc_…" onChange={(e) => setWorkspaceId(e.target.value)} />}
       </Field>
-      <Field label="Model" hint="Haiku writes SQL fastest. Opus is the most accurate on complex questions.">
-        {(id) => (
-          <Select id={id} value={model} onChange={setModel} options={settings.models.map((m) => ({ value: m.id, label: m.label }))} />
-        )}
+      <Field label="Model while typing" hint="Writes SQL as you type. A fast model keeps it feeling instant.">
+        {(id) => <Select id={id} value={typingModel} onChange={setTypingModel} options={modelOptions} />}
+      </Field>
+      <Field
+        label="Model for fixes and improvements"
+        hint="Fixes a query the database rejected, and reviews a query when you click Improve. A stronger model is worth the extra seconds here."
+      >
+        {(id) => <Select id={id} value={expertModel} onChange={setExpertModel} options={modelOptions} />}
       </Field>
       {error && <Alert tone="danger">{error}</Alert>}
     </Dialog>

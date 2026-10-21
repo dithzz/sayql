@@ -64,7 +64,10 @@ export interface ModelOption {
 }
 
 export interface Settings {
-  model: string;
+  /** Writes SQL while the person types. */
+  typingModel: string;
+  /** Fixes rejected queries and improves queries on request. */
+  expertModel: string;
   hasApiKey: boolean;
   workspaceId: string;
   models: ModelOption[];
@@ -88,6 +91,12 @@ export interface PreviousQuery {
   question: string;
   sql: string;
 }
+
+/** What the AI is asked to do; mirrors `ai::Task` in src-tauri/src/ai/prompt.rs. */
+export type GenerationTask =
+  | { kind: "draft"; previous: PreviousQuery | null }
+  | { kind: "fix"; sql: string; error: string }
+  | { kind: "improve"; sql: string };
 
 export interface Bootstrap {
   connections: ConnectionConfig[];

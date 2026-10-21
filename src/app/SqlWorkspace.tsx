@@ -1,9 +1,10 @@
 import type { RefObject } from "react";
-import { Eraser, FileCode2, Play } from "lucide-react";
+import { Eraser, FileCode2, Play, Wand2 } from "lucide-react";
 import type { Schema } from "../api";
 import { Button, IconButton, Panel } from "../components/ui";
 import { AskBar, type GenerationStatus } from "../features/ask";
 import { SqlEditor } from "../features/editor";
+import type { ModelNames } from "../features/settings";
 import styles from "./Workbench.module.css";
 
 export interface SqlWorkspaceProps {
@@ -15,7 +16,10 @@ export interface SqlWorkspaceProps {
   question: string;
   onQuestionChange: (q: string) => void;
   status: GenerationStatus;
-  modelName: string;
+  modelNames: ModelNames;
+  /** Asks the expert model to review the SQL. */
+  onImprove: () => void;
+  canImprove: boolean;
   examples?: string[];
   sql: string;
   onSqlChange: (sql: string) => void;
@@ -39,6 +43,16 @@ export function SqlWorkspace(p: SqlWorkspaceProps) {
           <IconButton icon={Eraser} label="Clear" size="sm" onClick={() => p.onSqlChange("")} disabled={!p.sql} />
           <Button
             size="sm"
+            variant="ghost"
+            icon={Wand2}
+            onClick={p.onImprove}
+            disabled={!p.canImprove}
+            title={`Review and improve this query with ${p.modelNames.expert}`}
+          >
+            Improve
+          </Button>
+          <Button
+            size="sm"
             variant="primary"
             icon={Play}
             shortcut="⌘↵"
@@ -57,7 +71,7 @@ export function SqlWorkspace(p: SqlWorkspaceProps) {
         onQuestionChange={p.onQuestionChange}
         onSubmit={p.onRun}
         status={p.status}
-        modelName={p.modelName}
+        modelNames={p.modelNames}
         disabled={!p.schema}
         examples={p.examples}
         onOpenSettings={p.onOpenSettings}

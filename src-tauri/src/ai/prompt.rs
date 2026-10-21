@@ -28,25 +28,72 @@ pub struct PreviousQuery {
     pub sql: String,
 }
 
-/// The user turn: the new request, preceded by the previous query when there is one.
-fn user_message(question: &str, previous: Option<&PreviousQuery>) -> String {
-    match previous.filter(|p| !p.sql.trim().is_empty()) {
-        None => question.to_string(),
-        Some(p) => {
-            let asked = if p.question.trim().is_empty() { String::new() } else { format!("Request: {}\n", p.question.trim()) };
-            format!("<previous_query>\n{asked}SQL:\n{}\n</previous_query>\n\nNew request: {question}", p.sql.trim())
+/// What the model is asked to do with the request.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(tag = "kind", rename_all = "lowercase")]
+pub enum Task {
+    /// Write SQL while the person types, building on the previous query for follow-ups.
+    Draft { previous: Option<PreviousQuery> },
+    /// Correct a query the database rejected.
+    Fix { sql: String, error: String },
+    /// Review the current query and return the best version of it.
+    Improve { sql: String },
+}
+
+impl Task {
+    /// Fixes and improvements go to the stronger model; drafts to the fast one.
+    pub fn needs_expert(&self) -> bool {
+        !matches!(self, Task::Draft { .. })
+    }
+
+    /// Drafts must be fast; fixes and reviews are worth a little more thought.
+    pub(super) fn effort(&self) -> &'static str {
+        if self.needs_expert() { "medium" } else { "low" }
+    }
+
+    /// SQL that comes with the request, for picking the relevant tables of a large schema.
+    pub fn context_sql(&self) -> &str {
+        match self {
+            Task::Draft { previous } => previous.as_ref().map_or("", |p| p.sql.as_str()),
+            Task::Fix { sql, .. } | Task::Improve { sql } => sql,
         }
     }
 }
 
+fn tagged(tag: &str, body: &str) -> String {
+    format!("<{tag}>\n{}\n</{tag}>", body.trim())
+}
+
+/// The user turn for a task.
+fn user_message(question: &str, task: &Task) -> String {
+    let request = if question.trim().is_empty() { "(not stated; infer it from the query)" } else { question.trim() };
+    match task {
+        Task::Draft { previous } => match previous.as_ref().filter(|p| !p.sql.trim().is_empty()) {
+            None => question.to_string(),
+            Some(p) => {
+                let asked = if p.question.trim().is_empty() { String::new() } else { format!("Request: {}\n", p.question.trim()) };
+                format!("<previous_query>\n{asked}SQL:\n{}\n</previous_query>\n\nNew request: {question}", p.sql.trim())
+            }
+        },
+        Task::Fix { sql, error } => format!(
+            "{}\n\n{}\n\n{}\n\nThe database rejected this query. Find the cause in the error and the schema, and return \
+             the corrected query for the request. Keep everything that was not part of the problem.",
+            tagged("request", request),
+            tagged("failed_query", sql),
+            tagged("database_error", error)
+        ),
+        Task::Improve { sql } => format!(
+            "{}\n\n{}\n\nReview this query against the request and the schema: joins, filters, date logic, grouping, \
+             NULL handling and the columns shown. Return the best query for the request. If it is already right, \
+             return it unchanged.",
+            tagged("request", request),
+            tagged("current_query", sql)
+        ),
+    }
+}
+
 /// The Messages API body (without model-specific options) for one request.
-pub(super) fn request_body(
-    model: &str,
-    dialect: &str,
-    schema_text: &str,
-    question: &str,
-    previous: Option<&PreviousQuery>,
-) -> Value {
+pub(super) fn request_body(model: &str, dialect: &str, schema_text: &str, question: &str, task: &Task) -> Value {
     json!({
         "model": model,
         "max_tokens": 16000,
@@ -61,8 +108,8 @@ pub(super) fn request_body(
                 "cache_control": { "type": "ephemeral", "ttl": "1h" }
             }
         ],
-        "messages": [{ "role": "user", "content": user_message(question, previous) }],
-        "output_config": { "effort": "low" },
+        "messages": [{ "role": "user", "content": user_message(question, task) }],
+        "output_config": { "effort": task.effort() },
     })
 }
 
@@ -70,11 +117,15 @@ pub(super) fn request_body(
 mod tests {
     use super::*;
 
+    fn draft(previous: Option<PreviousQuery>) -> Task {
+        Task::Draft { previous }
+    }
+
     #[test]
     fn a_new_question_is_sent_as_is() {
-        assert_eq!(user_message("top 10 customers", None), "top 10 customers");
+        assert_eq!(user_message("top 10 customers", &draft(None)), "top 10 customers");
         let empty = PreviousQuery { question: "x".into(), sql: "  ".into() };
-        assert_eq!(user_message("top 10 customers", Some(&empty)), "top 10 customers");
+        assert_eq!(user_message("top 10 customers", &draft(Some(empty))), "top 10 customers");
     }
 
     #[test]
@@ -83,8 +134,28 @@ mod tests {
             question: "list a few clients from account 42".into(),
             sql: "SELECT TOP 10 first_name, middle_name, last_name FROM clients WHERE account_id = 42;".into(),
         };
-        let m = user_message("remove the middle name", Some(&prev));
+        let m = user_message("remove the middle name", &draft(Some(prev)));
         assert!(m.starts_with("<previous_query>\nRequest: list a few clients from account 42\nSQL:\nSELECT TOP 10"), "{m}");
         assert!(m.ends_with("</previous_query>\n\nNew request: remove the middle name"), "{m}");
+    }
+
+    #[test]
+    fn fixes_carry_the_error_and_go_to_the_expert() {
+        let t = Task::Fix { sql: "SELECT nme FROM clients".into(), error: "Invalid column name 'nme'.".into() };
+        let m = user_message("list clients", &t);
+        assert!(m.contains("<failed_query>\nSELECT nme FROM clients\n</failed_query>"), "{m}");
+        assert!(m.contains("<database_error>\nInvalid column name 'nme'.\n</database_error>"), "{m}");
+        assert!(t.needs_expert());
+        assert_eq!(t.effort(), "medium");
+        assert!(!draft(None).needs_expert());
+    }
+
+    #[test]
+    fn tasks_deserialize_from_the_ui() {
+        let t: Task = serde_json::from_str(r#"{"kind":"improve","sql":"SELECT 1"}"#).unwrap();
+        assert!(matches!(t, Task::Improve { .. }));
+        let t: Task = serde_json::from_str(r#"{"kind":"draft","previous":null}"#).unwrap();
+        assert_eq!(user_message("", &Task::Improve { sql: "SELECT 1".into() }).contains("(not stated"), true);
+        assert!(matches!(t, Task::Draft { previous: None }));
     }
 }

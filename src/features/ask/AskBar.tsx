@@ -2,6 +2,7 @@ import { forwardRef, useImperativeHandle, useLayoutEffect, useRef } from "react"
 import { CheckCircle2, CornerDownRight, Sparkles, XCircle, Zap } from "lucide-react";
 import { Button, Kbd, Spinner } from "../../components/ui";
 import { cx } from "../../lib/cx";
+import type { ModelNames } from "../settings";
 import type { GenerationStatus } from "./useSqlGeneration";
 import styles from "./AskBar.module.css";
 
@@ -10,7 +11,7 @@ export interface AskBarProps {
   onQuestionChange: (q: string) => void;
   onSubmit: () => void;
   status: GenerationStatus;
-  modelName: string;
+  modelNames: ModelNames;
   disabled: boolean;
   /** Clickable example questions shown while the box is empty. */
   examples?: string[];
@@ -67,7 +68,7 @@ export const AskBar = forwardRef<HTMLTextAreaElement, AskBarProps>(function AskB
             </Button>
           </span>
         )}
-        <StatusLine status={p.status} modelName={p.modelName} onOpenSettings={p.onOpenSettings} onRetry={p.onRetry} />
+        <StatusLine status={p.status} modelNames={p.modelNames} onOpenSettings={p.onOpenSettings} onRetry={p.onRetry} />
         {!p.question && p.examples?.length ? (
           <div className={styles.examples}>
             {p.examples.map((ex) => (
@@ -96,15 +97,17 @@ export const AskBar = forwardRef<HTMLTextAreaElement, AskBarProps>(function AskB
 
 function StatusLine({
   status,
-  modelName,
+  modelNames,
   onOpenSettings,
   onRetry,
 }: {
   status: GenerationStatus;
-  modelName: string;
+  modelNames: ModelNames;
   onOpenSettings: () => void;
   onRetry: () => void;
 }) {
+  const writing = { draft: `Writing SQL with ${modelNames.typing}…`, fix: `Fixing the query with ${modelNames.expert}…`, improve: `Reviewing the query with ${modelNames.expert}…` };
+  const finished = { draft: modelNames.typing, fix: `Fixed by ${modelNames.expert}`, improve: `Reviewed by ${modelNames.expert}` };
   switch (status.kind) {
     case "idle":
       return <span className={styles.status}>SQL appears in the editor as you type.</span>;
@@ -117,13 +120,13 @@ function StatusLine({
     case "writing":
       return (
         <span className={cx(styles.status, styles.writing)}>
-          <Spinner size={13} /> Writing SQL with {modelName}…
+          <Spinner size={13} /> {writing[status.task]}
         </span>
       );
     case "done":
       return (
         <span className={cx(styles.status, styles.done)}>
-          <CheckCircle2 size={13} /> {modelName}
+          <CheckCircle2 size={13} /> {finished[status.task]}
           {status.firstTokenMs != null && ` · first SQL in ${status.firstTokenMs} ms`} · {status.totalMs} ms total
         </span>
       );

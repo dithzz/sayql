@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Database, FileCode2, Server, Table2 } from "lucide-react";
 import type { Bootstrap, ConnectionConfig, Table, Target } from "../api";
-import { Alert, Button, EmptyState, SplitPane, TabBar, type TabItem } from "../components/ui";
+import { Alert, Button, EmptyState, ErrorBoundary, SplitPane, TabBar, type TabItem } from "../components/ui";
 import { ConnectionDialog, DATABASE_KINDS, newConnection, targetKey, useConnections } from "../features/connections";
 import { DatabaseNavigator } from "../features/navigator";
 import { selectAllSql } from "../features/schema/sql";
@@ -18,7 +18,7 @@ type OpenDialog = { kind: "connection"; config: ConnectionConfig } | { kind: "se
 export function Workbench({ boot }: { boot: Bootstrap }) {
   const conn = useConnections(boot.connections);
   const tabs = useTabs();
-  const { settings, setSettings, modelName } = useSettings(boot.settings);
+  const { settings, setSettings, modelNames } = useSettings(boot.settings);
   const [dialog, setDialog] = useState<OpenDialog>(null);
 
   // The navigator follows the active tab, like DBeaver's "link with editor".
@@ -166,17 +166,18 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
                 {tabs.tabs.map((t) => {
                   const { name, db } = tabLabel(t);
                   return (
+                    <ErrorBoundary key={t.id} label="This tab" hidden={t.id !== tabs.active?.id}>
                     <QueryTab
-                      key={t.id}
                       tab={t}
                       active={t.id === tabs.active?.id}
                       label={db ? `${name} · ${db}` : name}
                       schema={conn.schemaState(t.target).schema}
                       settings={settings}
-                      modelName={modelName}
+                      modelNames={modelNames}
                       onChange={(patch) => tabs.update(t.id, patch)}
                       onOpenSettings={openSettings}
                     />
+                    </ErrorBoundary>
                   );
                 })}
                 {tabs.tabs.length === 0 && (
@@ -211,7 +212,7 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
         databaseName={databaseName}
         schema={schema}
         loading={loading}
-        modelName={modelName}
+        modelNames={modelNames}
         hasApiKey={settings.hasApiKey}
       />
 

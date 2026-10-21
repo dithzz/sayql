@@ -41,7 +41,8 @@ const schema: Schema = {
 };
 
 const settings: Settings = {
-  model: "claude-haiku-5-5",
+  typingModel: "claude-haiku-5-5",
+  expertModel: "claude-opus-5-5",
   hasApiKey: true,
   workspaceId: "",
   models: [
@@ -91,9 +92,19 @@ GROUP BY c.id
 ORDER BY total_spend DESC
 LIMIT 10;`;
 
-async function streamSql(reqId: number) {
+// Questions containing "broken" get a query the mock database rejects, to exercise Fix.
+const BROKEN_SQL = "SELECT first_nme, last_name\nFROM customers\nLIMIT 10;";
+const FIXED_SQL = "SELECT first_name, last_name\nFROM customers\nLIMIT 10;";
+
+function mockAnswer(question: string, task: { kind: string }): string {
+  if (task.kind === "fix") return FIXED_SQL;
+  if (task.kind === "improve") return `-- reviewed: added ordering\n${SAMPLE_SQL}`;
+  return /broken/i.test(question) ? BROKEN_SQL : SAMPLE_SQL;
+}
+
+async function streamSql(reqId: number, sql: string) {
   const started = performance.now();
-  const chunks = SAMPLE_SQL.match(/[\s\S]{1,18}/g) ?? [];
+  const chunks = sql.match(/[\s\S]{1,18}/g) ?? [];
   for (const [i, text] of chunks.entries()) {
     await new Promise((r) => setTimeout(r, 25));
     await emit("ai://delta", { reqId, text, firstTokenMs: i === 0 ? Math.round(performance.now() - started) : null });
@@ -115,16 +126,17 @@ export function installMockBackend() {
         case "list_databases":
           return a.id === "demo" ? null : { databases: ["analytics", "master", "sales", "staging"], current: "master" };
         case "run_query":
+          if (String(a.sql).includes("first_nme")) return Promise.reject("Invalid column name 'first_nme'.");
           return /^\s*(update|delete|insert|drop)/i.test(String(a.sql)) && !a.allowWrite ? Promise.reject("WRITE_CONFIRM") : result;
         case "generate_sql":
-          void streamSql(Number(a.reqId));
+          void streamSql(Number(a.reqId), mockAnswer(String(a.question), a.task as { kind: string }));
           return null;
         case "test_connection":
           return "Connected. Found 6 tables and views.";
         case "save_connection":
           return { ...(a.config as object), id: (a.config as { id: string }).id || crypto.randomUUID() };
         case "save_settings":
-          return { ...settings, model: a.model, workspaceId: a.workspaceId };
+          return { ...settings, typingModel: a.typingModel, expertModel: a.expertModel, workspaceId: a.workspaceId };
         default:
           return null;
       }

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { commands, subscribeToAi, type PreviousQuery, type Schema, type Target } from "../../api";
+import { commands, subscribeToAi, type GenerationTask, type PreviousQuery, type Schema, type Target } from "../../api";
 import { useLatest } from "../../hooks/useLatest";
 import { errorText } from "../../lib/errors";
 import { targetKey } from "../connections";
@@ -8,11 +8,13 @@ import { fastPath } from "./fastPath";
 /** Wait this long after the last keystroke before asking the AI. */
 const DEBOUNCE_MS = 250;
 
+export type TaskKind = GenerationTask["kind"];
+
 export type GenerationStatus =
   | { kind: "idle" }
   | { kind: "instant"; source: "rules" | "cache" }
-  | { kind: "writing" }
-  | { kind: "done"; firstTokenMs: number | null; totalMs: number }
+  | { kind: "writing"; task: TaskKind }
+  | { kind: "done"; task: TaskKind; firstTokenMs: number | null; totalMs: number }
   | { kind: "error"; message: string; fixInSettings: boolean };
 
 export interface SqlGenerationOptions {
@@ -20,17 +22,18 @@ export interface SqlGenerationOptions {
   target: Target | null;
   /** Cancellation scope on the backend; the tab id. */
   slot: string;
-  initialQuestion?: string;
-  /** The query last run in the tab; follow-up requests are asked to edit it. */
-  previous: PreviousQuery | null;
-  onQuestionChange?: (question: string) => void;
   schema: Schema | null;
-  model: string;
+  /** The model that drafts while typing; part of the answer cache key. */
+  typingModel: string;
   hasApiKey: boolean;
+  initialQuestion?: string;
+  onQuestionChange?: (question: string) => void;
+  /** The query last run in the tab; follow-up drafts are asked to edit it. */
+  previous: PreviousQuery | null;
   /** Receives the SQL as it streams in, and the final SQL. */
   onSql: (sql: string) => void;
-  /** Receives the finished SQL when a run was requested while it was still being written. */
-  onRunRequested: (sql: string) => void;
+  /** Receives finished SQL that should run now: a run requested while writing, or a fix. */
+  onRunRequested: (sql: string, task: TaskKind) => void;
 }
 
 /** Strips Markdown fences the model may add despite instructions. */
@@ -49,10 +52,11 @@ let lastRequestId = 0;
 const answers = new Map<string, string>();
 
 /**
- * Turns the question into SQL as the person types:
- * instant local answers for simple requests, a per-question cache, and otherwise a
- * debounced, streamed AI request. Each new request supersedes the previous one
- * in the same tab.
+ * Turns the question into SQL:
+ * - while typing, instant local answers, a per-question cache, and otherwise a debounced
+ *   streamed draft from the fast model (building on the previous query for follow-ups);
+ * - on request, `fix` (a query the database rejected) and `improve` with the expert model.
+ * Each new request supersedes the previous one in the same tab.
  */
 export function useSqlGeneration(options: SqlGenerationOptions) {
   const [question, setQuestionState] = useState(options.initialQuestion ?? "");
@@ -64,13 +68,13 @@ export function useSqlGeneration(options: SqlGenerationOptions) {
   const reqId = useRef(0);
   const buffer = useRef("");
   const firstTokenMs = useRef<number | null>(null);
-  const inFlightQuestion = useRef("");
+  const inFlight = useRef<{ question: string; task: GenerationTask } | null>(null);
   const runWhenReady = useRef(false);
   const debounce = useRef<number | undefined>(undefined);
 
   // The previous query is part of the key: "remove the middle name" means something else after each query.
   const cacheKey = (q: string) =>
-    `${targetKey(opts.current.target)}|${opts.current.model}|${opts.current.previous?.sql ?? ""}|${normalize(q)}`;
+    `${targetKey(opts.current.target)}|${opts.current.typingModel}|${opts.current.previous?.sql ?? ""}|${normalize(q)}`;
 
   const clearDebounce = () => {
     window.clearTimeout(debounce.current);
@@ -90,8 +94,8 @@ export function useSqlGeneration(options: SqlGenerationOptions) {
   }, [opts]);
 
   const start = useCallback(
-    (q: string) => {
-      const { target, hasApiKey } = opts.current;
+    (q: string, task: GenerationTask) => {
+      const { target, hasApiKey, slot } = opts.current;
       clearDebounce();
       if (!target) return;
       if (!hasApiKey) {
@@ -102,11 +106,16 @@ export function useSqlGeneration(options: SqlGenerationOptions) {
       reqId.current = id;
       buffer.current = "";
       firstTokenMs.current = null;
-      inFlightQuestion.current = q;
-      setStatus({ kind: "writing" });
-      commands.generateSql(target, q, id, opts.current.slot, opts.current.previous).catch((e) => id === reqId.current && fail(errorText(e)));
+      inFlight.current = { question: q, task };
+      setStatus({ kind: "writing", task: task.kind });
+      commands.generateSql(target, q, id, slot, task).catch((e) => id === reqId.current && fail(errorText(e)));
     },
     [fail, opts],
+  );
+
+  const draft = useCallback(
+    (q: string) => start(q, { kind: "draft", previous: opts.current.previous }),
+    [opts, start],
   );
 
   useEffect(() => {
@@ -121,17 +130,18 @@ export function useSqlGeneration(options: SqlGenerationOptions) {
         if (id === reqId.current) buffer.current = "";
       },
       done: (e) => {
-        if (e.reqId !== reqId.current) return;
+        if (e.reqId !== reqId.current || !inFlight.current) return;
         if (e.error) return fail(e.error);
+        const { question: q, task } = inFlight.current;
         const sql = cleanSql(buffer.current).trimEnd();
         opts.current.onSql(sql);
-        answers.set(cacheKey(inFlightQuestion.current), sql);
-        // Still typing: a newer request is about to start, so stay in "writing".
+        if (task.kind === "draft") answers.set(cacheKey(q), sql);
+        // Still typing: a newer draft is about to start, so stay in "writing".
         if (debounce.current !== undefined) return;
-        setStatus({ kind: "done", firstTokenMs: firstTokenMs.current, totalMs: e.totalMs });
+        setStatus({ kind: "done", task: task.kind, firstTokenMs: firstTokenMs.current, totalMs: e.totalMs });
         if (runWhenReady.current) {
           runWhenReady.current = false;
-          opts.current.onRunRequested(sql);
+          opts.current.onRunRequested(sql, task.kind);
         }
       },
     });
@@ -158,11 +168,11 @@ export function useSqlGeneration(options: SqlGenerationOptions) {
         setStatus({ kind: "instant", source: instant ? "rules" : "cache" });
         return;
       }
-      setStatus({ kind: "writing" });
-      debounce.current = window.setTimeout(() => start(text), DEBOUNCE_MS);
+      setStatus({ kind: "writing", task: "draft" });
+      debounce.current = window.setTimeout(() => draft(text), DEBOUNCE_MS);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [cancel, start],
+    [cancel, draft],
   );
 
   /**
@@ -172,17 +182,33 @@ export function useSqlGeneration(options: SqlGenerationOptions) {
   const requestRun = useCallback((): boolean => {
     if (statusRef.current.kind !== "writing") return false;
     runWhenReady.current = true;
-    if (debounce.current !== undefined) start(question); // skip the remaining debounce wait
+    if (debounce.current !== undefined) draft(question); // skip the remaining debounce wait
     return true;
-  }, [question, start, statusRef]);
+  }, [question, draft, statusRef]);
 
-  const retry = useCallback(() => question.trim() && start(question), [question, start]);
+  /** Asks the expert model to correct `sql` given the database's error, then runs the fix. */
+  const fix = useCallback(
+    (sql: string, error: string) => {
+      runWhenReady.current = true;
+      start(question, { kind: "fix", sql, error });
+    },
+    [question, start],
+  );
 
-  // An API key was just added: retry the question that was waiting for it.
+  /** Asks the expert model to review `sql` and write the best version of it. */
+  const improve = useCallback((sql: string) => start(question, { kind: "improve", sql }), [question, start]);
+
+  /** Repeats the last request (after an error), or drafts the current question. */
+  const retry = useCallback(() => {
+    if (inFlight.current && inFlight.current.task.kind !== "draft") start(inFlight.current.question, inFlight.current.task);
+    else if (question.trim()) draft(question);
+  }, [draft, question, start]);
+
+  // An API key was just added: retry the request that was waiting for it.
   useEffect(() => {
     if (options.hasApiKey && statusRef.current.kind === "error" && statusRef.current.fixInSettings) retry();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [options.hasApiKey]);
 
-  return { question, setQuestion, status, requestRun, retry };
+  return { question, setQuestion, status, requestRun, fix, improve, retry };
 }

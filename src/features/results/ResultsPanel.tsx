@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Check, CheckCircle2, Copy, Table2 } from "lucide-react";
 import type { QueryResult } from "../../api";
 import { Alert, Badge, Button, EmptyState, Panel, Spinner } from "../../components/ui";
@@ -12,9 +12,11 @@ export interface ResultsPanelProps {
   running: boolean;
   /** Shown under a database error, e.g. advice to rephrase. */
   errorHint?: string;
+  /** Shown next to a database error, e.g. a Fix with AI button. */
+  errorAction?: ReactNode;
 }
 
-export function ResultsPanel({ result, error, running, errorHint }: ResultsPanelProps) {
+export function ResultsPanel({ result, error, running, errorHint, errorAction }: ResultsPanelProps) {
   const [copied, setCopied] = useState(false);
   const hasGrid = !!result && result.columns.length > 0;
 
@@ -56,7 +58,7 @@ export function ResultsPanel({ result, error, running, errorHint }: ResultsPanel
     >
       {error ? (
         <div className={styles.error}>
-          <Alert tone="danger">
+          <Alert tone="danger" actions={errorAction}>
             <strong>The database returned an error</strong>
             <pre className={styles.errorSql}>{error}</pre>
           </Alert>

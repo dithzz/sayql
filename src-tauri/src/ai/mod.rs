@@ -5,8 +5,8 @@ mod models;
 mod prompt;
 mod sse;
 
-pub use models::{DEFAULT_MODEL, MODELS, is_known};
-pub use prompt::PreviousQuery;
+pub use models::{DEFAULT_EXPERT_MODEL, DEFAULT_TYPING_MODEL, MODELS, is_known};
+pub use prompt::Task;
 
 use crate::error::{AppError, AppResult};
 use futures_util::StreamExt;
@@ -32,8 +32,7 @@ pub struct GenRequest {
     pub dialect: String,
     pub schema_text: String,
     pub question: String,
-    /// The query last run in the same tab, so follow-ups can edit it.
-    pub previous: Option<PreviousQuery>,
+    pub task: Task,
 }
 
 #[derive(Clone, Serialize)]
@@ -72,7 +71,7 @@ pub async fn stream_sql(app: AppHandle, http: reqwest::Client, r: GenRequest) {
 
 /// Returns the number of prompt tokens served from cache.
 async fn run(app: &AppHandle, http: &reqwest::Client, r: &GenRequest, start: Instant) -> AppResult<Option<u64>> {
-    let mut body = prompt::request_body(&r.model, &r.dialect, &r.schema_text, &r.question, r.previous.as_ref());
+    let mut body = prompt::request_body(&r.model, &r.dialect, &r.schema_text, &r.question, &r.task);
     let beta = models::apply_options(&r.model, &mut body);
 
     let mut req = http

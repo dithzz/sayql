@@ -10,3 +10,4 @@ export { Alert, Badge, EmptyState, Kbd, Spinner, Toolbar, ToolbarDivider, Toolba
 export type { Tone } from "./Feedback";
 export { TabBar } from "./TabBar";
 export type { TabItem } from "./TabBar";
+export { ErrorBoundary } from "./ErrorBoundary";

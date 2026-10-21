@@ -9,7 +9,10 @@ pub const MODELS: &[(&str, &str)] = &[
     ("claude-haiku-5-5", "Claude Haiku 5.5 — fastest"),
 ];
 
-pub const DEFAULT_MODEL: &str = "claude-opus-5-5";
+/// Writes SQL while the person types: fastest to first token.
+pub const DEFAULT_TYPING_MODEL: &str = "claude-haiku-5-5";
+/// Fixes rejected queries and reviews queries on request: most accurate.
+pub const DEFAULT_EXPERT_MODEL: &str = "claude-opus-5-5";
 
 pub fn is_known(model: &str) -> bool {
     MODELS.iter().any(|(id, _)| *id == model)

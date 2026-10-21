@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { commands, WRITE_CONFIRM, type QueryResult, type Target } from "../../api";
+import { useLatest } from "../../hooks/useLatest";
 import { errorText } from "../../lib/errors";
 import { targetKey } from "../connections";
 
@@ -14,8 +15,12 @@ export interface QueryRunner {
   cancelWrite: () => void;
 }
 
-/** Runs SQL on the open database. Statements that change data wait for confirmation. */
-export function useQueryRunner(target: Target | null): QueryRunner {
+/**
+ * Runs SQL on the tab's database. Statements that change data wait for confirmation.
+ * `onFailure` hears about database errors, e.g. to offer an AI fix.
+ */
+export function useQueryRunner(target: Target | null, onFailure?: (sql: string, error: string) => void): QueryRunner {
+  const failure = useLatest(onFailure);
   const [result, setResult] = useState<QueryResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
@@ -37,13 +42,17 @@ export function useQueryRunner(target: Target | null): QueryRunner {
         setResult(await commands.runQuery(target, sql, allowWrite));
       } catch (e) {
         const message = errorText(e);
-        if (message === WRITE_CONFIRM) setPendingWrite(sql);
-        else setError(message);
+        if (message === WRITE_CONFIRM) {
+          setPendingWrite(sql);
+        } else {
+          setError(message);
+          failure.current?.(sql, message);
+        }
       } finally {
         setRunning(false);
       }
     },
-    [target],
+    [target, failure],
   );
 
   return {

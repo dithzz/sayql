@@ -14,7 +14,12 @@ const SETTINGS_FILE: &str = "settings.json";
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Settings {
-    pub model: String,
+    /// Writes SQL while the person types.
+    #[serde(default = "default_typing_model")]
+    pub typing_model: String,
+    /// Fixes rejected queries and improves queries on request.
+    #[serde(default = "default_expert_model")]
+    pub expert_model: String,
     /// The demo connection is added once; deleting it keeps it deleted.
     #[serde(default)]
     pub demo_added: bool,
@@ -23,9 +28,22 @@ pub struct Settings {
     pub workspace_id: String,
 }
 
+fn default_typing_model() -> String {
+    crate::ai::DEFAULT_TYPING_MODEL.to_string()
+}
+
+fn default_expert_model() -> String {
+    crate::ai::DEFAULT_EXPERT_MODEL.to_string()
+}
+
 impl Default for Settings {
     fn default() -> Self {
-        Settings { model: crate::ai::DEFAULT_MODEL.to_string(), demo_added: false, workspace_id: String::new() }
+        Settings {
+            typing_model: default_typing_model(),
+            expert_model: default_expert_model(),
+            demo_added: false,
+            workspace_id: String::new(),
+        }
     }
 }
 
