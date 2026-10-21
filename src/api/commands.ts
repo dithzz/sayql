@@ -10,6 +10,7 @@ import type {
   Schema,
   ProviderChoice,
   Settings,
+  UpdateInfo,
   Target,
 } from "./types";
 
@@ -42,6 +43,11 @@ export const commands = {
   deleteScript: (id: string) => invoke<void>("delete_script", { id }),
 
   mcpSetup: () => invoke<McpSetup>("mcp_setup"),
+
+  /** A newer release, or null (also when offline, and always in development builds). */
+  checkUpdate: () => invoke<UpdateInfo | null>("check_update"),
+  /** Downloads and installs the update, then restarts the app. */
+  installUpdate: () => invoke<void>("install_update"),
 
   /** Saves the choices for one provider and makes it the one that writes SQL. */
   saveSettings: (choice: ProviderChoice) => invoke<Settings>("save_settings", { ...choice }),

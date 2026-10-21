@@ -9,7 +9,7 @@ mod schema;
 mod state;
 mod store;
 
-use commands::{connections, generation, query, scripts, settings};
+use commands::{connections, generation, query, scripts, settings, updates};
 use state::AppState;
 use tauri::Manager;
 
@@ -40,6 +40,8 @@ pub fn run() {
             settings::save_settings,
             settings::list_models,
             settings::mcp_setup,
+            updates::check_update,
+            updates::install_update,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

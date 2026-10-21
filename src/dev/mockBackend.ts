@@ -176,6 +176,8 @@ export function installMockBackend() {
         }
         case "delete_script":
           return null;
+        case "check_update":
+          return null;
         case "mcp_setup":
           return { path: "/Applications/Sayql.app/Contents/MacOS/sayql-mcp", exists: true };
         case "test_connection":

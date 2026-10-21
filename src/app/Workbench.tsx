@@ -8,6 +8,7 @@ import { CloseTabDialog, SaveScriptDialog, useScripts } from "../features/script
 import { selectAllSql } from "../features/schema/sql";
 import { SettingsDialog, useSettings } from "../features/settings";
 import { hasUnsavedChanges, useTabs, type EditorTab } from "../features/tabs";
+import { useUpdate } from "../features/updates";
 import { QueryTab } from "./QueryTab";
 import { StatusBar } from "./StatusBar";
 import { TopBar } from "./TopBar";
@@ -27,6 +28,7 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
   const tabs = useTabs();
   const scripts = useScripts();
   const { settings, setSettings, modelNames } = useSettings(boot.settings);
+  const updates = useUpdate();
   const [dialog, setDialog] = useState<OpenDialog>(null);
 
   // The navigator follows the active tab, like DBeaver's "link with editor".
@@ -303,6 +305,7 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
         loading={loading}
         modelNames={modelNames}
         aiReady={settings.aiReady}
+        updates={updates}
       />
 
       {dialog?.kind === "connection" && (

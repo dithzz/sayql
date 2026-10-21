@@ -544,6 +544,15 @@ section.block { padding: 96px 0; }
 .cta::before { content: ""; position: absolute; inset: 0; z-index: -1; background: radial-gradient(520px 260px at 50% 40%, var(--glow-a), transparent 70%), radial-gradient(420px 220px at 60% 70%, var(--glow-b), transparent 70%); }
 .cta h2 { font-size: clamp(34px, 5.5vw, 60px); line-height: 1.04; font-weight: 800; letter-spacing: -0.03em; }
 .cta p { margin: 18px auto 30px; font-size: 18px; color: var(--color-text-muted); max-width: 560px; }
+.install { max-width: 860px; margin: 40px auto 0; text-align: left; border: 1px solid var(--color-border); border-radius: var(--radius-xl); background: var(--color-surface); padding: 20px 22px; display: grid; gap: 16px; }
+.install-head { font-size: 14px; color: var(--color-text-muted); }
+.install-head .ea { display: inline-block; margin-right: 8px; font: 600 11px/1 var(--font-sans); letter-spacing: 0.05em; text-transform: uppercase; color: var(--color-warning); background: var(--color-warning-soft); padding: 4px 8px; border-radius: 999px; vertical-align: 1px; }
+.install-steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 760px) { .install-steps { grid-template-columns: minmax(0, 1fr); } }
+.install-step { display: grid; gap: 4px; padding: 12px 14px; border-radius: var(--radius-lg); background: var(--color-surface-muted); font-size: 14px; color: var(--color-text-muted); }
+.install-step b { color: var(--color-text); font-size: 14px; }
+.install-step em { font-style: normal; font-weight: 600; color: var(--color-text); }
+.install-step code { font-size: 12px; background: var(--color-surface-sunken); padding: 1px 4px; border-radius: 3px; }
 .platforms { margin-top: 18px; display: flex; gap: 18px; justify-content: center; flex-wrap: wrap; font-size: 13px; color: var(--color-text-subtle); }
 
 footer { border-top: 1px solid var(--color-border-subtle); padding: 28px 0 40px; font-size: 13px; color: var(--color-text-subtle); }
@@ -948,6 +957,7 @@ footer a { text-decoration: none; } footer a:hover { color: var(--color-text); }
       <details><summary>Does my data get sent anywhere?</summary><p>To write SQL, Sayql sends your question and the names of your tables and columns to the AI provider you chose. It doesn't send the rows in your tables. When a query fails, the SQL and the database's error message are sent so it can be fixed. With a local model through Ollama or LM Studio, none of this leaves your computer. Sayql connects straight from your machine to your database.</p></details>
       <details><summary>Can it break my database?</summary><p>Queries run read-only by default, and the database enforces it too. A statement that could change data, such as an UPDATE or DELETE, always stops and shows you a confirmation first.</p></details>
       <details><summary>Which databases and platforms are supported?</summary><p>PostgreSQL, MySQL, SQLite, Microsoft SQL Server and Azure SQL, on macOS, Windows and Linux.</p></details>
+      <details><summary>Why does my computer warn me when I first open it?</summary><p>Early-access builds aren't code-signed with Apple or Microsoft yet. Signing is a paid certificate, not a safety check of the app itself. Confirm the first launch once (the steps are under the download buttons) and it opens normally from then on. Updates are signed with Sayql's own key, and the app refuses any update that doesn't match it.</p></details>
     </div>
   </div>
 </section>
@@ -958,11 +968,20 @@ footer a { text-decoration: none; } footer a:hover { color: var(--color-text); }
     <h2 class="reveal">Your database is ready<br>to be asked.</h2>
     <p class="reveal">Sayql Community Edition is free forever. Bring a key for the AI you like or run a model locally, connect a database, and ask your first question in under a minute. There's a demo database built in.</p>
     <div class="hero-ctas reveal">
-      <a class="btn btn-primary btn-lg" href="#download"><svg><use href="#i-download"/></svg>Download for macOS</a>
-      <a class="btn btn-lg" href="#download">Windows</a>
-      <a class="btn btn-lg" href="#download">Linux</a>
+      <a class="btn btn-primary btn-lg" href="https://github.com/dithzz/sayql-releases/releases/latest"><svg><use href="#i-download"/></svg>Download for macOS</a>
+      <a class="btn btn-lg" href="https://github.com/dithzz/sayql-releases/releases/latest">Windows</a>
+      <a class="btn btn-lg" href="https://github.com/dithzz/sayql-releases/releases/latest">Linux</a>
     </div>
-    <div class="platforms"><span>Free forever</span><span>·</span><span>Personal and commercial use</span><span>·</span><span>Demo database included</span></div>
+    <div class="platforms"><span>Free forever</span><span>·</span><span>Personal and commercial use</span><span>·</span><span>Automatic, signed updates</span><span>·</span><span>Demo database included</span></div>
+
+    <div class="install reveal">
+      <p class="install-head"><span class="ea">Early access</span> These builds aren't code-signed yet, so your computer asks you to confirm the first launch. You only do this once.</p>
+      <div class="install-steps">
+        <div class="install-step"><b>macOS</b><span>Open Sayql and close the warning. Then go to <em>System Settings → Privacy &amp; Security</em> and click <em>Open Anyway</em>.</span></div>
+        <div class="install-step"><b>Windows</b><span>On "Windows protected your PC", click <em>More info</em>, then <em>Run anyway</em>.</span></div>
+        <div class="install-step"><b>Linux</b><span>Make the <code>.AppImage</code> executable and run it, or install the <code>.deb</code>.</span></div>
+      </div>
+    </div>
   </div>
 </section>
 

@@ -1,6 +1,8 @@
-import { Circle, Sparkles } from "lucide-react";
+import { ArrowDownToLine, Circle, Sparkles } from "lucide-react";
 import type { ConnectionConfig, Schema } from "../api";
 import type { ModelNames } from "../features/settings";
+import type { UpdateState } from "../features/updates";
+import { Button } from "../components/ui";
 import { cx } from "../lib/cx";
 import styles from "./Workbench.module.css";
 
@@ -11,9 +13,10 @@ export interface StatusBarProps {
   loading: boolean;
   modelNames: ModelNames;
   aiReady: boolean;
+  updates: UpdateState;
 }
 
-export function StatusBar({ active, databaseName, schema, loading, modelNames, aiReady }: StatusBarProps) {
+export function StatusBar({ active, databaseName, schema, loading, modelNames, aiReady, updates }: StatusBarProps) {
   const columns = schema?.tables.reduce((n, t) => n + t.columns.length, 0) ?? 0;
   const state = !active ? "Not connected" : loading ? "Connecting…" : schema ? "Connected" : "Disconnected";
   return (
@@ -30,6 +33,18 @@ export function StatusBar({ active, databaseName, schema, loading, modelNames, a
         </span>
       )}
       <span className={styles.spacer} />
+      {updates.update && (
+        <Button
+          size="sm"
+          variant="primary"
+          icon={ArrowDownToLine}
+          loading={updates.installing}
+          title={updates.error ?? updates.update.notes ?? undefined}
+          onClick={updates.install}
+        >
+          {updates.error ? "Update failed — retry" : `Update to ${updates.update.version}`}
+        </Button>
+      )}
       <span className={styles.statusItem}>
         <Sparkles size={11} />
         {aiReady ? `${modelNames.typing} while typing · ${modelNames.expert} for fixes` : "AI off — set up an AI provider in Settings"}

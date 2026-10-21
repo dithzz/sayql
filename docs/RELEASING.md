@@ -7,14 +7,53 @@ Nothing secret is committed to this repository. Every key, certificate and
 password below lives on your machine or in GitHub Actions secrets. Where the
 repo has a placeholder, this guide says what replaces it.
 
-| What | Where it lives | Placeholder to replace |
+| What | Where it lives | Status |
 | --- | --- | --- |
-| Updater public key | `src-tauri/tauri.conf.json` → `plugins.updater.pubkey` | `REPLACE_WITH_UPDATER_PUBLIC_KEY` |
-| Update feed URL | `src-tauri/tauri.conf.json` → `plugins.updater.endpoints` | `OWNER/REPO` |
-| Updater private key | GitHub secret `TAURI_SIGNING_PRIVATE_KEY` | — |
-| Apple Developer ID certificate | GitHub secrets `APPLE_CERTIFICATE*` | — |
-| Notarization API key | GitHub secrets `APPLE_API_*` | — |
-| Windows signing | `src-tauri/tauri.conf.json` → `bundle.windows` | see [Windows](#4-windows-code-signing) |
+| Updater public key | `src-tauri/tauri.conf.json` → `plugins.updater.pubkey` | set |
+| Update feed URL | `src-tauri/tauri.conf.json` → `plugins.updater.endpoints` | `dithzz/sayql-releases` |
+| Updater private key | `~/.tauri/sayql-updater.key` → GitHub secret `TAURI_SIGNING_PRIVATE_KEY` | key created; secret to add |
+| Updater key password | macOS Keychain "Sayql updater signing key password" → GitHub secret `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | created; secret to add |
+| Releases repo token | GitHub secret `RELEASES_TOKEN` | to add |
+| Apple Developer ID certificate | GitHub secrets `APPLE_CERTIFICATE*` | not used in early access |
+| Notarization API key | GitHub secrets `APPLE_API_*` | not used in early access |
+| Windows signing | `src-tauri/tauri.conf.json` → `bundle.windows` | not used in early access |
+
+## 0. Early access: unsigned releases, no app stores
+
+Sayql ships as a direct download from the public
+[`dithzz/sayql-releases`](https://github.com/dithzz/sayql-releases) repository,
+not through any app store. The source repository stays private.
+
+Early-access builds are **not code-signed**. macOS builds are ad-hoc signed
+(`signingIdentity: "-"`), which is what lets macOS offer "Open Anyway" instead
+of calling the app damaged. Users confirm the first launch once:
+
+- **macOS:** open Sayql, dismiss the warning, then System Settings → Privacy &
+  Security → **Open Anyway**.
+- **Windows:** "Windows protected your PC" → **More info → Run anyway**.
+- **Linux:** no warning. `chmod +x` the `.AppImage`, or install the `.deb`.
+
+Automatic updates work without code signing: every update is signed with the
+updater key, and the app refuses any update whose signature doesn't match.
+
+One-time setup:
+
+1. Create the public repository `dithzz/sayql-releases` with a README (a
+   release needs at least one commit to tag).
+2. Create a fine-grained GitHub token limited to that repository with
+   **Contents: Read and write**. Add it to the private source repo as the
+   secret `RELEASES_TOKEN`.
+3. Add `TAURI_SIGNING_PRIVATE_KEY` (the contents of
+   `~/.tauri/sayql-updater.key`) and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`. The
+   password is in your Keychain:
+   `security find-generic-password -s "Sayql updater signing key password" -w`.
+4. Back up the key file and its password in a password manager. Lose them and
+   installed copies can never update again.
+
+Then release as in [Publishing a release](#5-publishing-a-release). When
+downloads justify it, add Apple Developer ID signing ([section 3](#3-macos-developer-id-signing-and-notarization))
+to remove the first-launch warning, and with it the keychain prompt that
+appears after each update.
 
 ## 1. Build locally (unsigned)
 
@@ -114,12 +153,11 @@ enforced inside the app, not by hiding the download.
 
 ### Checking for updates in the app
 
-The updater plugin is registered in `src-tauri/src/lib.rs` and allowed by the
-`updater:default` permission, but nothing calls it yet. To add an
-"update available" prompt, install the JS bindings
-(`pnpm add @tauri-apps/plugin-updater @tauri-apps/plugin-process`, both MIT/Apache-2.0)
-and follow <https://v2.tauri.app/plugin/updater/#checking-for-updates>.
-For a restart button, also register `tauri-plugin-process`.
+Release builds check the feed once at startup (`check_update` in
+`src-tauri/src/commands/updates.rs`; development builds never check). When a
+newer version is published, the status bar shows **Update to x.y.z**. Clicking
+it runs `install_update`, which downloads the update, verifies its signature,
+installs it and restarts Sayql.
 
 ## 3. macOS: Developer ID signing and notarization
 
