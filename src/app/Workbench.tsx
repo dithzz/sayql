@@ -3,7 +3,7 @@ import { Server } from "lucide-react";
 import type { Bootstrap, ConnectionConfig, Table } from "../api";
 import { Alert, Button, EmptyState, SplitPane } from "../components/ui";
 import { DEMO_EXAMPLES, useSqlGeneration } from "../features/ask";
-import { ConnectionDialog, newConnection, useConnections } from "../features/connections";
+import { ConnectionDialog, newConnection, targetKey, useConnections } from "../features/connections";
 import { DatabaseNavigator } from "../features/navigator";
 import { ConfirmWriteDialog, useQueryRunner } from "../features/query";
 import { ResultsPanel } from "../features/results";
@@ -25,11 +25,9 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
   const [sql, setSql] = useState("");
   const [dialog, setDialog] = useState<OpenDialog>(null);
   const askRef = useRef<HTMLTextAreaElement>(null);
-  const connectionId = conn.active?.id ?? null;
-
-  const query = useQueryRunner(connectionId);
+  const query = useQueryRunner(conn.target);
   const generation = useSqlGeneration({
-    connectionId,
+    target: conn.target,
     schema: conn.schema,
     model: settings.model,
     hasApiKey: settings.hasApiKey,
@@ -37,7 +35,8 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
     onRunRequested: query.run,
   });
 
-  useEffect(() => setSql(""), [connectionId]);
+  const openTarget = targetKey(conn.target);
+  useEffect(() => setSql(""), [openTarget]);
   useEffect(() => {
     if (conn.schema) askRef.current?.focus();
   }, [conn.schema]);
@@ -59,7 +58,13 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
 
   return (
     <div className={styles.workbench}>
-      <TopBar active={conn.active} schema={conn.schema} onNewConnection={openNewConnection} onOpenSettings={openSettings} />
+      <TopBar
+        active={conn.active}
+        databaseName={conn.databaseName}
+        schema={conn.schema}
+        onNewConnection={openNewConnection}
+        onOpenSettings={openSettings}
+      />
 
       {conn.error && (
         <div className={styles.banner}>
@@ -86,10 +91,13 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
           first={
             <DatabaseNavigator
               connections={conn.connections}
-              activeId={connectionId}
+              activeId={conn.active?.id ?? null}
+              databases={conn.databases}
+              databaseName={conn.databaseName}
               schema={conn.schema}
               loading={conn.loadingSchema}
               onOpen={conn.open}
+              onOpenDatabase={conn.openDatabase}
               onAdd={openNewConnection}
               onEdit={(c) => setDialog({ kind: "connection", config: c })}
               onRefresh={conn.refresh}
@@ -106,7 +114,7 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
                 maxSize={900}
                 first={
                   <SqlWorkspace
-                    connectionName={conn.active.name}
+                    connectionName={conn.databaseName ? `${conn.active.name} · ${conn.databaseName}` : conn.active.name}
                     schema={conn.schema}
                     askRef={askRef}
                     question={generation.question}
@@ -150,6 +158,7 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
 
       <StatusBar
         active={conn.active}
+        databaseName={conn.databaseName}
         schema={conn.schema}
         loading={conn.loadingSchema}
         modelName={modelName}

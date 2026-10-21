@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
-import { commands, WRITE_CONFIRM, type QueryResult } from "../../api";
+import { commands, WRITE_CONFIRM, type QueryResult, type Target } from "../../api";
 import { errorText } from "../../lib/errors";
+import { targetKey } from "../connections";
 
 export interface QueryRunner {
   result: QueryResult | null;
@@ -13,26 +14,27 @@ export interface QueryRunner {
   cancelWrite: () => void;
 }
 
-/** Runs SQL on the open connection. Statements that change data wait for confirmation. */
-export function useQueryRunner(connectionId: string | null): QueryRunner {
+/** Runs SQL on the open database. Statements that change data wait for confirmation. */
+export function useQueryRunner(target: Target | null): QueryRunner {
   const [result, setResult] = useState<QueryResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
   const [pendingWrite, setPendingWrite] = useState<string | null>(null);
 
+  const key = targetKey(target);
   useEffect(() => {
     setResult(null);
     setError(null);
     setPendingWrite(null);
-  }, [connectionId]);
+  }, [key]);
 
   const execute = useCallback(
     async (sql: string, allowWrite: boolean) => {
-      if (!connectionId || !sql.trim()) return;
+      if (!target || !sql.trim()) return;
       setRunning(true);
       setError(null);
       try {
-        setResult(await commands.runQuery(connectionId, sql, allowWrite));
+        setResult(await commands.runQuery(target, sql, allowWrite));
       } catch (e) {
         const message = errorText(e);
         if (message === WRITE_CONFIRM) setPendingWrite(sql);
@@ -41,7 +43,7 @@ export function useQueryRunner(connectionId: string | null): QueryRunner {
         setRunning(false);
       }
     },
-    [connectionId],
+    [target],
   );
 
   return {

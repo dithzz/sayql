@@ -19,6 +19,9 @@ const CONNECT_TIMEOUT: Duration = Duration::from_secs(15);
 #[derive(Clone)]
 pub struct MssqlPool {
     config: Config,
+    /// Switched to with `USE` after login, so browsing another database never changes
+    /// how the login itself happens (the same way DBeaver browses databases).
+    database: Option<String>,
     client: Arc<Mutex<Option<MssqlClient>>>,
 }
 
@@ -41,7 +44,14 @@ impl MssqlConn<'_> {
 impl MssqlPool {
     /// Opens a first connection so bad settings fail here, not on the first query.
     pub async fn connect(cfg: &ConnConfig, password: Option<String>) -> AppResult<Self> {
-        let pool = MssqlPool { config: config(cfg, password)?, client: Arc::new(Mutex::new(None)) };
+        let pool = MssqlPool { config: config(cfg, password)?, database: None, client: Arc::new(Mutex::new(None)) };
+        drop(pool.acquire().await?);
+        Ok(pool)
+    }
+
+    /// A separate connection, with the same login, that works in `database`.
+    pub async fn for_database(&self, database: &str) -> AppResult<Self> {
+        let pool = MssqlPool { config: self.config.clone(), database: Some(database.to_string()), client: Arc::new(Mutex::new(None)) };
         drop(pool.acquire().await?);
         Ok(pool)
     }
@@ -49,7 +59,12 @@ impl MssqlPool {
     pub async fn acquire(&self) -> AppResult<MssqlConn<'_>> {
         let mut guard = self.client.lock().await;
         if guard.is_none() {
-            *guard = Some(open(&self.config).await?);
+            let mut client = open(&self.config).await?;
+            if let Some(db) = &self.database {
+                let use_db = format!("USE [{}]", db.replace(']', "]]"));
+                client.simple_query(use_db).await?.into_results().await?;
+            }
+            *guard = Some(client);
         }
         Ok(MssqlConn { guard })
     }

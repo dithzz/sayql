@@ -3,6 +3,7 @@
 
 mod classify;
 mod connect;
+mod databases;
 mod decode;
 mod demo;
 mod execute;
@@ -11,6 +12,7 @@ mod mssql_pool;
 
 pub use classify::is_read_only;
 pub use connect::connect;
+pub use databases::{DatabaseList, list_databases, open_database};
 pub use demo::ensure_demo;
 pub use execute::run_query;
 pub use introspect::introspect;

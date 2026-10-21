@@ -70,6 +70,19 @@ export interface Settings {
   models: ModelOption[];
 }
 
+export interface DatabaseList {
+  /** Databases this login can open, sorted by name. */
+  databases: string[];
+  /** The database the connection opens by default. */
+  current: string | null;
+}
+
+/** One database on a saved connection. `database: null` is the connection's default database. */
+export interface Target {
+  connectionId: string;
+  database: string | null;
+}
+
 export interface Bootstrap {
   connections: ConnectionConfig[];
   settings: Settings;

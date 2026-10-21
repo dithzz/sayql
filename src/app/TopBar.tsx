@@ -7,12 +7,13 @@ import styles from "./Workbench.module.css";
 
 export interface TopBarProps {
   active: ConnectionConfig | null;
+  databaseName: string | null;
   schema: Schema | null;
   onNewConnection: () => void;
   onOpenSettings: () => void;
 }
 
-export function TopBar({ active, schema, onNewConnection, onOpenSettings }: TopBarProps) {
+export function TopBar({ active, databaseName, schema, onNewConnection, onOpenSettings }: TopBarProps) {
   return (
     <header className={styles.topbar}>
       <div className={styles.brand}>
@@ -27,6 +28,7 @@ export function TopBar({ active, schema, onNewConnection, onOpenSettings }: TopB
         <div className={styles.activeConnection} title={active.kind === "sqlite" ? active.file : `${active.host}:${active.port}`}>
           <Database size={14} color={DATABASE_KINDS[active.kind].color} />
           <span className={styles.activeName}>{active.name}</span>
+          {databaseName && active.kind !== "sqlite" && <span className={styles.activeDatabase}>{databaseName}</span>}
           {schema && <Badge>{schema.dialect}</Badge>}
         </div>
       )}

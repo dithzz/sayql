@@ -10,11 +10,28 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tauri::async_runtime::JoinHandle;
 
-/// An open connection and the schema read from it.
-pub struct LiveConnection {
-    pub pool: DbPool,
+/// One database on a saved connection. `database: None` is the connection's default
+/// database (the one in its settings, or the server's default for the login).
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Target {
+    pub connection_id: String,
+    pub database: Option<String>,
+}
+
+impl Target {
+    pub fn new(connection_id: String, database: Option<String>) -> Self {
+        Target { connection_id, database: database.filter(|d| !d.trim().is_empty()) }
+    }
+
+    pub fn default_of(connection_id: &str) -> Self {
+        Target { connection_id: connection_id.to_string(), database: None }
+    }
+}
+
+/// A schema read from a target.
+pub struct LoadedSchema {
     pub schema: Schema,
-    /// Rendered once per schema load so the prompt prefix is byte-identical (cacheable).
+    /// Rendered once per load so the prompt prefix is byte-identical (cacheable).
     pub schema_text: String,
 }
 
@@ -24,7 +41,8 @@ pub struct AppState {
     pub http: reqwest::Client,
     /// Serializes `init` so a double call (React StrictMode in dev) can't add the demo twice.
     pub init_lock: tokio::sync::Mutex<()>,
-    live: Mutex<HashMap<String, Arc<LiveConnection>>>,
+    pools: Mutex<HashMap<Target, DbPool>>,
+    schemas: Mutex<HashMap<Target, Arc<LoadedSchema>>>,
     generation: Mutex<Option<JoinHandle<()>>>,
 }
 
@@ -41,32 +59,42 @@ impl AppState {
             demo_path: data_dir.join("demo.sqlite"),
             http,
             init_lock: tokio::sync::Mutex::new(()),
-            live: Mutex::new(HashMap::new()),
+            pools: Mutex::new(HashMap::new()),
+            schemas: Mutex::new(HashMap::new()),
             generation: Mutex::new(None),
         })
     }
 
-    pub fn live(&self, id: &str) -> AppResult<Arc<LiveConnection>> {
-        self.live
+    pub fn pool(&self, target: &Target) -> Option<DbPool> {
+        self.pools.lock().unwrap().get(target).cloned()
+    }
+
+    pub fn set_pool(&self, target: Target, pool: DbPool) {
+        self.pools.lock().unwrap().insert(target, pool);
+    }
+
+    /// The pool of an open target, for running queries.
+    pub fn open_pool(&self, target: &Target) -> AppResult<DbPool> {
+        self.pool(target).ok_or_else(|| "Not connected. Open the database first.".into())
+    }
+
+    pub fn schema(&self, target: &Target) -> AppResult<Arc<LoadedSchema>> {
+        self.schemas
             .lock()
             .unwrap()
-            .get(id)
+            .get(target)
             .cloned()
-            .ok_or_else(|| "Not connected. Open the connection first.".into())
+            .ok_or_else(|| "Not connected. Open the database first.".into())
     }
 
-    /// The pool of an already-open connection, to reuse when reloading its schema.
-    pub fn open_pool(&self, id: &str) -> Option<DbPool> {
-        self.live.lock().unwrap().get(id).map(|l| l.pool.clone())
+    pub fn set_schema(&self, target: Target, loaded: LoadedSchema) {
+        self.schemas.lock().unwrap().insert(target, Arc::new(loaded));
     }
 
-    pub fn set_live(&self, id: &str, live: LiveConnection) {
-        self.live.lock().unwrap().insert(id.to_string(), Arc::new(live));
-    }
-
-    /// Forgets an open connection; the next open reconnects.
-    pub fn close(&self, id: &str) {
-        self.live.lock().unwrap().remove(id);
+    /// Forgets every open database of a connection; the next open reconnects.
+    pub fn close(&self, connection_id: &str) {
+        self.pools.lock().unwrap().retain(|t, _| t.connection_id != connection_id);
+        self.schemas.lock().unwrap().retain(|t, _| t.connection_id != connection_id);
     }
 
     /// Makes `handle` the current AI generation, aborting the previous one.

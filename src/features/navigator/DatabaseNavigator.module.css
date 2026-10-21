@@ -39,7 +39,6 @@
   color: var(--color-accent);
 }
 .message {
-  padding: var(--space-1) var(--space-2) var(--space-1) 36px;
   font-size: var(--font-size-sm);
   color: var(--color-text-subtle);
 }

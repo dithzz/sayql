@@ -47,6 +47,14 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
 }
+.activeDatabase {
+  padding-left: var(--space-2);
+  border-left: 1px solid var(--color-border);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
 .activeName {
   overflow: hidden;
   font-weight: var(--font-weight-medium);

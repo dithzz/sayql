@@ -108,10 +108,12 @@ export function installMockBackend() {
       switch (cmd) {
         case "init":
           return boot;
-        case "open_connection":
+        case "open_database":
         case "refresh_schema":
           await new Promise((r) => setTimeout(r, 300));
           return schema;
+        case "list_databases":
+          return a.id === "demo" ? null : { databases: ["analytics", "master", "sales", "staging"], current: "master" };
         case "run_query":
           return /^\s*(update|delete|insert|drop)/i.test(String(a.sql)) && !a.allowWrite ? Promise.reject("WRITE_CONFIRM") : result;
         case "generate_sql":

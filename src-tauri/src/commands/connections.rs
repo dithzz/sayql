@@ -1,8 +1,8 @@
 use super::settings::{SettingsView, settings_view};
-use crate::db::{self, ConnConfig, Kind};
+use crate::db::{self, ConnConfig, DatabaseList, DbPool, Kind};
 use crate::error::AppResult;
 use crate::schema::{self, Schema};
-use crate::state::{AppState, LiveConnection};
+use crate::state::{AppState, LoadedSchema, Target};
 use crate::store::secrets;
 use serde::Serialize;
 use std::path::Path;
@@ -86,29 +86,53 @@ pub async fn test_connection(config: ConnConfig, password: Option<String>) -> Ap
     Ok(format!("Connected. Found {} tables and views.", schema.tables.len()))
 }
 
-/// Opens the connection (or reuses it) and returns its schema.
+/// Opens one database of a connection (or reuses it) and returns its schema.
+/// `database: None` opens the connection's default database.
 #[tauri::command]
-pub async fn open_connection(state: State<'_, AppState>, id: String) -> AppResult<Schema> {
-    match state.live(&id) {
-        Ok(live) => Ok(live.schema.clone()),
-        Err(_) => load_schema(&state, &id).await,
+pub async fn open_database(state: State<'_, AppState>, id: String, database: Option<String>) -> AppResult<Schema> {
+    let target = Target::new(id, database);
+    match state.schema(&target) {
+        Ok(loaded) => Ok(loaded.schema.clone()),
+        Err(_) => load_schema(&state, &target).await,
     }
 }
 
 /// Re-reads the schema, e.g. after tables were added.
 #[tauri::command]
-pub async fn refresh_schema(state: State<'_, AppState>, id: String) -> AppResult<Schema> {
-    load_schema(&state, &id).await
+pub async fn refresh_schema(state: State<'_, AppState>, id: String, database: Option<String>) -> AppResult<Schema> {
+    load_schema(&state, &Target::new(id, database)).await
 }
 
-async fn load_schema(state: &AppState, id: &str) -> AppResult<Schema> {
+/// The databases on the connection's server; `None` for SQLite.
+#[tauri::command]
+pub async fn list_databases(state: State<'_, AppState>, id: String) -> AppResult<Option<DatabaseList>> {
+    let pool = target_pool(&state, &Target::default_of(&id)).await?;
+    db::list_databases(&pool).await
+}
+
+/// The pool for `target`, connecting if it isn't open yet.
+async fn target_pool(state: &AppState, target: &Target) -> AppResult<DbPool> {
+    if let Some(pool) = state.pool(target) {
+        return Ok(pool);
+    }
+    let id = &target.connection_id;
     let cfg = state.store.connection(id)?;
-    let pool = match state.open_pool(id) {
-        Some(pool) => pool,
+    let pool = match &target.database {
         None => db::connect(&cfg, secrets::password(id)).await?,
+        Some(database) => {
+            let base = Box::pin(target_pool(state, &Target::default_of(id))).await?;
+            db::open_database(&base, &cfg, secrets::password(id), database).await?
+        }
     };
-    let schema = db::introspect(&pool, cfg.kind).await?;
+    state.set_pool(target.clone(), pool.clone());
+    Ok(pool)
+}
+
+async fn load_schema(state: &AppState, target: &Target) -> AppResult<Schema> {
+    let kind = state.store.connection(&target.connection_id)?.kind;
+    let pool = target_pool(state, target).await?;
+    let schema = db::introspect(&pool, kind).await?;
     let schema_text = schema::render_full(&schema);
-    state.set_live(id, LiveConnection { pool, schema: schema.clone(), schema_text });
+    state.set_schema(target.clone(), LoadedSchema { schema: schema.clone(), schema_text });
     Ok(schema)
 }

@@ -2,15 +2,22 @@ use super::settings::valid_workspace_id;
 use crate::ai::{self, GenRequest};
 use crate::error::AppResult;
 use crate::schema;
-use crate::state::AppState;
+use crate::state::{AppState, Target};
 use crate::store::secrets;
 use tauri::{AppHandle, State};
 
 /// Starts streaming SQL for `question`; results arrive as `ai://` events tagged with `req_id`.
 /// Supersedes any generation still running.
 #[tauri::command]
-pub fn generate_sql(app: AppHandle, state: State<'_, AppState>, id: String, question: String, req_id: u64) -> AppResult<()> {
-    let live = state.live(&id)?;
+pub fn generate_sql(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    id: String,
+    database: Option<String>,
+    question: String,
+    req_id: u64,
+) -> AppResult<()> {
+    let live = state.schema(&Target::new(id, database))?;
     let api_key = secrets::api_key().ok_or("Add your Claude API key in Settings to generate SQL.")?;
     let settings = state.store.settings();
     let request = GenRequest {

@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { commands, subscribeToAi, type Schema } from "../../api";
+import { commands, subscribeToAi, type Schema, type Target } from "../../api";
 import { useLatest } from "../../hooks/useLatest";
 import { errorText } from "../../lib/errors";
+import { targetKey } from "../connections";
 import { fastPath } from "./fastPath";
 
 /** Wait this long after the last keystroke before asking the AI. */
@@ -15,7 +16,7 @@ export type GenerationStatus =
   | { kind: "error"; message: string; fixInSettings: boolean };
 
 export interface SqlGenerationOptions {
-  connectionId: string | null;
+  target: Target | null;
   schema: Schema | null;
   model: string;
   hasApiKey: boolean;
@@ -54,7 +55,7 @@ export function useSqlGeneration(options: SqlGenerationOptions) {
   const debounce = useRef<number | undefined>(undefined);
   const cache = useRef(new Map<string, string>());
 
-  const cacheKey = (q: string) => `${opts.current.connectionId}|${opts.current.model}|${normalize(q)}`;
+  const cacheKey = (q: string) => `${targetKey(opts.current.target)}|${opts.current.model}|${normalize(q)}`;
 
   const clearDebounce = () => {
     window.clearTimeout(debounce.current);
@@ -75,9 +76,9 @@ export function useSqlGeneration(options: SqlGenerationOptions) {
 
   const start = useCallback(
     (q: string) => {
-      const { connectionId, hasApiKey } = opts.current;
+      const { target, hasApiKey } = opts.current;
       clearDebounce();
-      if (!connectionId) return;
+      if (!target) return;
       if (!hasApiKey) {
         fail("Add your Claude API key in Settings to turn English into SQL.");
         return;
@@ -87,7 +88,7 @@ export function useSqlGeneration(options: SqlGenerationOptions) {
       firstTokenMs.current = null;
       inFlightQuestion.current = q;
       setStatus({ kind: "writing" });
-      commands.generateSql(connectionId, q, id).catch((e) => id === reqId.current && fail(errorText(e)));
+      commands.generateSql(target, q, id).catch((e) => id === reqId.current && fail(errorText(e)));
     },
     [fail, opts],
   );
@@ -148,11 +149,12 @@ export function useSqlGeneration(options: SqlGenerationOptions) {
   );
 
   // A different database: start over.
+  const currentTarget = targetKey(options.target);
   useEffect(() => {
     cancel();
     setQuestionState("");
     setStatus({ kind: "idle" });
-  }, [options.connectionId, cancel]);
+  }, [currentTarget, cancel]);
 
   /**
    * Call when the person asks to run. Returns true if the SQL is still being written —

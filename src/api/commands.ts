@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { Bootstrap, ConnectionConfig, QueryResult, Schema, Settings } from "./types";
+import type { Bootstrap, ConnectionConfig, DatabaseList, QueryResult, Schema, Settings, Target } from "./types";
 
 /** Typed wrappers for the Tauri commands registered in src-tauri/src/lib.rs. */
 export const commands = {
@@ -10,14 +10,16 @@ export const commands = {
   deleteConnection: (id: string) => invoke<void>("delete_connection", { id }),
   testConnection: (config: ConnectionConfig, password: string | null) =>
     invoke<string>("test_connection", { config, password }),
-  openConnection: (id: string) => invoke<Schema>("open_connection", { id }),
-  refreshSchema: (id: string) => invoke<Schema>("refresh_schema", { id }),
+  openDatabase: (t: Target) => invoke<Schema>("open_database", { id: t.connectionId, database: t.database }),
+  refreshSchema: (t: Target) => invoke<Schema>("refresh_schema", { id: t.connectionId, database: t.database }),
+  /** `null` for SQLite, where a file is a single database. */
+  listDatabases: (connectionId: string) => invoke<DatabaseList | null>("list_databases", { id: connectionId }),
 
-  runQuery: (id: string, sql: string, allowWrite: boolean) =>
-    invoke<QueryResult>("run_query", { id, sql, allowWrite }),
+  runQuery: (t: Target, sql: string, allowWrite: boolean) =>
+    invoke<QueryResult>("run_query", { id: t.connectionId, database: t.database, sql, allowWrite }),
 
-  generateSql: (id: string, question: string, reqId: number) =>
-    invoke<void>("generate_sql", { id, question, reqId }),
+  generateSql: (t: Target, question: string, reqId: number) =>
+    invoke<void>("generate_sql", { id: t.connectionId, database: t.database, question, reqId }),
   cancelGeneration: () => invoke<void>("cancel_generation"),
 
   saveSettings: (model: string, apiKey: string | null, workspaceId: string) =>

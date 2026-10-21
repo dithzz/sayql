@@ -50,7 +50,11 @@ fn env_target(var: &str) -> Option<Target> {
 }
 
 async fn open(kind: Kind, t: &Target, database: &str) -> DbPool {
-    let cfg = ConnConfig {
+    connect(&config(kind, t, database), t.password.clone()).await.expect("connect")
+}
+
+fn config(kind: Kind, t: &Target, database: &str) -> ConnConfig {
+    ConnConfig {
         id: "it".into(),
         name: "it".into(),
         kind,
@@ -62,8 +66,7 @@ async fn open(kind: Kind, t: &Target, database: &str) -> DbPool {
         ssl: false,
         // The SQL Server test container uses its auto-generated self-signed certificate.
         trust_cert: kind == Kind::Mssql,
-    };
-    connect(&cfg, t.password.clone()).await.expect("connect")
+    }
 }
 
 /// Runs a T-SQL batch outside read-only mode.
@@ -283,6 +286,9 @@ async fn postgres_integration() {
     let Some(t) = env_target("ASKDB_TEST_PG_URL") else { return };
     let db = if t.database.is_empty() { "postgres".to_string() } else { t.database.clone() };
     let pool = open(Kind::Postgres, &t, &db).await;
+    let list = list_databases(&pool).await.expect("list").expect("a server has databases");
+    assert!(list.databases.contains(&db) && !list.databases.iter().any(|d| d.starts_with("template")), "{list:?}");
+    assert_eq!(list.current.as_deref(), Some(db.as_str()));
     exec(&pool, PG_SEED).await;
 
     // ---- schema reading
@@ -484,6 +490,9 @@ async fn mysql_integration() {
     let admin = open(Kind::Mysql, &t, &t.database).await;
     exec(&admin, MY_SEED).await;
     let pool = open(Kind::Mysql, &t, "askdb_it").await;
+    let list = list_databases(&pool).await.expect("list").expect("a server has databases");
+    assert!(list.databases.contains(&"askdb_it".to_string()) && !list.databases.contains(&"mysql".to_string()), "{list:?}");
+    assert_eq!(list.current.as_deref(), Some("askdb_it"));
 
     // ---- schema reading
     let schema = introspect(&pool, Kind::Mysql).await.expect("introspect");
@@ -591,6 +600,15 @@ async fn mssql_integration() {
     for sql in MS_SEED {
         exec(&pool, sql).await;
     }
+
+    // ---- browsing databases: list them from the default connection, then switch with USE
+    let list = list_databases(&admin).await.expect("list").expect("a server has databases");
+    assert!(list.databases.contains(&"askdb_it".to_string()) && list.databases.contains(&"master".to_string()), "{list:?}");
+    assert_eq!(list.current.as_deref(), Some(t.database.as_str()));
+    let switched = open_database(&admin, &config(Kind::Mssql, &t, &t.database), t.password.clone(), "askdb_it").await.expect("open askdb_it");
+    assert_eq!(scalar(&switched, "SELECT DB_NAME()").await, json!("askdb_it"));
+    assert_eq!(introspect(&switched, Kind::Mssql).await.expect("introspect").tables.len(), 4);
+    drop(switched);
 
     // ---- schema reading
     let schema = introspect(&pool, Kind::Mssql).await.expect("introspect");
