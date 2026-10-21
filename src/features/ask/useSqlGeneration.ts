@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { commands, subscribeToAi, type Schema, type Target } from "../../api";
+import { commands, subscribeToAi, type PreviousQuery, type Schema, type Target } from "../../api";
 import { useLatest } from "../../hooks/useLatest";
 import { errorText } from "../../lib/errors";
 import { targetKey } from "../connections";
@@ -21,6 +21,8 @@ export interface SqlGenerationOptions {
   /** Cancellation scope on the backend; the tab id. */
   slot: string;
   initialQuestion?: string;
+  /** The query last run in the tab; follow-up requests are asked to edit it. */
+  previous: PreviousQuery | null;
   onQuestionChange?: (question: string) => void;
   schema: Schema | null;
   model: string;
@@ -66,7 +68,9 @@ export function useSqlGeneration(options: SqlGenerationOptions) {
   const runWhenReady = useRef(false);
   const debounce = useRef<number | undefined>(undefined);
 
-  const cacheKey = (q: string) => `${targetKey(opts.current.target)}|${opts.current.model}|${normalize(q)}`;
+  // The previous query is part of the key: "remove the middle name" means something else after each query.
+  const cacheKey = (q: string) =>
+    `${targetKey(opts.current.target)}|${opts.current.model}|${opts.current.previous?.sql ?? ""}|${normalize(q)}`;
 
   const clearDebounce = () => {
     window.clearTimeout(debounce.current);
@@ -100,7 +104,7 @@ export function useSqlGeneration(options: SqlGenerationOptions) {
       firstTokenMs.current = null;
       inFlightQuestion.current = q;
       setStatus({ kind: "writing" });
-      commands.generateSql(target, q, id, opts.current.slot).catch((e) => id === reqId.current && fail(errorText(e)));
+      commands.generateSql(target, q, id, opts.current.slot, opts.current.previous).catch((e) => id === reqId.current && fail(errorText(e)));
     },
     [fail, opts],
   );

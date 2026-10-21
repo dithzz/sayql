@@ -1,5 +1,14 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { Bootstrap, ConnectionConfig, DatabaseList, QueryResult, Schema, Settings, Target } from "./types";
+import type {
+  Bootstrap,
+  ConnectionConfig,
+  DatabaseList,
+  PreviousQuery,
+  QueryResult,
+  Schema,
+  Settings,
+  Target,
+} from "./types";
 
 /** Typed wrappers for the Tauri commands registered in src-tauri/src/lib.rs. */
 export const commands = {
@@ -19,8 +28,8 @@ export const commands = {
     invoke<QueryResult>("run_query", { id: t.connectionId, database: t.database, sql, allowWrite }),
 
   /** `slot` scopes cancellation: a new request replaces the previous one in the same slot (editor tab). */
-  generateSql: (t: Target, question: string, reqId: number, slot: string) =>
-    invoke<void>("generate_sql", { id: t.connectionId, database: t.database, question, reqId, slot }),
+  generateSql: (t: Target, question: string, reqId: number, slot: string, previous: PreviousQuery | null) =>
+    invoke<void>("generate_sql", { id: t.connectionId, database: t.database, question, reqId, slot, previous }),
   cancelGeneration: (slot: string) => invoke<void>("cancel_generation", { slot }),
 
   saveSettings: (model: string, apiKey: string | null, workspaceId: string) =>

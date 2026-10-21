@@ -76,6 +76,16 @@
   color: var(--color-danger);
 }
 
+.followUp {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding-left: var(--space-2);
+  border-left: 2px solid var(--color-ai);
+  font-size: var(--font-size-sm);
+  color: var(--color-ai);
+}
+
 .examples {
   display: flex;
   flex-wrap: wrap;

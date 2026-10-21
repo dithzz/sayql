@@ -28,6 +28,13 @@ export function QueryTab({ tab, active, label, schema, settings, modelName, onCh
   const setSql = (sql: string) => onChange({ sql });
 
   const query = useQueryRunner(tab.target);
+  const lastRun = tab.lastRun ?? null;
+  /** Runs `sql` and remembers it as the query follow-ups build on. */
+  const runAndRemember = (sql: string, question: string) => {
+    onChange({ lastRun: sql.trim() ? { question, sql } : null });
+    query.run(sql);
+  };
+
   const generation = useSqlGeneration({
     target: tab.target,
     slot: tab.id,
@@ -35,20 +42,21 @@ export function QueryTab({ tab, active, label, schema, settings, modelName, onCh
     model: settings.model,
     hasApiKey: settings.hasApiKey,
     initialQuestion: tab.question,
+    previous: lastRun,
     onQuestionChange: (question) => onChange({ question }),
     onSql: setSql,
-    onRunRequested: query.run,
+    onRunRequested: (sql) => runAndRemember(sql, generation.question),
   });
 
   const run = () => {
-    if (!generation.requestRun()) query.run(tab.sql);
+    if (!generation.requestRun()) runAndRemember(tab.sql, generation.question);
   };
 
   // Table previews run as soon as the tab is first shown.
   useEffect(() => {
     if (active && tab.autoRun && schema) {
       onChange({ autoRun: false });
-      query.run(tab.sql);
+      runAndRemember(tab.sql, "");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active, tab.autoRun, schema]);
@@ -83,6 +91,7 @@ export function QueryTab({ tab, active, label, schema, settings, modelName, onCh
             running={query.running}
             onOpenSettings={onOpenSettings}
             onRetry={generation.retry}
+            followUp={lastRun ? { onStartFresh: () => onChange({ lastRun: null }) } : undefined}
           />
         }
         second={

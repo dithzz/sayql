@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import type { Target } from "../../api";
+import type { PreviousQuery, Target } from "../../api";
 import { usePersistentState } from "../../hooks/usePersistentState";
 
 export interface EditorTab {
@@ -11,6 +11,8 @@ export interface EditorTab {
   sql: string;
   /** Run `sql` when the tab first shows (table previews). */
   autoRun?: boolean;
+  /** The query last run here, which follow-up requests build on. */
+  lastRun?: PreviousQuery | null;
 }
 
 interface TabsState {

@@ -23,6 +23,7 @@ export interface SqlWorkspaceProps {
   running: boolean;
   onOpenSettings: () => void;
   onRetry: () => void;
+  followUp?: { onStartFresh: () => void };
 }
 
 /** The SQL editor view: the plain-English Ask bar above an editable SQL editor. */
@@ -61,6 +62,7 @@ export function SqlWorkspace(p: SqlWorkspaceProps) {
         examples={p.examples}
         onOpenSettings={p.onOpenSettings}
         onRetry={p.onRetry}
+        followUp={p.followUp}
       />
       <div className={styles.editor}>
         <SqlEditor value={p.sql} onChange={p.onSqlChange} onRun={p.onRun} schema={p.schema} active={p.active} />

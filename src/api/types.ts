@@ -83,6 +83,12 @@ export interface Target {
   database: string | null;
 }
 
+/** The query last run in a tab; a follow-up request ("remove the middle name") edits it. */
+export interface PreviousQuery {
+  question: string;
+  sql: string;
+}
+
 export interface Bootstrap {
   connections: ConnectionConfig[];
   settings: Settings;

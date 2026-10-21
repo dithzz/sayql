@@ -1,5 +1,5 @@
 import { forwardRef, useImperativeHandle, useLayoutEffect, useRef } from "react";
-import { CheckCircle2, Sparkles, XCircle, Zap } from "lucide-react";
+import { CheckCircle2, CornerDownRight, Sparkles, XCircle, Zap } from "lucide-react";
 import { Button, Kbd, Spinner } from "../../components/ui";
 import { cx } from "../../lib/cx";
 import type { GenerationStatus } from "./useSqlGeneration";
@@ -16,6 +16,8 @@ export interface AskBarProps {
   examples?: string[];
   onOpenSettings: () => void;
   onRetry: () => void;
+  /** Present when requests build on the last run query. */
+  followUp?: { onStartFresh: () => void };
 }
 
 /** The plain-English input. SQL appears in the editor below as the person types. */
@@ -57,6 +59,14 @@ export const AskBar = forwardRef<HTMLTextAreaElement, AskBarProps>(function AskB
         />
       </div>
       <div className={styles.footer}>
+        {p.followUp && (
+          <span className={styles.followUp} title="Requests like “remove a column” or “only active ones” change the last query you ran">
+            <CornerDownRight size={13} /> Building on your last query
+            <Button size="sm" variant="ghost" onClick={p.followUp.onStartFresh}>
+              New query
+            </Button>
+          </span>
+        )}
         <StatusLine status={p.status} modelName={p.modelName} onOpenSettings={p.onOpenSettings} onRetry={p.onRetry} />
         {!p.question && p.examples?.length ? (
           <div className={styles.examples}>
