@@ -4,10 +4,9 @@
 
 # SayQL
 
-**Say what you need. SayQL knows your schema across all your databases and writes the right query as you type.**
+### Say what you need. It knows your schema.
 
-An AI-first desktop database client. Type plain English, watch the SQL appear as you type,<br>
-and run it read-only by default, on PostgreSQL, MySQL, SQLite, SQL Server and Azure SQL, with the AI you choose.
+Plain English in, the right SQL out, as you type. Read-only unless you say so.
 
 [![Latest release](https://img.shields.io/github/v/release/dithzz/sayql-releases?label=release&color=4F46E5)](https://github.com/dithzz/sayql-releases/releases/latest)
 [![CI](https://github.com/dithzz/sayql/actions/workflows/ci.yml/badge.svg)](https://github.com/dithzz/sayql/actions/workflows/ci.yml)
