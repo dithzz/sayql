@@ -22,7 +22,8 @@ repo has a placeholder, this guide says what replaces it.
 
 SayQL ships as a direct download from the public
 [`dithzz/sayql-releases`](https://github.com/dithzz/sayql-releases) repository,
-not through any app store. The source repository stays private.
+not through any app store. The source code is public at
+[`dithzz/sayql`](https://github.com/dithzz/sayql); releases live in their own repository.
 
 Early-access builds are **not code-signed**. macOS builds are ad-hoc signed
 (`signingIdentity: "-"`), which is what lets macOS offer "Open Anyway" instead
@@ -82,8 +83,8 @@ pnpm tauri build --debug                           # faster build, devtools enab
 An unsigned build runs on the machine that built it. Anyone who downloads it
 gets a Gatekeeper warning ("Apple could not verify SayQL is free of
 malware…") and has to approve it in System Settings → Privacy & Security.
-That is fine for testing; paying customers need the signed and notarized
-build from the next section.
+That is fine for early access; the signed and notarized build from the next
+section removes the warning.
 
 ### Version numbers
 
@@ -144,12 +145,10 @@ fetch `releases/latest/download/latest.json`, which only resolves to a release
 that is **published** (not a draft) and **not marked pre-release**.
 
 GitHub Releases on a **private** repository are not downloadable by your
-users. Either make the release repository public (the source repo can stay
-private: publish to a separate public "sayql-releases" repo with
-tauri-action's `owner`/`repo` inputs), or host `latest.json` and the archives
-on your own server or CDN and point `endpoints` there. Public downloads also
-mean anyone can download the app, so licensing (trial, license keys) has to be
-enforced inside the app, not by hiding the download.
+users. SayQL publishes to the separate public "sayql-releases" repo with
+tauri-action's `owner`/`repo` inputs, which keeps release assets apart from the
+source. Alternatively, host `latest.json` and the archives on your own server
+or CDN and point `endpoints` there.
 
 ### Checking for updates in the app
 

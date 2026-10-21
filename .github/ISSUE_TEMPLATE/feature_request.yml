@@ -1,0 +1,16 @@
+name: Feature request
+description: An idea to make SayQL better
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do?
+      description: The problem or task, in your own words. This matters more than the solution.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: How could SayQL help?
+      description: What you'd like to see. Sketches and examples from other tools are welcome.

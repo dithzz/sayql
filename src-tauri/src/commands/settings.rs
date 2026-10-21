@@ -94,25 +94,24 @@ fn address(p: &Provider, chosen: &ProviderSettings) -> String {
 pub(crate) fn endpoint(s: &Settings) -> AppResult<Endpoint> {
     let p = provider(&s.provider)?;
     let chosen = s.provider_settings(p.id);
+    // Settings checks first; the keychain is only read once nothing else is missing.
+    if chosen.typing_model.is_empty() {
+        return Err(format!("Choose a model for {} in Settings to generate SQL.", p.label).into());
+    }
+    let url = address(p, &chosen);
+    if p.api == Api::OpenAi && url.is_empty() {
+        return Err(format!("Add the base URL for {} in Settings to generate SQL.", p.label).into());
+    }
     let key = if p.key == KeyNeed::None { None } else { secrets::api_key(p.id) };
     if p.key == KeyNeed::Required && key.is_none() {
         return Err(format!("Add your {} API key in Settings to generate SQL.", p.label).into());
-    }
-    if chosen.typing_model.is_empty() {
-        return Err(format!("Choose a model for {} in Settings to generate SQL.", p.label).into());
     }
     Ok(match p.api {
         Api::Anthropic => Endpoint::Anthropic {
             api_key: key.unwrap_or_default(),
             workspace_id: Some(valid_workspace_id(&s.workspace_id)?).filter(|w| !w.is_empty()),
         },
-        Api::OpenAi => {
-            let url = address(p, &chosen);
-            if url.is_empty() {
-                return Err(format!("Add the base URL for {} in Settings to generate SQL.", p.label).into());
-            }
-            Endpoint::OpenAi { label: p.label, base_url: url, api_key: key }
-        }
+        Api::OpenAi => Endpoint::OpenAi { label: p.label, base_url: url, api_key: key },
     })
 }
 

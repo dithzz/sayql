@@ -3,7 +3,7 @@
 An AI-first desktop database client. Type what you want in plain English; SQL appears as you type; press Enter to run it.
 
 - **Databases:** PostgreSQL, MySQL / MariaDB, SQLite, Microsoft SQL Server / Azure SQL
-- **Stack:** Tauri 2 (Rust) + React + Monaco editor. Database drivers are `sqlx` and `tiberius` (SQL Server). All dependencies are MIT/Apache-2.0 licensed, so the app can be sold as a closed-source product.
+- **Stack:** Tauri 2 (Rust) + React + Monaco editor. Database drivers are `sqlx` and `tiberius` (SQL Server). Dependencies are MIT, Apache-2.0 and similarly permissive licenses (see `THIRD-PARTY-NOTICES.txt`).
 - **AI:** any provider. Claude is built in (Haiku 5.5 drafts, Opus 5.5 fixes, by default). OpenAI, Google Gemini, OpenRouter, Mistral, Groq, DeepSeek, Ollama, LM Studio and any other OpenAI-compatible API (with its base URL) work through one client. Ollama and LM Studio run on your computer, so nothing leaves it.
 
 ## How it stays fast
@@ -42,6 +42,8 @@ must ship it next to the app executable (Tauri `bundle.externalBin`; see docs/RE
 
 ## Development
 
+You need Rust (stable), Node.js LTS, pnpm 10 and the [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) for your platform; see [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ```bash
 pnpm install
 pnpm tauri dev      # run the app
@@ -78,4 +80,8 @@ The URLs take the form `scheme://user:password@host:port/database` (no percent-e
 
 ## License
 
-SayQL Community Edition is free for personal and commercial use, under the terms in [LICENSE.md](LICENSE.md). [PRIVACY.md](PRIVACY.md) says what SayQL sends and where. Open-source components are credited in `THIRD-PARTY-NOTICES.txt`; regenerate it before each release with `python3 scripts/third_party_notices.py`. All three files ship inside the app bundle.
+SayQL is open source under the [Apache License 2.0](LICENSE). The SayQL name and logo aren't covered by the license: forks must use their own (see [NOTICE](NOTICE)). [PRIVACY.md](PRIVACY.md) says what SayQL sends and where. Open-source components are credited in `THIRD-PARTY-NOTICES.txt`; regenerate it before each release with `python3 scripts/third_party_notices.py`. The license, notices and privacy notice ship inside the app bundle.
+
+## Contributing
+
+Contributions are welcome. [CONTRIBUTING.md](CONTRIBUTING.md) covers setup (prerequisites for each platform), conventions and how to open a pull request. Please follow the [Code of Conduct](CODE_OF_CONDUCT.md), and report security problems privately as described in [SECURITY.md](SECURITY.md).

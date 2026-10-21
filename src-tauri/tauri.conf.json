@@ -27,13 +27,14 @@
     "active": true,
     "targets": "all",
     "publisher": "SayQL",
-    "copyright": "Copyright © 2026 Adith L S. SayQL Community Edition, free for personal and commercial use.",
+    "copyright": "Copyright © 2026 Adith L S. SayQL Community Edition, open source under the Apache License 2.0.",
     "category": "DeveloperTool",
     "shortDescription": "AI-first database client",
     "longDescription": "SayQL Community Edition is a free desktop database client for PostgreSQL, MySQL, SQLite, SQL Server and Azure SQL. Ask a question in plain English and get SQL as you type, written by the AI you choose, then run it against your database with a fast, keyboard-first editor.",
-    "licenseFile": "../LICENSE.md",
+    "licenseFile": "../LICENSE",
     "resources": {
-      "../LICENSE.md": "LICENSE.md",
+      "../LICENSE": "LICENSE",
+      "../NOTICE": "NOTICE",
       "../PRIVACY.md": "PRIVACY.md",
       "../THIRD-PARTY-NOTICES.txt": "THIRD-PARTY-NOTICES.txt"
     },

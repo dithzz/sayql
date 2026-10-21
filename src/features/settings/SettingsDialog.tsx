@@ -213,7 +213,7 @@ export function SettingsDialog({ settings, onClose, onSaved, onShowSetup }: Sett
       <Field label="About">
         {() => (
           <p className={styles.about}>
-            SayQL Community Edition {version}. Free forever, for personal and commercial use. The license, privacy
+            SayQL Community Edition {version}. Free and open source under the Apache License 2.0. The license, privacy
             notice and third-party notices are included with the app.{" "}
             <button type="button" className={styles.link} onClick={onShowSetup}>
               Show the setup guide again

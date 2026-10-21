@@ -77,7 +77,7 @@ jobs:
 
       - uses: tauri-apps/tauri-action@v0
         env:
-          # Creates the release in the public releases repo; the source repo stays private.
+          # Creates the release in the separate releases repo, which hosts the downloads and update feed.
           GITHUB_TOKEN: ${{ secrets.RELEASES_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}

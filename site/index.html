@@ -645,6 +645,7 @@ footer a { text-decoration: none; } footer a:hover { color: var(--color-text); }
       <a href="#pricing">Pricing</a>
       <a href="/docs/">Docs</a>
       <a href="https://github.com/dithzz/sayql-releases/releases">Changelog</a>
+      <a href="https://github.com/dithzz/sayql">GitHub</a>
     </nav>
     <div class="nav-end">
       <button class="icon-btn" id="theme" type="button" aria-label="Switch between light and dark">
@@ -981,7 +982,7 @@ footer a { text-decoration: none; } footer a:hover { color: var(--color-text); }
       <div class="edition-copy">
         <span class="eyebrow" style="color:var(--color-success)">Pricing</span>
         <h2>Free. Forever. For work too.</h2>
-        <p>SayQL Community Edition costs nothing, and any version released under its license stays free. Use it at home, at work and for clients, on as many computers as you like. No account, no trial, no telemetry.</p>
+        <p>SayQL Community Edition costs nothing and is open source under the Apache License 2.0. Use it at home, at work and for clients, on as many computers as you like. No account, no trial, no telemetry.</p>
         <div class="hero-ctas" style="justify-content:flex-start">
           <a class="btn btn-primary btn-lg" href="#download"><svg><use href="#i-download"/></svg>Get SayQL Community Edition</a>
         </div>
@@ -996,6 +997,7 @@ footer a { text-decoration: none; } footer a:hover { color: var(--color-text); }
           <li><span class="ck"><svg><use href="#i-check"/></svg></span><span>Follow-ups, fixes, Improve, tabs and saved scripts</span></li>
           <li><span class="ck"><svg><use href="#i-check"/></svg></span><span>MCP server for Claude, Cursor and other AI apps</span></li>
           <li><span class="ck"><svg><use href="#i-check"/></svg></span><span>No account and no telemetry</span></li>
+          <li><span class="ck"><svg><use href="#i-check"/></svg></span><span>Open source: read the code on <a href="https://github.com/dithzz/sayql">GitHub</a></span></li>
         </ul>
         <p class="price-note">You only pay your AI provider for what you use, or nothing with a local model.</p>
       </div>
@@ -1008,7 +1010,7 @@ footer a { text-decoration: none; } footer a:hover { color: var(--color-text); }
   <div class="wrap">
     <div class="sec-head center reveal"><span class="eyebrow">Questions</span><h2>Good to know</h2></div>
     <div class="faq reveal">
-      <details open><summary>Is it really free?</summary><p>Yes. SayQL Community Edition is free for personal and commercial use, and any version released under its license stays free: you'll never be asked to pay for it. Your only cost is your AI provider's usage, which you pay to them directly with your own key. With a local model, it costs nothing at all.</p></details>
+      <details open><summary>Is it really free?</summary><p>Yes. SayQL Community Edition is free for personal and commercial use, and it's open source under the Apache License 2.0: the code is on <a href="https://github.com/dithzz/sayql">GitHub</a>. Your only cost is your AI provider's usage, which you pay to them directly with your own key. With a local model, it costs nothing at all.</p></details>
       <details><summary>Do I need to know SQL?</summary><p>No. SayQL is built for people who know what they want to ask but not how to write it. Because the SQL is always in front of you, you'll pick it up along the way, and experts get a much faster editor.</p></details>
       <details><summary>Which AI does SayQL use?</summary><p>Whichever you like. Claude, OpenAI, Google Gemini, Mistral, Groq, DeepSeek and OpenRouter are built in. Any other service with an OpenAI-compatible API works with its address. Ollama and LM Studio run models on your own computer. You pick a fast model for drafting while you type and, if you like, a stronger one for fixes and improvements, and you use your own API key.</p></details>
       <details><summary>Does my data get sent anywhere?</summary><p>To write SQL, SayQL sends your question and the names of your tables and columns to the AI provider you chose. It doesn't send the rows in your tables. When a query fails, the SQL and the database's error message are sent so it can be fixed. With a local model through Ollama or LM Studio, none of this leaves your computer. SayQL connects straight from your machine to your database.</p></details>
@@ -1066,7 +1068,7 @@ footer a { text-decoration: none; } footer a:hover { color: var(--color-text); }
     </nav>
     <nav class="footer-col" aria-label="Legal">
       <h3>Legal</h3>
-      <a href="https://github.com/dithzz/sayql-releases/blob/main/LICENSE.md">License</a>
+      <a href="https://github.com/dithzz/sayql/blob/main/LICENSE">License</a>
       <a href="https://github.com/dithzz/sayql-releases/blob/main/PRIVACY.md">Privacy</a>
     </nav>
   </div>
@@ -1222,7 +1224,7 @@ footer a { text-decoration: none; } footer a:hover { color: var(--color-text); }
       ms: "0.9 s",
       sql: "SELECT c.name, c.email, c.created_at,\n       COUNT(o.id) AS orders\nFROM customers c\nLEFT JOIN orders o ON o.customer_id = c.id\nWHERE c.created_at >= DATE_TRUNC('month', NOW())\nGROUP BY c.id\nORDER BY orders DESC;",
       cols: [["name", "text"], ["email", "text"], ["created_at", "date"], ["orders", "int"]],
-      rows: [["Maya Okafor", "maya@northwind.io", "2026-10-03", 7], ["Lucas Ferreira", "lucas.f@gmail.com", "2026-10-11", 5], ["Aiko Tanaka", "aiko@tanaka.jp", "2026-10-02", 4], ["Daniel Brooks", "dbrooks@acme.co", "2026-10-15", 3], ["Priya Nair", "priya.nair@outlook.com", "2026-10-08", 2], ["Tom Weller", "tom@weller.de", "2026-10-19", 1]],
+      rows: [["Maya Okafor", "maya@example.com", "2026-10-03", 7], ["Lucas Ferreira", "lucas@example.com", "2026-10-11", 5], ["Aiko Tanaka", "aiko@example.org", "2026-10-02", 4], ["Daniel Brooks", "daniel@example.com", "2026-10-15", 3], ["Priya Nair", "priya@example.org", "2026-10-08", 2], ["Tom Weller", "tom@example.net", "2026-10-19", 1]],
       total: 214, time: "24 ms"
     },
     {
@@ -1234,7 +1236,7 @@ footer a { text-decoration: none; } footer a:hover { color: var(--color-text); }
       ms: "0.7 s",
       sql: "SELECT c.name, c.email, c.created_at,\n       COUNT(o.id) AS orders\nFROM customers c\nLEFT JOIN orders o ON o.customer_id = c.id\nWHERE c.created_at >= DATE_TRUNC('month', NOW())\n  AND c.country = 'CA'\nGROUP BY c.id\nORDER BY orders DESC;",
       cols: [["name", "text"], ["email", "text"], ["created_at", "date"], ["orders", "int"]],
-      rows: [["Emma Tremblay", "emma.t@shaw.ca", "2026-10-06", 6], ["Noah Gagnon", "ngagnon@videotron.ca", "2026-10-12", 3], ["Olivia Roy", "olivia.roy@gmail.com", "2026-10-17", 2]],
+      rows: [["Emma Tremblay", "emma@example.ca", "2026-10-06", 6], ["Noah Gagnon", "noah@example.ca", "2026-10-12", 3], ["Olivia Roy", "olivia@example.com", "2026-10-17", 2]],
       total: 3, time: "11 ms"
     },
     {

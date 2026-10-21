@@ -1,0 +1,50 @@
+name: Bug report
+description: Something in SayQL doesn't work as expected
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! Please don't include passwords, API keys or private data.
+        Security problems go through [a private report](https://github.com/dithzz/sayql/security/advisories/new) instead.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead. Paste any error message.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Connect to a PostgreSQL database
+        2. Ask "…"
+        3. …
+  - type: input
+    id: version
+    attributes:
+      label: SayQL version
+      description: Settings → About
+      placeholder: "0.1.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options: [macOS (Apple silicon), macOS (Intel), Windows, Linux]
+    validations:
+      required: true
+  - type: dropdown
+    id: database
+    attributes:
+      label: Database
+      multiple: true
+      options: [PostgreSQL, MySQL / MariaDB, SQLite, SQL Server, Azure SQL, Not database-related]
+  - type: input
+    id: ai
+    attributes:
+      label: AI provider and model
+      placeholder: "Claude Haiku 5.5, Ollama llama3.2, …"

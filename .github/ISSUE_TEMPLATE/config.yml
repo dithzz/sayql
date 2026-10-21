@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions and feedback
+    url: https://github.com/dithzz/sayql-releases/discussions
+    about: Ask a question or share what you think in Discussions.
+  - name: Documentation
+    url: https://sayql.vercel.app/docs/
+    about: Install, setup, AI providers, databases and troubleshooting.
+  - name: Report a security problem
+    url: https://github.com/dithzz/sayql/security/advisories/new
+    about: Please report security problems privately, not as an issue.
