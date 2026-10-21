@@ -536,8 +536,20 @@ section.block { padding: 96px 0; }
 .downloads[hidden], [data-downloads][hidden] { display: none; }
 
 /* testimonials */
-#testimonials[hidden] { display: none; }
-.quotes { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
+.quotes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
+@media (max-width: 900px) { .quotes { grid-template-columns: minmax(0, 1fr); } }
+.quote.founder { grid-column: span 2; background: linear-gradient(135deg, var(--color-ai-soft), var(--color-surface) 60%); }
+.quote.founder blockquote { font-size: 18px; }
+@media (max-width: 900px) { .quote.founder { grid-column: auto; } }
+.quote.invite { text-decoration: none; color: inherit; border-style: dashed; border-color: var(--color-border-strong); background: transparent; align-content: start; transition: border-color 160ms, background 160ms; }
+.quote.invite:hover { border-color: var(--color-ai); background: var(--color-surface); }
+.invite-icon { width: 40px; height: 40px; border-radius: var(--radius-lg); display: grid; place-items: center; background: var(--color-ai-soft); color: var(--color-ai); }
+.invite-icon svg { width: 18px; height: 18px; }
+.invite-copy { display: grid; gap: 6px; }
+.invite-copy b { font-size: 17px; font-weight: 600; }
+.invite-copy span { color: var(--color-text-muted); font-size: 15px; }
+.invite-cta { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; font-size: 14px; color: var(--color-ai); }
+.invite-cta svg { width: 14px; height: 14px; }
 .quote { margin: 0; border: 1px solid var(--color-border); border-radius: var(--radius-xl); background: var(--color-surface); padding: 24px; display: grid; gap: 18px; align-content: space-between; }
 .quote blockquote { margin: 0; font-size: 16px; line-height: 1.6; color: var(--color-text); }
 .quote blockquote::before { content: "“"; display: block; font: 700 40px/0.6 var(--font-sans); color: var(--color-ai); margin-bottom: 10px; }
@@ -941,16 +953,27 @@ footer a { text-decoration: none; } footer a:hover { color: var(--color-text); }
   </div>
 </section>
 
-<!-- ================= TESTIMONIALS =================
-     Hidden until TESTIMONIALS in the script below has entries.
-     Only add real quotes, from real people, with their permission. -->
-<section class="block" id="testimonials" hidden style="padding-top:24px">
+<!-- ================= COMMUNITY =================
+     The founder's note, then real quotes from TESTIMONIALS in the script below,
+     then an invitation to share feedback. Only add real quotes, from real people,
+     with their permission. -->
+<section class="block" id="community" style="padding-top:24px">
   <div class="wrap">
     <div class="sec-head center reveal">
-      <span class="eyebrow">From early users</span>
-      <h2>What people say after their first query</h2>
+      <span class="eyebrow">Community</span>
+      <h2 data-quotes-title>Why Sayql exists</h2>
     </div>
-    <div class="quotes" data-quotes></div>
+    <div class="quotes reveal" data-quotes>
+      <figure class="quote founder">
+        <blockquote>I'm not a SQL expert. I knew what I wanted to ask my databases, but not always how to write it. I wanted a client like DBeaver where I just say what I need in plain English and watch the SQL appear as I type. So I built Sayql, and made it free.</blockquote>
+        <figcaption><span class="avatar">A</span><span class="who"><b>Adith L S</b><span>Creator of Sayql</span></span></figcaption>
+      </figure>
+      <a class="quote invite" href="https://github.com/dithzz/sayql-releases/discussions" data-invite>
+        <span class="invite-icon"><svg><use href="#i-spark"/></svg></span>
+        <span class="invite-copy"><b>Tried Sayql? Tell us what you think.</b><span>Share what worked, what didn't and what you'd like next. With your permission, your words may end up right here.</span></span>
+        <span class="invite-cta">Share feedback <svg><use href="#i-arrow"/></svg></span>
+      </a>
+    </div>
   </div>
 </section>
 
@@ -1123,8 +1146,8 @@ footer a { text-decoration: none; } footer a:hover { color: var(--color-text); }
   })();
 
   /* ---------- testimonials ----------
-   * Real quotes only, from real people who agreed to be quoted. The section stays
-   * hidden while this list is empty. Example entry:
+   * Real quotes only, from real people who agreed to be quoted. They appear between
+   * the founder's note and the feedback invitation. Example entry:
    *   { quote: "…", name: "Jane Doe", role: "Data analyst", company: "Acme", photo: "" }
    * `company` and `photo` (an image URL) are optional; without a photo, initials show. */
   var TESTIMONIALS = [];
@@ -1132,6 +1155,8 @@ footer a { text-decoration: none; } footer a:hover { color: var(--color-text); }
   (function renderTestimonials() {
     if (!TESTIMONIALS.length) return;
     var box = document.querySelector("[data-quotes]");
+    var invite = box.querySelector("[data-invite]");
+    document.querySelector("[data-quotes-title]").textContent = "What people say after their first query";
     TESTIMONIALS.forEach(function (t) {
       var fig = document.createElement("figure");
       fig.className = "quote reveal seen";
@@ -1157,9 +1182,8 @@ footer a { text-decoration: none; } footer a:hover { color: var(--color-text); }
       who.append(name, role);
       cap.append(avatar, who);
       fig.append(q, cap);
-      box.appendChild(fig);
+      box.insertBefore(fig, invite);
     });
-    document.getElementById("testimonials").hidden = false;
   })();
 
   /* ---------- agent timeline ---------- */
