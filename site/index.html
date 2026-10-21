@@ -684,7 +684,7 @@ footer a { text-decoration: none; } footer a:hover { color: var(--color-text); }
     <div class="hero-copy">
       <a class="badge" href="#pricing"><b>Community Edition</b> Free forever, for personal and commercial use <svg width="14" height="14"><use href="#i-arrow"/></svg></a>
       <h1>Say what you need.<br><span class="ai">It knows your schema.</span></h1>
-      <p class="lede">The safe way to query production databases, without being a SQL expert. The right SQL in about a second, and nothing changes unless you say so.</p>
+      <p class="lede">The safe way to query production databases, without being a SQL expert. The right SQL in seconds, and nothing changes unless you say so.</p>
       <p class="made-for">Made for analysts, product managers, support and operations, and developers who rarely write SQL.</p>
       <div class="hero-ctas">
         <a class="btn btn-primary btn-lg" href="#download"><svg><use href="#i-download"/></svg>Get SayQL for desktop</a>
@@ -812,7 +812,7 @@ footer a { text-decoration: none; } footer a:hover { color: var(--color-text); }
 <span class="tk-k">FROM</span> orders
 <span class="tk-k">WHERE</span> total <span class="tk-o">&gt;</span> <span class="tk-n">500</span>
   <span class="tk-k">AND</span> created_at <span class="tk-o">&gt;=</span> now() <span class="tk-o">-</span> <span class="tk-s">'7 days'</span>;</div></div>
-        <div class="step-copy"><span class="n">02</span><h3>Read the SQL it writes</h3><p>The query appears in a real editor in about a second, so you can see exactly what will run and learn as you go.</p></div>
+        <div class="step-copy"><span class="n">02</span><h3>Read the SQL it writes</h3><p>The query streams into the editor as you type, so you can see exactly what will run and learn as you go.</p></div>
       </article>
       <article class="step reveal">
         <div class="step-vis"><div class="vis-run"><span class="mini run"><svg><use href="#i-play"/></svg>Run</span><span class="ro"><svg width="11" height="11"><use href="#i-shield"/></svg>Read-only · 38 rows · 21 ms</span></div></div>
@@ -826,9 +826,9 @@ footer a { text-decoration: none; } footer a:hover { color: var(--color-text); }
 <section class="block" id="features" style="padding-top:24px">
   <div class="wrap">
     <div class="sec-head reveal">
-      <span class="eyebrow ai">Built around AI, not bolted on</span>
-      <h2>Everything you'd expect from a database client, and a lot you wouldn't</h2>
-      <p>The familiar workbench of navigator, tabs, editor and grid, with AI at every step.</p>
+      <span class="eyebrow ai">Features</span>
+      <h2>Ask, refine and run, without writing SQL</h2>
+      <p>Say what you need, check the SQL it writes, and get your answer. Safely.</p>
     </div>
 
     <div class="features">
@@ -884,7 +884,7 @@ footer a { text-decoration: none; } footer a:hover { color: var(--color-text); }
       <article class="feat reveal">
         <div class="fi"><svg><use href="#i-db"/></svg></div>
         <h3>Every database on the server</h3>
-        <p>Browse all databases behind one login, from small SQLite files to SQL Server availability groups and Azure SQL.</p>
+        <p>Browse all databases behind one login, from small SQLite files to SQL Server and Azure SQL.</p>
       </article>
 
       <article class="feat reveal">
@@ -919,14 +919,14 @@ footer a { text-decoration: none; } footer a:hover { color: var(--color-text); }
       </ul>
     </div>
     <div class="dialog reveal" aria-label="Example confirmation dialog">
-      <div class="dialog-h"><span class="wi"><svg><use href="#i-warn"/></svg></span>This query may change data</div>
+      <div class="dialog-h"><span class="wi"><svg><use href="#i-warn"/></svg></span>Run a statement that may change data?</div>
       <div class="dialog-b">
-        <span>Review it before running. Read-only protection is turned off for this statement only.</span>
+        <span>SayQL can’t confirm this only reads data on <b>Production</b>. If it changes data, SayQL can’t undo it. Review it before running.</span>
         <div class="code mono"><span class="tk-k">UPDATE</span> orders
 <span class="tk-k">SET</span> status <span class="tk-o">=</span> <span class="tk-s">'shipped'</span>
 <span class="tk-k">WHERE</span> id <span class="tk-o">=</span> <span class="tk-n">48213</span>;</div>
       </div>
-      <div class="dialog-f"><span class="mini">Cancel</span><span class="mini danger">Run anyway</span></div>
+      <div class="dialog-f"><span class="mini">Cancel</span><span class="mini danger">Run it</span></div>
     </div>
   </div>
 </section>
@@ -1016,7 +1016,7 @@ footer a { text-decoration: none; } footer a:hover { color: var(--color-text); }
           <li><span class="ck"><svg><use href="#i-check"/></svg></span><span>All five databases, every server you can reach</span></li>
           <li><span class="ck"><svg><use href="#i-check"/></svg></span><span>Any AI provider, or a model on your own computer</span></li>
           <li><span class="ck"><svg><use href="#i-check"/></svg></span><span>Follow-ups, fixes, Improve, tabs and saved scripts</span></li>
-          <li><span class="ck"><svg><use href="#i-check"/></svg></span><span>MCP server for Claude, Cursor and other AI apps</span></li>
+          <li><span class="ck"><svg><use href="#i-check"/></svg></span><span>MCP server for Claude, Cursor and other AI apps (coming soon)</span></li>
           <li><span class="ck"><svg><use href="#i-check"/></svg></span><span>No account and no telemetry</span></li>
           <li><span class="ck"><svg><use href="#i-check"/></svg></span><span>Open source: read the code on <a href="https://github.com/dithzz/sayql">GitHub</a></span></li>
         </ul>
@@ -1032,7 +1032,7 @@ footer a { text-decoration: none; } footer a:hover { color: var(--color-text); }
     <div class="sec-head center reveal"><span class="eyebrow">Questions</span><h2>Good to know</h2></div>
     <div class="faq reveal">
       <details open><summary>Is it really free?</summary><p>Yes. SayQL Community Edition is free for personal and commercial use, and it's open source under the Apache License 2.0: the code is on <a href="https://github.com/dithzz/sayql">GitHub</a>. Your only cost is your AI provider's usage, which you pay to them directly with your own key. With a local model, it costs nothing at all.</p></details>
-      <details><summary>Do I need to know SQL?</summary><p>No. SayQL is built for people who know what they want to ask but not how to write it. Because the SQL is always in front of you, you'll pick it up along the way, and experts get a much faster editor.</p></details>
+      <details><summary>Do I need to know SQL?</summary><p>No. SayQL is built for people who know what they want to ask but not how to write it. Because the SQL is always in front of you, you'll pick it up along the way.</p></details>
       <details><summary>Which AI does SayQL use?</summary><p>Whichever you like. Claude, OpenAI, Google Gemini, Mistral, Groq, DeepSeek and OpenRouter are built in. Any other service with an OpenAI-compatible API works with its address. Ollama and LM Studio run models on your own computer. You pick a fast model for drafting while you type and, if you like, a stronger one for fixes and improvements, and you use your own API key.</p></details>
       <details><summary>Does my data get sent anywhere?</summary><p>To write SQL, SayQL sends your question and the names of your tables and columns to the AI provider you chose. It doesn't send the rows in your tables. When a query fails, the SQL and the database's error message are sent so it can be fixed. With a local model through Ollama or LM Studio, none of this leaves your computer. SayQL connects straight from your machine to your database.</p></details>
       <details><summary>Can it break my database?</summary><p>Queries run read-only by default, and the database enforces it too. A statement that could change data, such as an UPDATE or DELETE, always stops and shows you a confirmation first.</p></details>
@@ -1046,7 +1046,7 @@ footer a { text-decoration: none; } footer a:hover { color: var(--color-text); }
 <section class="cta" id="download">
   <div class="wrap">
     <h2 class="reveal">Your database is ready<br>to be asked.</h2>
-    <p class="reveal">SayQL Community Edition is free forever. Bring a key for the AI you like or run a model locally, connect a database, and ask your first question in under a minute. There's a demo database built in.</p>
+    <p class="reveal">SayQL Community Edition is free forever. Bring a key for the AI you like or run a model locally, connect a database, and ask your first question. There's a demo database built in.</p>
     <div class="hero-ctas reveal">
       <a class="btn btn-primary btn-lg" href="/download/"><svg><use href="#i-download"/></svg>Download for macOS</a>
       <a class="btn btn-lg" href="/download/">Windows</a>
@@ -1059,7 +1059,7 @@ footer a { text-decoration: none; } footer a:hover { color: var(--color-text); }
       <div class="install-steps">
         <div class="install-step"><b>macOS</b><span>Open SayQL and close the warning. Then go to <em>System Settings → Privacy &amp; Security</em> and click <em>Open Anyway</em>.</span></div>
         <div class="install-step"><b>Windows</b><span>On "Windows protected your PC", click <em>More info</em>, then <em>Run anyway</em>.</span></div>
-        <div class="install-step"><b>Linux</b><span>Make the <code>.AppImage</code> executable and run it, or install the <code>.deb</code>.</span></div>
+        <div class="install-step"><b>Linux</b><span>Make the <code>.AppImage</code> executable and run it, or install the <code>.deb</code> or <code>.rpm</code>.</span></div>
       </div>
     </div>
   </div>
@@ -1071,7 +1071,7 @@ footer a { text-decoration: none; } footer a:hover { color: var(--color-text); }
   <div class="wrap footer-grid">
     <div class="footer-brand">
       <a class="brand" href="#top"><svg><use href="#logo"/></svg>SayQL</a>
-      <p>The AI-first database client. Community Edition, free forever.</p>
+      <p>The safe way to query production databases. Community Edition, free forever.</p>
       <a class="footer-gh" href="https://github.com/dithzz/sayql"><svg><use href="#i-github"/></svg>dithzz/sayql</a>
     </div>
     <nav class="footer-col" aria-label="Product">

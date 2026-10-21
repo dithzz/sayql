@@ -40,7 +40,10 @@ export function ClaudeIntegration() {
         queries. Anything that could change data is refused. Query results are sent to that app.
       </p>
       {!setup.exists && (
-        <Alert tone="warning">The MCP server isn&apos;t built yet. Run `cargo build --bin sayql-mcp` in src-tauri.</Alert>
+        <Alert tone="warning">
+          The MCP server isn&apos;t included in this version yet. It&apos;s coming in an upcoming update. Building from
+          source? Run `cargo build --bin sayql-mcp` in src-tauri.
+        </Alert>
       )}
       <CopyBlock label="Claude Code — run in a terminal" text={`claude mcp add --scope user sayql -- "${setup.path}"`} />
       <CopyBlock label="Claude Desktop — merge into claude_desktop_config.json" text={desktopConfig} />

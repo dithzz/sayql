@@ -6,7 +6,7 @@ SayQL is a desktop app. It has no SayQL account, no SayQL server and no telemetr
 
 - **Connections, settings and saved scripts** are kept in files in SayQL's folder in your user's application data.
 - **Database passwords and AI API keys** are stored in your operating system's keychain (macOS Keychain, Windows Credential Manager or the Linux Secret Service), never in files.
-- **Query results** are shown in the app and are not saved unless you copy or export them yourself.
+- **Query results** are shown in the app and are not saved unless you copy them yourself.
 
 ## What SayQL sends, and where
 
@@ -18,7 +18,7 @@ SayQL sends data only to services you configure, and only when you use them:
 | You ask in plain English | Your question, the database's table and column names, types and keys, and (for follow-ups) the previous query | The AI provider you chose in Settings |
 | A query fails and SayQL fixes it | The query and the database's error message | The AI provider you chose |
 | An AI app uses SayQL through MCP | The schemas and query results it asks for | That AI app (for example Claude or Cursor) |
-| SayQL checks for updates (when enabled) | The app version and your operating system | SayQL's update server |
+| SayQL checks for updates, each time it starts | The app version and your operating system | GitHub (github.com/dithzz/sayql-releases) |
 
 The rows in your tables are never sent to an AI provider by the Ask box. With a local provider (Ollama or LM Studio), AI requests don't leave your computer.
 
@@ -30,7 +30,7 @@ nothing to it.
 
 ## Feedback
 
-**Send feedback** in the app opens a page in your browser: a public GitHub issue, or a private form. Only your
+**Send feedback** in the app opens a pre-filled public GitHub issue in your browser. Only your
 SayQL version and operating system are filled in. Nothing else is sent unless you type it.
 
 ## AI providers
