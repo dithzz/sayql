@@ -2,7 +2,7 @@
 
 mod render;
 
-pub use render::{render_full, render_table, schema_for_prompt};
+pub use render::{render_full, render_table, schema_for_prompt, schema_with_focus};
 
 use serde::Serialize;
 

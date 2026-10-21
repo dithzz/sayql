@@ -48,6 +48,42 @@
   outline: none;
 }
 
+.focus {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+.focusLabel {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-subtle);
+}
+.focusChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 22px;
+  padding: 0 2px 0 var(--space-2);
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-pill);
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+}
+.focusRemove {
+  display: inline-flex;
+  padding: 2px;
+  border: none;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+.focusRemove:hover {
+  background: var(--color-surface);
+}
+
 .footer {
   display: flex;
   align-items: center;

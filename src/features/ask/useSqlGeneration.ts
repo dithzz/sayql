@@ -31,6 +31,8 @@ export interface SqlGenerationOptions {
   onQuestionChange?: (question: string) => void;
   /** The query last run in the tab; follow-up drafts are asked to edit it. */
   previous: PreviousQuery | null;
+  /** Tables the person picked; the AI builds on them. */
+  focusTables: string[];
   /** Receives the SQL as it streams in, and the final SQL. */
   onSql: (sql: string) => void;
   /** Receives finished SQL that should run now: a run requested while writing, or a fix. */
@@ -67,7 +69,7 @@ export function useSqlGeneration(options: SqlGenerationOptions) {
 
   // The previous query is part of the key: "remove the middle name" means something else after each query.
   const cacheKey = (q: string) =>
-    `${targetKey(opts.current.target)}|${opts.current.typingModel}|${opts.current.previous?.sql ?? ""}|${normalize(q)}`;
+    `${targetKey(opts.current.target)}|${opts.current.typingModel}|${opts.current.previous?.sql ?? ""}|${opts.current.focusTables.join(",")}|${normalize(q)}`;
 
   const clearDebounce = () => {
     window.clearTimeout(debounce.current);
@@ -101,7 +103,7 @@ export function useSqlGeneration(options: SqlGenerationOptions) {
       firstTokenMs.current = null;
       inFlight.current = { question: q, task };
       setStatus({ kind: "writing", task: task.kind });
-      commands.generateSql(target, q, id, slot, task).catch((e) => id === reqId.current && fail(errorText(e)));
+      commands.generateSql(target, q, id, slot, task, opts.current.focusTables).catch((e) => id === reqId.current && fail(errorText(e)));
     },
     [fail, opts],
   );

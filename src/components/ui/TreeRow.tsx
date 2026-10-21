@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { MouseEvent, ReactNode } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { cx } from "../../lib/cx";
 import styles from "./TreeRow.module.css";
@@ -15,12 +15,15 @@ export interface TreeRowProps {
   /** Shown on hover. */
   actions?: ReactNode;
   title?: string;
-  onClick?: () => void;
+  /** The row's main action; receives the event for modifier keys (⌘/⇧ multi-select). */
+  onClick?: (e: MouseEvent) => void;
   onDoubleClick?: () => void;
+  /** When set, the caret expands/collapses on its own and the row click does something else. */
+  onToggle?: () => void;
 }
 
 /** One row of a navigator tree. Indentation and caret come from `depth` and `expanded`. */
-export function TreeRow({ depth, label, icon, expanded, selected, meta, actions, title, onClick, onDoubleClick }: TreeRowProps) {
+export function TreeRow({ depth, label, icon, expanded, selected, meta, actions, title, onClick, onDoubleClick, onToggle }: TreeRowProps) {
   return (
     <div
       className={cx(styles.row, selected && styles.selected)}
@@ -32,7 +35,16 @@ export function TreeRow({ depth, label, icon, expanded, selected, meta, actions,
       onClick={onClick}
       onDoubleClick={onDoubleClick}
     >
-      <span className={styles.caret}>
+      <span
+        className={styles.caret}
+        onClick={
+          onToggle &&
+          ((e) => {
+            e.stopPropagation();
+            onToggle();
+          })
+        }
+      >
         {expanded === undefined ? null : expanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
       </span>
       {icon && <span className={styles.icon}>{icon}</span>}

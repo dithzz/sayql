@@ -1,5 +1,5 @@
 import { forwardRef, useImperativeHandle, useLayoutEffect, useRef } from "react";
-import { CheckCircle2, CornerDownRight, Sparkles, XCircle, Zap } from "lucide-react";
+import { CheckCircle2, CornerDownRight, Sparkles, Table2, X, XCircle, Zap } from "lucide-react";
 import { Button, Kbd, Spinner } from "../../components/ui";
 import { cx } from "../../lib/cx";
 import type { ModelNames } from "../settings";
@@ -17,6 +17,9 @@ export interface AskBarProps {
   examples?: string[];
   onOpenSettings: () => void;
   onRetry: () => void;
+  /** Tables picked in the navigator as context for the AI. */
+  focusTables: string[];
+  onFocusTablesChange: (names: string[]) => void;
   /** Present when requests build on the last run query. */
   followUp?: { onStartFresh: () => void };
 }
@@ -59,6 +62,28 @@ export const AskBar = forwardRef<HTMLTextAreaElement, AskBarProps>(function AskB
           }}
         />
       </div>
+      {p.focusTables.length > 0 && (
+        <div className={styles.focus} aria-label="Tables the AI builds on">
+          <span className={styles.focusLabel}>Using</span>
+          {p.focusTables.map((name) => (
+            <span key={name} className={styles.focusChip}>
+              <Table2 size={12} />
+              {name}
+              <button
+                type="button"
+                aria-label={`Stop using ${name}`}
+                className={styles.focusRemove}
+                onClick={() => p.onFocusTablesChange(p.focusTables.filter((n) => n !== name))}
+              >
+                <X size={11} />
+              </button>
+            </span>
+          ))}
+          <Button size="sm" variant="ghost" onClick={() => p.onFocusTablesChange([])}>
+            Clear
+          </Button>
+        </div>
+      )}
       <div className={styles.footer}>
         {p.followUp && (
           <span className={styles.followUp} title="Requests like “remove a column” or “only active ones” change the last query you ran">

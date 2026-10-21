@@ -13,6 +13,8 @@ export interface EditorTab {
   autoRun?: boolean;
   /** The query last run here, which follow-up requests build on. */
   lastRun?: PreviousQuery | null;
+  /** Tables picked in the navigator (qualified names) that the AI should build on. */
+  focusTables?: string[];
   /** The saved script this tab edits, if any. */
   scriptId?: string;
   /** The SQL as last saved (or as generated for a table preview); differs from `sql` when there are unsaved changes. */

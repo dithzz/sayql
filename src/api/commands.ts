@@ -30,8 +30,9 @@ export const commands = {
     invoke<QueryResult>("run_query", { id: t.connectionId, database: t.database, sql, allowWrite }),
 
   /** `slot` scopes cancellation: a new request replaces the previous one in the same slot (editor tab). */
-  generateSql: (t: Target, question: string, reqId: number, slot: string, task: GenerationTask) =>
-    invoke<void>("generate_sql", { id: t.connectionId, database: t.database, question, reqId, slot, task }),
+  /** `focusTables`: qualified table names the person picked; drafts see only those and their neighbours. */
+  generateSql: (t: Target, question: string, reqId: number, slot: string, task: GenerationTask, focusTables: string[]) =>
+    invoke<void>("generate_sql", { id: t.connectionId, database: t.database, question, reqId, slot, task, focusTables }),
   cancelGeneration: (slot: string) => invoke<void>("cancel_generation", { slot }),
 
   listScripts: () => invoke<Script[]>("list_scripts"),

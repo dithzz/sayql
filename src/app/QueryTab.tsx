@@ -54,6 +54,7 @@ export function QueryTab({ tab, active, label, schema, settings, modelNames, onC
     hasApiKey: settings.hasApiKey,
     initialQuestion: tab.question,
     previous: lastRun,
+    focusTables: tab.focusTables ?? [],
     onQuestionChange: (question) => onChange({ question }),
     onSql: setSql,
     onRunRequested: (sql, task) => runAndRemember(sql, generation.question, task),
@@ -110,6 +111,8 @@ export function QueryTab({ tab, active, label, schema, settings, modelNames, onC
             onOpenSettings={onOpenSettings}
             onRetry={generation.retry}
             followUp={lastRun ? { onStartFresh: () => onChange({ lastRun: null }) } : undefined}
+            focusTables={tab.focusTables ?? []}
+            onFocusTablesChange={(focusTables) => onChange({ focusTables })}
           />
         }
         second={

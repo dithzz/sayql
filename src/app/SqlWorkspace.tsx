@@ -30,6 +30,8 @@ export interface SqlWorkspaceProps {
   onOpenSettings: () => void;
   onRetry: () => void;
   followUp?: { onStartFresh: () => void };
+  focusTables: string[];
+  onFocusTablesChange: (names: string[]) => void;
 }
 
 /** The SQL editor view: the plain-English Ask bar above an editable SQL editor. */
@@ -80,6 +82,8 @@ export function SqlWorkspace(p: SqlWorkspaceProps) {
         onOpenSettings={p.onOpenSettings}
         onRetry={p.onRetry}
         followUp={p.followUp}
+        focusTables={p.focusTables}
+        onFocusTablesChange={p.onFocusTablesChange}
       />
       <div className={styles.editor}>
         <SqlEditor value={p.sql} onChange={p.onSqlChange} onRun={p.onRun} schema={p.schema} active={p.active} />

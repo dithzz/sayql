@@ -229,6 +229,8 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
               onEdit={(c) => setDialog({ kind: "connection", config: c })}
               onRefresh={() => target && conn.ensure(target, true)}
               onPreviewTable={previewTable}
+              selectedTables={tabs.active?.focusTables ?? []}
+              onSelectTables={(focusTables) => tabs.active && tabs.update(tabs.active.id, { focusTables })}
               scripts={navigatorScripts}
               onOpenScript={openScript}
               onDeleteScript={(id) => {

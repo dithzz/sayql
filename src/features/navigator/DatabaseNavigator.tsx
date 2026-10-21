@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState, type MouseEvent } from "react";
 import {
   Database,
   Eye,
@@ -38,6 +38,9 @@ export interface DatabaseNavigatorProps {
   onRefresh: () => void;
   /** Double-click on a table. */
   onPreviewTable: (t: Table) => void;
+  /** Tables picked as AI context (qualified names). */
+  selectedTables: string[];
+  onSelectTables: (names: string[]) => void;
   scripts: NavigatorScript[];
   onOpenScript: (id: string) => void;
   onDeleteScript: (id: string) => void;
@@ -70,6 +73,24 @@ export function DatabaseNavigator(p: DatabaseNavigatorProps) {
     return { tables: all.filter((t) => t.kind === "table"), views: all.filter((t) => t.kind === "view") };
   }, [p.schema, query]);
 
+  // Click selects one table, ⌘/Ctrl-click adds or removes one, ⇧-click selects a range.
+  const anchor = useRef<string | null>(null);
+  const order = [...tables, ...views].map(qualifiedName);
+  const select = (key: string, e: MouseEvent) => {
+    const current = p.selectedTables;
+    if (e.shiftKey && anchor.current && order.includes(anchor.current)) {
+      const [a, b] = [order.indexOf(anchor.current), order.indexOf(key)].sort((x, y) => x - y);
+      p.onSelectTables(order.slice(a, b + 1));
+      return;
+    }
+    anchor.current = key;
+    if (e.metaKey || e.ctrlKey) {
+      p.onSelectTables(current.includes(key) ? current.filter((k) => k !== key) : [...current, key]);
+    } else {
+      p.onSelectTables([key]); // also safe for the two clicks of a double-click preview
+    }
+  };
+
   const toggle = (set: Set<string>, key: string) => {
     const next = new Set(set);
     next.has(key) ? next.delete(key) : next.add(key);
@@ -88,8 +109,10 @@ export function DatabaseNavigator(p: DatabaseNavigatorProps) {
           icon={t.kind === "view" ? <Eye size={14} /> : <Table2 size={14} />}
           label={<span className={cx(styles.mono, t.kind === "view" && styles.view)}>{key}</span>}
           meta={t.row_estimate != null && t.row_estimate >= 0 ? t.row_estimate.toLocaleString() : undefined}
-          title="Double-click to preview rows"
-          onClick={() => setExpandedTables((s) => toggle(s, key))}
+          selected={p.selectedTables.includes(key)}
+          title="Click to use as AI context (⌘-click for several, ⇧-click for a range) · double-click to preview rows"
+          onClick={(e) => select(key, e)}
+          onToggle={() => setExpandedTables((s) => toggle(s, key))}
           onDoubleClick={() => p.onPreviewTable(t)}
         />
         {open &&
