@@ -71,7 +71,7 @@ export function SettingsDialog({ settings, onClose, onSaved }: SettingsDialogPro
       >
         {(id) => <Select id={id} value={expertModel} onChange={setExpertModel} options={modelOptions} />}
       </Field>
-      <Field label="Use AskDB from Claude (MCP)">{() => <ClaudeIntegration />}</Field>
+      <Field label="Use Sayql from Claude (MCP)">{() => <ClaudeIntegration />}</Field>
       {error && <Alert tone="danger">{error}</Alert>}
     </Dialog>
   );

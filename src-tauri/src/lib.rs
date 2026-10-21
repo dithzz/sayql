@@ -1,4 +1,4 @@
-//! AskDB backend: wires the Tauri app together. Logic lives in the modules below.
+//! Sayql backend: wires the Tauri app together. Logic lives in the modules below.
 
 mod ai;
 mod commands;

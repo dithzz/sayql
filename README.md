@@ -1,4 +1,4 @@
-# AskDB
+# Sayql
 
 An AI-first desktop database client. Type what you want in plain English; SQL appears as you type; press Enter to run it.
 
@@ -21,23 +21,23 @@ An AI-first desktop database client. Type what you want in plain English; SQL ap
 - INSERT/UPDATE/DELETE/DDL require an explicit confirmation.
 - Passwords and the API key are stored in the OS keychain. Connection details go in `connections.json` in the app config dir.
 
-## Use AskDB from Claude (MCP)
+## Use Sayql from Claude (MCP)
 
-`askdb-mcp` is an MCP server (stdio) that lets Claude Code or Claude Desktop use the connections saved in AskDB:
+`sayql-mcp` is an MCP server (stdio) that lets Claude Code or Claude Desktop use the connections saved in Sayql:
 `list_connections`, `list_databases`, `describe_schema` (with `search` for large databases) and `run_query`.
 
 - **Read-only.** Queries go through the same checks as the app's read-only mode; anything that could change data
-  is refused and must be run in the AskDB app.
+  is refused and must be run in the Sayql app.
 - **Query results are sent to Claude**, unlike the Ask box, which only sends table and column names.
-- Passwords come from the OS keychain. On macOS, the first use asks to let `askdb-mcp` read AskDB's keychain items.
+- Passwords come from the OS keychain. On macOS, the first use asks to let `sayql-mcp` read Sayql's keychain items.
 
-Settings → "Use AskDB from Claude" shows the exact command and config. For Claude Code:
+Settings → "Use Sayql from Claude" shows the exact command and config. For Claude Code:
 
 ```bash
-claude mcp add --scope user askdb -- /path/to/askdb-mcp
+claude mcp add --scope user sayql -- /path/to/sayql-mcp
 ```
 
-In development the binary is `src-tauri/target/debug/askdb-mcp` (`cargo build --bin askdb-mcp`). Release bundles
+In development the binary is `src-tauri/target/debug/sayql-mcp` (`cargo build --bin sayql-mcp`). Release bundles
 must ship it next to the app executable (Tauri `bundle.externalBin`; see docs/RELEASING.md).
 
 ## Development
@@ -60,14 +60,14 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the folder structure and co
 `pnpm test` covers SQLite only. The PostgreSQL and MySQL tests in `src-tauri/src/db/integration_tests.rs` are skipped unless you point them at a server:
 
 ```bash
-docker run -d --name askdb-test-pg -e POSTGRES_PASSWORD=<password> -e POSTGRES_DB=askdb -p 55416:5432 postgres:16
-docker run -d --name askdb-test-mysql -e MYSQL_ROOT_PASSWORD=<password> -p 33806:3306 mysql:8
-docker run -d --platform linux/amd64 --name askdb-test-mssql -e ACCEPT_EULA=Y -e 'MSSQL_SA_PASSWORD=<password>' -p 14334:1433 mcr.microsoft.com/mssql/server:2022-latest
+docker run -d --name sayql-test-pg -e POSTGRES_PASSWORD=<password> -e POSTGRES_DB=sayql -p 55416:5432 postgres:16
+docker run -d --name sayql-test-mysql -e MYSQL_ROOT_PASSWORD=<password> -p 33806:3306 mysql:8
+docker run -d --platform linux/amd64 --name sayql-test-mssql -e ACCEPT_EULA=Y -e 'MSSQL_SA_PASSWORD=<password>' -p 14334:1433 mcr.microsoft.com/mssql/server:2022-latest
 cd src-tauri
-ASKDB_TEST_PG_URL=postgres://postgres:<password>@localhost:55416/askdb \
-ASKDB_TEST_MYSQL_URL=mysql://root:<password>@localhost:33806 \
-ASKDB_TEST_MSSQL_URL='mssql://sa:<password>@localhost:14334/master' \
+SAYQL_TEST_PG_URL=postgres://postgres:<password>@localhost:55416/sayql \
+SAYQL_TEST_MYSQL_URL=mysql://root:<password>@localhost:33806 \
+SAYQL_TEST_MSSQL_URL='mssql://sa:<password>@localhost:14334/master' \
 cargo test --lib integration
 ```
 
-The URLs take the form `scheme://user:password@host:port/database` (no percent-encoding). The tests drop and recreate the Postgres schemas `askdb_it` and `askdb_it_inv` and the MySQL and SQL Server databases `askdb_it`, so use throwaway servers. MySQL needs a few seconds after `docker run` before it accepts connections.
+The URLs take the form `scheme://user:password@host:port/database` (no percent-encoding). The tests drop and recreate the Postgres schemas `sayql_it` and `sayql_it_inv` and the MySQL and SQL Server databases `sayql_it`, so use throwaway servers. MySQL needs a few seconds after `docker run` before it accepts connections.

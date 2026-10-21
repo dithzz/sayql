@@ -11,7 +11,7 @@ self.MonacoEnvironment = { getWorker: () => new EditorWorker() };
 loader.config({ monaco });
 
 // Monaco needs literal colors; these mirror --color-surface and friends in styles/tokens.css.
-monaco.editor.defineTheme("askdb-light", {
+monaco.editor.defineTheme("sayql-light", {
   base: "vs",
   inherit: true,
   rules: [
@@ -30,7 +30,7 @@ monaco.editor.defineTheme("askdb-light", {
   },
 });
 
-monaco.editor.defineTheme("askdb-dark", {
+monaco.editor.defineTheme("sayql-dark", {
   base: "vs-dark",
   inherit: true,
   rules: [
@@ -49,7 +49,7 @@ monaco.editor.defineTheme("askdb-dark", {
   },
 });
 
-export const monacoTheme = (theme: ResolvedTheme) => (theme === "dark" ? "askdb-dark" : "askdb-light");
+export const monacoTheme = (theme: ResolvedTheme) => (theme === "dark" ? "sayql-dark" : "sayql-light");
 
 const KEYWORDS = [
   "SELECT", "FROM", "WHERE", "GROUP BY", "ORDER BY", "HAVING", "LIMIT", "JOIN", "LEFT JOIN", "INNER JOIN",

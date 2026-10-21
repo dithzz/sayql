@@ -58,7 +58,7 @@ pub fn save_settings(
     Ok(settings_view(&s))
 }
 
-/// Where the `askdb-mcp` server binary is, for connecting Claude to AskDB.
+/// Where the `sayql-mcp` server binary is, for connecting Claude to Sayql.
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct McpSetup {
@@ -71,7 +71,7 @@ pub struct McpSetup {
 #[tauri::command]
 pub fn mcp_setup() -> AppResult<McpSetup> {
     let exe = std::env::current_exe()?;
-    let name = if cfg!(windows) { "askdb-mcp.exe" } else { "askdb-mcp" };
+    let name = if cfg!(windows) { "sayql-mcp.exe" } else { "sayql-mcp" };
     let path = exe.with_file_name(name);
     Ok(McpSetup { exists: path.exists(), path: path.to_string_lossy().into_owned() })
 }

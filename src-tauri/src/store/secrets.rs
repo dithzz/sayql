@@ -2,7 +2,7 @@
 
 use crate::error::AppResult;
 
-const SERVICE: &str = "com.askdb.app";
+const SERVICE: &str = "com.sayql.app";
 const API_KEY_ACCOUNT: &str = "anthropic-api-key";
 
 fn entry(account: &str) -> AppResult<keyring::Entry> {

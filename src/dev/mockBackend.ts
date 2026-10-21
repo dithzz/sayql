@@ -140,7 +140,7 @@ export function installMockBackend() {
         case "delete_script":
           return null;
         case "mcp_setup":
-          return { path: "/Applications/AskDB.app/Contents/MacOS/askdb-mcp", exists: true };
+          return { path: "/Applications/Sayql.app/Contents/MacOS/sayql-mcp", exists: true };
         case "test_connection":
           return "Connected. Found 6 tables and views.";
         case "save_connection":

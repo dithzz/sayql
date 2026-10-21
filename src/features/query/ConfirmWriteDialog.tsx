@@ -9,7 +9,7 @@ export interface ConfirmWriteDialogProps {
   onConfirm: () => void;
 }
 
-/** Shown before any statement AskDB can't confirm only reads data. */
+/** Shown before any statement Sayql can't confirm only reads data. */
 export function ConfirmWriteDialog({ sql, connectionName, onCancel, onConfirm }: ConfirmWriteDialogProps) {
   return (
     <Dialog
@@ -28,7 +28,7 @@ export function ConfirmWriteDialog({ sql, connectionName, onCancel, onConfirm }:
       }
     >
       <Alert tone="warning">
-        AskDB can’t confirm this only reads data on <strong>{connectionName}</strong>. If it changes data, AskDB
+        Sayql can’t confirm this only reads data on <strong>{connectionName}</strong>. If it changes data, Sayql
         can’t undo it. Review it before running.
       </Alert>
       <pre className={styles.sql}>{sql}</pre>

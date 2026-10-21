@@ -1,6 +1,6 @@
 # Architecture
 
-AskDB is a Tauri 2 desktop app: a React + TypeScript UI (`src/`) on top of a Rust backend (`src-tauri/`). The UI never talks to a database or the Claude API directly; it calls typed Tauri commands.
+Sayql is a Tauri 2 desktop app: a React + TypeScript UI (`src/`) on top of a Rust backend (`src-tauri/`). The UI never talks to a database or the Claude API directly; it calls typed Tauri commands.
 
 ## Frontend layout (`src/`)
 
@@ -48,8 +48,8 @@ src/
 ```
 src-tauri/src/
   lib.rs                plugin + state + command registration only
-  mcp.rs                askdb-mcp: MCP server over stdio (read-only tools), reusing state/db/schema
-  bin/askdb-mcp.rs      its entry point
+  mcp.rs                sayql-mcp: MCP server over stdio (read-only tools), reusing state/db/schema
+  bin/sayql-mcp.rs      its entry point
   error.rs              AppError / AppResult: the single error type; serializes to a message for the UI
   state.rs              AppState: store, open connections, the running AI generation
   commands/             Tauri commands, one file per UI area (thin: validate, call modules, map results)

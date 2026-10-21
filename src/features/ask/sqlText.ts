@@ -6,7 +6,7 @@ const STATEMENT_START =
 
 /**
  * Strips Markdown fences, and turns an explanation the model put before the SQL into
- * `--` comments, so the database (and AskDB's read-only check) see SQL first.
+ * `--` comments, so the database (and Sayql's read-only check) see SQL first.
  */
 export function cleanSql(raw: string): string {
   const text = raw

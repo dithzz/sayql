@@ -18,7 +18,7 @@ export function TopBar({ active, databaseName, schema, onNewConnection, onOpenSe
     <header className={styles.topbar}>
       <div className={styles.brand}>
         <DatabaseZap size={18} className={styles.brandMark} />
-        AskDB
+        Sayql
       </div>
       <ToolbarDivider />
       <Button size="sm" variant="ghost" icon={Plus} onClick={onNewConnection}>

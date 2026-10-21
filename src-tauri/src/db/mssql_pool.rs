@@ -78,7 +78,7 @@ fn config(cfg: &ConnConfig, password: Option<String>) -> AppResult<Config> {
     if !cfg.database.trim().is_empty() {
         c.database(cfg.database.trim());
     }
-    c.application_name("askdb");
+    c.application_name("sayql");
     c.authentication(AuthMethod::sql_server(cfg.user.trim(), password.unwrap_or_default()));
     c.encryption(if cfg.ssl { EncryptionLevel::Required } else { EncryptionLevel::Off });
     if cfg.trust_cert {

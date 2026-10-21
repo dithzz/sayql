@@ -4,7 +4,7 @@ use super::*;
 
 #[tokio::test]
 async fn demo_database_end_to_end() {
-    let dir = std::env::temp_dir().join(format!("askdb-test-{}", uuid::Uuid::new_v4()));
+    let dir = std::env::temp_dir().join(format!("sayql-test-{}", uuid::Uuid::new_v4()));
     let path = dir.join("demo.sqlite");
     ensure_demo(&path).await.expect("seed");
     let cfg = ConnConfig {

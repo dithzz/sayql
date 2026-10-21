@@ -1,17 +1,17 @@
 [package]
-name = "askdb"
+name = "sayql"
 version = "0.1.0"
 description = "AI-first database client: ask in English, get SQL as you type"
 authors = ["Adith"]
 edition = "2024"
-# `tauri dev` runs the app; the MCP server is the separate `askdb-mcp` binary.
-default-run = "askdb"
+# `tauri dev` runs the app; the MCP server is the separate `sayql-mcp` binary.
+default-run = "sayql"
 
 [lib]
 # The `_lib` suffix may seem redundant but it is necessary
 # to make the lib name unique and wouldn't conflict with the bin name.
 # This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
-name = "askdb_lib"
+name = "sayql_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

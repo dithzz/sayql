@@ -1,6 +1,6 @@
-# Releasing AskDB
+# Releasing Sayql
 
-This guide covers building AskDB installers, signing them so macOS and Windows
+This guide covers building Sayql installers, signing them so macOS and Windows
 trust them, and shipping updates through the built-in updater.
 
 Nothing secret is committed to this repository. Every key, certificate and
@@ -28,8 +28,8 @@ pnpm tauri build
 
 Output, for the machine's own architecture:
 
-- `src-tauri/target/release/bundle/macos/AskDB.app`
-- `src-tauri/target/release/bundle/dmg/AskDB_<version>_<arch>.dmg`
+- `src-tauri/target/release/bundle/macos/Sayql.app`
+- `src-tauri/target/release/bundle/dmg/Sayql_<version>_<arch>.dmg`
 
 Other targets:
 
@@ -41,7 +41,7 @@ pnpm tauri build --debug                           # faster build, devtools enab
 ```
 
 An unsigned build runs on the machine that built it. Anyone who downloads it
-gets a Gatekeeper warning ("Apple could not verify AskDB is free of
+gets a Gatekeeper warning ("Apple could not verify Sayql is free of
 malware…") and has to approve it in System Settings → Privacy & Security.
 That is fine for testing; paying customers need the signed and notarized
 build from the next section.
@@ -61,18 +61,18 @@ key is separate from Apple and Windows code signing, and it is free.
 1. Generate the key pair. Keep the private key out of the repo:
 
    ```bash
-   pnpm tauri signer generate -w ~/.tauri/askdb-updater.key
+   pnpm tauri signer generate -w ~/.tauri/sayql-updater.key
    ```
 
-   Pick a password when asked. This writes `~/.tauri/askdb-updater.key`
-   (private) and `~/.tauri/askdb-updater.key.pub` (public).
+   Pick a password when asked. This writes `~/.tauri/sayql-updater.key`
+   (private) and `~/.tauri/sayql-updater.key.pub` (public).
 
 2. Put the **public** key in `src-tauri/tauri.conf.json`, replacing
    `REPLACE_WITH_UPDATER_PUBLIC_KEY` with the full contents of
-   `askdb-updater.key.pub`. Commit this; it is meant to be public.
+   `sayql-updater.key.pub`. Commit this; it is meant to be public.
 
 3. Add two GitHub Actions secrets:
-   - `TAURI_SIGNING_PRIVATE_KEY`: the contents of `askdb-updater.key`
+   - `TAURI_SIGNING_PRIVATE_KEY`: the contents of `sayql-updater.key`
    - `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`: the password from step 1
 
 4. Back the private key up in a password manager. **If you lose it, installed
@@ -81,12 +81,12 @@ key is separate from Apple and Windows code signing, and it is free.
 
 5. Replace `OWNER/REPO` in `plugins.updater.endpoints` with the GitHub
    repository that hosts releases, for example
-   `https://github.com/acme/askdb/releases/latest/download/latest.json`.
+   `https://github.com/acme/sayql/releases/latest/download/latest.json`.
 
 To build signed updater artifacts locally (usually CI does this):
 
 ```bash
-export TAURI_SIGNING_PRIVATE_KEY="$(cat ~/.tauri/askdb-updater.key)"
+export TAURI_SIGNING_PRIVATE_KEY="$(cat ~/.tauri/sayql-updater.key)"
 export TAURI_SIGNING_PRIVATE_KEY_PASSWORD='…'
 pnpm tauri build --config '{"bundle":{"createUpdaterArtifacts":true}}'
 ```
@@ -100,13 +100,13 @@ it stops a release that installed copies could never verify.
 ### Where updates are hosted
 
 The release workflow uploads `latest.json` and the signed update archives
-(`AskDB.app.tar.gz` and `.sig` on macOS) to the GitHub Release. Installed apps
+(`Sayql.app.tar.gz` and `.sig` on macOS) to the GitHub Release. Installed apps
 fetch `releases/latest/download/latest.json`, which only resolves to a release
 that is **published** (not a draft) and **not marked pre-release**.
 
 GitHub Releases on a **private** repository are not downloadable by your
 users. Either make the release repository public (the source repo can stay
-private: publish to a separate public "askdb-releases" repo with
+private: publish to a separate public "sayql-releases" repo with
 tauri-action's `owner`/`repo` inputs), or host `latest.json` and the archives
 on your own server or CDN and point `endpoints` there. Public downloads also
 mean anyone can download the app, so licensing (trial, license keys) has to be
@@ -208,10 +208,10 @@ password from <https://account.apple.com>) and `APPLE_TEAM_ID`.
 ### Verify a build
 
 ```bash
-codesign --verify --deep --strict --verbose=2 src-tauri/target/release/bundle/macos/AskDB.app
-spctl --assess --type execute --verbose src-tauri/target/release/bundle/macos/AskDB.app
+codesign --verify --deep --strict --verbose=2 src-tauri/target/release/bundle/macos/Sayql.app
+spctl --assess --type execute --verbose src-tauri/target/release/bundle/macos/Sayql.app
 # expect: "accepted  source=Notarized Developer ID"
-xcrun stapler validate src-tauri/target/release/bundle/macos/AskDB.app
+xcrun stapler validate src-tauri/target/release/bundle/macos/Sayql.app
 ```
 
 Tauri notarizes and staples the `.app`, which is what Gatekeeper checks when
@@ -219,9 +219,9 @@ the user opens it. To also notarize and staple the `.dmg` itself (so the
 disk image passes checks offline before it's mounted):
 
 ```bash
-xcrun notarytool submit AskDB_0.1.0_aarch64.dmg --key "$APPLE_API_KEY_PATH" \
+xcrun notarytool submit Sayql_0.1.0_aarch64.dmg --key "$APPLE_API_KEY_PATH" \
   --key-id "$APPLE_API_KEY" --issuer "$APPLE_API_ISSUER" --wait
-xcrun stapler staple AskDB_0.1.0_aarch64.dmg
+xcrun stapler staple Sayql_0.1.0_aarch64.dmg
 ```
 
 ## 4. Windows code signing
@@ -250,7 +250,7 @@ Azure Artifact Signing with
 
 ```json
 "windows": {
-  "signCommand": "trusted-signing-cli -e https://<region>.codesigning.azure.net -a <account> -c <certificate-profile> -d AskDB %1"
+  "signCommand": "trusted-signing-cli -e https://<region>.codesigning.azure.net -a <account> -c <certificate-profile> -d Sayql %1"
 }
 ```
 
@@ -290,7 +290,7 @@ With the secrets in place:
 
 ## 6. Rebranding
 
-"AskDB" is a placeholder name. To rename the app:
+To rename the app again:
 
 - `src-tauri/tauri.conf.json`: `productName`, `app.windows[0].title`,
   `bundle.publisher`, `bundle.copyright`, `bundle.shortDescription`,
@@ -300,14 +300,14 @@ With the secrets in place:
   centered 824×824 area so it matches other macOS icons), then run
   `pnpm tauri icon src-tauri/icons/app-icon.svg`. The command also creates
   `icons/android` and `icons/ios`; delete them, since this is a desktop app.
-- `identifier` (`com.askdb.app`): change it **before the first public
+- `identifier` (`com.sayql.app`): change it **before the first public
   release** if at all. It ties together the macOS keychain entries, app data
   folder and update channel; changing it later makes installed copies treat
   the new app as a different one.
 
-## Shipping the MCP server (`askdb-mcp`)
+## Shipping the MCP server (`sayql-mcp`)
 
-The Settings dialog points Claude at `askdb-mcp` next to the app's executable. To ship it, build it for each target
-and add it as a Tauri sidecar: copy `target/<triple>/release/askdb-mcp` to `src-tauri/binaries/askdb-mcp-<triple>`
-(e.g. `askdb-mcp-aarch64-apple-darwin`) and add `"externalBin": ["binaries/askdb-mcp"]` under `bundle` in
-`tauri.conf.json`. Tauri strips the triple and places it in `AskDB.app/Contents/MacOS/`. Sign it like the app.
+The Settings dialog points Claude at `sayql-mcp` next to the app's executable. To ship it, build it for each target
+and add it as a Tauri sidecar: copy `target/<triple>/release/sayql-mcp` to `src-tauri/binaries/sayql-mcp-<triple>`
+(e.g. `sayql-mcp-aarch64-apple-darwin`) and add `"externalBin": ["binaries/sayql-mcp"]` under `bundle` in
+`tauri.conf.json`. Tauri strips the triple and places it in `Sayql.app/Contents/MacOS/`. Sign it like the app.

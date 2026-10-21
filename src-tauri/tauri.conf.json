@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "AskDB",
+  "productName": "Sayql",
   "version": "0.1.0",
-  "identifier": "com.askdb.app",
+  "identifier": "com.sayql.app",
   "build": {
     "beforeDevCommand": "pnpm dev",
     "devUrl": "http://localhost:1420",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "AskDB",
+        "title": "Sayql",
         "width": 1360,
         "height": 860,
         "minWidth": 900,
@@ -26,11 +26,11 @@
   "bundle": {
     "active": true,
     "targets": "all",
-    "publisher": "AskDB",
-    "copyright": "Copyright © 2026 AskDB. All rights reserved.",
+    "publisher": "Sayql",
+    "copyright": "Copyright © 2026 Sayql. All rights reserved.",
     "category": "DeveloperTool",
     "shortDescription": "AI-first database client",
-    "longDescription": "AskDB is a desktop database client for PostgreSQL, MySQL and SQLite. Ask a question in plain English and get SQL as you type, then run it against your database with a fast, keyboard-first editor.",
+    "longDescription": "Sayql is a desktop database client for PostgreSQL, MySQL and SQLite. Ask a question in plain English and get SQL as you type, then run it against your database with a fast, keyboard-first editor.",
     "createUpdaterArtifacts": false,
     "icon": [
       "icons/32x32.png",

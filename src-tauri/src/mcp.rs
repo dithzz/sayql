@@ -1,6 +1,6 @@
-//! An MCP server over stdio (`askdb-mcp`), so Claude (Claude Code, Claude Desktop) can use
-//! the person's saved AskDB connections. Read-only: anything that could change data is
-//! refused and has to be run in the AskDB app, where the person reviews it first.
+//! An MCP server over stdio (`sayql-mcp`), so Claude (Claude Code, Claude Desktop) can use
+//! the person's saved Sayql connections. Read-only: anything that could change data is
+//! refused and has to be run in the Sayql app, where the person reviews it first.
 
 use crate::commands::connections::{load_schema, target_pool};
 use crate::db::{self, Kind};
@@ -16,17 +16,17 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 /// The Tauri app identifier: where the app keeps its config and data.
-const APP_ID: &str = "com.askdb.app";
+const APP_ID: &str = "com.sayql.app";
 const DEFAULT_ROWS: usize = 100;
 const MAX_ROWS: usize = 1000;
 /// A schema bigger than this is listed by table name unless a search narrows it.
 const FULL_SCHEMA_CHARS: usize = 60_000;
 
-const INSTRUCTIONS: &str = "AskDB gives read-only access to the user's saved database connections \
+const INSTRUCTIONS: &str = "Sayql gives read-only access to the user's saved database connections \
 (PostgreSQL, MySQL, SQLite, SQL Server). Typical flow: list_connections, then list_databases for a \
 server connection, then describe_schema (pass `search` terms for large databases), then run_query. \
 Queries run read-only and the database itself enforces it where it can; statements that could change \
-data are refused, and the user must run those in the AskDB app. Keep results small (TOP/LIMIT) and \
+data are refused, and the user must run those in the Sayql app. Keep results small (TOP/LIMIT) and \
 select only the columns you need.";
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -58,18 +58,18 @@ struct QueryParams {
 }
 
 #[derive(Clone)]
-pub struct AskDbServer {
+pub struct SayqlServer {
     state: Arc<AppState>,
     tool_router: ToolRouter<Self>,
 }
 
 #[tool_router]
-impl AskDbServer {
+impl SayqlServer {
     pub fn new(state: AppState) -> Self {
-        AskDbServer { state: Arc::new(state), tool_router: Self::tool_router() }
+        SayqlServer { state: Arc::new(state), tool_router: Self::tool_router() }
     }
 
-    #[tool(description = "List the database connections saved in AskDB (no passwords).")]
+    #[tool(description = "List the database connections saved in Sayql (no passwords).")]
     async fn list_connections(&self) -> String {
         let list: Vec<_> = self
             .state
@@ -104,8 +104,8 @@ impl AskDbServer {
                           Statements that could change data are refused.")]
     async fn run_query(&self, Parameters(p): Parameters<QueryParams>) -> Result<String, String> {
         if !db::is_read_only(&p.sql) {
-            return Err("AskDB's MCP access is read-only, and this statement could change data. \
-                        Show it to the user to run in the AskDB app, where they can review it."
+            return Err("Sayql's MCP access is read-only, and this statement could change data. \
+                        Show it to the user to run in the Sayql app, where they can review it."
                 .into());
         }
         let target = Target::new(p.connection_id, p.database);
@@ -125,7 +125,7 @@ impl AskDbServer {
     }
 }
 
-impl AskDbServer {
+impl SayqlServer {
     async fn schema(&self, connection_id: &str, database: Option<String>) -> Result<Schema, String> {
         let target = Target::new(connection_id.to_string(), database);
         match self.state.schema(&target) {
@@ -136,10 +136,10 @@ impl AskDbServer {
 }
 
 #[tool_handler(router = self.tool_router)]
-impl ServerHandler for AskDbServer {
+impl ServerHandler for SayqlServer {
     fn get_info(&self) -> ServerConfig {
         ServerConfig::new(ServerCapabilities::builder().enable_tools().build())
-            .with_server_info(Implementation::new("askdb", env!("CARGO_PKG_VERSION")))
+            .with_server_info(Implementation::new("sayql", env!("CARGO_PKG_VERSION")))
             .with_instructions(INSTRUCTIONS)
     }
 }
@@ -177,9 +177,9 @@ fn describe(schema: &Schema, search: Option<&str>) -> String {
     format!("{header} Too large to describe in full; call again with `search` words for columns.\n{}", names.join("\n"))
 }
 
-/// Where the AskDB app keeps its files; `ASKDB_CONFIG_DIR` overrides (for tests).
+/// Where the Sayql app keeps its files; `SAYQL_CONFIG_DIR` overrides (for tests).
 fn app_dirs() -> Result<(PathBuf, PathBuf), String> {
-    if let Ok(dir) = std::env::var("ASKDB_CONFIG_DIR") {
+    if let Ok(dir) = std::env::var("SAYQL_CONFIG_DIR") {
         let dir = PathBuf::from(dir);
         return Ok((dir.clone(), dir));
     }
@@ -191,7 +191,7 @@ fn app_dirs() -> Result<(PathBuf, PathBuf), String> {
 /// Runs the server on stdin/stdout until the client disconnects.
 pub async fn serve_stdio() -> Result<(), Box<dyn std::error::Error>> {
     let (config_dir, data_dir) = app_dirs()?;
-    let server = AskDbServer::new(AppState::new(config_dir, data_dir)?);
+    let server = SayqlServer::new(AppState::new(config_dir, data_dir)?);
     server.serve(rmcp::transport::stdio()).await?.waiting().await?;
     Ok(())
 }

@@ -32,7 +32,7 @@ export function ClaudeIntegration() {
   }, []);
   if (!setup) return null;
 
-  const desktopConfig = JSON.stringify({ mcpServers: { askdb: { command: setup.path } } }, null, 2);
+  const desktopConfig = JSON.stringify({ mcpServers: { sayql: { command: setup.path } } }, null, 2);
   return (
     <div className={styles.section}>
       <p className={styles.intro}>
@@ -40,9 +40,9 @@ export function ClaudeIntegration() {
         change data is refused. Query results are sent to Claude.
       </p>
       {!setup.exists && (
-        <Alert tone="warning">The MCP server isn&apos;t built yet. Run `cargo build --bin askdb-mcp` in src-tauri.</Alert>
+        <Alert tone="warning">The MCP server isn&apos;t built yet. Run `cargo build --bin sayql-mcp` in src-tauri.</Alert>
       )}
-      <CopyBlock label="Claude Code — run in a terminal" text={`claude mcp add --scope user askdb -- "${setup.path}"`} />
+      <CopyBlock label="Claude Code — run in a terminal" text={`claude mcp add --scope user sayql -- "${setup.path}"`} />
       <CopyBlock label="Claude Desktop — merge into claude_desktop_config.json" text={desktopConfig} />
     </div>
   );

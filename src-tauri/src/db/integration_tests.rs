@@ -2,12 +2,12 @@
 //!
 //! Each test is skipped unless its URL is set, so `cargo test` passes without servers:
 //!
-//!   ASKDB_TEST_PG_URL=postgres://postgres:<password>@localhost:55416/askdb
-//!   ASKDB_TEST_MYSQL_URL=mysql://root:<password>@localhost:33806
-//!   ASKDB_TEST_MSSQL_URL=mssql://sa:<password>@localhost:14334/master
+//!   SAYQL_TEST_PG_URL=postgres://postgres:<password>@localhost:55416/sayql
+//!   SAYQL_TEST_MYSQL_URL=mysql://root:<password>@localhost:33806
+//!   SAYQL_TEST_MSSQL_URL=mssql://sa:<password>@localhost:14334/master
 //!
-//! The Postgres test drops and recreates the schemas `askdb_it` and `askdb_it_inv`;
-//! the MySQL and SQL Server tests drop and recreate the database `askdb_it`.
+//! The Postgres test drops and recreates the schemas `sayql_it` and `sayql_it_inv`;
+//! the MySQL and SQL Server tests drop and recreate the database `sayql_it`.
 //! Nothing else is touched.
 
 use super::*;
@@ -170,17 +170,17 @@ async fn check_read_only(pool: &DbPool, count_sql: &str, writes: &[&str], show_r
 // ---------------------------------------------------------------- PostgreSQL
 
 const PG_SEED: &str = r#"
-DROP SCHEMA IF EXISTS askdb_it CASCADE;
-DROP SCHEMA IF EXISTS askdb_it_inv CASCADE;
-CREATE SCHEMA askdb_it;
-CREATE SCHEMA askdb_it_inv;
+DROP SCHEMA IF EXISTS sayql_it CASCADE;
+DROP SCHEMA IF EXISTS sayql_it_inv CASCADE;
+CREATE SCHEMA sayql_it;
+CREATE SCHEMA sayql_it_inv;
 
-CREATE TYPE askdb_it.order_status AS ENUM ('pending', 'paid', 'shipped', 'cancelled');
+CREATE TYPE sayql_it.order_status AS ENUM ('pending', 'paid', 'shipped', 'cancelled');
 -- Same type name in another schema with different labels.
-CREATE TYPE askdb_it_inv.order_status AS ENUM ('in_stock', 'backordered');
-CREATE TYPE askdb_it.addr AS (city text, zip int);
+CREATE TYPE sayql_it_inv.order_status AS ENUM ('in_stock', 'backordered');
+CREATE TYPE sayql_it.addr AS (city text, zip int);
 
-CREATE TABLE askdb_it.customers (
+CREATE TABLE sayql_it.customers (
   id serial PRIMARY KEY,
   email text NOT NULL UNIQUE,
   external_id uuid NOT NULL,
@@ -189,64 +189,64 @@ CREATE TABLE askdb_it.customers (
   signed_up_at timestamptz NOT NULL
 );
 
-CREATE TABLE askdb_it.orders (
+CREATE TABLE sayql_it.orders (
   id bigserial PRIMARY KEY,
-  customer_id int NOT NULL REFERENCES askdb_it.customers(id),
-  status askdb_it.order_status NOT NULL,
+  customer_id int NOT NULL REFERENCES sayql_it.customers(id),
+  status sayql_it.order_status NOT NULL,
   total numeric(12, 2) NOT NULL,
   ordered_at timestamptz NOT NULL
 );
 
-CREATE TABLE askdb_it_inv.warehouses (code text PRIMARY KEY, name text NOT NULL);
+CREATE TABLE sayql_it_inv.warehouses (code text PRIMARY KEY, name text NOT NULL);
 
-CREATE TABLE askdb_it_inv.stock (
-  warehouse_code text NOT NULL REFERENCES askdb_it_inv.warehouses(code),
+CREATE TABLE sayql_it_inv.stock (
+  warehouse_code text NOT NULL REFERENCES sayql_it_inv.warehouses(code),
   product_id int NOT NULL,
   qty int NOT NULL,
-  state askdb_it_inv.order_status NOT NULL,
+  state sayql_it_inv.order_status NOT NULL,
   PRIMARY KEY (warehouse_code, product_id)
 );
 
-CREATE TABLE askdb_it_inv.movements (
+CREATE TABLE sayql_it_inv.movements (
   id int PRIMARY KEY,
   wh text NOT NULL,
   pid int NOT NULL,
   delta int NOT NULL,
-  FOREIGN KEY (wh, pid) REFERENCES askdb_it_inv.stock (warehouse_code, product_id)
+  FOREIGN KEY (wh, pid) REFERENCES sayql_it_inv.stock (warehouse_code, product_id)
 );
 
-CREATE TABLE askdb_it.shipments (
+CREATE TABLE sayql_it.shipments (
   id int PRIMARY KEY,
-  order_id bigint NOT NULL REFERENCES askdb_it.orders(id),
-  warehouse_code text NOT NULL REFERENCES askdb_it_inv.warehouses(code)
+  order_id bigint NOT NULL REFERENCES sayql_it.orders(id),
+  warehouse_code text NOT NULL REFERENCES sayql_it_inv.warehouses(code)
 );
 
-CREATE VIEW askdb_it.paid_orders AS SELECT * FROM askdb_it.orders WHERE status = 'paid';
+CREATE VIEW sayql_it.paid_orders AS SELECT * FROM sayql_it.orders WHERE status = 'paid';
 
-INSERT INTO askdb_it.customers (email, external_id, tags, profile, signed_up_at)
+INSERT INTO sayql_it.customers (email, external_id, tags, profile, signed_up_at)
 SELECT 'c' || i || '@example.com', gen_random_uuid(), ARRAY['t' || (i % 3)], jsonb_build_object('n', i),
        timestamptz '2024-01-01 00:00:00+00' + i * interval '1 day'
 FROM generate_series(1, 200) i;
 
-INSERT INTO askdb_it.orders (customer_id, status, total, ordered_at)
-SELECT 1 + i % 200, (ARRAY['pending', 'paid', 'shipped', 'cancelled'])[1 + i % 4]::askdb_it.order_status,
+INSERT INTO sayql_it.orders (customer_id, status, total, ordered_at)
+SELECT 1 + i % 200, (ARRAY['pending', 'paid', 'shipped', 'cancelled'])[1 + i % 4]::sayql_it.order_status,
        (i % 500) + 0.99, timestamptz '2024-01-01 00:00:00+00' + i * interval '1 hour'
 FROM generate_series(1, 1000) i;
 
-CREATE TABLE askdb_it.all_types (
+CREATE TABLE sayql_it.all_types (
   id int PRIMARY KEY,
   b bool, i2 smallint, i4 int, i8 bigint, f4 real, f8 double precision,
   n numeric(12, 2), n_big numeric, n_neg numeric, n_nan numeric,
   t text, vc varchar(20), c char(3), nm name, u uuid, j json, jb jsonb,
   ts timestamp(3), tstz timestamptz, ts_inf timestamptz, d date, tm time, tmtz timetz,
-  iv interval, m money, by bytea, st askdb_it.order_status,
+  iv interval, m money, by bytea, st sayql_it.order_status,
   ta text[], ia int[], ia_null int[], ia2 int[], ba bool[], na numeric[], ua uuid[],
-  tsa timestamptz[], ea askdb_it.order_status[], ja jsonb[],
+  tsa timestamptz[], ea sayql_it.order_status[], ja jsonb[],
   ip inet, ip6 inet, cn cidr, mac macaddr, bits bit(4), vb varbit, x xml, o oid, ch "char",
-  pt point, r int4range, dr daterange, comp askdb_it.addr
+  pt point, r int4range, dr daterange, comp sayql_it.addr
 );
 
-INSERT INTO askdb_it.all_types VALUES (
+INSERT INTO sayql_it.all_types VALUES (
   1, true, -2, 40000, 9000000000, 1.1, 2.5,
   1234.5, 123456789012345678901234567890.123456789, -0.00012, 'NaN',
   'hello', 'world', 'ab', 'pg_name', 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', '{"a": 1}', '{"b": [1, 2]}',
@@ -257,7 +257,7 @@ INSERT INTO askdb_it.all_types VALUES (
   '192.168.0.1', '::1', '10.0.0.0/8', '08:00:2b:01:02:03', B'1010', B'101', '<a>1</a>', 42, 'a',
   '(1,2.5)', '[1,10)', '[2024-01-01,2024-02-01)', ROW('Paris', 75001)
 );
-INSERT INTO askdb_it.all_types (id) VALUES (2);
+INSERT INTO sayql_it.all_types (id) VALUES (2);
 "#;
 
 fn pg_expected() -> Value {
@@ -283,7 +283,7 @@ fn pg_expected() -> Value {
 
 #[tokio::test]
 async fn postgres_integration() {
-    let Some(t) = env_target("ASKDB_TEST_PG_URL") else { return };
+    let Some(t) = env_target("SAYQL_TEST_PG_URL") else { return };
     let db = if t.database.is_empty() { "postgres".to_string() } else { t.database.clone() };
     let pool = open(Kind::Postgres, &t, &db).await;
     let list = list_databases(&pool).await.expect("list").expect("a server has databases");
@@ -296,44 +296,44 @@ async fn postgres_integration() {
     let ours: Vec<String> = schema
         .tables
         .iter()
-        .filter(|t| t.schema.as_deref().is_some_and(|s| s.starts_with("askdb_it")))
+        .filter(|t| t.schema.as_deref().is_some_and(|s| s.starts_with("sayql_it")))
         .map(|t| t.qualified_name())
         .collect();
     assert_eq!(
         ours,
         [
-            "askdb_it.all_types",
-            "askdb_it.customers",
-            "askdb_it.orders",
-            "askdb_it.paid_orders",
-            "askdb_it.shipments",
-            "askdb_it_inv.movements",
-            "askdb_it_inv.stock",
-            "askdb_it_inv.warehouses",
+            "sayql_it.all_types",
+            "sayql_it.customers",
+            "sayql_it.orders",
+            "sayql_it.paid_orders",
+            "sayql_it.shipments",
+            "sayql_it_inv.movements",
+            "sayql_it_inv.stock",
+            "sayql_it_inv.warehouses",
         ]
     );
     let tb = &schema.tables;
-    let customers = table(tb, Some("askdb_it"), "customers");
-    let orders = table(tb, Some("askdb_it"), "orders");
-    let stock = table(tb, Some("askdb_it_inv"), "stock");
-    let view = table(tb, Some("askdb_it"), "paid_orders");
+    let customers = table(tb, Some("sayql_it"), "customers");
+    let orders = table(tb, Some("sayql_it"), "orders");
+    let stock = table(tb, Some("sayql_it_inv"), "stock");
+    let view = table(tb, Some("sayql_it"), "paid_orders");
     assert_eq!(customers.kind, "table");
     assert_eq!(view.kind, "view");
     assert_eq!(pk_columns(customers), ["id"]);
     assert_eq!(pk_columns(stock), ["warehouse_code", "product_id"]);
     assert!(pk_columns(view).is_empty());
-    assert_eq!(fks(orders), [fk("customer_id", "askdb_it.customers", "id")]);
+    assert_eq!(fks(orders), [fk("customer_id", "sayql_it.customers", "id")]);
     assert_eq!(
-        fks(table(tb, Some("askdb_it"), "shipments")),
-        [fk("order_id", "askdb_it.orders", "id"), fk("warehouse_code", "askdb_it_inv.warehouses", "code")]
+        fks(table(tb, Some("sayql_it"), "shipments")),
+        [fk("order_id", "sayql_it.orders", "id"), fk("warehouse_code", "sayql_it_inv.warehouses", "code")]
     );
     assert_eq!(
-        fks(table(tb, Some("askdb_it_inv"), "movements")),
-        [fk("pid", "askdb_it_inv.stock", "product_id"), fk("wh", "askdb_it_inv.stock", "warehouse_code")]
+        fks(table(tb, Some("sayql_it_inv"), "movements")),
+        [fk("pid", "sayql_it_inv.stock", "product_id"), fk("wh", "sayql_it_inv.stock", "warehouse_code")]
     );
     let status = column(orders, "status");
     // Non-public types are schema-qualified, as they must be written in a cast.
-    assert_eq!(status.data_type, "askdb_it.order_status");
+    assert_eq!(status.data_type, "sayql_it.order_status");
     assert_eq!(status.enum_values.as_deref(), Some(&["pending", "paid", "shipped", "cancelled"].map(String::from)[..]));
     assert_eq!(
         column(stock, "state").enum_values.as_deref(),
@@ -345,24 +345,24 @@ async fn postgres_integration() {
     assert!(!column(orders, "total").nullable);
     assert!(column(customers, "profile").nullable);
     // Never-analyzed tables have no statistics yet: report "unknown", not a negative count.
-    for t in tb.iter().filter(|t| t.schema.as_deref().is_some_and(|s| s.starts_with("askdb_it"))) {
+    for t in tb.iter().filter(|t| t.schema.as_deref().is_some_and(|s| s.starts_with("sayql_it"))) {
         assert!(t.row_estimate.is_none_or(|n| n >= 0), "{}: row estimate {:?}", t.name, t.row_estimate);
     }
-    exec(&pool, "ANALYZE askdb_it.customers; ANALYZE askdb_it.orders;").await;
+    exec(&pool, "ANALYZE sayql_it.customers; ANALYZE sayql_it.orders;").await;
     let schema = introspect(&pool, Kind::Postgres).await.expect("introspect");
-    assert_eq!(table(&schema.tables, Some("askdb_it"), "customers").row_estimate, Some(200));
-    assert_eq!(table(&schema.tables, Some("askdb_it"), "orders").row_estimate, Some(1000));
-    assert_eq!(table(&schema.tables, Some("askdb_it"), "paid_orders").row_estimate, None);
+    assert_eq!(table(&schema.tables, Some("sayql_it"), "customers").row_estimate, Some(200));
+    assert_eq!(table(&schema.tables, Some("sayql_it"), "orders").row_estimate, Some(1000));
+    assert_eq!(table(&schema.tables, Some("sayql_it"), "paid_orders").row_estimate, None);
 
     // ---- value decoding
-    let r = query(&pool, "SELECT * FROM askdb_it.all_types ORDER BY id", true).await;
+    let r = query(&pool, "SELECT * FROM sayql_it.all_types ORDER BY id", true).await;
     check_row("pg read-only", &r, 0, &pg_expected());
     assert!(r.rows[1][1..].iter().all(Value::is_null), "{:?}", r.rows[1]);
     assert!(!r.rows[0].iter().any(is_placeholder));
     // Approved writes that return rows decode the same way.
-    let w = query(&pool, "UPDATE askdb_it.all_types SET i4 = i4 WHERE id = 1 RETURNING *", false).await;
+    let w = query(&pool, "UPDATE sayql_it.all_types SET i4 = i4 WHERE id = 1 RETURNING *", false).await;
     check_row("pg RETURNING", &w, 0, &pg_expected());
-    let r = query(&pool, "SELECT status, count(*) AS n, sum(total) AS s FROM askdb_it.orders GROUP BY 1 ORDER BY 1", true).await;
+    let r = query(&pool, "SELECT status, count(*) AS n, sum(total) AS s FROM sayql_it.orders GROUP BY 1 ORDER BY 1", true).await;
     assert_eq!(r.columns, ["status", "n", "s"]);
     assert_eq!(r.rows.iter().map(|row| row[1].as_i64().unwrap()).sum::<i64>(), 1000);
     assert_eq!(r.rows[0][0], json!("pending"));
@@ -370,8 +370,8 @@ async fn postgres_integration() {
     // ---- other read-only statement kinds still work
     assert_eq!(scalar(&pool, "SHOW transaction_read_only").await, json!("on"));
     assert_eq!(scalar(&pool, "VALUES (1)").await, json!(1));
-    assert_eq!(query(&pool, "TABLE askdb_it_inv.warehouses", true).await.columns, ["code", "name"]);
-    assert!(!query(&pool, "EXPLAIN SELECT * FROM askdb_it.orders", true).await.rows.is_empty());
+    assert_eq!(query(&pool, "TABLE sayql_it_inv.warehouses", true).await.columns, ["code", "name"]);
+    assert!(!query(&pool, "EXPLAIN SELECT * FROM sayql_it.orders", true).await.rows.is_empty());
     assert_eq!(
         scalar(&pool, "WITH x AS (SELECT 41 AS v) SELECT v + 1 FROM x").await,
         json!(42)
@@ -379,7 +379,7 @@ async fn postgres_integration() {
 
     // ---- empty results keep their headers
     for ro in [true, false] {
-        let r = query(&pool, "SELECT id, email FROM askdb_it.customers WHERE false", ro).await;
+        let r = query(&pool, "SELECT id, email FROM sayql_it.customers WHERE false", ro).await;
         assert_eq!(r.columns, ["id", "email"]);
         assert!(r.rows.is_empty());
         assert_eq!(r.rows_affected, None);
@@ -388,29 +388,29 @@ async fn postgres_integration() {
     // ---- read-only enforcement
     check_read_only(
         &pool,
-        "SELECT count(*) FROM askdb_it.orders WHERE status = 'paid'",
+        "SELECT count(*) FROM sayql_it.orders WHERE status = 'paid'",
         &[
-            "UPDATE askdb_it.orders SET status = 'paid'",
-            "DELETE FROM askdb_it.orders",
-            "WITH d AS (DELETE FROM askdb_it.orders RETURNING id) SELECT count(*) FROM d",
-            "SELECT 1; COMMIT; UPDATE askdb_it.orders SET status = 'paid'",
-            "SELECT 1; ROLLBACK; BEGIN; UPDATE askdb_it.orders SET status = 'paid'; COMMIT",
-            "SELECT nextval('askdb_it.orders_id_seq')",
+            "UPDATE sayql_it.orders SET status = 'paid'",
+            "DELETE FROM sayql_it.orders",
+            "WITH d AS (DELETE FROM sayql_it.orders RETURNING id) SELECT count(*) FROM d",
+            "SELECT 1; COMMIT; UPDATE sayql_it.orders SET status = 'paid'",
+            "SELECT 1; ROLLBACK; BEGIN; UPDATE sayql_it.orders SET status = 'paid'; COMMIT",
+            "SELECT nextval('sayql_it.orders_id_seq')",
         ],
         "SHOW transaction_read_only",
-        "UPDATE askdb_it.orders SET status = 'paid' WHERE id = 1",
+        "UPDATE sayql_it.orders SET status = 'paid' WHERE id = 1",
     )
     .await;
 
-    exec(&pool, "DROP SCHEMA askdb_it CASCADE; DROP SCHEMA askdb_it_inv CASCADE;").await;
+    exec(&pool, "DROP SCHEMA sayql_it CASCADE; DROP SCHEMA sayql_it_inv CASCADE;").await;
 }
 
 // ---------------------------------------------------------------- MySQL
 
 const MY_SEED: &str = r#"
-DROP DATABASE IF EXISTS askdb_it;
-CREATE DATABASE askdb_it;
-USE askdb_it;
+DROP DATABASE IF EXISTS sayql_it;
+CREATE DATABASE sayql_it;
+USE sayql_it;
 
 CREATE TABLE customers (
   id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -486,13 +486,13 @@ fn my_expected() -> Value {
 
 #[tokio::test]
 async fn mysql_integration() {
-    let Some(t) = env_target("ASKDB_TEST_MYSQL_URL") else { return };
+    let Some(t) = env_target("SAYQL_TEST_MYSQL_URL") else { return };
     let admin = open(Kind::Mysql, &t, &t.database).await;
     exec(&admin, MY_SEED).await;
-    let pool = open(Kind::Mysql, &t, "askdb_it").await;
+    let pool = open(Kind::Mysql, &t, "sayql_it").await;
     let list = list_databases(&pool).await.expect("list").expect("a server has databases");
-    assert!(list.databases.contains(&"askdb_it".to_string()) && !list.databases.contains(&"mysql".to_string()), "{list:?}");
-    assert_eq!(list.current.as_deref(), Some("askdb_it"));
+    assert!(list.databases.contains(&"sayql_it".to_string()) && !list.databases.contains(&"mysql".to_string()), "{list:?}");
+    assert_eq!(list.current.as_deref(), Some("sayql_it"));
 
     // ---- schema reading
     let schema = introspect(&pool, Kind::Mysql).await.expect("introspect");
@@ -567,7 +567,7 @@ async fn mysql_integration() {
     )
     .await;
 
-    exec(&admin, "DROP DATABASE askdb_it").await;
+    exec(&admin, "DROP DATABASE sayql_it").await;
 }
 
 const MS_SEED: &[&str] = &[
@@ -592,21 +592,21 @@ const MS_SEED: &[&str] = &[
 
 #[tokio::test]
 async fn mssql_integration() {
-    let Some(t) = env_target("ASKDB_TEST_MSSQL_URL") else { return };
+    let Some(t) = env_target("SAYQL_TEST_MSSQL_URL") else { return };
     let admin = open(Kind::Mssql, &t, &t.database).await;
-    exec(&admin, "IF DB_ID('askdb_it') IS NOT NULL BEGIN ALTER DATABASE askdb_it SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE askdb_it; END").await;
-    exec(&admin, "CREATE DATABASE askdb_it").await;
-    let pool = open(Kind::Mssql, &t, "askdb_it").await;
+    exec(&admin, "IF DB_ID('sayql_it') IS NOT NULL BEGIN ALTER DATABASE sayql_it SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE sayql_it; END").await;
+    exec(&admin, "CREATE DATABASE sayql_it").await;
+    let pool = open(Kind::Mssql, &t, "sayql_it").await;
     for sql in MS_SEED {
         exec(&pool, sql).await;
     }
 
     // ---- browsing databases: list them from the default connection, then switch with USE
     let list = list_databases(&admin).await.expect("list").expect("a server has databases");
-    assert!(list.databases.contains(&"askdb_it".to_string()) && list.databases.contains(&"master".to_string()), "{list:?}");
+    assert!(list.databases.contains(&"sayql_it".to_string()) && list.databases.contains(&"master".to_string()), "{list:?}");
     assert_eq!(list.current.as_deref(), Some(t.database.as_str()));
-    let switched = open_database(&admin, &config(Kind::Mssql, &t, &t.database), t.password.clone(), "askdb_it").await.expect("open askdb_it");
-    assert_eq!(scalar(&switched, "SELECT DB_NAME()").await, json!("askdb_it"));
+    let switched = open_database(&admin, &config(Kind::Mssql, &t, &t.database), t.password.clone(), "sayql_it").await.expect("open sayql_it");
+    assert_eq!(scalar(&switched, "SELECT DB_NAME()").await, json!("sayql_it"));
     assert_eq!(introspect(&switched, Kind::Mssql).await.expect("introspect").tables.len(), 4);
     drop(switched);
 
@@ -678,5 +678,5 @@ async fn mssql_integration() {
     assert_eq!(w.rows_affected, Some(1));
 
     drop(pool);
-    exec(&admin, "ALTER DATABASE askdb_it SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE askdb_it").await;
+    exec(&admin, "ALTER DATABASE sayql_it SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE sayql_it").await;
 }

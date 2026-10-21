@@ -16,7 +16,7 @@ pub async fn connect(cfg: &ConnConfig, password: Option<String>) -> AppResult<Db
                 .username(&cfg.user)
                 .database(or(&cfg.database, "postgres"))
                 .ssl_mode(if cfg.ssl { PgSslMode::Require } else { PgSslMode::Prefer })
-                .application_name("askdb");
+                .application_name("sayql");
             if !pw.is_empty() {
                 o = o.password(&pw);
             }

@@ -83,7 +83,7 @@ jobs:
           APPLE_API_KEY_PATH: ${{ runner.temp }}/AuthKey.p8
         with:
           tagName: ${{ github.ref_name }}
-          releaseName: "AskDB ${{ github.ref_name }}"
+          releaseName: "Sayql ${{ github.ref_name }}"
           releaseBody: "See the assets below to download and install this version."
           releaseDraft: true
           prerelease: false
