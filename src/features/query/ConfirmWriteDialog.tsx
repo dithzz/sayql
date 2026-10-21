@@ -9,11 +9,11 @@ export interface ConfirmWriteDialogProps {
   onConfirm: () => void;
 }
 
-/** Shown before any statement that changes data or structure. */
+/** Shown before any statement AskDB can't confirm only reads data. */
 export function ConfirmWriteDialog({ sql, connectionName, onCancel, onConfirm }: ConfirmWriteDialogProps) {
   return (
     <Dialog
-      title="Run a statement that changes data?"
+      title="Run a statement that may change data?"
       size="sm"
       onClose={onCancel}
       actions={
@@ -28,7 +28,8 @@ export function ConfirmWriteDialog({ sql, connectionName, onCancel, onConfirm }:
       }
     >
       <Alert tone="warning">
-        This modifies <strong>{connectionName}</strong>. AskDB can’t undo it. Review it before running.
+        AskDB can’t confirm this only reads data on <strong>{connectionName}</strong>. If it changes data, AskDB
+        can’t undo it. Review it before running.
       </Alert>
       <pre className={styles.sql}>{sql}</pre>
     </Dialog>

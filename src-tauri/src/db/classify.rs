@@ -1,10 +1,11 @@
-/// Keywords that can change data, structure, permissions or transaction state.
-/// `INTO` covers `SELECT ... INTO new_table` and `INSERT INTO`.
+/// Keywords that can change data, structure, permissions, session or transaction state.
+/// `INTO` covers `SELECT ... INTO new_table` and `INSERT INTO`; `USE` and `SET` change
+/// the session (SQL Server's `USE` would move a pooled connection to another database).
 const WRITE_KEYWORDS: &[&str] = &[
     "INSERT", "UPDATE", "DELETE", "MERGE", "UPSERT", "INTO", "DROP", "ALTER", "CREATE", "TRUNCATE", "RENAME",
     "GRANT", "REVOKE", "DENY", "EXEC", "EXECUTE", "CALL", "COMMIT", "ROLLBACK", "SAVEPOINT", "BEGIN", "BACKUP",
     "RESTORE", "DBCC", "KILL", "SHUTDOWN", "RECONFIGURE", "BULK", "OPENROWSET", "OPENQUERY", "ATTACH", "DETACH",
-    "VACUUM", "REINDEX", "COPY", "LOCK",
+    "VACUUM", "REINDEX", "COPY", "LOCK", "USE", "SET", "CHECKPOINT", "RECEIVE",
 ];
 
 /// True when the statement only reads data: it starts with a reading keyword and
@@ -96,6 +97,15 @@ mod tests {
         assert!(!is_read_only("WITH gone AS (DELETE FROM t RETURNING *) SELECT * FROM gone"));
         assert!(!is_read_only("SELECT 1\nEXEC sp_configure"));
         assert!(!is_read_only("select 1; commit; drop table x"));
+        assert!(!is_read_only("SELECT 1; USE master"));
+        assert!(!is_read_only("SELECT 1\nSET ROLE admin"));
+    }
+
+    #[test]
+    fn an_explanation_commented_out_before_the_query_is_fine() {
+        assert!(is_read_only("-- The user's email is on the Person table, so join those.\n\nSELECT TOP 100 email FROM dbo.Person"));
+        // Prose that isn't commented out is not SQL: it must not count as read-only.
+        assert!(!is_read_only("The email is on Person.\nSELECT email FROM dbo.Person"));
     }
 
     #[test]

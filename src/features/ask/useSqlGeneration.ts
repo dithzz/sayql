@@ -4,6 +4,7 @@ import { useLatest } from "../../hooks/useLatest";
 import { errorText } from "../../lib/errors";
 import { targetKey } from "../connections";
 import { fastPath } from "./fastPath";
+import { cleanSql } from "./sqlText";
 
 /** Wait this long after the last keystroke before asking the AI. */
 const DEBOUNCE_MS = 250;
@@ -34,14 +35,6 @@ export interface SqlGenerationOptions {
   onSql: (sql: string) => void;
   /** Receives finished SQL that should run now: a run requested while writing, or a fix. */
   onRunRequested: (sql: string, task: TaskKind) => void;
-}
-
-/** Strips Markdown fences the model may add despite instructions. */
-function cleanSql(s: string): string {
-  return s
-    .replace(/^\s*```(?:sql)?\s*\n?/i, "")
-    .replace(/\n?```\s*$/, "")
-    .trimStart();
 }
 
 const normalize = (q: string) => q.trim().toLowerCase().replace(/\s+/g, " ");
