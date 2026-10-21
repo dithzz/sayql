@@ -22,7 +22,6 @@ export interface SqlWorkspaceProps {
   canImprove: boolean;
   /** Saves the tab as a script (⌘S). */
   onSave: () => void;
-  examples?: string[];
   sql: string;
   onSqlChange: (sql: string) => void;
   onRun: () => void;
@@ -31,6 +30,8 @@ export interface SqlWorkspaceProps {
   onRetry: () => void;
   followUp?: { onStartFresh: () => void };
   focusTables: string[];
+  focusEnabled: boolean;
+  onFocusEnabledChange: (enabled: boolean) => void;
   onFocusTablesChange: (names: string[]) => void;
 }
 
@@ -78,11 +79,12 @@ export function SqlWorkspace(p: SqlWorkspaceProps) {
         status={p.status}
         modelNames={p.modelNames}
         disabled={!p.schema}
-        examples={p.examples}
         onOpenSettings={p.onOpenSettings}
         onRetry={p.onRetry}
         followUp={p.followUp}
         focusTables={p.focusTables}
+        focusEnabled={p.focusEnabled}
+        onFocusEnabledChange={p.onFocusEnabledChange}
         onFocusTablesChange={p.onFocusTablesChange}
       />
       <div className={styles.editor}>

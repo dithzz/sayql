@@ -15,6 +15,8 @@ export interface EditorTab {
   lastRun?: PreviousQuery | null;
   /** Tables picked in the navigator (qualified names) that the AI should build on. */
   focusTables?: string[];
+  /** False while the picked tables are hidden from the AI (kept, not cleared). */
+  focusEnabled?: boolean;
   /** The saved script this tab edits, if any. */
   scriptId?: string;
   /** The SQL as last saved (or as generated for a table preview); differs from `sql` when there are unsaved changes. */

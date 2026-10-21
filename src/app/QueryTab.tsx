@@ -2,15 +2,13 @@ import { useEffect, useRef } from "react";
 import { Wand2 } from "lucide-react";
 import type { Schema, Settings } from "../api";
 import { Button, SplitPane } from "../components/ui";
-import { DEMO_EXAMPLES, useSqlGeneration, type TaskKind } from "../features/ask";
+import { useSqlGeneration, type TaskKind } from "../features/ask";
 import { ConfirmWriteDialog, useQueryRunner } from "../features/query";
 import { ResultsPanel } from "../features/results";
 import type { ModelNames } from "../features/settings";
 import type { EditorTab } from "../features/tabs";
 import { SqlWorkspace } from "./SqlWorkspace";
 import styles from "./QueryTab.module.css";
-
-const DEMO_CONNECTION_ID = "demo";
 
 export interface QueryTabProps {
   tab: EditorTab;
@@ -30,6 +28,7 @@ export function QueryTab({ tab, active, label, schema, settings, modelNames, onC
   const askRef = useRef<HTMLTextAreaElement>(null);
   const setSql = (sql: string) => onChange({ sql });
   const lastRun = tab.lastRun ?? null;
+  const focusEnabled = tab.focusEnabled ?? true;
   /** A failed AI query is fixed automatically once; if the fix fails too, the person decides. */
   const autoFixUsed = useRef(false);
 
@@ -54,7 +53,8 @@ export function QueryTab({ tab, active, label, schema, settings, modelNames, onC
     hasApiKey: settings.hasApiKey,
     initialQuestion: tab.question,
     previous: lastRun,
-    focusTables: tab.focusTables ?? [],
+    // Hidden picks stay selected but don't reach the AI.
+    focusTables: focusEnabled ? (tab.focusTables ?? []) : [],
     onQuestionChange: (question) => onChange({ question }),
     onSql: setSql,
     onRunRequested: (sql, task) => runAndRemember(sql, generation.question, task),
@@ -100,7 +100,6 @@ export function QueryTab({ tab, active, label, schema, settings, modelNames, onC
             onQuestionChange={generation.setQuestion}
             status={generation.status}
             modelNames={modelNames}
-            examples={tab.target.connectionId === DEMO_CONNECTION_ID ? DEMO_EXAMPLES : undefined}
             sql={tab.sql}
             onSqlChange={setSql}
             onRun={run}
@@ -112,6 +111,8 @@ export function QueryTab({ tab, active, label, schema, settings, modelNames, onC
             onRetry={generation.retry}
             followUp={lastRun ? { onStartFresh: () => onChange({ lastRun: null }) } : undefined}
             focusTables={tab.focusTables ?? []}
+            focusEnabled={focusEnabled}
+            onFocusEnabledChange={(enabled) => onChange({ focusEnabled: enabled })}
             onFocusTablesChange={(focusTables) => onChange({ focusTables })}
           />
         }

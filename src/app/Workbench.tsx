@@ -230,7 +230,8 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
               onRefresh={() => target && conn.ensure(target, true)}
               onPreviewTable={previewTable}
               selectedTables={tabs.active?.focusTables ?? []}
-              onSelectTables={(focusTables) => tabs.active && tabs.update(tabs.active.id, { focusTables })}
+              // A new pick is meant to be used, so it switches a hidden selection back on.
+              onSelectTables={(focusTables) => tabs.active && tabs.update(tabs.active.id, { focusTables, focusEnabled: true })}
               scripts={navigatorScripts}
               onOpenScript={openScript}
               onDeleteScript={(id) => {

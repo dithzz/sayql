@@ -1,9 +1,10 @@
 import { forwardRef, useImperativeHandle, useLayoutEffect, useRef } from "react";
-import { CheckCircle2, CornerDownRight, Sparkles, Table2, X, XCircle, Zap } from "lucide-react";
+import { CheckCircle2, CornerDownRight, Sparkles, XCircle, Zap } from "lucide-react";
 import { Button, Kbd, Spinner } from "../../components/ui";
 import { cx } from "../../lib/cx";
 import type { ModelNames } from "../settings";
 import type { GenerationStatus } from "./useSqlGeneration";
+import { ContextPill } from "./ContextPill";
 import styles from "./AskBar.module.css";
 
 export interface AskBarProps {
@@ -13,12 +14,13 @@ export interface AskBarProps {
   status: GenerationStatus;
   modelNames: ModelNames;
   disabled: boolean;
-  /** Clickable example questions shown while the box is empty. */
-  examples?: string[];
   onOpenSettings: () => void;
   onRetry: () => void;
   /** Tables picked in the navigator as context for the AI. */
   focusTables: string[];
+  /** Whether the picked tables go to the AI (the pill's eye toggle). */
+  focusEnabled: boolean;
+  onFocusEnabledChange: (enabled: boolean) => void;
   onFocusTablesChange: (names: string[]) => void;
   /** Present when requests build on the last run query. */
   followUp?: { onStartFresh: () => void };
@@ -40,8 +42,19 @@ export const AskBar = forwardRef<HTMLTextAreaElement, AskBarProps>(function AskB
   return (
     <div className={styles.ask}>
       <div className={styles.inputWrap}>
+        {p.focusTables.length > 0 && (
+          <div className={styles.context}>
+            <ContextPill
+              tables={p.focusTables}
+              enabled={p.focusEnabled}
+              onEnabledChange={p.onFocusEnabledChange}
+              onClear={() => p.onFocusTablesChange([])}
+            />
+          </div>
+        )}
+        <div className={styles.inputRow}>
         <span className={styles.sparkle}>
-          <Sparkles size={16} />
+          <Sparkles size={14} />
         </span>
         <textarea
           ref={input}
@@ -61,29 +74,8 @@ export const AskBar = forwardRef<HTMLTextAreaElement, AskBarProps>(function AskB
             }
           }}
         />
-      </div>
-      {p.focusTables.length > 0 && (
-        <div className={styles.focus} aria-label="Tables the AI builds on">
-          <span className={styles.focusLabel}>Using</span>
-          {p.focusTables.map((name) => (
-            <span key={name} className={styles.focusChip}>
-              <Table2 size={12} />
-              {name}
-              <button
-                type="button"
-                aria-label={`Stop using ${name}`}
-                className={styles.focusRemove}
-                onClick={() => p.onFocusTablesChange(p.focusTables.filter((n) => n !== name))}
-              >
-                <X size={11} />
-              </button>
-            </span>
-          ))}
-          <Button size="sm" variant="ghost" onClick={() => p.onFocusTablesChange([])}>
-            Clear
-          </Button>
         </div>
-      )}
+      </div>
       <div className={styles.footer}>
         {p.followUp && (
           <span className={styles.followUp} title="Requests like “remove a column” or “only active ones” change the last query you ran">
@@ -94,27 +86,9 @@ export const AskBar = forwardRef<HTMLTextAreaElement, AskBarProps>(function AskB
           </span>
         )}
         <StatusLine status={p.status} modelNames={p.modelNames} onOpenSettings={p.onOpenSettings} onRetry={p.onRetry} />
-        {!p.question && p.examples?.length ? (
-          <div className={styles.examples}>
-            {p.examples.map((ex) => (
-              <button
-                key={ex}
-                type="button"
-                className={styles.example}
-                onClick={() => {
-                  p.onQuestionChange(ex);
-                  input.current?.focus(); // so Enter runs it
-                }}
-              >
-                {ex}
-              </button>
-            ))}
-          </div>
-        ) : (
-          <span className={styles.hints}>
-            <Kbd>↵</Kbd> run <Kbd>⇧↵</Kbd> new line <Kbd>esc</Kbd> clear
-          </span>
-        )}
+        <span className={styles.hints}>
+          <Kbd>↵</Kbd> run <Kbd>⇧↵</Kbd> new line <Kbd>esc</Kbd> clear
+        </span>
       </div>
     </div>
   );
