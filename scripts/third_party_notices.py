@@ -1,0 +1,105 @@
+"""Writes THIRD-PARTY-NOTICES.txt: every open-source package Sayql ships, with its license text.
+
+Run from the repository root before each release (needs cargo and pnpm on PATH):
+
+    python3 scripts/third_party_notices.py
+
+Packages that share an identical license text are grouped under it.
+"""
+
+import json
+import pathlib
+import subprocess
+import sys
+
+ROOT = pathlib.Path(__file__).resolve().parent.parent
+OUT = ROOT / "THIRD-PARTY-NOTICES.txt"
+LICENSE_PREFIXES = ("license", "licence", "copying", "notice", "unlicense", "copyright")
+# Release targets; dependencies of other platforms are left out.
+TARGETS = ["aarch64-apple-darwin", "x86_64-apple-darwin", "x86_64-pc-windows-msvc", "x86_64-unknown-linux-gnu"]
+
+
+def license_files(directory: pathlib.Path) -> list[pathlib.Path]:
+    return sorted(
+        p for p in directory.iterdir()
+        if p.is_file() and p.name.lower().startswith(LICENSE_PREFIXES) and p.suffix.lower() in ("", ".md", ".txt", ".mit", ".apache")
+        or p.is_file() and p.name.upper() in ("LICENSE-MIT", "LICENSE-APACHE", "LICENSE-APACHE-2.0", "LICENSE-ZLIB")
+    )
+
+
+def rust_packages() -> list[dict]:
+    seen = {}
+    for target in TARGETS:
+        meta = json.loads(subprocess.check_output(
+            ["cargo", "metadata", "--format-version", "1", "--filter-platform", target,
+             "--manifest-path", str(ROOT / "src-tauri" / "Cargo.toml")],
+            text=True,
+        ))
+        used = {n["id"] for n in meta["resolve"]["nodes"]}
+        for p in meta["packages"]:
+            if p["id"] in used and p.get("source"):  # skip Sayql itself
+                seen[(p["name"], p["version"])] = {
+                    "name": p["name"],
+                    "version": p["version"],
+                    "license": p.get("license") or "see license file",
+                    "url": p.get("repository") or f"https://crates.io/crates/{p['name']}",
+                    "dir": pathlib.Path(p["manifest_path"]).parent,
+                }
+    return list(seen.values())
+
+
+def npm_packages() -> list[dict]:
+    listing = json.loads(subprocess.check_output(["pnpm", "licenses", "list", "--prod", "--json"], cwd=ROOT, text=True))
+    out = []
+    for license, pkgs in listing.items():
+        for p in pkgs:
+            for version, path in zip(p["versions"], p["paths"]):
+                out.append({
+                    "name": p["name"],
+                    "version": version,
+                    "license": license,
+                    "url": p.get("homepage") or f"https://www.npmjs.com/package/{p['name']}",
+                    "dir": pathlib.Path(path),
+                })
+    return out
+
+
+def main() -> None:
+    packages = sorted(rust_packages() + npm_packages(), key=lambda p: (p["name"].lower(), p["version"]))
+    by_text: dict[str, list[dict]] = {}
+    missing = []
+    for p in packages:
+        files = license_files(p["dir"]) if p["dir"].is_dir() else []
+        if not files:
+            missing.append(p)
+            continue
+        text = "\n\n".join(f.read_text(errors="replace").strip() for f in files)
+        by_text.setdefault(text, []).append(p)
+
+    lines = [
+        "Sayql Community Edition includes the open-source software listed below.",
+        "Each package is used under its own license, reproduced here.",
+        "",
+        f"{len(packages)} packages.",
+        "",
+    ]
+    for text, pkgs in sorted(by_text.items(), key=lambda kv: kv[1][0]["name"].lower()):
+        lines.append("=" * 78)
+        for p in pkgs:
+            lines.append(f"{p['name']} {p['version']} ({p['license']}) {p['url']}")
+        lines += ["-" * 78, text, ""]
+    if missing:
+        lines += ["=" * 78, "Packages without a license file; their license is the one named:", "-" * 78]
+        lines += [f"{p['name']} {p['version']} ({p['license']}) {p['url']}" for p in missing]
+        lines.append("")
+    # Monaco bundles code from other projects and lists it in its own notices file.
+    monaco = ROOT / "node_modules" / "monaco-editor" / "ThirdPartyNotices.txt"
+    if monaco.exists():
+        lines += ["=" * 78, "Notices bundled with monaco-editor:", "-" * 78, monaco.read_text(errors="replace").strip(), ""]
+
+    OUT.write_text("\n".join(lines))
+    print(f"Wrote {OUT.relative_to(ROOT)}: {len(packages)} packages, {len(missing)} without a license file.", file=sys.stderr)
+
+
+if __name__ == "__main__":
+    main()

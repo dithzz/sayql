@@ -27,10 +27,16 @@
     "active": true,
     "targets": "all",
     "publisher": "Sayql",
-    "copyright": "Copyright © 2026 Sayql. All rights reserved.",
+    "copyright": "Copyright © 2026 Adith L S. Sayql Community Edition, free for personal and commercial use.",
     "category": "DeveloperTool",
     "shortDescription": "AI-first database client",
-    "longDescription": "Sayql is a desktop database client for PostgreSQL, MySQL and SQLite. Ask a question in plain English and get SQL as you type, then run it against your database with a fast, keyboard-first editor.",
+    "longDescription": "Sayql Community Edition is a free desktop database client for PostgreSQL, MySQL, SQLite, SQL Server and Azure SQL. Ask a question in plain English and get SQL as you type, written by the AI you choose, then run it against your database with a fast, keyboard-first editor.",
+    "licenseFile": "../LICENSE.md",
+    "resources": {
+      "../LICENSE.md": "LICENSE.md",
+      "../PRIVACY.md": "PRIVACY.md",
+      "../THIRD-PARTY-NOTICES.txt": "THIRD-PARTY-NOTICES.txt"
+    },
     "createUpdaterArtifacts": false,
     "icon": [
       "icons/32x32.png",

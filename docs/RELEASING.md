@@ -272,7 +272,9 @@ no prompts).
 With the secrets in place:
 
 1. Bump `version` in `src-tauri/tauri.conf.json`, `src-tauri/Cargo.toml` and
-   `package.json`. Commit.
+   `package.json`. Regenerate the open-source notices that ship with the app
+   (`python3 scripts/third_party_notices.py`), so dependency changes are
+   credited. Commit both.
 2. Tag and push:
 
    ```bash
