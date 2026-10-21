@@ -1,0 +1,11 @@
+<!-- order: 8 | slug: mcp | title: MCP for AI apps | group: Configure | description: Let Claude, Cursor and other MCP apps query your databases through SayQL. -->
+<p class="lead">SayQL includes an MCP server, so AI assistants like Claude and Cursor can query your databases through the connections you saved in SayQL.</p>
+<div class="callout warn"><svg><use href="#i-warn"/></svg><p><b>Not in the v0.1.0 downloads yet.</b> The MCP server program isn't bundled with the first release. It's coming in an upcoming update, and Settings will show you when it's available.</p></div>
+<p>The assistant gets four tools: list connections, list databases, describe the schema, and run a read-only query. The same read-only rules apply. Results default to 100 rows, at most 1,000. Database passwords are never shared with the assistant, but query results are sent to it.</p>
+<h2>Set it up</h2>
+<p>Open <b>Settings → Use SayQL from AI apps (MCP)</b>. It shows the exact command and config for your install:</p>
+<ul>
+  <li><b>Claude Code:</b> run the <code>claude mcp add</code> command it shows, in a terminal.</li>
+  <li><b>Claude Desktop:</b> merge the JSON it shows into <code>claude_desktop_config.json</code> and restart Claude Desktop.</li>
+  <li><b>Cursor and other MCP apps:</b> add a stdio server that runs the <code>sayql-mcp</code> path shown in Settings.</li>
+</ul>

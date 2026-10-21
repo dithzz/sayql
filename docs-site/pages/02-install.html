@@ -1,0 +1,24 @@
+<!-- order: 2 | slug: install | title: Install | group: Getting started | description: Download SayQL and open it for the first time on macOS, Windows or Linux. -->
+<p class="lead">SayQL is a desktop app, downloaded straight from GitHub. There's no account and no app store.</p>
+<p>Get the latest version from <a href="https://github.com/dithzz/sayql-releases/releases/latest">Releases</a> and pick the file for your computer:</p>
+<div class="table-wrap"><table>
+  <thead><tr><th>Your computer</th><th>Download</th></tr></thead>
+  <tbody>
+    <tr><td>Mac with Apple silicon (M1, M2, M3, M4)</td><td><code>SayQL_x.y.z_aarch64.dmg</code></td></tr>
+    <tr><td>Mac with an Intel processor</td><td><code>SayQL_x.y.z_x64.dmg</code></td></tr>
+    <tr><td>Windows</td><td><code>SayQL_x.y.z_x64-setup.exe</code> (or the <code>.msi</code>)</td></tr>
+    <tr><td>Linux</td><td><code>.AppImage</code> (any distribution), <code>.deb</code> (Debian, Ubuntu) or <code>.rpm</code> (Fedora, RHEL)</td></tr>
+  </tbody>
+</table></div>
+<p>Not sure which Mac you have? Apple menu → <b>About This Mac</b>: "Chip: Apple M…" means Apple silicon; "Processor: Intel" means Intel. Ignore the <code>.tar.gz</code> and <code>.sig</code> files: they're used by automatic updates.</p>
+
+<h2>First launch</h2>
+<p>Early-access builds aren't code-signed with Apple or Microsoft yet, so your computer asks you to confirm the first launch. You only do this once.</p>
+<ol class="steps">
+  <li><div><b>macOS:</b> open the <code>.dmg</code> and drag SayQL into Applications. Open it from Applications and click <b>Done</b> on the warning. Then open <b>System Settings → Privacy &amp; Security</b>, scroll down, click <b>Open Anyway</b> next to "SayQL was blocked", and confirm.</div></li>
+  <li><div><b>Windows:</b> run the installer. On "Windows protected your PC", click <b>More info</b>, then <b>Run anyway</b>.</div></li>
+  <li><div><b>Linux:</b> make the AppImage executable (<code>chmod +x SayQL_*.AppImage</code>) and run it, or install the <code>.deb</code> or <code>.rpm</code> with your package manager.</div></li>
+</ol>
+
+<h2>The setup guide</h2>
+<p>On first launch, SayQL walks you through four short steps: a welcome, <a href="/docs/ai-providers/">choosing an AI</a>, <a href="/docs/databases/">choosing a database</a> (the built-in demo or your own), and a first question that writes and runs SQL in front of you. Every step can be skipped. To see it again, open <b>Settings</b> and click <b>Show the setup guide again</b> under About.</p>

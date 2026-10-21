@@ -366,3 +366,13 @@ npx vercel@latest deploy --prod
 
 To use a custom domain such as sayql.app, add it under the project's
 Settings → Domains on vercel.com and set the DNS records it shows.
+
+### Docs pages
+
+The docs at `/docs` are built from `docs-site/pages/*.html` (one file per page; the comment
+at the top sets its order, address, title, sidebar group and description) and
+`docs-site/template.html`. After editing a page, rebuild, then deploy as above:
+
+```bash
+python3 scripts/build_docs.py
+```

@@ -1,0 +1,22 @@
+<!-- order: 10 | slug: troubleshooting | title: Troubleshooting | group: Reference | description: Fixes for the messages SayQL shows and common first-run issues. -->
+<h2>macOS says "Apple could not verify SayQL"</h2>
+  <p>That's expected for early-access builds. Click <b>Done</b>, then open System Settings → Privacy &amp; Security and click <b>Open Anyway</b>. If you trust the download, this also works in Terminal: <code>xattr -dr com.apple.quarantine /Applications/SayQL.app</code></p>
+  <h2>Windows shows "Windows protected your PC"</h2>
+  <p>Click <b>More info</b>, then <b>Run anyway</b>. You only need to do this once per installer.</p>
+  <h2>macOS keeps asking for my keychain password</h2>
+  <p>macOS asks once after each update of an unsigned build, because the app's signature changed. Click <b>Always Allow</b> (not just Allow) and it won't ask again until the next update.</p>
+  <h2>"Your API key was rejected"</h2>
+  <p>The key is wrong, revoked or out of credit. Paste it again in Settings. For non-Claude providers, <b>Load models</b> tells you straight away whether the key works.</p>
+  <h2>"This API key isn't tied to a workspace"</h2>
+  <p>Add your Claude workspace's ID (starting with <code>wrkspc_</code>) in Settings → Workspace ID. Use the ID, not the workspace's name.</p>
+  <h2>"Could not reach Ollama" (or LM Studio)</h2>
+  <p>The local server isn't running. Start Ollama (or run <code>ollama serve</code>), or start LM Studio's local server, then try again. Check the base URL in Settings if it runs on another port or computer.</p>
+  <h2>SQL Server: certificate errors</h2>
+  <p>The server uses a certificate your computer doesn't trust, which is common for internal servers. SQL Server always encrypts the login, so this can happen even with Encrypt connection off. Turn on <b>Trust server certificate</b> for servers you know.</p>
+  <h2>SQL Server: "Login failed" (error 18456)</h2>
+  <p>The server was reached but didn't accept the user and password. Check them, or try them in another SQL client. It can also mean the login is disabled, or the server only allows Windows or Entra sign-in.</p>
+  <h2>SQL Server: "Cannot open database" (error 4060)</h2>
+  <p>The login works but can't open the database you named. Check the name, or leave Database empty and pick one from the navigator.</p>
+  <h2>My results stop at 5,000 rows</h2>
+  <p>SayQL shows up to 5,000 rows per query to keep the app fast. Add a filter, <code>LIMIT</code> or <code>TOP</code>, or aggregate the data you need.</p>
+<p>Still stuck? Ask in <a href="https://github.com/dithzz/sayql-releases/discussions">Discussions</a>.</p>

@@ -1,0 +1,28 @@
+<!-- order: 6 | slug: ai-providers | title: AI providers | group: Configure | description: Use Claude, OpenAI, Gemini, a local model or any OpenAI-compatible API. -->
+<p class="lead">SayQL writes SQL with the AI provider you pick, using your own API key. Change it any time in <b>Settings</b> (the gear, top right).</p>
+<div class="table-wrap"><table>
+  <thead><tr><th>Provider</th><th>What you need</th></tr></thead>
+  <tbody>
+    <tr><td><b>Anthropic Claude</b> (recommended)</td><td>An API key from the <a href="https://console.anthropic.com/">Claude Console</a>.</td></tr>
+    <tr><td><b>OpenAI</b></td><td>An API key from the <a href="https://platform.openai.com/api-keys">OpenAI platform</a>.</td></tr>
+    <tr><td><b>Google Gemini</b></td><td>An API key from <a href="https://aistudio.google.com/apikey">Google AI Studio</a>.</td></tr>
+    <tr><td><b>OpenRouter</b></td><td>One key from <a href="https://openrouter.ai/keys">OpenRouter</a> for models from many labs.</td></tr>
+    <tr><td><b>Mistral</b>, <b>Groq</b>, <b>DeepSeek</b></td><td>An API key from that provider's console.</td></tr>
+    <tr><td><b>Ollama</b> (on your computer)</td><td><a href="https://ollama.com/">Ollama</a> installed and running, with a model pulled. No key.</td></tr>
+    <tr><td><b>LM Studio</b> (on your computer)</td><td><a href="https://lmstudio.ai/">LM Studio</a> with its local server started. No key.</td></tr>
+    <tr><td><b>Other (OpenAI-compatible)</b></td><td>The base URL of any server with an OpenAI-compatible API (Azure, vLLM, LiteLLM, a company gateway), and a key if it needs one.</td></tr>
+  </tbody>
+</table></div>
+
+<h2>Set it up</h2>
+<ol class="steps">
+  <li><div>Open <b>Settings</b> and choose the <b>AI provider</b>.</div></li>
+  <li><div>Paste the API key. It's stored in your system keychain, never in a file.</div></li>
+  <li><div>For providers other than Claude, click <b>Load models</b>. This also checks the key and address. Pick a model, then <b>Save</b>.</div></li>
+</ol>
+<p>SayQL uses two models: a fast one that drafts SQL as you type, and a stronger one for fixing a rejected query and for <a href="/docs/asking/">Improve</a>. With Claude these default to Haiku and Opus. With other providers, leave the second empty to use the same model for both.</p>
+
+<h2>Local models</h2>
+<p>With Ollama or LM Studio, your questions and schema never leave your computer. For Ollama, install it, pull a model (for example <code>ollama pull llama3.2</code>) and keep it running. SayQL connects to <code>http://localhost:11434/v1</code> by default. LM Studio's local server is at <code>http://localhost:1234/v1</code>. Change the base URL in Settings if yours runs elsewhere.</p>
+
+<div class="callout tip"><svg><use href="#i-info"/></svg><p><b>Claude API keys and workspaces.</b> If your key isn't tied to a workspace, add the workspace's ID (it starts with <code>wrkspc_</code>) in Settings. Use the ID from the Claude Console, not the workspace's name.</p></div>

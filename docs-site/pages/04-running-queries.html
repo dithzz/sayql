@@ -1,0 +1,14 @@
+<!-- order: 4 | slug: running-queries | title: Run queries safely | group: Using SayQL | description: How SayQL keeps your data safe, plus results, tabs and saved scripts. -->
+<p class="lead">SayQL is built so that pointing it at a production database isn't scary.</p>
+<div class="callout safe"><svg><use href="#i-shield"/></svg><p><b>Read-only by default.</b> SayQL checks every statement before it runs. Anything that could change data or structure (<code>INSERT</code>, <code>UPDATE</code>, <code>DELETE</code>, DDL and so on) stops and shows a confirmation first.</p></div>
+<ul>
+  <li>Reads also run inside a read-only transaction (PostgreSQL and MySQL) or on a read-only connection (SQLite), so the database itself refuses writes. SQL Server has no read-only mode, so reads run in a transaction that's always rolled back. For production SQL Servers, use a login that can only read (<code>db_datareader</code>).</li>
+  <li>Results show up to 5,000 rows. Use <code>LIMIT</code> / <code>TOP</code> or filters for more focused results. <b>Copy as CSV</b> copies the rows shown.</li>
+</ul>
+
+<h2>Tabs and saved scripts</h2>
+<ul>
+  <li><kbd>⌘T</kbd> opens a new SQL tab on the current database. Each tab keeps its own question, SQL and follow-up history.</li>
+  <li><kbd>⌘S</kbd> saves a tab as a script. Saved scripts appear under <b>Saved scripts</b> in the navigator and reopen on the database they were written for.</li>
+  <li>Closing a tab with unsaved SQL asks whether to save it first.</li>
+</ul>
