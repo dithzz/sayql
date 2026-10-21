@@ -53,8 +53,8 @@ old fast. SayQL puts the AI inside a real database client:
 Click, ⌘-click or ⇧-click tables in the navigator to give the AI context. They show as a pill in the Ask box, which you can hide without losing the selection. Follow-ups edit the query you have, and the status line shows the model and how fast it answered.
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/ask-dark.png">
-  <img src=".github/assets/ask-light.png" alt="The Ask box with two tables picked as context, the question, and the SQL being written" width="100%">
+  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/feature-ask-dark.png">
+  <img src=".github/assets/feature-ask-light.png" alt="The Ask box with two tables picked as context, the question, and the SQL being written" width="100%">
 </picture>
 
 </td>
@@ -65,8 +65,8 @@ Click, ⌘-click or ⇧-click tables in the navigator to give the AI context. Th
 SayQL checks every statement, and reads run in a read-only transaction or connection, so the database itself refuses writes (SQL Server rolls them back). <code>INSERT</code>, <code>UPDATE</code>, <code>DELETE</code> and DDL always stop for review.
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/write-confirm-dark.png">
-  <img src=".github/assets/write-confirm-light.png" alt="The confirmation shown before running an UPDATE statement" width="100%">
+  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/feature-write-confirm-dark.png">
+  <img src=".github/assets/feature-write-confirm-light.png" alt="The confirmation shown before running an UPDATE statement" width="100%">
 </picture>
 
 </td>
@@ -79,8 +79,8 @@ SayQL checks every statement, and reads run in a read-only transaction or connec
 View data, count rows, generate <code>SELECT</code> / <code>INSERT</code> / <code>UPDATE</code> / <code>DELETE</code> templates, add tables to the AI's context and more, like DBeaver. Generated writes match no rows until you fill them in.
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/context-menu-dark.png">
-  <img src=".github/assets/context-menu-light.png" alt="The navigator's right-click menu with the Generate SQL submenu open" width="100%">
+  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/feature-context-menu-dark.png">
+  <img src=".github/assets/feature-context-menu-light.png" alt="The navigator's right-click menu with the Generate SQL submenu open" width="100%">
 </picture>
 
 </td>
@@ -91,8 +91,8 @@ View data, count rows, generate <code>SELECT</code> / <code>INSERT</code> / <cod
 A first-run guide sets up your provider and checks the key before saving. Claude is tuned with prompt caching; Ollama and LM Studio run entirely on your machine. When the database rejects a query SayQL wrote, it fixes it once automatically, and <b>Improve</b> reviews any query on request.
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/setup-ai-dark.png">
-  <img src=".github/assets/setup-ai-light.png" alt="The setup guide's Pick your AI step with Claude, OpenAI, Gemini and Ollama" width="100%">
+  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/feature-setup-ai-dark.png">
+  <img src=".github/assets/feature-setup-ai-light.png" alt="The setup guide's Pick your AI step with Claude, OpenAI, Gemini and Ollama" width="100%">
 </picture>
 
 </td>
