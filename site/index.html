@@ -520,6 +520,7 @@ section.block { padding: 96px 0; }
 .edition-copy h2 { font-size: clamp(30px, 4.4vw, 46px); line-height: 1.06; font-weight: 800; letter-spacing: -0.03em; }
 .edition-copy p { color: var(--color-text-muted); font-size: 17px; max-width: 52ch; }
 .price-card { border: 1px solid var(--color-border); border-radius: var(--radius-xl); background: var(--color-surface-muted); padding: 24px; display: grid; gap: 18px; }
+.plan { font: 600 12px/1 var(--font-sans); letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-text-subtle); }
 .price { display: flex; align-items: baseline; gap: 10px; }
 .price .amount { font-size: 52px; font-weight: 800; letter-spacing: -0.04em; line-height: 1; }
 .price .per { font-size: 16px; font-weight: 600; color: var(--color-success); }
@@ -545,7 +546,7 @@ section.block { padding: 96px 0; }
 .cta h2 { font-size: clamp(34px, 5.5vw, 60px); line-height: 1.04; font-weight: 800; letter-spacing: -0.03em; }
 .cta p { margin: 18px auto 30px; font-size: 18px; color: var(--color-text-muted); max-width: 560px; }
 .install { max-width: 860px; margin: 40px auto 0; text-align: left; border: 1px solid var(--color-border); border-radius: var(--radius-xl); background: var(--color-surface); padding: 20px 22px; display: grid; gap: 16px; }
-.install-head { font-size: 14px; color: var(--color-text-muted); }
+.cta .install-head { margin: 0; max-width: none; font-size: 14px; color: var(--color-text-muted); }
 .install-head .ea { display: inline-block; margin-right: 8px; font: 600 11px/1 var(--font-sans); letter-spacing: 0.05em; text-transform: uppercase; color: var(--color-warning); background: var(--color-warning-soft); padding: 4px 8px; border-radius: 999px; vertical-align: 1px; }
 .install-steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
 @media (max-width: 760px) { .install-steps { grid-template-columns: minmax(0, 1fr); } }
@@ -555,12 +556,17 @@ section.block { padding: 96px 0; }
 .install-step code { font-size: 12px; background: var(--color-surface-sunken); padding: 1px 4px; border-radius: 3px; }
 .platforms { margin-top: 18px; display: flex; gap: 18px; justify-content: center; flex-wrap: wrap; font-size: 13px; color: var(--color-text-subtle); }
 
-footer { border-top: 1px solid var(--color-border-subtle); padding: 28px 0 40px; font-size: 13px; color: var(--color-text-subtle); }
-footer .wrap { display: flex; flex-wrap: wrap; gap: 16px 28px; align-items: center; }
-footer .brand { font-size: 14px; color: var(--color-text); }
-footer .brand svg { width: 20px; height: 20px; }
-footer nav { display: flex; gap: 20px; margin-left: auto; }
+footer { border-top: 1px solid var(--color-border-subtle); padding: 48px 0 32px; font-size: 14px; color: var(--color-text-muted); }
+.footer-grid { display: grid; grid-template-columns: minmax(0, 2fr) repeat(3, minmax(0, 1fr)); gap: 32px; }
+@media (max-width: 760px) { .footer-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .footer-brand { grid-column: 1 / -1; } }
+.footer-brand { display: grid; gap: 10px; align-content: start; }
+.footer-brand p { color: var(--color-text-subtle); max-width: 34ch; }
+footer .brand { font-size: 15px; color: var(--color-text); }
+footer .brand svg { width: 22px; height: 22px; }
+.footer-col { display: grid; gap: 9px; align-content: start; }
+.footer-col h3 { font: 600 12px/1 var(--font-sans); letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-text-subtle); margin-bottom: 4px; }
 footer a { text-decoration: none; } footer a:hover { color: var(--color-text); }
+.footer-bottom { margin-top: 36px; padding-top: 20px; border-top: 1px solid var(--color-border-subtle); font-size: 13px; color: var(--color-text-subtle); }
 
 /* reveal on scroll */
 .reveal { opacity: 0; transform: translateY(14px); transition: opacity 600ms ease, transform 600ms ease; }
@@ -607,12 +613,11 @@ footer a { text-decoration: none; } footer a:hover { color: var(--color-text); }
 <header class="nav" id="nav">
   <div class="wrap">
     <a class="brand" href="#top" aria-label="Sayql home"><svg><use href="#logo"/></svg>Sayql</a>
-    <nav class="nav-links" aria-label="Sections">
-      <a href="#how">How it works</a>
+    <nav class="nav-links" aria-label="Main">
       <a href="#features">Features</a>
-      <a href="#safety">Safety</a>
-      <a href="#claude">AI apps</a>
-      <a href="#free">Free forever</a>
+      <a href="#security">Security</a>
+      <a href="#pricing">Pricing</a>
+      <a href="https://github.com/dithzz/sayql-releases/releases">Changelog</a>
       <a href="#faq">FAQ</a>
     </nav>
     <div class="nav-end">
@@ -620,7 +625,7 @@ footer a { text-decoration: none; } footer a:hover { color: var(--color-text); }
         <svg class="theme-light-icon"><use href="#i-moon"/></svg>
         <svg class="theme-dark-icon"><use href="#i-sun"/></svg>
       </button>
-      <a class="btn btn-primary" href="#download"><svg><use href="#i-download"/></svg><span>Get Sayql</span></a>
+      <a class="btn btn-primary" href="#download"><svg><use href="#i-download"/></svg><span>Download</span></a>
     </div>
   </div>
 </header>
@@ -631,7 +636,7 @@ footer a { text-decoration: none; } footer a:hover { color: var(--color-text); }
 <section class="hero">
   <div class="wrap">
     <div class="hero-copy">
-      <a class="badge" href="#free"><b>Community Edition</b> Free forever, for personal and commercial use <svg width="14" height="14"><use href="#i-arrow"/></svg></a>
+      <a class="badge" href="#pricing"><b>Community Edition</b> Free forever, for personal and commercial use <svg width="14" height="14"><use href="#i-arrow"/></svg></a>
       <h1>Say what you need.<br><span class="ai">Get the SQL.</span></h1>
       <p class="lede">Sayql is a desktop database client that writes the query while you type plain English. You read it, run it and keep it. No SQL expertise needed, and nothing changes in your data unless you say so.</p>
       <div class="hero-ctas">
@@ -849,7 +854,7 @@ footer a { text-decoration: none; } footer a:hover { color: var(--color-text); }
 </section>
 
 <!-- ================= SAFETY ================= -->
-<section class="block safety" id="safety">
+<section class="block safety" id="security">
   <div class="wrap safety-grid">
     <div>
       <div class="sec-head reveal" style="margin-bottom:32px">
@@ -919,11 +924,11 @@ footer a { text-decoration: none; } footer a:hover { color: var(--color-text); }
 </section>
 
 <!-- ================= COMMUNITY EDITION ================= -->
-<section class="block" id="free" style="padding-top:24px">
+<section class="block" id="pricing" style="padding-top:24px">
   <div class="wrap">
     <div class="edition reveal">
       <div class="edition-copy">
-        <span class="eyebrow" style="color:var(--color-success)">Community Edition</span>
+        <span class="eyebrow" style="color:var(--color-success)">Pricing</span>
         <h2>Free. Forever. For work too.</h2>
         <p>Sayql Community Edition costs nothing, and any version released under its license stays free. Use it at home, at work and for clients, on as many computers as you like. No account, no trial, no telemetry.</p>
         <div class="hero-ctas" style="justify-content:flex-start">
@@ -931,6 +936,7 @@ footer a { text-decoration: none; } footer a:hover { color: var(--color-text); }
         </div>
       </div>
       <div class="price-card">
+        <div class="plan">Community Edition</div>
         <div class="price"><span class="amount">$0</span><span class="per">forever</span></div>
         <ul class="checks compact">
           <li><span class="ck"><svg><use href="#i-check"/></svg></span><span>Personal and commercial use</span></li>
@@ -988,11 +994,31 @@ footer a { text-decoration: none; } footer a:hover { color: var(--color-text); }
 </main>
 
 <footer>
-  <div class="wrap">
-    <a class="brand" href="#top"><svg><use href="#logo"/></svg>Sayql</a>
-    <span>Community Edition · © 2026 Adith L S</span>
-    <nav aria-label="Footer"><a href="#features">Features</a><a href="#safety">Safety</a><a href="#free">Free forever</a><a href="#faq">FAQ</a></nav>
+  <div class="wrap footer-grid">
+    <div class="footer-brand">
+      <a class="brand" href="#top"><svg><use href="#logo"/></svg>Sayql</a>
+      <p>The AI-first database client. Community Edition, free forever.</p>
+    </div>
+    <nav class="footer-col" aria-label="Product">
+      <h3>Product</h3>
+      <a href="#features">Features</a>
+      <a href="#security">Security</a>
+      <a href="#pricing">Pricing</a>
+      <a href="#download">Download</a>
+    </nav>
+    <nav class="footer-col" aria-label="Resources">
+      <h3>Resources</h3>
+      <a href="https://github.com/dithzz/sayql-releases/releases">Changelog</a>
+      <a href="#faq">FAQ</a>
+      <a href="#claude">MCP for AI apps</a>
+    </nav>
+    <nav class="footer-col" aria-label="Legal">
+      <h3>Legal</h3>
+      <a href="https://github.com/dithzz/sayql-releases/blob/main/LICENSE.md">License</a>
+      <a href="https://github.com/dithzz/sayql-releases/blob/main/PRIVACY.md">Privacy</a>
+    </nav>
   </div>
+  <div class="wrap footer-bottom">© 2026 Adith L S. Sayql Community Edition.</div>
 </footer>
 
 <script>
