@@ -136,6 +136,15 @@ export type GenerationTask =
   | { kind: "fix"; sql: string; error: string }
   | { kind: "improve"; sql: string };
 
+/** This copy of SayQL, for pre-filling feedback; mirrors `AppInfo` in src-tauri/src/commands/app.rs. */
+export interface AppInfo {
+  version: string;
+  /** `macos`, `windows` or `linux`. */
+  os: string;
+  /** `aarch64` or `x86_64`. */
+  arch: string;
+}
+
 /** A newer SayQL release on the update feed. */
 export interface UpdateInfo {
   version: string;

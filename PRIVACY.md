@@ -22,6 +22,17 @@ SayQL sends data only to services you configure, and only when you use them:
 
 The rows in your tables are never sent to an AI provider by the Ask box. With a local provider (Ollama or LM Studio), AI requests don't leave your computer.
 
+## The website
+
+The SayQL website (sayql.vercel.app) uses Vercel Web Analytics to count page views and where visitors come
+from. It uses no cookies, doesn't track you across sites, and stores no personal data. The app itself sends
+nothing to it.
+
+## Feedback
+
+**Send feedback** in the app opens a page in your browser: a public GitHub issue, or a private form. Only your
+SayQL version and operating system are filled in. Nothing else is sent unless you type it.
+
 ## AI providers
 
 What an AI provider does with your requests is governed by that provider's own terms and privacy policy. Check them before you connect a provider to a database with sensitive names or structures.

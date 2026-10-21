@@ -198,6 +198,11 @@ export function installMockBackend() {
         }
         case "delete_script":
           return null;
+        case "app_info":
+          return { version: "0.1.0", os: "macos", arch: "aarch64" };
+        case "plugin:opener|open_url":
+          window.open(String(a.url), "_blank");
+          return null;
         case "check_update":
           return null;
         case "mcp_setup":

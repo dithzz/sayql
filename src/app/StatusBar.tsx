@@ -1,4 +1,4 @@
-import { ArrowDownToLine, Circle, Sparkles } from "lucide-react";
+import { ArrowDownToLine, Circle, MessageSquare, Sparkles } from "lucide-react";
 import type { ConnectionConfig, Schema } from "../api";
 import type { ModelNames } from "../features/settings";
 import type { UpdateState } from "../features/updates";
@@ -14,9 +14,10 @@ export interface StatusBarProps {
   modelNames: ModelNames;
   aiReady: boolean;
   updates: UpdateState;
+  onFeedback: () => void;
 }
 
-export function StatusBar({ active, databaseName, schema, loading, modelNames, aiReady, updates }: StatusBarProps) {
+export function StatusBar({ active, databaseName, schema, loading, modelNames, aiReady, updates, onFeedback }: StatusBarProps) {
   const columns = schema?.tables.reduce((n, t) => n + t.columns.length, 0) ?? 0;
   const state = !active ? "Not connected" : loading ? "Connecting…" : schema ? "Connected" : "Disconnected";
   return (
@@ -33,6 +34,9 @@ export function StatusBar({ active, databaseName, schema, loading, modelNames, a
         </span>
       )}
       <span className={styles.spacer} />
+      <Button size="sm" variant="ghost" icon={MessageSquare} onClick={onFeedback} title="Send feedback">
+        Feedback
+      </Button>
       {updates.update && (
         <Button
           size="sm"
