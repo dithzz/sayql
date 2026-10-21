@@ -1,0 +1,4 @@
+# Only the page is deployed.
+.env*
+.gitignore
+.vercelignore

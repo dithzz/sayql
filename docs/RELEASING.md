@@ -351,3 +351,18 @@ The Settings dialog points Claude at `sayql-mcp` next to the app's executable. T
 and add it as a Tauri sidecar: copy `target/<triple>/release/sayql-mcp` to `src-tauri/binaries/sayql-mcp-<triple>`
 (e.g. `sayql-mcp-aarch64-apple-darwin`) and add `"externalBin": ["binaries/sayql-mcp"]` under `bundle` in
 `tauri.conf.json`. Tauri strips the triple and places it in `Sayql.app/Contents/MacOS/`. Sign it like the app.
+
+## Landing page
+
+`site/index.html` is the whole site. It is hosted on Vercel as the project
+`sayql` in the `adith-l-ss-projects` team, at <https://sayql.vercel.app>.
+`site/.vercel` (git-ignored) links the folder to that project, and
+`site/.vercelignore` limits the upload to the page itself. To publish changes:
+
+```bash
+cd site
+npx vercel@latest deploy --prod
+```
+
+To use a custom domain such as sayql.app, add it under the project's
+Settings → Domains on vercel.com and set the DNS records it shows.
