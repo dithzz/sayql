@@ -6,7 +6,7 @@
 
 ### Say what you need. It knows your schema.
 
-Plain English in, the right SQL out, as you type. Read-only unless you say so.
+Plain English in, the right SQL out in about a second, faster than you could write it. Read-only unless you say so.
 
 [![Latest release](https://img.shields.io/github/v/release/dithzz/sayql-releases?label=release&color=4F46E5)](https://github.com/dithzz/sayql-releases/releases/latest)
 [![CI](https://github.com/dithzz/sayql/actions/workflows/ci.yml/badge.svg)](https://github.com/dithzz/sayql/actions/workflows/ci.yml)
@@ -30,8 +30,9 @@ Most people who work with data know what they want to ask, but not always how to
 can write a query, but they don't know your schema, can't run anything, and copy-pasting between windows gets
 old fast. SayQL puts the AI inside a real database client:
 
-- **SQL as you type.** A fast model drafts the query in about a second while you're still typing, and simple
-  requests like "show customers" are answered instantly on your machine with no AI call at all.
+- **Faster than writing it yourself.** A fast model drafts the query in about a second, streaming it into the
+  editor while you're still typing, and simple requests like "show customers" are answered instantly on your
+  machine with no AI call at all.
 - **Follow-ups that edit, not restart.** "Only Canada", "remove the middle name", "sort by date" change the
   query you already have.
 - **Safe on production.** Queries run read-only, enforced by the database itself. Anything that could change
