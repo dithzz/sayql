@@ -186,7 +186,7 @@ export function SettingsDialog(props: { settings: Settings; onClose: () => void;
           Workspace ID <span className="hint">(optional)</span>
           <input
             value={workspaceId}
-            placeholder="Only needed if your key isn't tied to a workspace"
+            placeholder="An ID code, not the workspace name — only needed for some keys"
             onChange={(e) => setWorkspaceId(e.target.value)}
           />
           <span className="hint">

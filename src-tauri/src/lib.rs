@@ -206,7 +206,7 @@ fn generate_sql(
     let request = ai::GenRequest {
         req_id,
         api_key,
-        workspace_id: Some(settings.workspace_id).filter(|w| !w.is_empty()),
+        workspace_id: Some(valid_workspace_id(&settings.workspace_id)?).filter(|w| !w.is_empty()),
         model: settings.model,
         dialect: live.schema.dialect.clone(),
         schema_text: schema::schema_for_prompt(&live.schema, &live.schema_text, &question),
@@ -243,9 +243,21 @@ fn save_settings(
     }
     let mut s = state.store.settings();
     s.model = model;
-    s.workspace_id = workspace_id.trim().to_string();
+    s.workspace_id = valid_workspace_id(&workspace_id)?;
     state.store.save_settings(&s)?;
     Ok(settings_view(&s))
+}
+
+/// Workspace IDs are short codes (no spaces or punctuation beyond `_`/`-`), not display names.
+fn valid_workspace_id(raw: &str) -> Result<String, String> {
+    let id = raw.trim();
+    if id.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-') {
+        Ok(id.to_string())
+    } else {
+        Err("The Workspace ID in Settings looks like a name. Paste the workspace's ID instead \
+             (a code without spaces), or leave the field empty."
+            .into())
+    }
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
