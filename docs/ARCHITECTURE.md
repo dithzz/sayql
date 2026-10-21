@@ -43,18 +43,45 @@ src/
 
 ## Backend layout (`src-tauri/src/`)
 
-| File | Responsibility |
-|---|---|
-| `lib.rs` | Tauri commands and app state wiring |
-| `db.rs` | connections, read-only execution, value decoding, schema introspection (PostgreSQL, MySQL, SQLite) |
-| `schema.rs` | schema model and the compact text sent to the model |
-| `ai.rs` | Claude Messages API streaming (raw HTTP + SSE) |
-| `store.rs` | settings/connections JSON and OS keychain secrets |
-| `demo.sql` | the bundled demo database |
+```
+src-tauri/src/
+  lib.rs                plugin + state + command registration only
+  error.rs              AppError / AppResult: the single error type; serializes to a message for the UI
+  state.rs              AppState: store, open connections, the running AI generation
+  commands/             Tauri commands, one file per UI area (thin: validate, call modules, map results)
+    connections.rs      init, save/delete/test/open connection, refresh schema
+    query.rs            run_query (write confirmation gate)
+    generation.rs       generate_sql, cancel_generation
+    settings.rs         save_settings, the settings view sent to the UI
+  db/                   database access, no Tauri types
+    mod.rs              Kind, ConnConfig, DbPool, QueryResult, public API
+    connect.rs          pools per database kind
+    classify.rs         is_read_only (keyword check; the database enforces it too)
+    execute.rs          run_query: read-only transactions, row cap, column headers
+    decode/             driver values → JSON for display (postgres binary wire format, mysql, sqlite)
+    introspect/         schema reading per database kind, shared assembly in mod.rs
+    demo.rs, demo.sql   the bundled demo database
+    tests.rs            SQLite end-to-end tests
+    integration_tests.rs  PostgreSQL/MySQL tests (opt-in via env vars, see README)
+  ai/                   Claude Messages API, no knowledge of Tauri commands
+    mod.rs              stream_sql + event payloads, API error messages
+    models.rs           offered models and per-model request options
+    prompt.rs           the English → SQL prompt
+    sse.rs              server-sent-event parser
+  schema/               schema model (mod.rs) and compact prompt rendering (render.rs)
+  store/                settings/connections JSON (mod.rs) and keychain secrets (secrets.rs)
+```
+
+### Rules
+
+- **Commands are thin.** Business logic lives in `db/`, `ai/`, `schema/` and `store/`, which never import Tauri command types; only `commands/` and `state.rs` know about Tauri state.
+- **Errors:** functions return `AppResult<T>`. Use `?` on sqlx/io/keychain/JSON errors (converted by `From`), and `"message".into()` for messages written for the user. A message that mentions "Settings" makes the UI offer an Open Settings button.
+- **Secrets** only go through `store::secrets`; they are never written to JSON or sent to the UI.
+- **Tests** sit next to the code (`#[cfg(test)] mod tests`).
 
 ## Testing
 
-`pnpm test` runs the Vitest suite (pure frontend logic) and `cargo test` (database layer, against a generated SQLite demo database).
+`pnpm test` runs the Vitest suite (pure frontend logic) and `cargo test --lib` (SQL classification, SSE parsing, API error messages, settings validation, and an end-to-end run against a generated SQLite demo database). The PostgreSQL/MySQL integration tests run when their env vars are set (see README).
 
 ## Previewing the UI without the backend
 
