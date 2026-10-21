@@ -4,7 +4,7 @@
 
 # SayQL
 
-**Say what you need. Get the SQL.**
+**It knows your schema across all your databases and writes the right query, as you type.**
 
 An AI-first desktop database client. Type plain English, watch the SQL appear as you type,<br>
 and run it read-only by default, on PostgreSQL, MySQL, SQLite, SQL Server and Azure SQL, with the AI you choose.
