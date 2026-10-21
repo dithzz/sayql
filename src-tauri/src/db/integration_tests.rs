@@ -1,0 +1,550 @@
+//! Tests against real PostgreSQL and MySQL servers.
+//!
+//! Each test is skipped unless its URL is set, so `cargo test` passes without servers:
+//!
+//!   ASKDB_TEST_PG_URL=postgres://postgres:<password>@localhost:55416/askdb
+//!   ASKDB_TEST_MYSQL_URL=mysql://root:<password>@localhost:33806
+//!
+//! The Postgres test drops and recreates the schemas `askdb_it` and `askdb_it_inv`;
+//! the MySQL test drops and recreates the database `askdb_it`. Nothing else is touched.
+
+use super::*;
+use crate::schema::Table;
+use serde_json::json;
+
+struct Target {
+    host: String,
+    port: Option<u16>,
+    user: String,
+    password: Option<String>,
+    database: String,
+}
+
+/// Parses `scheme://user[:password]@host[:port][/database]`.
+fn parse_url(url: &str) -> Target {
+    let rest = url.split_once("://").map(|(_, r)| r).unwrap_or(url);
+    let (auth, rest) = rest.rsplit_once('@').unwrap_or(("", rest));
+    let (user, password) = match auth.split_once(':') {
+        Some((u, p)) => (u.to_string(), Some(p.to_string())),
+        None => (auth.to_string(), None),
+    };
+    let (hostport, database) = rest.split_once('/').unwrap_or((rest, ""));
+    let (host, port) = match hostport.rsplit_once(':') {
+        Some((h, p)) => (h.to_string(), Some(p.parse().expect("port"))),
+        None => (hostport.to_string(), None),
+    };
+    let database = database.split('?').next().unwrap_or("").to_string();
+    Target { host, port, user, password, database }
+}
+
+fn env_target(var: &str) -> Option<Target> {
+    match std::env::var(var) {
+        Ok(url) if !url.trim().is_empty() => Some(parse_url(url.trim())),
+        _ => {
+            eprintln!("skipping: set {var} to run this test against a real server");
+            None
+        }
+    }
+}
+
+async fn open(kind: Kind, t: &Target, database: &str) -> DbPool {
+    let cfg = ConnConfig {
+        id: "it".into(),
+        name: "it".into(),
+        kind,
+        host: t.host.clone(),
+        port: t.port,
+        database: database.into(),
+        user: t.user.clone(),
+        file: String::new(),
+        ssl: false,
+    };
+    connect(&cfg, t.password.clone()).await.expect("connect")
+}
+
+/// Runs a multi-statement setup script outside read-only mode.
+async fn exec(pool: &DbPool, sql: &str) {
+    let r = match pool {
+        DbPool::Pg(p) => sqlx::raw_sql(sql).execute(p).await.map(|_| ()),
+        DbPool::My(p) => sqlx::raw_sql(sql).execute(p).await.map(|_| ()),
+        DbPool::Lite(_) => unreachable!("SQLite is covered by the unit tests"),
+    };
+    r.unwrap_or_else(|e| panic!("setup failed: {e}\n{sql}"));
+}
+
+async fn query(pool: &DbPool, sql: &str, read_only: bool) -> QueryResult {
+    run_query(pool, sql, read_only).await.unwrap_or_else(|e| panic!("{sql}: {e}"))
+}
+
+async fn scalar(pool: &DbPool, sql: &str) -> Value {
+    query(pool, sql, true).await.rows.remove(0).remove(0)
+}
+
+fn table<'a>(tables: &'a [Table], schema: Option<&str>, name: &str) -> &'a Table {
+    tables
+        .iter()
+        .find(|t| t.schema.as_deref() == schema && t.name == name)
+        .unwrap_or_else(|| panic!("table {schema:?}.{name} missing"))
+}
+
+fn pk_columns(t: &Table) -> Vec<&str> {
+    t.columns.iter().filter(|c| c.primary_key).map(|c| c.name.as_str()).collect()
+}
+
+fn fks(t: &Table) -> Vec<(String, String, String)> {
+    let mut v: Vec<_> =
+        t.foreign_keys.iter().map(|f| (f.column.clone(), f.ref_table.clone(), f.ref_column.clone())).collect();
+    v.sort();
+    v
+}
+
+fn fk(c: &str, t: &str, rc: &str) -> (String, String, String) {
+    (c.into(), t.into(), rc.into())
+}
+
+fn column<'a>(t: &'a Table, name: &str) -> &'a crate::schema::Column {
+    t.columns.iter().find(|c| c.name == name).unwrap_or_else(|| panic!("column {}.{name} missing", t.name))
+}
+
+fn is_placeholder(v: &Value) -> bool {
+    matches!(v, Value::String(s) if s.starts_with('<') && s.ends_with('>') && !s.contains("</"))
+}
+
+/// Compares one result row against `expected` (column name -> value) and reports every mismatch at once.
+fn check_row(label: &str, r: &QueryResult, row: usize, expected: &Value) {
+    let expected = expected.as_object().unwrap();
+    let mut bad = Vec::new();
+    for (i, name) in r.columns.iter().enumerate() {
+        let got = &r.rows[row][i];
+        match expected.get(name) {
+            Some(want) if want != got => bad.push(format!("  {name}: got {got}, want {want}")),
+            None => bad.push(format!("  {name}: got {got}, no expectation")),
+            _ => {}
+        }
+    }
+    for name in expected.keys() {
+        if !r.columns.contains(name) {
+            bad.push(format!("  {name}: column missing from result"));
+        }
+    }
+    assert!(bad.is_empty(), "{label} row {row} mismatches:\n{}", bad.join("\n"));
+}
+
+/// Read-only mode must be enforced by the database, survive multi-statement tricks,
+/// and leave pooled connections usable for normal writes afterwards.
+async fn check_read_only(pool: &DbPool, count_sql: &str, writes: &[&str], show_ro: &str, approved_write: &str) {
+    let before = scalar(pool, count_sql).await;
+    for _ in 0..3 {
+        for sql in writes {
+            let e = run_query(pool, sql, true).await;
+            assert!(e.is_err(), "read-only mode allowed: {sql}");
+        }
+    }
+    assert_eq!(scalar(pool, count_sql).await, before, "a read-only statement changed data");
+    // Run more queries than the pool has connections so every pooled connection is checked.
+    for _ in 0..8 {
+        let r = query(pool, show_ro, false).await;
+        let v = r.rows[0].last().unwrap().clone();
+        assert!(v == json!("off") || v == json!("OFF") || v == json!(0), "connection left read-only: {v}");
+    }
+    let w = query(pool, approved_write, false).await;
+    assert_eq!(w.rows_affected, Some(1), "{approved_write}");
+    assert!(w.columns.is_empty());
+}
+
+// ---------------------------------------------------------------- PostgreSQL
+
+const PG_SEED: &str = r#"
+DROP SCHEMA IF EXISTS askdb_it CASCADE;
+DROP SCHEMA IF EXISTS askdb_it_inv CASCADE;
+CREATE SCHEMA askdb_it;
+CREATE SCHEMA askdb_it_inv;
+
+CREATE TYPE askdb_it.order_status AS ENUM ('pending', 'paid', 'shipped', 'cancelled');
+-- Same type name in another schema with different labels.
+CREATE TYPE askdb_it_inv.order_status AS ENUM ('in_stock', 'backordered');
+CREATE TYPE askdb_it.addr AS (city text, zip int);
+
+CREATE TABLE askdb_it.customers (
+  id serial PRIMARY KEY,
+  email text NOT NULL UNIQUE,
+  external_id uuid NOT NULL,
+  tags text[] NOT NULL DEFAULT '{}',
+  profile jsonb,
+  signed_up_at timestamptz NOT NULL
+);
+
+CREATE TABLE askdb_it.orders (
+  id bigserial PRIMARY KEY,
+  customer_id int NOT NULL REFERENCES askdb_it.customers(id),
+  status askdb_it.order_status NOT NULL,
+  total numeric(12, 2) NOT NULL,
+  ordered_at timestamptz NOT NULL
+);
+
+CREATE TABLE askdb_it_inv.warehouses (code text PRIMARY KEY, name text NOT NULL);
+
+CREATE TABLE askdb_it_inv.stock (
+  warehouse_code text NOT NULL REFERENCES askdb_it_inv.warehouses(code),
+  product_id int NOT NULL,
+  qty int NOT NULL,
+  state askdb_it_inv.order_status NOT NULL,
+  PRIMARY KEY (warehouse_code, product_id)
+);
+
+CREATE TABLE askdb_it_inv.movements (
+  id int PRIMARY KEY,
+  wh text NOT NULL,
+  pid int NOT NULL,
+  delta int NOT NULL,
+  FOREIGN KEY (wh, pid) REFERENCES askdb_it_inv.stock (warehouse_code, product_id)
+);
+
+CREATE TABLE askdb_it.shipments (
+  id int PRIMARY KEY,
+  order_id bigint NOT NULL REFERENCES askdb_it.orders(id),
+  warehouse_code text NOT NULL REFERENCES askdb_it_inv.warehouses(code)
+);
+
+CREATE VIEW askdb_it.paid_orders AS SELECT * FROM askdb_it.orders WHERE status = 'paid';
+
+INSERT INTO askdb_it.customers (email, external_id, tags, profile, signed_up_at)
+SELECT 'c' || i || '@example.com', gen_random_uuid(), ARRAY['t' || (i % 3)], jsonb_build_object('n', i),
+       timestamptz '2024-01-01 00:00:00+00' + i * interval '1 day'
+FROM generate_series(1, 200) i;
+
+INSERT INTO askdb_it.orders (customer_id, status, total, ordered_at)
+SELECT 1 + i % 200, (ARRAY['pending', 'paid', 'shipped', 'cancelled'])[1 + i % 4]::askdb_it.order_status,
+       (i % 500) + 0.99, timestamptz '2024-01-01 00:00:00+00' + i * interval '1 hour'
+FROM generate_series(1, 1000) i;
+
+CREATE TABLE askdb_it.all_types (
+  id int PRIMARY KEY,
+  b bool, i2 smallint, i4 int, i8 bigint, f4 real, f8 double precision,
+  n numeric(12, 2), n_big numeric, n_neg numeric, n_nan numeric,
+  t text, vc varchar(20), c char(3), nm name, u uuid, j json, jb jsonb,
+  ts timestamp(3), tstz timestamptz, ts_inf timestamptz, d date, tm time, tmtz timetz,
+  iv interval, m money, by bytea, st askdb_it.order_status,
+  ta text[], ia int[], ia_null int[], ia2 int[], ba bool[], na numeric[], ua uuid[],
+  tsa timestamptz[], ea askdb_it.order_status[], ja jsonb[],
+  ip inet, ip6 inet, cn cidr, mac macaddr, bits bit(4), vb varbit, x xml, o oid, ch "char",
+  pt point, r int4range, dr daterange, comp askdb_it.addr
+);
+
+INSERT INTO askdb_it.all_types VALUES (
+  1, true, -2, 40000, 9000000000, 1.1, 2.5,
+  1234.5, 123456789012345678901234567890.123456789, -0.00012, 'NaN',
+  'hello', 'world', 'ab', 'pg_name', 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', '{"a": 1}', '{"b": [1, 2]}',
+  '2024-03-01 12:34:56.789', '2024-03-01 12:34:56+00', 'infinity', '2024-03-01', '12:34:56', '12:34:56+02',
+  '1 year 2 mons 3 days 04:05:06.5', 12.34, '\xdeadbeef', 'paid',
+  '{a,b}', '{1,2}', '{1,NULL}', '{{1,2},{3,4}}', '{t,f}', '{1.50,2}', '{a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11}',
+  '{"2024-03-01 12:34:56+00"}', '{paid,shipped}', ARRAY['{"k": 1}'::jsonb],
+  '192.168.0.1', '::1', '10.0.0.0/8', '08:00:2b:01:02:03', B'1010', B'101', '<a>1</a>', 42, 'a',
+  '(1,2.5)', '[1,10)', '[2024-01-01,2024-02-01)', ROW('Paris', 75001)
+);
+INSERT INTO askdb_it.all_types (id) VALUES (2);
+"#;
+
+fn pg_expected() -> Value {
+    serde_json::from_str(
+        r#"{
+        "id": 1, "b": true, "i2": -2, "i4": 40000, "i8": 9000000000, "f4": 1.1, "f8": 2.5,
+        "n": "1234.50", "n_big": "123456789012345678901234567890.123456789", "n_neg": "-0.00012", "n_nan": "NaN",
+        "t": "hello", "vc": "world", "c": "ab ", "nm": "pg_name", "u": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
+        "j": {"a": 1}, "jb": {"b": [1, 2]},
+        "ts": "2024-03-01 12:34:56.789", "tstz": "2024-03-01 12:34:56 UTC", "ts_inf": "infinity",
+        "d": "2024-03-01", "tm": "12:34:56", "tmtz": "12:34:56+02",
+        "iv": "1 year 2 mons 3 days 04:05:06.5", "m": "12.34", "by": "0xdeadbeef", "st": "paid",
+        "ta": ["a", "b"], "ia": [1, 2], "ia_null": [1, null], "ia2": [[1, 2], [3, 4]], "ba": [true, false],
+        "na": ["1.50", "2"], "ua": ["a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11"], "tsa": ["2024-03-01 12:34:56 UTC"],
+        "ea": ["paid", "shipped"], "ja": [{"k": 1}],
+        "ip": "192.168.0.1", "ip6": "::1", "cn": "10.0.0.0/8", "mac": "08:00:2b:01:02:03",
+        "bits": "1010", "vb": "101", "x": "<a>1</a>", "o": 42, "ch": "a",
+        "pt": "(1,2.5)", "r": "[1,10)", "dr": "[2024-01-01,2024-02-01)", "comp": {"city": "Paris", "zip": 75001}
+    }"#,
+    )
+    .unwrap()
+}
+
+#[tokio::test]
+async fn postgres_integration() {
+    let Some(t) = env_target("ASKDB_TEST_PG_URL") else { return };
+    let db = if t.database.is_empty() { "postgres".to_string() } else { t.database.clone() };
+    let pool = open(Kind::Postgres, &t, &db).await;
+    exec(&pool, PG_SEED).await;
+
+    // ---- schema reading
+    let schema = introspect(&pool, Kind::Postgres).await.expect("introspect");
+    let ours: Vec<String> = schema
+        .tables
+        .iter()
+        .filter(|t| t.schema.as_deref().is_some_and(|s| s.starts_with("askdb_it")))
+        .map(|t| t.qualified_name())
+        .collect();
+    assert_eq!(
+        ours,
+        [
+            "askdb_it.all_types",
+            "askdb_it.customers",
+            "askdb_it.orders",
+            "askdb_it.paid_orders",
+            "askdb_it.shipments",
+            "askdb_it_inv.movements",
+            "askdb_it_inv.stock",
+            "askdb_it_inv.warehouses",
+        ]
+    );
+    let tb = &schema.tables;
+    let customers = table(tb, Some("askdb_it"), "customers");
+    let orders = table(tb, Some("askdb_it"), "orders");
+    let stock = table(tb, Some("askdb_it_inv"), "stock");
+    let view = table(tb, Some("askdb_it"), "paid_orders");
+    assert_eq!(customers.kind, "table");
+    assert_eq!(view.kind, "view");
+    assert_eq!(pk_columns(customers), ["id"]);
+    assert_eq!(pk_columns(stock), ["warehouse_code", "product_id"]);
+    assert!(pk_columns(view).is_empty());
+    assert_eq!(fks(orders), [fk("customer_id", "askdb_it.customers", "id")]);
+    assert_eq!(
+        fks(table(tb, Some("askdb_it"), "shipments")),
+        [fk("order_id", "askdb_it.orders", "id"), fk("warehouse_code", "askdb_it_inv.warehouses", "code")]
+    );
+    assert_eq!(
+        fks(table(tb, Some("askdb_it_inv"), "movements")),
+        [fk("pid", "askdb_it_inv.stock", "product_id"), fk("wh", "askdb_it_inv.stock", "warehouse_code")]
+    );
+    let status = column(orders, "status");
+    // Non-public types are schema-qualified, as they must be written in a cast.
+    assert_eq!(status.data_type, "askdb_it.order_status");
+    assert_eq!(status.enum_values.as_deref(), Some(&["pending", "paid", "shipped", "cancelled"].map(String::from)[..]));
+    assert_eq!(
+        column(stock, "state").enum_values.as_deref(),
+        Some(&["in_stock", "backordered"].map(String::from)[..]),
+        "enum labels must come from the column's own schema"
+    );
+    assert_eq!(column(customers, "tags").data_type, "_text");
+    assert_eq!(column(orders, "total").data_type, "numeric");
+    assert!(!column(orders, "total").nullable);
+    assert!(column(customers, "profile").nullable);
+    // Never-analyzed tables have no statistics yet: report "unknown", not a negative count.
+    for t in tb.iter().filter(|t| t.schema.as_deref().is_some_and(|s| s.starts_with("askdb_it"))) {
+        assert!(t.row_estimate.is_none_or(|n| n >= 0), "{}: row estimate {:?}", t.name, t.row_estimate);
+    }
+    exec(&pool, "ANALYZE askdb_it.customers; ANALYZE askdb_it.orders;").await;
+    let schema = introspect(&pool, Kind::Postgres).await.expect("introspect");
+    assert_eq!(table(&schema.tables, Some("askdb_it"), "customers").row_estimate, Some(200));
+    assert_eq!(table(&schema.tables, Some("askdb_it"), "orders").row_estimate, Some(1000));
+    assert_eq!(table(&schema.tables, Some("askdb_it"), "paid_orders").row_estimate, None);
+
+    // ---- value decoding
+    let r = query(&pool, "SELECT * FROM askdb_it.all_types ORDER BY id", true).await;
+    check_row("pg read-only", &r, 0, &pg_expected());
+    assert!(r.rows[1][1..].iter().all(Value::is_null), "{:?}", r.rows[1]);
+    assert!(!r.rows[0].iter().any(is_placeholder));
+    // Approved writes that return rows decode the same way.
+    let w = query(&pool, "UPDATE askdb_it.all_types SET i4 = i4 WHERE id = 1 RETURNING *", false).await;
+    check_row("pg RETURNING", &w, 0, &pg_expected());
+    let r = query(&pool, "SELECT status, count(*) AS n, sum(total) AS s FROM askdb_it.orders GROUP BY 1 ORDER BY 1", true).await;
+    assert_eq!(r.columns, ["status", "n", "s"]);
+    assert_eq!(r.rows.iter().map(|row| row[1].as_i64().unwrap()).sum::<i64>(), 1000);
+    assert_eq!(r.rows[0][0], json!("pending"));
+
+    // ---- other read-only statement kinds still work
+    assert_eq!(scalar(&pool, "SHOW transaction_read_only").await, json!("on"));
+    assert_eq!(scalar(&pool, "VALUES (1)").await, json!(1));
+    assert_eq!(query(&pool, "TABLE askdb_it_inv.warehouses", true).await.columns, ["code", "name"]);
+    assert!(!query(&pool, "EXPLAIN SELECT * FROM askdb_it.orders", true).await.rows.is_empty());
+    assert_eq!(
+        scalar(&pool, "WITH x AS (SELECT 41 AS v) SELECT v + 1 FROM x").await,
+        json!(42)
+    );
+
+    // ---- empty results keep their headers
+    for ro in [true, false] {
+        let r = query(&pool, "SELECT id, email FROM askdb_it.customers WHERE false", ro).await;
+        assert_eq!(r.columns, ["id", "email"]);
+        assert!(r.rows.is_empty());
+        assert_eq!(r.rows_affected, None);
+    }
+
+    // ---- read-only enforcement
+    check_read_only(
+        &pool,
+        "SELECT count(*) FROM askdb_it.orders WHERE status = 'paid'",
+        &[
+            "UPDATE askdb_it.orders SET status = 'paid'",
+            "DELETE FROM askdb_it.orders",
+            "WITH d AS (DELETE FROM askdb_it.orders RETURNING id) SELECT count(*) FROM d",
+            "SELECT 1; COMMIT; UPDATE askdb_it.orders SET status = 'paid'",
+            "SELECT 1; ROLLBACK; BEGIN; UPDATE askdb_it.orders SET status = 'paid'; COMMIT",
+            "SELECT nextval('askdb_it.orders_id_seq')",
+        ],
+        "SHOW transaction_read_only",
+        "UPDATE askdb_it.orders SET status = 'paid' WHERE id = 1",
+    )
+    .await;
+
+    exec(&pool, "DROP SCHEMA askdb_it CASCADE; DROP SCHEMA askdb_it_inv CASCADE;").await;
+}
+
+// ---------------------------------------------------------------- MySQL
+
+const MY_SEED: &str = r#"
+DROP DATABASE IF EXISTS askdb_it;
+CREATE DATABASE askdb_it;
+USE askdb_it;
+
+CREATE TABLE customers (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  email VARCHAR(200) NOT NULL UNIQUE,
+  tier ENUM('free', 'pro', 'enterprise') NOT NULL DEFAULT 'free',
+  signed_up_at DATETIME NOT NULL
+);
+
+CREATE TABLE orders (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  customer_id INT UNSIGNED NOT NULL,
+  status ENUM('pending', 'paid', 'shipped', 'it''s late') NOT NULL,
+  total DECIMAL(12, 2) NOT NULL,
+  meta JSON NULL,
+  ordered_at TIMESTAMP NOT NULL,
+  FOREIGN KEY (customer_id) REFERENCES customers (id)
+);
+
+CREATE TABLE order_items (
+  order_id BIGINT UNSIGNED NOT NULL,
+  line SMALLINT UNSIGNED NOT NULL,
+  qty INT NOT NULL,
+  PRIMARY KEY (order_id, line),
+  FOREIGN KEY (order_id) REFERENCES orders (id)
+);
+
+CREATE VIEW paid_orders AS SELECT * FROM orders WHERE status = 'paid';
+
+INSERT INTO customers (email, tier, signed_up_at)
+WITH RECURSIVE n (i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < 200)
+SELECT CONCAT('c', i, '@example.com'), ELT(1 + i % 3, 'free', 'pro', 'enterprise'), '2024-01-01' + INTERVAL i DAY FROM n;
+
+INSERT INTO orders (customer_id, status, total, meta, ordered_at)
+WITH RECURSIVE n (i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < 1000)
+SELECT 1 + i % 200, ELT(1 + i % 4, 'pending', 'paid', 'shipped', 'it''s late'), (i % 500) + 0.99,
+       JSON_OBJECT('n', i), '2024-01-01' + INTERVAL i HOUR FROM n;
+
+CREATE TABLE all_types (
+  id INT PRIMARY KEY,
+  b BOOL, ti TINYINT, tiu TINYINT UNSIGNED, si SMALLINT, siu SMALLINT UNSIGNED, mi MEDIUMINT,
+  i INT, iu INT UNSIGNED, bi BIGINT, biu BIGINT UNSIGNED, f FLOAT, d DOUBLE,
+  dc DECIMAL(12, 2), dc_big DECIMAL(65, 30),
+  dt DATETIME, dt6 DATETIME(6), ts TIMESTAMP NULL, da DATE, tm TIME, tm_neg TIME, tm_big TIME, yr YEAR,
+  ch CHAR(3), vc VARCHAR(20), tx TEXT, js JSON, en ENUM('a', 'b'), st SET('x', 'y', 'z'),
+  bin BINARY(4), vb VARBINARY(8), bl BLOB, bt BIT(4)
+);
+
+INSERT INTO all_types VALUES (
+  1, TRUE, -5, 250, -300, 60000, -8000000,
+  -2000000000, 4000000000, -9000000000, 18446744073709551615, 1.1, 2.5,
+  1234.5, 12345678901234567890.123456789,
+  '2024-03-01 12:34:56', '2024-03-01 12:34:56.123456', '2024-03-01 12:34:56', '2024-03-01', '12:34:56', '-01:30:00', '100:00:00', 2024,
+  'ab', 'world', 'hello', '{"a": 1}', 'b', 'x,z',
+  'ab', x'DEADBEEF', 'blob text', b'1010'
+);
+INSERT INTO all_types (id) VALUES (2);
+"#;
+
+fn my_expected() -> Value {
+    serde_json::from_str(
+        r#"{
+        "id": 1, "b": true, "ti": -5, "tiu": 250, "si": -300, "siu": 60000, "mi": -8000000,
+        "i": -2000000000, "iu": 4000000000, "bi": -9000000000, "biu": 18446744073709551615,
+        "f": 1.1, "d": 2.5, "dc": "1234.50", "dc_big": "12345678901234567890.123456789000000000000000000000",
+        "dt": "2024-03-01 12:34:56", "dt6": "2024-03-01 12:34:56.123456", "ts": "2024-03-01 12:34:56 UTC",
+        "da": "2024-03-01", "tm": "12:34:56", "tm_neg": "-01:30:00", "tm_big": "100:00:00", "yr": 2024,
+        "ch": "ab", "vc": "world", "tx": "hello", "js": {"a": 1}, "en": "b", "st": "x,z",
+        "bin": "0x61620000", "vb": "0xdeadbeef", "bl": "blob text", "bt": 10
+    }"#,
+    )
+    .unwrap()
+}
+
+#[tokio::test]
+async fn mysql_integration() {
+    let Some(t) = env_target("ASKDB_TEST_MYSQL_URL") else { return };
+    let admin = open(Kind::Mysql, &t, &t.database).await;
+    exec(&admin, MY_SEED).await;
+    let pool = open(Kind::Mysql, &t, "askdb_it").await;
+
+    // ---- schema reading
+    let schema = introspect(&pool, Kind::Mysql).await.expect("introspect");
+    let names: Vec<&str> = schema.tables.iter().map(|t| t.name.as_str()).collect();
+    assert_eq!(names, ["all_types", "customers", "order_items", "orders", "paid_orders"]);
+    let tb = &schema.tables;
+    let customers = table(tb, None, "customers");
+    let orders = table(tb, None, "orders");
+    let view = table(tb, None, "paid_orders");
+    assert_eq!(view.kind, "view");
+    assert_eq!(customers.kind, "table");
+    assert_eq!(pk_columns(customers), ["id"]);
+    assert_eq!(pk_columns(table(tb, None, "order_items")), ["order_id", "line"]);
+    assert!(pk_columns(view).is_empty());
+    assert_eq!(fks(orders), [fk("customer_id", "customers", "id")]);
+    assert_eq!(fks(table(tb, None, "order_items")), [fk("order_id", "orders", "id")]);
+    let status = column(orders, "status");
+    assert_eq!(status.data_type, "enum");
+    assert_eq!(status.enum_values.as_deref(), Some(&["pending", "paid", "shipped", "it's late"].map(String::from)[..]));
+    assert_eq!(column(customers, "tier").enum_values.as_deref(), Some(&["free", "pro", "enterprise"].map(String::from)[..]));
+    assert_eq!(column(orders, "total").data_type, "decimal(12,2)");
+    assert_eq!(column(customers, "id").data_type, "int unsigned");
+    assert!(column(orders, "meta").nullable);
+    assert!(!column(orders, "total").nullable);
+    exec(&pool, "ANALYZE TABLE customers, orders").await;
+    let schema = introspect(&pool, Kind::Mysql).await.expect("introspect");
+    // InnoDB row counts are estimates; they should be in the right ballpark.
+    let est = |name: &str| table(&schema.tables, None, name).row_estimate;
+    assert!(est("customers").is_some_and(|n| (150..=250).contains(&n)), "customers ~200: {:?}", est("customers"));
+    assert!(est("orders").is_some_and(|n| (800..=1200).contains(&n)), "orders ~1000: {:?}", est("orders"));
+    assert_eq!(est("paid_orders"), None);
+
+    // ---- value decoding, inside and outside the read-only transaction
+    let r = query(&pool, "SELECT * FROM all_types ORDER BY id", true).await;
+    check_row("mysql read-only", &r, 0, &my_expected());
+    assert!(r.rows[1][1..].iter().all(Value::is_null), "{:?}", r.rows[1]);
+    assert!(!r.rows[0].iter().any(is_placeholder));
+    let w = query(&pool, "SELECT * FROM all_types ORDER BY id", false).await;
+    check_row("mysql read-write", &w, 0, &my_expected());
+    let r = query(&pool, "SELECT status, COUNT(*) AS n, SUM(total) AS s FROM orders GROUP BY status ORDER BY status", true).await;
+    assert_eq!(r.columns, ["status", "n", "s"]);
+    assert_eq!(r.rows.iter().map(|row| row[1].as_i64().unwrap()).sum::<i64>(), 1000);
+    assert_eq!(r.rows[0][0], json!("pending"));
+    assert_eq!(r.rows[0][2], json!("62247.50"));
+
+    // ---- other read-only statement kinds still work
+    assert!(!query(&pool, "SHOW TABLES", true).await.rows.is_empty());
+    assert!(!query(&pool, "DESCRIBE orders", true).await.rows.is_empty());
+    assert!(!query(&pool, "EXPLAIN SELECT * FROM orders", true).await.rows.is_empty());
+    assert_eq!(scalar(&pool, "WITH x AS (SELECT 41 AS v) SELECT v + 1 FROM x").await, json!(42));
+
+    // ---- empty results keep their headers
+    for ro in [true, false] {
+        let r = query(&pool, "SELECT id, email FROM customers WHERE 1 = 0", ro).await;
+        assert_eq!(r.columns, ["id", "email"]);
+        assert!(r.rows.is_empty());
+        assert_eq!(r.rows_affected, None);
+    }
+
+    // ---- read-only enforcement
+    check_read_only(
+        &pool,
+        "SELECT COUNT(*) FROM orders WHERE status = 'paid'",
+        &[
+            "UPDATE orders SET status = 'paid'",
+            "DELETE FROM order_items",
+            "SELECT 1; COMMIT; UPDATE orders SET status = 'paid'",
+            "SELECT 1; ROLLBACK; UPDATE orders SET status = 'paid'",
+        ],
+        "SELECT @@transaction_read_only",
+        "UPDATE orders SET status = 'paid' WHERE id = 1",
+    )
+    .await;
+
+    exec(&admin, "DROP DATABASE askdb_it").await;
+}
