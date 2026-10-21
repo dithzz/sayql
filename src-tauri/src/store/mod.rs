@@ -6,6 +6,7 @@ pub mod secrets;
 use crate::db::ConnConfig;
 use crate::error::AppResult;
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 use std::path::PathBuf;
 
 const CONNECTIONS_FILE: &str = "connections.json";
@@ -32,18 +33,68 @@ fn copy_legacy_files(dir: &std::path::Path) {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Settings {
-    /// Writes SQL while the person types.
+    /// The AI provider that writes SQL (an id from `ai::PROVIDERS`).
+    #[serde(default = "default_provider")]
+    pub provider: String,
+    /// Claude model that writes SQL while the person types.
     #[serde(default = "default_typing_model")]
     pub typing_model: String,
-    /// Fixes rejected queries and improves queries on request.
+    /// Claude model that fixes rejected queries and improves queries on request.
     #[serde(default = "default_expert_model")]
     pub expert_model: String,
+    /// Choices for providers other than Claude, by provider id.
+    #[serde(default)]
+    pub providers: BTreeMap<String, ProviderSettings>,
     /// The demo connection is added once; deleting it keeps it deleted.
     #[serde(default)]
     pub demo_added: bool,
     /// Needed for API keys that aren't scoped to a workspace (`anthropic-workspace-id` header).
     #[serde(default)]
     pub workspace_id: String,
+}
+
+/// How Sayql uses one AI provider.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProviderSettings {
+    /// Empty means the provider's usual address.
+    #[serde(default)]
+    pub base_url: String,
+    #[serde(default)]
+    pub typing_model: String,
+    /// Empty means the typing model does fixes and improvements too.
+    #[serde(default)]
+    pub expert_model: String,
+}
+
+impl ProviderSettings {
+    pub fn model(&self, expert: bool) -> &str {
+        if expert && !self.expert_model.is_empty() { &self.expert_model } else { &self.typing_model }
+    }
+}
+
+impl Settings {
+    /// Claude's choices live in the top-level fields, which predate other providers.
+    pub fn provider_settings(&self, id: &str) -> ProviderSettings {
+        if id == crate::ai::ANTHROPIC {
+            ProviderSettings { base_url: String::new(), typing_model: self.typing_model.clone(), expert_model: self.expert_model.clone() }
+        } else {
+            self.providers.get(id).cloned().unwrap_or_default()
+        }
+    }
+
+    pub fn set_provider_settings(&mut self, id: &str, p: ProviderSettings) {
+        if id == crate::ai::ANTHROPIC {
+            self.typing_model = p.typing_model;
+            self.expert_model = p.expert_model;
+        } else {
+            self.providers.insert(id.to_string(), p);
+        }
+    }
+}
+
+fn default_provider() -> String {
+    crate::ai::ANTHROPIC.to_string()
 }
 
 fn default_typing_model() -> String {
@@ -57,8 +108,10 @@ fn default_expert_model() -> String {
 impl Default for Settings {
     fn default() -> Self {
         Settings {
+            provider: default_provider(),
             typing_model: default_typing_model(),
             expert_model: default_expert_model(),
+            providers: BTreeMap::new(),
             demo_added: false,
             workspace_id: String::new(),
         }
@@ -138,6 +191,23 @@ impl Store {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn settings_saved_before_other_providers_still_read_as_claude() {
+        let s: Settings = serde_json::from_str(r#"{"typingModel":"claude-sonnet-5-5","expertModel":"claude-opus-5-5"}"#).unwrap();
+        assert_eq!(s.provider, "anthropic");
+        assert_eq!(s.provider_settings("anthropic").model(false), "claude-sonnet-5-5");
+        assert_eq!(s.provider_settings("ollama"), ProviderSettings::default());
+    }
+
+    #[test]
+    fn an_empty_expert_model_falls_back_to_the_typing_model() {
+        let mut s = Settings::default();
+        s.set_provider_settings("ollama", ProviderSettings { typing_model: "qwen3".into(), ..Default::default() });
+        let p = s.provider_settings("ollama");
+        assert_eq!((p.model(false), p.model(true)), ("qwen3", "qwen3"));
+        assert_eq!(s.typing_model, crate::ai::DEFAULT_TYPING_MODEL, "Claude's choice is untouched");
+    }
 
     #[test]
     fn copies_pre_rename_data_once_without_overwriting() {

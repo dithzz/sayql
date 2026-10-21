@@ -63,14 +63,50 @@ export interface ModelOption {
   label: string;
 }
 
+/** An AI service that can write SQL; mirrors `ProviderView` in src-tauri/src/commands/settings.rs. */
+export interface AiProvider {
+  id: string;
+  label: string;
+  note: string;
+  /** Claude's own API, or the OpenAI-compatible API every other provider speaks. */
+  api: "anthropic" | "openai";
+  key: "required" | "optional" | "none";
+  keyPlaceholder: string;
+  /** Runs on this computer, so nothing is sent over the internet. */
+  local: boolean;
+  /** Empty when the person must enter one. */
+  defaultBaseUrl: string;
+  /** Empty means the default. */
+  baseUrl: string;
+  typingModel: string;
+  /** Empty means the typing model does fixes too. */
+  expertModel: string;
+  hasKey: boolean;
+}
+
 export interface Settings {
+  /** The provider that writes SQL. */
+  provider: string;
   /** Writes SQL while the person types. */
   typingModel: string;
   /** Fixes rejected queries and improves queries on request. */
   expertModel: string;
-  hasApiKey: boolean;
+  /** The provider has what it needs (key, model) to write SQL. */
+  aiReady: boolean;
   workspaceId: string;
+  /** Claude's models. */
   models: ModelOption[];
+  providers: AiProvider[];
+}
+
+/** What Settings saves for one provider. `apiKey: null` keeps the saved key. */
+export interface ProviderChoice {
+  provider: string;
+  typingModel: string;
+  expertModel: string;
+  baseUrl: string;
+  apiKey: string | null;
+  workspaceId: string;
 }
 
 export interface DatabaseList {

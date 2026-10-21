@@ -10,10 +10,10 @@ export interface StatusBarProps {
   schema: Schema | null;
   loading: boolean;
   modelNames: ModelNames;
-  hasApiKey: boolean;
+  aiReady: boolean;
 }
 
-export function StatusBar({ active, databaseName, schema, loading, modelNames, hasApiKey }: StatusBarProps) {
+export function StatusBar({ active, databaseName, schema, loading, modelNames, aiReady }: StatusBarProps) {
   const columns = schema?.tables.reduce((n, t) => n + t.columns.length, 0) ?? 0;
   const state = !active ? "Not connected" : loading ? "Connecting…" : schema ? "Connected" : "Disconnected";
   return (
@@ -32,7 +32,7 @@ export function StatusBar({ active, databaseName, schema, loading, modelNames, h
       <span className={styles.spacer} />
       <span className={styles.statusItem}>
         <Sparkles size={11} />
-        {hasApiKey ? `${modelNames.typing} while typing · ${modelNames.expert} for fixes` : "AI off — add an API key in Settings"}
+        {aiReady ? `${modelNames.typing} while typing · ${modelNames.expert} for fixes` : "AI off — set up an AI provider in Settings"}
       </span>
     </footer>
   );

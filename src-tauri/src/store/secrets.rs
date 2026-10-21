@@ -48,11 +48,20 @@ pub fn set_password(conn_id: &str, password: &str) -> AppResult<()> {
     set(&connection_account(conn_id), password)
 }
 
-/// The keychain entry wins; `ANTHROPIC_API_KEY` is a fallback for development.
-pub fn api_key() -> Option<String> {
-    get(API_KEY_ACCOUNT).or_else(|| std::env::var("ANTHROPIC_API_KEY").ok().filter(|s| !s.is_empty()))
+/// Claude's key keeps the account name it had before other providers were added.
+fn api_key_account(provider: &str) -> String {
+    if provider == crate::ai::ANTHROPIC { API_KEY_ACCOUNT.to_string() } else { format!("api-key:{provider}") }
 }
 
-pub fn set_api_key(key: &str) -> AppResult<()> {
-    set(API_KEY_ACCOUNT, key.trim())
+/// The AI provider's API key. For Claude, `ANTHROPIC_API_KEY` is a fallback for development.
+pub fn api_key(provider: &str) -> Option<String> {
+    let saved = get(&api_key_account(provider));
+    if provider != crate::ai::ANTHROPIC {
+        return saved;
+    }
+    saved.or_else(|| std::env::var("ANTHROPIC_API_KEY").ok().filter(|s| !s.is_empty()))
+}
+
+pub fn set_api_key(provider: &str, key: &str) -> AppResult<()> {
+    set(&api_key_account(provider), key.trim())
 }

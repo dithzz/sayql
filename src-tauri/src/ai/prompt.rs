@@ -1,7 +1,6 @@
 //! The English → SQL prompt.
 
 use serde::Deserialize;
-use serde_json::{Value, json};
 
 const INSTRUCTIONS: &str = "You turn a person's plain-English request into one {DIALECT} query for the database described below. \
 The person is usually not a developer, so infer what they mean.
@@ -65,8 +64,19 @@ fn tagged(tag: &str, body: &str) -> String {
     format!("<{tag}>\n{}\n</{tag}>", body.trim())
 }
 
+/// The instructions, for the given SQL dialect.
+pub(super) fn instructions(dialect: &str) -> String {
+    INSTRUCTIONS.replace("{DIALECT}", dialect)
+}
+
+/// The schema, as sent after the instructions. Identical across keystrokes for a
+/// connection, so providers with prompt caching only process the short request fresh.
+pub(super) fn schema_block(dialect: &str, schema_text: &str) -> String {
+    format!("<schema dialect=\"{dialect}\">\n{schema_text}\n</schema>")
+}
+
 /// The user turn for a task.
-fn user_message(question: &str, task: &Task) -> String {
+pub(super) fn user_message(question: &str, task: &Task) -> String {
     let request = if question.trim().is_empty() { "(not stated; infer it from the query)" } else { question.trim() };
     match task {
         Task::Draft { previous } => match previous.as_ref().filter(|p| !p.sql.trim().is_empty()) {
@@ -91,27 +101,6 @@ fn user_message(question: &str, task: &Task) -> String {
             tagged("current_query", sql)
         ),
     }
-}
-
-/// The Messages API body (without model-specific options) for one request.
-pub(super) fn request_body(model: &str, dialect: &str, schema_text: &str, question: &str, task: &Task) -> Value {
-    json!({
-        "model": model,
-        "max_tokens": 16000,
-        "stream": true,
-        "system": [
-            { "type": "text", "text": INSTRUCTIONS.replace("{DIALECT}", dialect) },
-            // The schema is identical across keystrokes for a connection, so it is cached
-            // and only the short request is processed fresh each time.
-            {
-                "type": "text",
-                "text": format!("<schema dialect=\"{dialect}\">\n{schema_text}\n</schema>"),
-                "cache_control": { "type": "ephemeral", "ttl": "1h" }
-            }
-        ],
-        "messages": [{ "role": "user", "content": user_message(question, task) }],
-        "output_config": { "effort": task.effort() },
-    })
 }
 
 #[cfg(test)]

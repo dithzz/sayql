@@ -11,7 +11,8 @@ impl SseParser {
     /// Feeds a chunk and returns the payloads of every event it completed.
     /// Events may be split across chunks at any byte, including inside UTF-8 sequences.
     pub fn push(&mut self, chunk: &[u8]) -> Vec<Value> {
-        self.buf.extend_from_slice(chunk);
+        // Some servers end lines with CRLF; a CR inside a JSON payload is always escaped.
+        self.buf.extend(chunk.iter().filter(|&&b| b != b'\r'));
         let mut out = Vec::new();
         // Events are separated by a blank line.
         while let Some(end) = self.buf.windows(2).position(|w| w == b"\n\n").map(|p| p + 2) {
@@ -45,6 +46,13 @@ mod tests {
         assert_eq!(got.len(), 2);
         assert_eq!(got[0]["t"], "é");
         assert_eq!(got[1]["type"], "y");
+    }
+
+    #[test]
+    fn accepts_crlf_line_endings_and_skips_done() {
+        let mut p = SseParser::default();
+        let got = p.push(b"data: {\"choices\":[]}\r\n\r\ndata: [DONE]\r\n\r\n");
+        assert_eq!(got.len(), 1);
     }
 
     #[test]

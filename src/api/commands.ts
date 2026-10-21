@@ -8,6 +8,7 @@ import type {
   QueryResult,
   Script,
   Schema,
+  ProviderChoice,
   Settings,
   Target,
 } from "./types";
@@ -42,6 +43,9 @@ export const commands = {
 
   mcpSetup: () => invoke<McpSetup>("mcp_setup"),
 
-  saveSettings: (typingModel: string, expertModel: string, apiKey: string | null, workspaceId: string) =>
-    invoke<Settings>("save_settings", { typingModel, expertModel, apiKey, workspaceId }),
+  /** Saves the choices for one provider and makes it the one that writes SQL. */
+  saveSettings: (choice: ProviderChoice) => invoke<Settings>("save_settings", { ...choice }),
+  /** Model ids an AI provider offers; also checks the key and base URL. */
+  listModels: (provider: string, baseUrl: string, apiKey: string | null) =>
+    invoke<string[]>("list_models", { provider, baseUrl, apiKey }),
 };

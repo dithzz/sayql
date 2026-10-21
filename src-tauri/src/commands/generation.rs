@@ -1,9 +1,8 @@
-use super::settings::valid_workspace_id;
+use super::settings::endpoint;
 use crate::ai::{self, GenRequest, Task};
 use crate::error::AppResult;
 use crate::schema::{self, Schema};
 use crate::state::{AppState, Target};
-use crate::store::secrets;
 use tauri::{AppHandle, State};
 
 /// Starts streaming SQL for `question`; results arrive as `ai://` events tagged with `req_id`.
@@ -22,13 +21,11 @@ pub fn generate_sql(
     focus_tables: Option<Vec<String>>,
 ) -> AppResult<()> {
     let live = state.schema(&Target::new(id, database))?;
-    let api_key = secrets::api_key().ok_or("Add your Claude API key in Settings to generate SQL.")?;
     let settings = state.store.settings();
     let request = GenRequest {
         req_id,
-        api_key,
-        workspace_id: Some(valid_workspace_id(&settings.workspace_id)?).filter(|w| !w.is_empty()),
-        model: if task.needs_expert() { settings.expert_model } else { settings.typing_model },
+        endpoint: endpoint(&settings)?,
+        model: settings.provider_settings(&settings.provider).model(task.needs_expert()).to_string(),
         dialect: live.schema.dialect.clone(),
         schema_text: schema_text(&live.schema, &live.schema_text, &question, &task, focus_tables.as_deref().unwrap_or(&[])),
         question,

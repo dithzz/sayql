@@ -36,8 +36,8 @@ export function ClaudeIntegration() {
   return (
     <div className={styles.section}>
       <p className={styles.intro}>
-        Let Claude list your connections, read schemas and run <strong>read-only</strong> queries. Anything that could
-        change data is refused. Query results are sent to Claude.
+        Let Claude, Cursor or any other MCP app list your connections, read schemas and run <strong>read-only</strong>
+        queries. Anything that could change data is refused. Query results are sent to that app.
       </p>
       {!setup.exists && (
         <Alert tone="warning">The MCP server isn&apos;t built yet. Run `cargo build --bin sayql-mcp` in src-tauri.</Alert>

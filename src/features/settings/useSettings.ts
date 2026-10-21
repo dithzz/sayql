@@ -8,8 +8,12 @@ export interface ModelNames {
 }
 
 function shortName(settings: Settings, id: string): string {
-  const label = settings.models.find((m) => m.id === id)?.label ?? id;
-  return label.split(" — ")[0].replace(/^Claude /, "");
+  if (settings.provider === "anthropic") {
+    const label = settings.models.find((m) => m.id === id)?.label ?? id;
+    return label.split(" — ")[0].replace(/^Claude /, "");
+  }
+  // "openai/gpt-x" (OpenRouter) and "models/gemini-x" (Gemini) read better without the prefix.
+  return id.slice(id.lastIndexOf("/") + 1);
 }
 
 /** App settings, initialised from the bootstrap payload and replaced when the dialog saves. */

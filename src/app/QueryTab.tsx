@@ -33,7 +33,7 @@ export function QueryTab({ tab, active, label, schema, settings, modelNames, onC
   const autoFixUsed = useRef(false);
 
   const query = useQueryRunner(tab.target, (sql, error) => {
-    if (autoFixUsed.current || !settings.hasApiKey || !generation.question.trim()) return;
+    if (autoFixUsed.current || !settings.aiReady || !generation.question.trim()) return;
     autoFixUsed.current = true;
     generation.fix(sql, error);
   });
@@ -49,8 +49,8 @@ export function QueryTab({ tab, active, label, schema, settings, modelNames, onC
     target: tab.target,
     slot: tab.id,
     schema,
-    typingModel: settings.typingModel,
-    hasApiKey: settings.hasApiKey,
+    typingModel: `${settings.provider}:${settings.typingModel}`,
+    aiReady: settings.aiReady,
     initialQuestion: tab.question,
     previous: lastRun,
     // Hidden picks stay selected but don't reach the AI.
@@ -79,7 +79,7 @@ export function QueryTab({ tab, active, label, schema, settings, modelNames, onC
   }, [active, schema]);
 
   const busy = generation.status.kind === "writing";
-  const canUseAi = settings.hasApiKey && !!schema;
+  const canUseAi = settings.aiReady && !!schema;
   const autoFixFailed = autoFixUsed.current && !busy && !!query.error;
 
   return (

@@ -1,6 +1,6 @@
 # Architecture
 
-Sayql is a Tauri 2 desktop app: a React + TypeScript UI (`src/`) on top of a Rust backend (`src-tauri/`). The UI never talks to a database or the Claude API directly; it calls typed Tauri commands.
+Sayql is a Tauri 2 desktop app: a React + TypeScript UI (`src/`) on top of a Rust backend (`src-tauri/`). The UI never talks to a database or an AI provider directly; it calls typed Tauri commands.
 
 ## Frontend layout (`src/`)
 
@@ -68,10 +68,13 @@ src-tauri/src/
     demo.rs, demo.sql   the bundled demo database
     tests.rs            SQLite end-to-end tests
     integration_tests.rs  PostgreSQL/MySQL/SQL Server tests (opt-in via env vars, see README)
-  ai/                   Claude Messages API, no knowledge of Tauri commands
-    mod.rs              stream_sql + event payloads, API error messages
-    models.rs           offered models and per-model request options
-    prompt.rs           the English → SQL prompt
+  ai/                   English → SQL over any AI provider, no knowledge of Tauri commands
+    mod.rs              stream_sql (picks the client per Endpoint) + event payloads
+    providers.rs        the provider catalog: Claude plus OpenAI-compatible presets
+    anthropic.rs        Claude Messages API, prompt caching, API error messages
+    openai.rs           OpenAI-compatible Chat Completions (OpenAI, Gemini, Ollama, …), model lists
+    models.rs           Claude's models and per-model request options
+    prompt.rs           the English → SQL prompt, shared by every provider
     sse.rs              server-sent-event parser
   schema/               schema model (mod.rs) and compact prompt rendering (render.rs)
   store/                settings/connections JSON (mod.rs) and keychain secrets (secrets.rs)

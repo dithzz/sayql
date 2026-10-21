@@ -4,18 +4,18 @@ An AI-first desktop database client. Type what you want in plain English; SQL ap
 
 - **Databases:** PostgreSQL, MySQL / MariaDB, SQLite, Microsoft SQL Server / Azure SQL
 - **Stack:** Tauri 2 (Rust) + React + Monaco editor. Database drivers are `sqlx` and `tiberius` (SQL Server). All dependencies are MIT/Apache-2.0 licensed, so the app can be sold as a closed-source product.
-- **AI:** Claude API (Opus 5.5 by default; Sonnet 5.5 / Haiku 5.5 selectable in Settings).
+- **AI:** any provider. Claude is built in (Haiku 5.5 drafts, Opus 5.5 fixes, by default). OpenAI, Google Gemini, OpenRouter, Mistral, Groq, DeepSeek, Ollama, LM Studio and any other OpenAI-compatible API (with its base URL) work through one client. Ollama and LM Studio run on your computer, so nothing leaves it.
 
 ## How it stays fast
 
 1. The schema is read once on connect and cached.
 2. Simple requests ("show customers", "how many orders", "latest 20 reviews") are answered instantly from the schema with no AI call (`src/features/ask/fastPath.ts`).
 3. Repeated questions are served from an in-memory cache.
-4. Everything else goes to Claude 250 ms after you stop typing. The schema sits in a prompt-cached system block, so only your question is processed fresh. The SQL streams into the editor, and each new keystroke cancels the request before it.
+4. Everything else goes to the AI provider 250 ms after you stop typing. The schema sits in a fixed prefix (a cached system block on Claude; automatic prefix caching where the provider has it), so only your question is processed fresh. The SQL streams into the editor, and each new keystroke cancels the request before it.
 
 ## Safety
 
-- Only the schema (table/column names, types, keys, enum values) and your question are sent to Claude. Table data never is.
+- Only the schema (table/column names, types, keys, enum values) and your question are sent to the AI provider you chose. Table data never is. API keys live in the OS keychain, one entry per provider.
 - A statement counts as read-only only if it starts with a reading keyword and contains no write keyword (outside strings and comments). Everything else needs confirmation.
 - Read queries also run inside a read-only transaction (`BEGIN READ ONLY` / `START TRANSACTION READ ONLY`) or, for SQLite, on a connection opened read-only, so the database itself rejects writes. SQL Server has no read-only mode: reads run in a transaction that is always rolled back. For production SQL Servers, connect with a login that only has `db_datareader`.
 - INSERT/UPDATE/DELETE/DDL require an explicit confirmation.
@@ -75,3 +75,7 @@ cargo test --lib integration
 ```
 
 The URLs take the form `scheme://user:password@host:port/database` (no percent-encoding). The tests drop and recreate the Postgres schemas `sayql_it` and `sayql_it_inv` and the MySQL and SQL Server databases `sayql_it`, so use throwaway servers. MySQL needs a few seconds after `docker run` before it accepts connections.
+
+## License
+
+Sayql Community Edition is free for personal and commercial use, under the terms in [LICENSE.md](LICENSE.md). [PRIVACY.md](PRIVACY.md) says what Sayql sends and where. Open-source components are credited in `THIRD-PARTY-NOTICES.txt`; regenerate it before each release with `python3 scripts/third_party_notices.py`. All three files ship inside the app bundle.

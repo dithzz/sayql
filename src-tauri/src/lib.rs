@@ -38,6 +38,7 @@ pub fn run() {
             generation::generate_sql,
             generation::cancel_generation,
             settings::save_settings,
+            settings::list_models,
             settings::mcp_setup,
         ])
         .run(tauri::generate_context!())

@@ -302,7 +302,7 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
         schema={schema}
         loading={loading}
         modelNames={modelNames}
-        hasApiKey={settings.hasApiKey}
+        aiReady={settings.aiReady}
       />
 
       {dialog?.kind === "connection" && (

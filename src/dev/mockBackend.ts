@@ -2,7 +2,7 @@
 // for design work without the Rust backend. Never loaded inside the Tauri app.
 import { emit } from "@tauri-apps/api/event";
 import { mockIPC } from "@tauri-apps/api/mocks";
-import type { Bootstrap, QueryResult, Schema, Settings, Table } from "../api";
+import type { AiProvider, Bootstrap, QueryResult, Schema, Settings, Table } from "../api";
 
 const col = (name: string, data_type: string, primary_key = false) => ({
   name,
@@ -40,15 +40,52 @@ const schema: Schema = {
   ],
 };
 
+const provider = (id: string, label: string, extra: Partial<AiProvider> = {}): AiProvider => ({
+  id,
+  label,
+  note: "",
+  api: "openai",
+  key: "required",
+  keyPlaceholder: "",
+  local: false,
+  defaultBaseUrl: `https://api.${id}.example/v1`,
+  baseUrl: "",
+  typingModel: "",
+  expertModel: "",
+  hasKey: false,
+  ...extra,
+});
+
 const settings: Settings = {
+  provider: "anthropic",
   typingModel: "claude-haiku-5-5",
   expertModel: "claude-opus-5-5",
-  hasApiKey: true,
+  aiReady: true,
   workspaceId: "",
   models: [
     { id: "claude-opus-5-5", label: "Claude Opus 5.5 — most accurate" },
     { id: "claude-sonnet-5-5", label: "Claude Sonnet 5.5 — balanced" },
     { id: "claude-haiku-5-5", label: "Claude Haiku 5.5 — fastest" },
+  ],
+  providers: [
+    provider("anthropic", "Anthropic Claude", {
+      api: "anthropic",
+      note: "Recommended. Tuned for Sayql, with prompt caching for fast drafts.",
+      keyPlaceholder: "sk-ant-…",
+      defaultBaseUrl: "https://api.anthropic.com",
+      typingModel: "claude-haiku-5-5",
+      expertModel: "claude-opus-5-5",
+      hasKey: true,
+    }),
+    provider("openai", "OpenAI", { note: "GPT models with an OpenAI API key.", keyPlaceholder: "sk-…" }),
+    provider("gemini", "Google Gemini", { note: "Gemini models with a Google AI Studio key.", keyPlaceholder: "AIza…" }),
+    provider("ollama", "Ollama", {
+      note: "Runs on this computer. Nothing leaves your machine.",
+      key: "none",
+      local: true,
+      defaultBaseUrl: "http://localhost:11434/v1",
+    }),
+    provider("custom", "Other (OpenAI-compatible)", { note: "Any server with an OpenAI-compatible API.", key: "optional", defaultBaseUrl: "" }),
   ],
 };
 
@@ -145,8 +182,22 @@ export function installMockBackend() {
           return "Connected. Found 6 tables and views.";
         case "save_connection":
           return { ...(a.config as object), id: (a.config as { id: string }).id || crypto.randomUUID() };
-        case "save_settings":
-          return { ...settings, typingModel: a.typingModel, expertModel: a.expertModel, workspaceId: a.workspaceId };
+        case "save_settings": {
+          const id = a.provider as string;
+          const providers = settings.providers.map((p) =>
+            p.id === id ? { ...p, typingModel: a.typingModel as string, expertModel: a.expertModel as string, baseUrl: a.baseUrl as string, hasKey: p.hasKey || !!a.apiKey } : p,
+          );
+          Object.assign(settings, {
+            provider: id,
+            typingModel: a.typingModel,
+            expertModel: (a.expertModel as string) || a.typingModel,
+            workspaceId: a.workspaceId,
+            providers,
+          });
+          return { ...settings };
+        }
+        case "list_models":
+          return a.provider === "ollama" ? ["llama3.3:70b", "qwen3:32b", "sqlcoder:15b"] : ["model-small", "model-large"];
         default:
           return null;
       }

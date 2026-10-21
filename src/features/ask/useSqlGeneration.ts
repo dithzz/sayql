@@ -24,9 +24,9 @@ export interface SqlGenerationOptions {
   /** Cancellation scope on the backend; the tab id. */
   slot: string;
   schema: Schema | null;
-  /** The model that drafts while typing; part of the answer cache key. */
+  /** The provider and model that draft while typing; part of the answer cache key. */
   typingModel: string;
-  hasApiKey: boolean;
+  aiReady: boolean;
   initialQuestion?: string;
   onQuestionChange?: (question: string) => void;
   /** The query last run in the tab; follow-up drafts are asked to edit it. */
@@ -90,11 +90,11 @@ export function useSqlGeneration(options: SqlGenerationOptions) {
 
   const start = useCallback(
     (q: string, task: GenerationTask) => {
-      const { target, hasApiKey, slot } = opts.current;
+      const { target, aiReady, slot } = opts.current;
       clearDebounce();
       if (!target) return;
-      if (!hasApiKey) {
-        fail("Add your Claude API key in Settings to turn English into SQL.");
+      if (!aiReady) {
+        fail("Set up an AI provider in Settings to turn English into SQL.");
         return;
       }
       const id = ++lastRequestId;
@@ -201,9 +201,9 @@ export function useSqlGeneration(options: SqlGenerationOptions) {
 
   // An API key was just added: retry the request that was waiting for it.
   useEffect(() => {
-    if (options.hasApiKey && statusRef.current.kind === "error" && statusRef.current.fixInSettings) retry();
+    if (options.aiReady && statusRef.current.kind === "error" && statusRef.current.fixInSettings) retry();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [options.hasApiKey]);
+  }, [options.aiReady]);
 
   return { question, setQuestion, status, requestRun, fix, improve, retry };
 }
