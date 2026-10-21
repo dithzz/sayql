@@ -18,12 +18,14 @@ export interface TreeRowProps {
   /** The row's main action; receives the event for modifier keys (⌘/⇧ multi-select). */
   onClick?: (e: MouseEvent) => void;
   onDoubleClick?: () => void;
+  /** Right-click; open a context menu here. */
+  onContextMenu?: (e: MouseEvent) => void;
   /** When set, the caret expands/collapses on its own and the row click does something else. */
   onToggle?: () => void;
 }
 
 /** One row of a navigator tree. Indentation and caret come from `depth` and `expanded`. */
-export function TreeRow({ depth, label, icon, expanded, selected, meta, actions, title, onClick, onDoubleClick, onToggle }: TreeRowProps) {
+export function TreeRow({ depth, label, icon, expanded, selected, meta, actions, title, onClick, onDoubleClick, onContextMenu, onToggle }: TreeRowProps) {
   return (
     <div
       className={cx(styles.row, selected && styles.selected)}
@@ -34,6 +36,7 @@ export function TreeRow({ depth, label, icon, expanded, selected, meta, actions,
       title={title}
       onClick={onClick}
       onDoubleClick={onDoubleClick}
+      onContextMenu={onContextMenu}
     >
       <span
         className={styles.caret}

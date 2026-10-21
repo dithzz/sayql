@@ -1,25 +1,32 @@
 import { useMemo, useRef, useState, type MouseEvent } from "react";
 import {
+  Copy,
   Database,
   Eye,
   FileCode2,
+  FilePlus2,
   Folder,
+  FolderOpen,
+  Hash,
   KeyRound,
   Link2,
   Pencil,
+  Plug,
   Plus,
   RefreshCw,
   Search,
   Server,
+  Sparkles,
   Table2,
   Trash2,
   Type,
+  Wand2,
 } from "lucide-react";
 import type { ConnectionConfig, DatabaseList, Schema, Table } from "../../api";
-import { IconButton, Panel, Spinner, TextInput, TreeRow } from "../../components/ui";
+import { ContextMenu, IconButton, Panel, Spinner, TextInput, TreeRow, useContextMenu, type MenuEntry } from "../../components/ui";
 import { cx } from "../../lib/cx";
 import { DATABASE_KINDS } from "../connections/kinds";
-import { qualifiedName } from "../schema/sql";
+import { countRowsSql, qualifiedName, tableRef, templateSql, type SqlTemplate } from "../schema/sql";
 import styles from "./DatabaseNavigator.module.css";
 
 export interface DatabaseNavigatorProps {
@@ -35,9 +42,15 @@ export interface DatabaseNavigatorProps {
   onOpenDatabase: (database: string) => void;
   onAdd: () => void;
   onEdit: (c: ConnectionConfig) => void;
+  /** Asks before deleting the connection. */
+  onDeleteConnection: (c: ConnectionConfig) => void;
   onRefresh: () => void;
   /** Double-click on a table. */
   onPreviewTable: (t: Table) => void;
+  /** A new SQL tab on the connection's database (`null`: its default database). */
+  onNewTab: (connectionId: string, database: string | null) => void;
+  /** Opens `sql` in a new tab on the open database; `run` runs it straight away (read-only SQL only). */
+  onOpenSql: (title: string, sql: string, run: boolean) => void;
   /** Tables picked as AI context (qualified names). */
   selectedTables: string[];
   onSelectTables: (names: string[]) => void;
@@ -91,6 +104,79 @@ export function DatabaseNavigator(p: DatabaseNavigatorProps) {
     }
   };
 
+  const menu = useContextMenu();
+  const copy = (text: string) => void navigator.clipboard?.writeText(text);
+
+  const connectionMenu = (c: ConnectionConfig): MenuEntry[] => {
+    const active = c.id === p.activeId;
+    return [
+      { label: active ? "Connected" : "Connect", icon: Plug, disabled: active, onSelect: () => p.onOpen(c.id) },
+      { label: "New SQL tab", icon: FilePlus2, shortcut: active ? "⌘T" : undefined, onSelect: () => p.onNewTab(c.id, null) },
+      { label: "Refresh", icon: RefreshCw, disabled: !active || p.loading, onSelect: p.onRefresh },
+      "separator",
+      { label: "Edit connection…", icon: Pencil, onSelect: () => p.onEdit(c) },
+      { label: "Copy name", icon: Copy, onSelect: () => copy(c.name) },
+      "separator",
+      { label: "Delete connection…", icon: Trash2, danger: true, onSelect: () => p.onDeleteConnection(c) },
+    ];
+  };
+
+  const databaseMenu = (c: ConnectionConfig, name: string): MenuEntry[] => {
+    const current = name === p.databaseName;
+    return [
+      { label: current ? "Open" : "Open database", icon: FolderOpen, disabled: current, onSelect: () => p.onOpenDatabase(name) },
+      { label: "New SQL tab", icon: FilePlus2, onSelect: () => p.onNewTab(c.id, name) },
+      { label: "Refresh", icon: RefreshCw, disabled: !current || p.loading, onSelect: p.onRefresh },
+      "separator",
+      { label: "Copy name", icon: Copy, onSelect: () => copy(name) },
+    ];
+  };
+
+  const tableMenu = (t: Table): MenuEntry[] => {
+    const dialect = p.schema!.dialect;
+    const key = qualifiedName(t);
+    const picked = p.selectedTables.includes(key);
+    const template = (kind: SqlTemplate, label: string): MenuEntry => ({
+      label,
+      onSelect: () => p.onOpenSql(`${label} ${t.name}`, templateSql(t, dialect, kind), false),
+    });
+    return [
+      { label: "View data", icon: Table2, onSelect: () => p.onPreviewTable(t) },
+      { label: "Count rows", icon: Hash, onSelect: () => p.onOpenSql(`Count ${t.name}`, countRowsSql(t, dialect), true) },
+      {
+        label: "Generate SQL",
+        icon: Wand2,
+        // Views are usually read-only, so they only offer SELECT.
+        submenu:
+          t.kind === "view"
+            ? [template("select", "SELECT")]
+            : [template("select", "SELECT"), template("insert", "INSERT"), template("update", "UPDATE"), template("delete", "DELETE")],
+      },
+      "separator",
+      {
+        label: picked ? "Remove from AI context" : "Add to AI context",
+        icon: Sparkles,
+        onSelect: () => p.onSelectTables(picked ? p.selectedTables.filter((k) => k !== key) : [...p.selectedTables, key]),
+      },
+      { label: "Copy name", icon: Copy, onSelect: () => copy(t.name) },
+      { label: "Copy as SQL reference", onSelect: () => copy(tableRef(t, dialect)) },
+      "separator",
+      { label: "Refresh", icon: RefreshCw, disabled: p.loading, onSelect: p.onRefresh },
+    ];
+  };
+
+  const columnMenu = (t: Table, column: string): MenuEntry[] => [
+    { label: "Copy name", icon: Copy, onSelect: () => copy(column) },
+    { label: "Copy with table name", onSelect: () => copy(`${t.name}.${column}`) },
+  ];
+
+  const scriptMenu = (sc: NavigatorScript): MenuEntry[] => [
+    { label: "Open", icon: FolderOpen, disabled: sc.orphaned, onSelect: () => p.onOpenScript(sc.id) },
+    { label: "Copy name", icon: Copy, onSelect: () => copy(sc.name) },
+    "separator",
+    { label: "Delete script…", icon: Trash2, danger: true, onSelect: () => p.onDeleteScript(sc.id) },
+  ];
+
   const toggle = (set: Set<string>, key: string) => {
     const next = new Set(set);
     next.has(key) ? next.delete(key) : next.add(key);
@@ -114,6 +200,7 @@ export function DatabaseNavigator(p: DatabaseNavigatorProps) {
           onClick={(e) => select(key, e)}
           onToggle={() => setExpandedTables((s) => toggle(s, key))}
           onDoubleClick={() => p.onPreviewTable(t)}
+          onContextMenu={(e) => menu.open(e, tableMenu(t))}
         />
         {open &&
           t.columns.map((c) => {
@@ -133,6 +220,7 @@ export function DatabaseNavigator(p: DatabaseNavigatorProps) {
                 label={<span className={styles.mono}>{c.name}</span>}
                 meta={c.data_type}
                 title={fk ? `References ${fk.ref_table}.${fk.ref_column}` : c.nullable ? "Nullable" : "Not null"}
+                onContextMenu={(e) => menu.open(e, columnMenu(t, c.name))}
               />
             );
           })}
@@ -197,6 +285,7 @@ export function DatabaseNavigator(p: DatabaseNavigatorProps) {
                   meta={current && p.loading ? <Spinner size={12} /> : undefined}
                   title={current ? undefined : "Open this database"}
                   onClick={() => p.onOpenDatabase(name)}
+                  onContextMenu={(e) => menu.open(e, databaseMenu(c, name))}
                 />
                 {current && renderSchema(`${c.id}/${name}`, 3)}
               </div>
@@ -247,6 +336,7 @@ export function DatabaseNavigator(p: DatabaseNavigatorProps) {
                 meta={active && p.loading && !list ? <Spinner size={12} /> : DATABASE_KINDS[c.kind].short}
                 actions={<IconButton icon={Pencil} label="Edit connection" size="sm" onClick={() => p.onEdit(c)} />}
                 onClick={() => p.onOpen(c.id)}
+                onContextMenu={(e) => menu.open(e, connectionMenu(c))}
               />
               {/* Servers list their databases; SQLite (or a server that won't list them) shows the schema directly. */}
               {active && (list ? renderDatabases(c, list) : renderSchema(c.id, 1))}
@@ -274,12 +364,14 @@ export function DatabaseNavigator(p: DatabaseNavigatorProps) {
                   meta={s.orphaned ? "connection removed" : s.location}
                   title={s.orphaned ? "Its connection was deleted" : `Open ${s.name}`}
                   onClick={() => !s.orphaned && p.onOpenScript(s.id)}
+                  onContextMenu={(e) => menu.open(e, scriptMenu(s))}
                   actions={<IconButton icon={Trash2} label={`Delete ${s.name}`} size="sm" onClick={() => p.onDeleteScript(s.id)} />}
                 />
               ))}
           </div>
         )}
       </div>
+      {menu.menu && <ContextMenu at={menu.menu.at} items={menu.menu.items} onClose={menu.close} />}
     </Panel>
   );
 }

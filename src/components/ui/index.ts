@@ -11,3 +11,5 @@ export type { Tone } from "./Feedback";
 export { TabBar } from "./TabBar";
 export type { TabItem } from "./TabBar";
 export { ErrorBoundary } from "./ErrorBoundary";
+export { ContextMenu, useContextMenu } from "./ContextMenu";
+export type { MenuEntry, MenuPosition } from "./ContextMenu";

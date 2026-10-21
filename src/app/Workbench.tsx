@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Database, FileCode2, Server, Table2 } from "lucide-react";
-import type { Bootstrap, ConnectionConfig, Script, Table, Target } from "../api";
+import { commands, type Bootstrap, type ConnectionConfig, type Script, type Table, type Target } from "../api";
 import { Alert, Button, Dialog, EmptyState, ErrorBoundary, SplitPane, TabBar, type TabItem } from "../components/ui";
 import { ConnectionDialog, DATABASE_KINDS, newConnection, targetKey, useConnections } from "../features/connections";
 import { DatabaseNavigator, type NavigatorScript } from "../features/navigator";
@@ -19,6 +19,7 @@ type OpenDialog =
   | { kind: "settings" }
   | { kind: "saveScript"; tabId: string; closeAfter: boolean }
   | { kind: "closeTab"; tabId: string }
+  | { kind: "deleteConnection"; connection: ConnectionConfig }
   | { kind: "deleteScript"; script: Script }
   | null;
 
@@ -145,6 +146,16 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
     tabs.open(target, { title: t.name, sql, savedSql: sql, autoRun: true });
   };
 
+  /** SQL from the navigator in a new tab on the open database; only read-only SQL is run straight away. */
+  const openSql = (title: string, sql: string, run: boolean) => {
+    if (target) tabs.open(target, { title, sql, savedSql: sql, autoRun: run });
+  };
+
+  const forgetConnection = (id: string) => {
+    conn.remove(id);
+    tabs.closeWhere((t) => t.target.connectionId === id);
+  };
+
   const tabLabel = (t: EditorTab) => {
     const c = conn.connection(t.target.connectionId);
     const db = c?.kind === "sqlite" ? null : conn.databaseName(t.target);
@@ -229,8 +240,14 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
               onOpenDatabase={(database) => active && showTarget({ connectionId: active.id, database })}
               onAdd={openNewConnection}
               onEdit={(c) => setDialog({ kind: "connection", config: c })}
+              onDeleteConnection={(c) => setDialog({ kind: "deleteConnection", connection: c })}
               onRefresh={() => target && conn.ensure(target, true)}
               onPreviewTable={previewTable}
+              onNewTab={(connectionId, database) => {
+                const c = conn.connection(connectionId);
+                if (c) tabs.open({ connectionId, database: database ?? (c.database.trim() || null) });
+              }}
+              onOpenSql={openSql}
               selectedTables={tabs.active?.focusTables ?? []}
               // A new pick is meant to be used, so it switches a hidden selection back on.
               onSelectTables={(focusTables) => tabs.active && tabs.update(tabs.active.id, { focusTables, focusEnabled: true })}
@@ -319,8 +336,7 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
           }}
           onDeleted={(id) => {
             setDialog(null);
-            conn.remove(id);
-            tabs.closeWhere((t) => t.target.connectionId === id);
+            forgetConnection(id);
           }}
         />
       )}
@@ -370,6 +386,33 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
           }
         >
           <p style={{ margin: 0 }}>The saved script is removed. If it’s open in a tab, the tab keeps its SQL as unsaved.</p>
+        </Dialog>
+      )}
+      {dialog?.kind === "deleteConnection" && (
+        <Dialog
+          title={`Delete “${dialog.connection.name}”?`}
+          size="sm"
+          onClose={() => setDialog(null)}
+          actions={
+            <>
+              <Button onClick={() => setDialog(null)}>Cancel</Button>
+              <Button
+                variant="danger"
+                onClick={async () => {
+                  const { id } = dialog.connection;
+                  setDialog(null);
+                  await commands.deleteConnection(id);
+                  forgetConnection(id);
+                }}
+              >
+                Delete
+              </Button>
+            </>
+          }
+        >
+          <p style={{ margin: 0 }}>
+            The saved connection and its password are removed from Sayql, and its tabs close. The database itself isn’t touched.
+          </p>
         </Dialog>
       )}
       {dialog?.kind === "settings" && (
