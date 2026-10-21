@@ -86,7 +86,7 @@ jobs:
           repo: sayql-releases
           # The release's tag points at the releases repo's own branch; this repo's
           # commits don't exist there.
-          commitish: main
+          releaseCommitish: main
           tagName: ${{ github.ref_name }}
           releaseName: "Sayql Community Edition ${{ github.ref_name }}"
           releaseBody: |
