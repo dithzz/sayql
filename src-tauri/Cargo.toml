@@ -4,6 +4,8 @@ version = "0.1.0"
 description = "AI-first database client: ask in English, get SQL as you type"
 authors = ["Adith"]
 edition = "2024"
+# `tauri dev` runs the app; the MCP server is the separate `askdb-mcp` binary.
+default-run = "askdb"
 
 [lib]
 # The `_lib` suffix may seem redundant but it is necessary
@@ -41,6 +43,9 @@ keyring = { version = "3", features = ["apple-native", "windows-native", "sync-s
 tauri-plugin-updater = "2"
 tiberius = { version = "0.12", default-features = false, features = ["tds73", "rustls", "chrono"] }
 tokio-util = { version = "0.7", features = ["compat"] }
+rmcp = { version = "3.6.0", features = ["server", "transport-io", "macros"] }
+dirs = "6"
+schemars = "1"
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration
 [profile.release]

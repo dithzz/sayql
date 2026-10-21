@@ -21,6 +21,25 @@ An AI-first desktop database client. Type what you want in plain English; SQL ap
 - INSERT/UPDATE/DELETE/DDL require an explicit confirmation.
 - Passwords and the API key are stored in the OS keychain. Connection details go in `connections.json` in the app config dir.
 
+## Use AskDB from Claude (MCP)
+
+`askdb-mcp` is an MCP server (stdio) that lets Claude Code or Claude Desktop use the connections saved in AskDB:
+`list_connections`, `list_databases`, `describe_schema` (with `search` for large databases) and `run_query`.
+
+- **Read-only.** Queries go through the same checks as the app's read-only mode; anything that could change data
+  is refused and must be run in the AskDB app.
+- **Query results are sent to Claude**, unlike the Ask box, which only sends table and column names.
+- Passwords come from the OS keychain. On macOS, the first use asks to let `askdb-mcp` read AskDB's keychain items.
+
+Settings → "Use AskDB from Claude" shows the exact command and config. For Claude Code:
+
+```bash
+claude mcp add --scope user askdb -- /path/to/askdb-mcp
+```
+
+In development the binary is `src-tauri/target/debug/askdb-mcp` (`cargo build --bin askdb-mcp`). Release bundles
+must ship it next to the app executable (Tauri `bundle.externalBin`; see docs/RELEASING.md).
+
 ## Development
 
 ```bash

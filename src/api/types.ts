@@ -98,6 +98,12 @@ export type GenerationTask =
   | { kind: "fix"; sql: string; error: string }
   | { kind: "improve"; sql: string };
 
+/** Where AskDB's MCP server binary is, for connecting Claude. */
+export interface McpSetup {
+  path: string;
+  exists: boolean;
+}
+
 export interface Bootstrap {
   connections: ConnectionConfig[];
   settings: Settings;

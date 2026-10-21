@@ -111,7 +111,7 @@ pub async fn list_databases(state: State<'_, AppState>, id: String) -> AppResult
 }
 
 /// The pool for `target`, connecting if it isn't open yet.
-async fn target_pool(state: &AppState, target: &Target) -> AppResult<DbPool> {
+pub(crate) async fn target_pool(state: &AppState, target: &Target) -> AppResult<DbPool> {
     if let Some(pool) = state.pool(target) {
         return Ok(pool);
     }
@@ -128,7 +128,8 @@ async fn target_pool(state: &AppState, target: &Target) -> AppResult<DbPool> {
     Ok(pool)
 }
 
-async fn load_schema(state: &AppState, target: &Target) -> AppResult<Schema> {
+/// Reads `target`'s schema and caches it, with its prompt text, in `state`.
+pub(crate) async fn load_schema(state: &AppState, target: &Target) -> AppResult<Schema> {
     let kind = state.store.connection(&target.connection_id)?.kind;
     let pool = target_pool(state, target).await?;
     let schema = db::introspect(&pool, kind).await?;

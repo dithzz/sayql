@@ -131,6 +131,8 @@ export function installMockBackend() {
         case "generate_sql":
           void streamSql(Number(a.reqId), mockAnswer(String(a.question), a.task as { kind: string }));
           return null;
+        case "mcp_setup":
+          return { path: "/Applications/AskDB.app/Contents/MacOS/askdb-mcp", exists: true };
         case "test_connection":
           return "Connected. Found 6 tables and views.";
         case "save_connection":

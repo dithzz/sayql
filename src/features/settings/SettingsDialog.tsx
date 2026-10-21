@@ -2,6 +2,7 @@ import { useState } from "react";
 import { commands, type Settings } from "../../api";
 import { Alert, Button, Dialog, Field, Select, TextInput } from "../../components/ui";
 import { errorText } from "../../lib/errors";
+import { ClaudeIntegration } from "./ClaudeIntegration";
 
 export interface SettingsDialogProps {
   settings: Settings;
@@ -70,6 +71,7 @@ export function SettingsDialog({ settings, onClose, onSaved }: SettingsDialogPro
       >
         {(id) => <Select id={id} value={expertModel} onChange={setExpertModel} options={modelOptions} />}
       </Field>
+      <Field label="Use AskDB from Claude (MCP)">{() => <ClaudeIntegration />}</Field>
       {error && <Alert tone="danger">{error}</Alert>}
     </Dialog>
   );

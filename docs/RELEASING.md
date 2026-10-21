@@ -304,3 +304,10 @@ With the secrets in place:
   release** if at all. It ties together the macOS keychain entries, app data
   folder and update channel; changing it later makes installed copies treat
   the new app as a different one.
+
+## Shipping the MCP server (`askdb-mcp`)
+
+The Settings dialog points Claude at `askdb-mcp` next to the app's executable. To ship it, build it for each target
+and add it as a Tauri sidecar: copy `target/<triple>/release/askdb-mcp` to `src-tauri/binaries/askdb-mcp-<triple>`
+(e.g. `askdb-mcp-aarch64-apple-darwin`) and add `"externalBin": ["binaries/askdb-mcp"]` under `bundle` in
+`tauri.conf.json`. Tauri strips the triple and places it in `AskDB.app/Contents/MacOS/`. Sign it like the app.

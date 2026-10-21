@@ -58,6 +58,24 @@ pub fn save_settings(
     Ok(settings_view(&s))
 }
 
+/// Where the `askdb-mcp` server binary is, for connecting Claude to AskDB.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct McpSetup {
+    path: String,
+    /// False when the binary hasn't been built or bundled next to the app.
+    exists: bool,
+}
+
+/// The MCP server ships next to the app's own executable.
+#[tauri::command]
+pub fn mcp_setup() -> AppResult<McpSetup> {
+    let exe = std::env::current_exe()?;
+    let name = if cfg!(windows) { "askdb-mcp.exe" } else { "askdb-mcp" };
+    let path = exe.with_file_name(name);
+    Ok(McpSetup { exists: path.exists(), path: path.to_string_lossy().into_owned() })
+}
+
 /// Workspace IDs are short codes (no spaces or punctuation beyond `_`/`-`), not display names.
 pub fn valid_workspace_id(raw: &str) -> AppResult<String> {
     let id = raw.trim();

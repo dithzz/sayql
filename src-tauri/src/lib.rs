@@ -4,6 +4,7 @@ mod ai;
 mod commands;
 mod db;
 mod error;
+pub mod mcp;
 mod schema;
 mod state;
 mod store;
@@ -34,6 +35,7 @@ pub fn run() {
             generation::generate_sql,
             generation::cancel_generation,
             settings::save_settings,
+            settings::mcp_setup,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

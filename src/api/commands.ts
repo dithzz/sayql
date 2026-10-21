@@ -4,6 +4,7 @@ import type {
   ConnectionConfig,
   DatabaseList,
   GenerationTask,
+  McpSetup,
   QueryResult,
   Schema,
   Settings,
@@ -31,6 +32,8 @@ export const commands = {
   generateSql: (t: Target, question: string, reqId: number, slot: string, task: GenerationTask) =>
     invoke<void>("generate_sql", { id: t.connectionId, database: t.database, question, reqId, slot, task }),
   cancelGeneration: (slot: string) => invoke<void>("cancel_generation", { slot }),
+
+  mcpSetup: () => invoke<McpSetup>("mcp_setup"),
 
   saveSettings: (typingModel: string, expertModel: string, apiKey: string | null, workspaceId: string) =>
     invoke<Settings>("save_settings", { typingModel, expertModel, apiKey, workspaceId }),

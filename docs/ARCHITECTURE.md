@@ -48,6 +48,8 @@ src/
 ```
 src-tauri/src/
   lib.rs                plugin + state + command registration only
+  mcp.rs                askdb-mcp: MCP server over stdio (read-only tools), reusing state/db/schema
+  bin/askdb-mcp.rs      its entry point
   error.rs              AppError / AppResult: the single error type; serializes to a message for the UI
   state.rs              AppState: store, open connections, the running AI generation
   commands/             Tauri commands, one file per UI area (thin: validate, call modules, map results)
