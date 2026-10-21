@@ -132,7 +132,8 @@ async fn run(app: &AppHandle, http: &reqwest::Client, r: &GenRequest, start: Ins
             .and_then(|v| v["error"]["message"].as_str().map(str::to_string))
             .unwrap_or(text);
         return Err(match status.as_u16() {
-            401 => "Your Claude API key was rejected. Check it in Settings.".into(),
+            401 => format!("Your Claude API key was rejected ({msg}). Check it in Settings."),
+            403 => format!("This API key isn't allowed to do that ({msg}). Check it in Settings."),
             400 if msg.contains("anthropic-workspace-id") => {
                 "This API key isn't tied to a workspace. Add your Workspace ID in Settings.".into()
             }
