@@ -57,6 +57,11 @@ jobs:
         working-directory: src-tauri
         run: cargo build --bin sayql-mcp
 
+      # build_docs.py uses f-string syntax from Python 3.12; ubuntu-22.04 ships 3.10.
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
       # site/docs, the sitemap, robots.txt and the landing page's FAQ data are generated from
       # docs-site/ and committed. Rebuild them and fail if the committed copy is stale.
       - name: Generated docs are up to date
