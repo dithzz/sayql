@@ -433,22 +433,29 @@ section.block { padding: 96px 0 0; }
 }
 
 .cards { margin-top: 40px; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-/* Bento: six columns; the read-only card is the tall feature, the rest mix halves and thirds. */
-.cards.bento { grid-template-columns: repeat(6, minmax(0, 1fr)); grid-auto-flow: dense; }
+/* Bento: six columns of mixed widths; every card keeps the same demo height. */
+.cards.bento { grid-template-columns: repeat(6, minmax(0, 1fr)); }
 .bento .b-2 { grid-column: span 2; }
 .bento .b-3 { grid-column: span 3; }
-.bento .b-tall { grid-row: span 2; }
+.bento .b-4 { grid-column: span 4; }
+.bento .b-6 { grid-column: span 6; }
+/* The full-width card puts its text beside the demo. */
+.bento .b-wide { flex-direction: row; align-items: stretch; }
+.bento .b-wide .card-text { flex: 0 0 34%; align-self: center; padding: 28px; }
+.bento .b-wide .mini { flex: 1; margin: 20px 20px 0 0; }
 /* Narrow cards: drop the editor subtitle so the Run button fits. */
 .bento .b-2 .ed-h .sub { display: none; }
-.bento .b-tall .card-text h3 { font-size: 22px; }
-.bento .b-tall .card-text p { font-size: 16px; }
-.bento .b-tall .mini { height: auto; flex: 1; min-height: 264px; }
 @media (max-width: 1000px) {
   .cards.bento { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .bento .b-2, .bento .b-3 { grid-column: span 1; }
-  .bento .b-tall { grid-column: span 2; grid-row: auto; }
-  .bento .b-tall .mini { height: 264px; flex: none; }
+  .bento .b-4, .bento .b-6 { grid-column: span 2; }
 }
+@media (max-width: 760px) {
+  .bento .b-wide { flex-direction: column; }
+  .bento .b-wide .card-text { flex: none; align-self: auto; padding: 24px 24px 20px; }
+  .bento .b-wide .mini { margin: 20px 12px 0; }
+}
+
 .card { background: var(--color-card); border: 1px solid var(--color-border); border-radius: var(--radius-card); overflow: hidden; display: flex; flex-direction: column; }
 .card-text { padding: 24px 24px 20px; }
 .card-text h3 { font-size: 17px; }
@@ -456,7 +463,7 @@ section.block { padding: 96px 0 0; }
 .card .mini { margin-top: auto; }
 @media (max-width: 760px) {
   .cards, .cards.bento { grid-template-columns: 1fr; }
-  .bento .b-2, .bento .b-3, .bento .b-tall { grid-column: auto; }
+  .bento .b-2, .bento .b-3, .bento .b-4, .bento .b-6 { grid-column: auto; }
   .card-text { padding: 20px 18px 18px; }
   .mini { margin-left: 12px; margin-right: 12px; }
 }
@@ -678,7 +685,7 @@ section.block { padding: 96px 0 0; }
     </div>
 
     <div class="cards bento">
-      <article class="card b-3 b-tall">
+      <article class="card b-4">
         <div class="card-text">
           <h3>Read-only unless you say so</h3>
           <p>Anything that may change data stops and asks first.</p>
@@ -695,7 +702,7 @@ section.block { padding: 96px 0 0; }
           </div>
         </div>
       </article>
-      <article class="card b-3">
+      <article class="card b-2">
         <div class="card-text">
           <h3>Just say it</h3>
           <p>Click the mic and ask out loud. Speech turns into text on your computer; the audio never leaves it.</p>
@@ -706,7 +713,7 @@ section.block { padding: 96px 0 0; }
           <div class="code" data-code></div>
         </div>
       </article>
-      <article class="card b-3">
+      <article class="card b-2">
         <div class="card-text">
           <h3>Type / for commands</h3>
           <p>/explain, /fix, /improve, /new and /followup, right in the Ask box.</p>
@@ -748,7 +755,7 @@ section.block { padding: 96px 0 0; }
           </div>
         </div>
       </article>
-      <article class="card b-2">
+      <article class="card b-3">
         <div class="card-text">
           <h3>Half a statement never runs</h3>
           <p>Run a selection that cuts a statement short and SayQL runs the whole statement. A DELETE never loses its WHERE.</p>
@@ -775,7 +782,7 @@ section.block { padding: 96px 0 0; }
           <div class="bar ok" data-ok hidden><svg class="i"><use href="#i-check"/></svg><span>Fixed: used <b class="mono">signed_up_at</b> and ran it again</span></div>
         </div>
       </article>
-      <article class="card b-3">
+      <article class="card b-6 b-wide">
         <div class="card-text">
           <h3>Works with Claude and Cursor</h3>
           <p>AI apps can query through SayQL, read-only, or hand you a query to review. You click Run.</p>
