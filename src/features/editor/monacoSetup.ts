@@ -1,7 +1,7 @@
 // Monaco is loaded from the local package (not a CDN) so the editor works offline.
-import * as monaco from "monaco-editor/esm/vs/editor/editor.api";
-import "monaco-editor/esm/vs/basic-languages/sql/sql.contribution";
-import EditorWorker from "monaco-editor/esm/vs/editor/editor.worker?worker";
+import * as monaco from "monaco-editor/editor/editor.api";
+import "monaco-editor/languages/definitions/sql/register";
+import EditorWorker from "monaco-editor/editor/editor.worker?worker";
 import { loader } from "@monaco-editor/react";
 import type { Schema } from "../../api";
 import type { ResolvedTheme } from "../theme";
