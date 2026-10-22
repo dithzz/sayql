@@ -1,0 +1,32 @@
+<!-- order: 20 | slug: postgresql-plain-english | title: Ask PostgreSQL questions in plain English | group: Guides | description: Ask PostgreSQL questions in plain English and get SQL as you type. SayQL knows your schema and runs queries read-only by default. -->
+<p class="lead">With SayQL you can ask PostgreSQL questions in plain English. It knows your schema and writes the SQL as you type.</p>
+
+<h2>Get started</h2>
+<ol class="steps">
+  <li><div><a href="/download/">Download SayQL</a> for macOS, Windows or Linux.</div></li>
+  <li><div>Click <b>New connection</b>, pick <b>PostgreSQL</b>, fill in the details and click <b>Test</b>, then <b>Save</b>. Turn on <b>Require SSL</b> for hosted databases.</div></li>
+  <li><div>Pick an AI in <b>Settings → AI provider</b>: Claude, OpenAI, Gemini, a local model and more.</div></li>
+  <li><div>Type your question in the Ask box and press <kbd>↵</kbd> to run it.</div></li>
+</ol>
+
+<h2>Example questions</h2>
+<ul>
+  <li>"Customers who signed up this month"</li>
+  <li>"Top 10 products by revenue last quarter"</li>
+  <li>"Orders with no shipment yet"</li>
+</ul>
+<p>"Top 10 products by revenue last quarter" might come back as:</p>
+<pre><code>SELECT p.name, SUM(oi.quantity * oi.unit_price) AS revenue
+FROM order_items oi
+JOIN products p ON p.id = oi.product_id
+JOIN orders o ON o.id = oi.order_id
+WHERE o.created_at &gt;= date_trunc('quarter', now()) - interval '3 months'
+  AND o.created_at &lt; date_trunc('quarter', now())
+GROUP BY p.name
+ORDER BY revenue DESC
+LIMIT 10;</code></pre>
+<p>Then follow up: "only Canada", "add the order count".</p>
+
+<h2>What keeps it safe</h2>
+<div class="callout safe"><svg><use href="#i-shield"/></svg><p><b>Read-only by default.</b> Reads run inside a read-only transaction, so PostgreSQL itself refuses writes. Anything that could change data asks you first.</p></div>
+<p>The AI sees table and column names, types, keys, enum values and row estimates, never your table rows. More in <a href="/docs/running-queries/">Run queries safely</a> and <a href="/docs/databases/">Databases</a>.</p>
