@@ -3,6 +3,11 @@
 All notable changes to SayQL are listed here. Downloads are on the
 [releases page](https://github.com/dithzz/sayql-releases/releases).
 
+## Unreleased
+
+- **Content Security Policy:** the app window now loads scripts only from SayQL itself and talks only to SayQL's
+  own backend, so injected content can't load remote code or send data elsewhere.
+
 ## 0.2.5 (2026-10-22)
 
 - **Security:** updated the SQL Server driver, which fixes a high-severity issue in a TLS library it used.
