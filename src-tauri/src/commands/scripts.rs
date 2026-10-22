@@ -6,10 +6,10 @@ use tauri::State;
 
 /// Saved scripts, most recently saved first.
 #[tauri::command]
-pub fn list_scripts(state: State<'_, AppState>) -> Vec<Script> {
-    let mut list = state.store.scripts();
+pub fn list_scripts(state: State<'_, AppState>) -> AppResult<Vec<Script>> {
+    let mut list = state.store.scripts()?;
     list.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
-    list
+    Ok(list)
 }
 
 /// Creates (empty id) or updates a script, and returns it as stored.
@@ -23,7 +23,7 @@ pub fn save_script(state: State<'_, AppState>, mut script: Script) -> AppResult<
         script.id = uuid::Uuid::new_v4().to_string();
     }
     script.updated_at = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_millis() as u64).unwrap_or(0);
-    let mut list = state.store.scripts();
+    let mut list = state.store.scripts()?;
     match list.iter_mut().find(|s| s.id == script.id) {
         Some(existing) => *existing = script.clone(),
         None => list.push(script.clone()),
@@ -34,6 +34,6 @@ pub fn save_script(state: State<'_, AppState>, mut script: Script) -> AppResult<
 
 #[tauri::command]
 pub fn delete_script(state: State<'_, AppState>, id: String) -> AppResult<()> {
-    let list: Vec<Script> = state.store.scripts().into_iter().filter(|s| s.id != id).collect();
+    let list: Vec<Script> = state.store.scripts()?.into_iter().filter(|s| s.id != id).collect();
     state.store.save_scripts(&list)
 }

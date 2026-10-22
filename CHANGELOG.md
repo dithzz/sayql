@@ -3,6 +3,13 @@
 All notable changes to SayQL are listed here. Downloads are on the
 [releases page](https://github.com/dithzz/sayql-releases/releases).
 
+## Unreleased
+
+- **Safer saved connections:** if a saved file (connections, settings, scripts or skills) is damaged,
+  SayQL no longer treats it as empty and erases it on the next save. It moves the file aside as
+  `<name>.corrupt-<time>` and says where. Saves are now written in one step, so a crash mid-save can't
+  leave a half-written file.
+
 ## 0.2.5 (2026-10-22)
 
 - **Security:** updated the SQL Server driver, which fixes a high-severity issue in a TLS library it used.
