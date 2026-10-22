@@ -9,6 +9,9 @@ mod openai;
 mod prompt;
 mod providers;
 mod redact;
+
+#[cfg(test)]
+pub(crate) use redact::database_error as mask_database_error;
 mod sse;
 
 pub use models::{DEFAULT_EXPERT_MODEL, DEFAULT_TYPING_MODEL, MODELS, is_known};
