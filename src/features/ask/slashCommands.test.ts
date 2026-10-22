@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Skill } from "../../api";
-import { actionTask, commandSlug, menuItems, menuQuery, parseCommand, planRequest, skillError, withCommand } from "./slashCommands";
+import { BUILTIN_SLUGS } from "../skills";
+import { BUILTINS, actionTask, commandSlug, menuItems, menuQuery, parseCommand, planRequest, withCommand } from "./slashCommands";
 
 const pii: Skill = { slug: "pii-safe", description: "Leave out personal data", instruction: "Never select email, phone or address columns." };
 const month: Skill = { slug: "this-month", description: "", instruction: "Only rows from this month." };
@@ -108,26 +109,8 @@ describe("actionTask", () => {
   });
 });
 
-describe("skillError", () => {
-  const skill = (slug: string, instruction = "Hide emails.") => ({ slug, description: "", instruction });
-
-  it("accepts a valid skill, with or without a leading slash", () => {
-    expect(skillError(skill("pii-2"), skills, null)).toBeNull();
-    expect(skillError(skill("/pii-2"), skills, null)).toBeNull();
-  });
-
-  it("rejects bad, long, built-in and duplicate names", () => {
-    expect(skillError(skill(""), [], null)).toMatch(/name/);
-    expect(skillError(skill("PII safe"), [], null)).toMatch(/lowercase/);
-    expect(skillError(skill("a".repeat(33)), [], null)).toMatch(/32/);
-    expect(skillError(skill("fix"), [], null)).toMatch(/built-in/);
-    expect(skillError(skill("pii-safe"), skills, null)).toMatch(/already/);
-    expect(skillError(skill("pii-safe"), skills, "pii-safe")).toBeNull();
-  });
-
-  it("needs an instruction of at most 1000 characters", () => {
-    expect(skillError(skill("x", "  "), [], null)).toMatch(/instruction/);
-    expect(skillError(skill("x", "a".repeat(1001)), [], null)).toMatch(/1000/);
-    expect(skillError({ ...skill("x"), description: "d".repeat(101) }, [], null)).toMatch(/100/);
+describe("BUILTINS", () => {
+  it("has one entry per reserved slug in skills", () => {
+    expect(BUILTINS.map((b) => b.slug)).toEqual([...BUILTIN_SLUGS]);
   });
 });

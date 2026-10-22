@@ -3,7 +3,7 @@
 import { emit } from "@tauri-apps/api/event";
 import { mockIPC } from "@tauri-apps/api/mocks";
 import type { AiProvider, Bootstrap, QueryResult, Schema, Settings, Skill, Table } from "../api";
-import { EXAMPLE_SKILLS, skillError } from "../features/ask/slashCommands";
+import { EXAMPLE_SKILLS, skillError } from "../features/skills";
 import { version } from "../../package.json";
 import { isReadOnly } from "./readOnly";
 
@@ -270,7 +270,7 @@ async function fakeDownload() {
 
 function fakeMic() {
   let t = 0;
-  voice.meter = window.setInterval(() => {
+  voice.meter = globalThis.setInterval(() => {
     t += 1;
     void emit("voice://level", 0.03 + 0.12 * Math.abs(Math.sin(t / 3)) * Math.random());
   }, 50);

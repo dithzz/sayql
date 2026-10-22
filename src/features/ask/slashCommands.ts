@@ -1,10 +1,11 @@
 // Slash commands in the Ask box: "/explain", "/new show customers", "/pii-safe list customers".
 // The command stays in the question text as a "/slug " prefix, so tabs save and restore it as is.
 import type { GenerationTask, PreviousQuery, Skill } from "../../api";
+import type { BUILTIN_SLUGS } from "../skills";
 
 /** Commands that do something with the current query when the person presses ↵. */
 export type ActionCommand = "explain" | "fix" | "improve";
-export type BuiltinCommand = "followup" | "new" | ActionCommand;
+export type BuiltinCommand = (typeof BUILTIN_SLUGS)[number];
 
 export interface Builtin {
   slug: BuiltinCommand;
@@ -13,7 +14,7 @@ export interface Builtin {
   placeholder: string;
 }
 
-/** Must match BUILTIN_COMMANDS in src-tauri/src/commands/skills.rs. */
+/** One entry per BUILTIN_SLUGS from skills (checked in slashCommands.test.ts). */
 export const BUILTINS: Builtin[] = [
   { slug: "followup", description: "Change the current query", placeholder: "What to change — e.g. only active ones" },
   { slug: "new", description: "Start fresh, ignore the last query", placeholder: "Ask in plain English" },
@@ -127,28 +128,3 @@ export function actionTask(command: ActionCommand, sql: string, error: string | 
       return { kind: "fix", sql, error: error ?? "" };
   }
 }
-
-export const SKILL_LIMITS = { slug: 32, description: 100, instruction: 1000 };
-
-/** What's wrong with a skill before saving, or null. Same rules as `validate` in src-tauri/src/commands/skills.rs. */
-export function skillError(skill: Skill, existing: Skill[], original: string | null): string | null {
-  const slug = skill.slug.trim().replace(/^\//, "");
-  if (!slug) return "Give the skill a name.";
-  if (slug.length > SKILL_LIMITS.slug) return `Keep the name to ${SKILL_LIMITS.slug} characters.`;
-  if (!/^[a-z0-9-]+$/.test(slug)) return "Use only lowercase letters, numbers and dashes in the name.";
-  if (BUILTINS.some((b) => b.slug === slug)) return `/${slug} is a built-in command. Pick another name.`;
-  if (existing.some((s) => s.slug === slug && s.slug !== original)) return `You already have a skill called /${slug}.`;
-  if ([...skill.description.trim()].length > SKILL_LIMITS.description)
-    return `Keep the description to ${SKILL_LIMITS.description} characters.`;
-  const instruction = skill.instruction.trim();
-  if (!instruction) return "Write the instruction.";
-  if ([...instruction].length > SKILL_LIMITS.instruction) return `Keep the instruction to ${SKILL_LIMITS.instruction} characters.`;
-  return null;
-}
-
-/** Suggestions shown while there are no skills; not installed until the person saves one. */
-export const EXAMPLE_SKILLS: Skill[] = [
-  { slug: "pii-safe", description: "Leave out personal data", instruction: "Never select email, phone or address columns." },
-  { slug: "this-month", description: "Only this month", instruction: "Only include rows from the current calendar month." },
-  { slug: "small", description: "At most 20 rows", instruction: "Return at most 20 rows." },
-];

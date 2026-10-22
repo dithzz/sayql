@@ -8,7 +8,7 @@ export interface AiEventHandlers {
   reset: (reqId: number) => void;
 }
 
-/** Subscribes to the AI streaming events emitted by src-tauri/src/ai.rs. */
+/** Subscribes to the AI streaming events emitted by src-tauri/src/ai/mod.rs. */
 export async function subscribeToAi(handlers: AiEventHandlers): Promise<UnlistenFn> {
   const unlisten = await Promise.all([
     listen<AiDelta>("ai://delta", (e) => handlers.delta(e.payload)),

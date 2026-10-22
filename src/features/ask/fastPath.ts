@@ -1,7 +1,7 @@
 // Instant SQL for simple requests ("show customers", "how many orders", "latest 20 reviews"),
 // built from the cached schema with no network call. Anything less certain goes to the AI.
 import type { Schema, Table } from "../../api";
-import { qualifiedName, selectAllSql, selectRowsSql, tableRef } from "../schema/sql";
+import { qualifiedName, selectAllSql, selectRowsSql, tableRef } from "../schema";
 
 function normalize(s: string): string {
   return s.toLowerCase().replace(/[_\s]+/g, " ").trim();

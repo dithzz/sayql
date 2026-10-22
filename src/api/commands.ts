@@ -35,9 +35,12 @@ export const commands = {
   runQuery: (t: Target, sql: string, allowWrite: boolean) =>
     invoke<QueryResult>("run_query", { id: t.connectionId, database: t.database, sql, allowWrite }),
 
-  /** `slot` scopes cancellation: a new request replaces the previous one in the same slot (editor tab). */
-  /** `focusTables`: qualified table names the person picked; drafts see only those and their neighbours. */
-  /** `skill`: the slug of a saved skill whose instruction goes with the request. */
+  /**
+   * Asks the AI for SQL; the answer streams back as `ai://` events (see `subscribeToAi`).
+   * - `slot` scopes cancellation: a new request replaces the previous one in the same slot (editor tab).
+   * - `focusTables`: qualified table names the person picked; drafts see only those and their neighbours.
+   * - `skill`: the slug of a saved skill whose instruction goes with the request.
+   */
   generateSql: (t: Target, question: string, reqId: number, slot: string, task: GenerationTask, focusTables: string[], skill: string | null) =>
     invoke<void>("generate_sql", { id: t.connectionId, database: t.database, question, reqId, slot, task, focusTables, skill }),
   cancelGeneration: (slot: string) => invoke<void>("cancel_generation", { slot }),
