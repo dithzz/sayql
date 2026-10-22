@@ -3,6 +3,13 @@
 All notable changes to SayQL are listed here. Downloads are on the
 [releases page](https://github.com/dithzz/sayql-releases/releases).
 
+## 0.2.5 (2026-10-22)
+
+- **Security:** updated the SQL Server driver, which fixes a high-severity issue in a TLS library it used.
+- **Under the hood:** newer database drivers (sqlx 0.9, tiberius 0.13), editor (Monaco 0.57) and icons.
+- **Editor:** suggests your tables and columns as you type, plus find and replace (⌘F, ⌥⌘F) and comment
+  toggling (⌘/).
+
 ## 0.2.4 (2026-10-22)
 
 - **MCP server:** it has come with SayQL since 0.1.0 (the docs and website said "coming soon" by mistake).
