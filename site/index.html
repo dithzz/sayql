@@ -23,11 +23,12 @@
   try { var t = localStorage.getItem("sayql-site-theme"); if (t === "light" || t === "dark") document.documentElement.setAttribute("data-theme", t); } catch (e) {}
 </script>
 <style>
-/* Colors, type and radii mirror src/styles/tokens.css, so the page looks like the app.
- * The accent is the logo's indigo (app-icon.svg) so the brand reads as one colour. */
+/* Colors, type and radii mirror src/styles/tokens.css and the Monaco themes, so the demos look like the app.
+ * The page accent is the logo's indigo (app-icon.svg); inside the demos the app's own blue is kept. */
 :root {
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", Roboto, sans-serif;
   --font-mono: "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+  --radius-sm: 3px;
   --radius-md: 4px;
   --radius-lg: 6px;
   --radius-card: 10px;
@@ -36,7 +37,10 @@
   color-scheme: light;
   --color-page: #f6f7f9;
   --color-surface: #ffffff;
+  --color-surface-muted: #f6f7f9;
   --color-surface-hover: #eef1f5;
+  --color-surface-selected: #dde8fb;
+  --color-card: #f0f2f5;
   --color-border: #d6dae0;
   --color-border-subtle: #e6e9ed;
   --color-border-strong: #b9c0ca;
@@ -45,16 +49,41 @@
   --color-text-subtle: #8a939d;
   --color-accent: #4f46e5;
   --color-accent-hover: #4338ca;
+  --color-app-accent: #1f6feb;
+  --color-app-accent-soft: #e5efff;
   --color-ai: #7048e8;
   --color-ai-soft: #f1ecff;
+  --color-success: #1a7f37;
+  --color-success-soft: #e6f4ea;
+  --color-warning: #9a6700;
+  --color-warning-soft: #fff4d6;
+  --color-danger: #c62f37;
+  --color-danger-soft: #fdecec;
+  --color-kind-postgres: #336791;
+  --color-kind-mysql: #c47a00;
+  --color-kind-sqlite: #2f8f5b;
+  --color-kind-mssql: #b8312f;
+  --color-grid-header: #f3f5f8;
+  --color-grid-number: #0b5cad;
+  --color-backdrop: rgba(15, 23, 42, 0.32);
+  --syn-keyword: #0b4fc4;
+  --syn-function: #b5179e;
+  --syn-string: #c62f37;
+  --syn-number: #b35900;
+  --syn-operator: #56606b;
   --shadow-raised: 0 1px 2px rgba(15, 23, 42, 0.12);
+  --shadow-window: 0 24px 64px -24px rgba(15, 23, 42, 0.25), 0 4px 12px -4px rgba(15, 23, 42, 0.08);
+  --shadow-popover: 0 8px 28px rgba(15, 23, 42, 0.16), 0 1px 3px rgba(15, 23, 42, 0.08);
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
     --color-page: #17191d;
     --color-surface: #1f2227;
+    --color-surface-muted: #24272d;
     --color-surface-hover: #2a2e35;
+    --color-surface-selected: #253552;
+    --color-card: #1b1d21;
     --color-border: #33373e;
     --color-border-subtle: #2a2d33;
     --color-border-strong: #474c55;
@@ -63,16 +92,41 @@
     --color-text-subtle: #727a85;
     --color-accent: #6366f1;
     --color-accent-hover: #7577f3;
+    --color-app-accent: #4a8dff;
+    --color-app-accent-soft: #1e2d48;
     --color-ai: #a78bfa;
     --color-ai-soft: #2a2341;
+    --color-success: #56c26f;
+    --color-success-soft: #1d3324;
+    --color-warning: #e3b341;
+    --color-warning-soft: #3a3016;
+    --color-danger: #f26b72;
+    --color-danger-soft: #3b1f23;
+    --color-kind-postgres: #6fa3d6;
+    --color-kind-mysql: #f0a833;
+    --color-kind-sqlite: #5ccb8d;
+    --color-kind-mssql: #f07a6e;
+    --color-grid-header: #262a30;
+    --color-grid-number: #7fb4ff;
+    --color-backdrop: rgba(0, 0, 0, 0.5);
+    --syn-keyword: #6aa2ff;
+    --syn-function: #e879d4;
+    --syn-string: #f26b72;
+    --syn-number: #f0a868;
+    --syn-operator: #a3aab4;
     --shadow-raised: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-window: 0 24px 64px -24px rgba(0, 0, 0, 0.7), 0 4px 12px -4px rgba(0, 0, 0, 0.4);
+    --shadow-popover: 0 10px 32px rgba(0, 0, 0, 0.5), 0 1px 3px rgba(0, 0, 0, 0.3);
   }
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
   --color-page: #17191d;
   --color-surface: #1f2227;
+  --color-surface-muted: #24272d;
   --color-surface-hover: #2a2e35;
+  --color-surface-selected: #253552;
+  --color-card: #1b1d21;
   --color-border: #33373e;
   --color-border-subtle: #2a2d33;
   --color-border-strong: #474c55;
@@ -81,18 +135,31 @@
   --color-text-subtle: #727a85;
   --color-accent: #6366f1;
   --color-accent-hover: #7577f3;
+  --color-app-accent: #4a8dff;
+  --color-app-accent-soft: #1e2d48;
   --color-ai: #a78bfa;
   --color-ai-soft: #2a2341;
+  --color-success: #56c26f;
+  --color-success-soft: #1d3324;
+  --color-warning: #e3b341;
+  --color-warning-soft: #3a3016;
+  --color-danger: #f26b72;
+  --color-danger-soft: #3b1f23;
+  --color-kind-postgres: #6fa3d6;
+  --color-kind-mysql: #f0a833;
+  --color-kind-sqlite: #5ccb8d;
+  --color-kind-mssql: #f07a6e;
+  --color-grid-header: #262a30;
+  --color-grid-number: #7fb4ff;
+  --color-backdrop: rgba(0, 0, 0, 0.5);
+  --syn-keyword: #6aa2ff;
+  --syn-function: #e879d4;
+  --syn-string: #f26b72;
+  --syn-number: #f0a868;
+  --syn-operator: #a3aab4;
   --shadow-raised: 0 1px 2px rgba(0, 0, 0, 0.4);
-}
-
-/* Show the screenshot that matches the active theme. */
-.for-dark { display: none; }
-:root[data-theme="dark"] .for-dark { display: block; }
-:root[data-theme="dark"] .for-light { display: none; }
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .for-dark { display: block; }
-  :root:not([data-theme="light"]) .for-light { display: none; }
+  --shadow-window: 0 24px 64px -24px rgba(0, 0, 0, 0.7), 0 4px 12px -4px rgba(0, 0, 0, 0.4);
+  --shadow-popover: 0 10px 32px rgba(0, 0, 0, 0.5), 0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
 * { box-sizing: border-box; }
@@ -105,8 +172,8 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 a { color: inherit; text-decoration: none; }
-img, svg { display: block; }
-h1, h2, h3, p { margin: 0; }
+svg { display: block; }
+h1, h2, h3, h4, p { margin: 0; }
 h1, h2, h3 { text-wrap: balance; font-weight: 600; letter-spacing: -0.02em; }
 p { text-wrap: pretty; }
 :focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; border-radius: var(--radius-md); }
@@ -159,8 +226,143 @@ p { text-wrap: pretty; }
 .hero .lede { margin-top: 20px; max-width: 34em; font-size: 19px; color: var(--color-text-muted); }
 .actions { margin-top: 32px; display: flex; flex-wrap: wrap; gap: 10px; }
 .meta { margin-top: 16px; font-size: 13px; color: var(--color-text-subtle); }
-.shot { margin: 48px auto 0; max-width: 1240px; padding: 0 8px; }
-.shot img { width: 100%; height: auto; }
+
+/* ---------- demos: built from the app's own layout ---------- */
+.app {
+  font: 400 13px/1.45 var(--font-sans); color: var(--color-text); text-align: left;
+  background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-card);
+  overflow: hidden; user-select: none; cursor: default;
+}
+.app .i { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.app b { font-weight: 600; }
+.mono { font-family: var(--font-mono); }
+.kbd { font: 500 10.5px/1 var(--font-mono); border: 1px solid var(--color-border); border-radius: var(--radius-sm); padding: 2px 4px; color: var(--color-text-muted); }
+
+.window { margin-top: 56px; box-shadow: var(--shadow-window); }
+.titlebar { height: 34px; display: flex; align-items: center; justify-content: center; position: relative; background: var(--color-surface-muted); border-bottom: 1px solid var(--color-border); font-weight: 600; font-size: 13px; color: var(--color-text-muted); }
+.lights { position: absolute; left: 12px; display: flex; gap: 7px; }
+.lights i { width: 11px; height: 11px; border-radius: 50%; display: block; }
+.lights i:nth-child(1) { background: #ff5f57; } .lights i:nth-child(2) { background: #febc2e; } .lights i:nth-child(3) { background: #28c840; }
+.topbar { height: 40px; display: flex; align-items: center; gap: 12px; padding: 0 10px; border-bottom: 1px solid var(--color-border); white-space: nowrap; }
+.topbar .logo { display: flex; align-items: center; gap: 7px; font-weight: 600; font-size: 14px; padding-right: 12px; border-right: 1px solid var(--color-border-subtle); }
+.topbar .ghost { display: flex; align-items: center; gap: 5px; color: var(--color-text-muted); }
+.chip { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 8px; border: 1px solid var(--color-border); border-radius: var(--radius-md); }
+.chip .k { font-size: 11px; color: var(--color-text-muted); padding-left: 6px; border-left: 1px solid var(--color-border-subtle); }
+.topbar .end { margin-left: auto; display: flex; gap: 12px; color: var(--color-text-muted); }
+
+.body { display: grid; grid-template-columns: 236px minmax(0, 1fr); height: 600px; }
+.navigator { border-right: 1px solid var(--color-border); display: flex; flex-direction: column; min-width: 0; }
+.pane-h { height: 30px; flex: none; display: flex; align-items: center; gap: 6px; padding: 0 10px; font-weight: 600; font-size: 12.5px; border-bottom: 1px solid var(--color-border-subtle); white-space: nowrap; }
+.pane-h .end { margin-left: auto; display: flex; gap: 8px; color: var(--color-text-muted); font-weight: 400; align-items: center; }
+.filter { margin: 8px; height: 26px; display: flex; align-items: center; gap: 6px; padding: 0 8px; border: 1px solid var(--color-border); border-radius: var(--radius-md); color: var(--color-text-subtle); font-size: 12.5px; }
+.tree { font-size: 12.5px; }
+.row { height: 22px; display: flex; align-items: center; gap: 5px; padding-right: 10px; white-space: nowrap; overflow: hidden; transition: background 200ms; }
+.row .i { color: var(--color-text-muted); }
+.row .chev { width: 12px; height: 12px; color: var(--color-text-subtle); }
+.row.sel { background: var(--color-surface-selected); }
+.row .n { margin-left: auto; color: var(--color-text-subtle); font-size: 11.5px; }
+.row .mono { font-size: 12px; }
+.l0 { padding-left: 6px; } .l1 { padding-left: 20px; } .l2 { padding-left: 34px; }
+.app .k-sl { color: var(--color-kind-sqlite); } .app .k-pg { color: var(--color-kind-postgres); } .app .k-my { color: var(--color-kind-mysql); } .app .k-ms { color: var(--color-kind-mssql); }
+
+.main { display: grid; grid-template-rows: 32px 34px auto auto minmax(0, 1fr) minmax(0, 1fr); min-width: 0; min-height: 0; overflow: hidden; }
+.main > * { min-width: 0; min-height: 0; }
+.tabs { display: flex; align-items: stretch; border-bottom: 1px solid var(--color-border); background: var(--color-surface-muted); }
+.tab { display: flex; align-items: center; gap: 7px; padding: 0 12px; font-size: 12.5px; background: var(--color-surface); border-right: 1px solid var(--color-border-subtle); box-shadow: inset 0 2px 0 var(--color-app-accent); white-space: nowrap; }
+.tab .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--color-app-accent); }
+.tabs .plus { display: flex; align-items: center; padding: 0 10px; color: var(--color-text-muted); }
+.ed-h { display: flex; align-items: center; gap: 6px; padding: 0 8px 0 10px; border-bottom: 1px solid var(--color-border-subtle); font-size: 12.5px; white-space: nowrap; }
+.ed-h .sub { color: var(--color-text-muted); }
+.ed-h .end { margin-left: auto; display: flex; align-items: center; gap: 12px; color: var(--color-text-muted); }
+.ed-h .tool { display: inline-flex; gap: 5px; align-items: center; }
+.run-btn { display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 9px; border-radius: var(--radius-md); background: var(--color-app-accent); color: #fff; font-weight: 500; font-size: 12.5px; }
+.run-btn .kbd { border-color: rgba(255, 255, 255, 0.35); color: rgba(255, 255, 255, 0.85); }
+.run-btn.press { animation: press 500ms ease-out; }
+@keyframes press { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-app-accent) 50%, transparent); transform: scale(0.96); } 100% { box-shadow: 0 0 0 8px transparent; transform: none; } }
+
+.askbox { margin: 8px 8px 0; border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: 6px 8px; transition: border-color 200ms, box-shadow 200ms; }
+.askbox.live { border-color: var(--color-ai); box-shadow: 0 0 0 3px var(--color-ai-soft); }
+.pill { display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 7px; border: 1px solid var(--color-border); border-radius: var(--radius-md); font: 400 11.5px/1 var(--font-mono); color: var(--color-text-muted); }
+.q-line { display: flex; align-items: center; gap: 7px; margin-top: 5px; min-height: 20px; }
+.q-line .spark { color: var(--color-ai); }
+.q { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 13.5px; }
+.q .ph { color: var(--color-text-subtle); }
+.caret { display: inline-block; width: 1.5px; height: 15px; background: var(--color-text); vertical-align: -3px; margin-left: 1px; animation: blink 1s steps(1) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+.hintbar { display: flex; align-items: center; gap: 12px; height: 30px; padding: 0 10px; margin-top: 6px; border-bottom: 1px solid var(--color-border-subtle); font-size: 12px; color: var(--color-text-muted); white-space: nowrap; overflow: hidden; }
+.building { display: inline-flex; align-items: center; gap: 5px; color: var(--color-ai); padding-left: 8px; border-left: 2px solid var(--color-ai); }
+.building[hidden], .newq[hidden], .bar[hidden] { display: none; }
+.hintbar .state { display: inline-flex; align-items: center; gap: 5px; }
+.hintbar .state.ai { color: var(--color-ai); }
+.hintbar .state.ai i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; animation: breathe 900ms ease-in-out infinite; }
+@keyframes breathe { 50% { opacity: 0.25; } }
+.hintbar .keys { margin-left: auto; display: flex; align-items: center; gap: 5px; color: var(--color-text-subtle); }
+
+.editor { display: grid; grid-template-columns: 38px minmax(0, 1fr); overflow: hidden; border-bottom: 1px solid var(--color-border); }
+.gutter { background: var(--color-surface-muted); color: var(--color-border-strong); font: 400 12px/20px var(--font-mono); text-align: right; padding: 8px 8px 0 0; white-space: pre; }
+.code { font: 400 12.5px/20px var(--font-mono); padding: 8px 12px 0; white-space: pre; overflow: hidden; }
+.tk-k { color: var(--syn-keyword); font-weight: 700; } .tk-f { color: var(--syn-function); } .tk-s { color: var(--syn-string); } .tk-n { color: var(--syn-number); } .tk-o { color: var(--syn-operator); }
+
+.results { display: grid; grid-template-rows: 30px minmax(0, 1fr); min-height: 0; }
+.results .pane-h .sub { color: var(--color-text-subtle); font-weight: 400; }
+.grid { overflow: hidden; }
+.grid table { border-collapse: collapse; font-size: 12.5px; }
+.grid th, .grid td { height: 26px; padding: 0 10px; border-right: 1px solid var(--color-border-subtle); border-bottom: 1px solid var(--color-border-subtle); white-space: nowrap; text-align: left; }
+.grid th { background: var(--color-grid-header); font-weight: 600; }
+.grid td { font-family: var(--font-mono); font-size: 12px; }
+.grid td.num { color: var(--color-grid-number); text-align: right; }
+.grid td.idx { color: var(--color-text-subtle); text-align: right; width: 40px; }
+.grid tbody tr { opacity: 0; transition: opacity 220ms; }
+.grid tbody tr.in { opacity: 1; }
+.empty { height: 100%; display: grid; place-items: center; color: var(--color-text-subtle); font-size: 12.5px; }
+.statusbar { height: 24px; display: flex; align-items: center; gap: 16px; padding: 0 10px; border-top: 1px solid var(--color-border); font-size: 11.5px; color: var(--color-text-muted); white-space: nowrap; overflow: hidden; }
+.statusbar .ok { display: inline-flex; align-items: center; gap: 6px; }
+.statusbar .ok i { width: 7px; height: 7px; border-radius: 50%; background: var(--color-success); }
+.statusbar .end { margin-left: auto; display: inline-flex; align-items: center; gap: 5px; }
+
+@media (max-width: 860px) {
+  .body { grid-template-columns: minmax(0, 1fr); height: 560px; }
+  .navigator, .topbar .ghost, .topbar .end, .hintbar .keys, .ed-h .sub, .ed-h .tool, .statusbar .end, .statusbar .cols { display: none; }
+}
+
+/* small feature demos */
+.mini { height: 264px; margin: 20px 20px 0; border-bottom: 0; border-radius: var(--radius-lg) var(--radius-lg) 0 0; position: relative; display: flex; flex-direction: column; }
+.mini .askbox { margin: 10px 10px 0; }
+.mini .hintbar { margin-top: 4px; }
+.mini .code { padding-top: 10px; }
+.mini .ed-h { height: 34px; flex: none; }
+.line { height: 20px; overflow: hidden; transition: height 320ms ease, background 200ms, opacity 320ms; }
+.line.del { background: var(--color-danger-soft); text-decoration: line-through; text-decoration-color: var(--color-danger); }
+.line.gone { height: 0; opacity: 0; }
+.line.add { background: var(--color-success-soft); }
+.bar { margin: 4px 10px 0; padding: 8px 10px; border-radius: var(--radius-md); font-size: 12.5px; display: flex; gap: 8px; align-items: center; }
+.bar.err { background: var(--color-danger-soft); color: var(--color-danger); }
+.bar.fix { background: var(--color-ai-soft); color: var(--color-ai); }
+.bar.ok { background: var(--color-success-soft); color: var(--color-success); }
+
+.backdrop { position: absolute; inset: 0; background: var(--color-backdrop); display: grid; place-items: center; padding: 14px; opacity: 0; transition: opacity 200ms; }
+.backdrop.show { opacity: 1; }
+.dialog { width: 100%; max-width: 380px; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg); box-shadow: var(--shadow-popover); transform: translateY(6px) scale(0.98); transition: transform 200ms; }
+.backdrop.show .dialog { transform: none; }
+.dialog h4 { padding: 10px 12px; font-size: 13.5px; font-weight: 600; border-bottom: 1px solid var(--color-border-subtle); }
+.dialog .warn { margin: 10px 12px 0; padding: 8px 10px; border-radius: var(--radius-md); background: var(--color-warning-soft); color: var(--color-warning); font-size: 12px; display: flex; gap: 7px; }
+.dialog .warn .i { margin-top: 2px; }
+.dialog .foot { display: flex; justify-content: flex-end; gap: 8px; padding: 10px 12px; }
+.dbtn { height: 26px; padding: 0 10px; display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--color-border); border-radius: var(--radius-md); font-size: 12.5px; font-weight: 500; }
+.dbtn.focus { box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-app-accent) 45%, transparent); }
+.dbtn.danger { background: var(--color-danger); border-color: var(--color-danger); color: #fff; }
+
+.providers { padding: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.prov { border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: 8px 10px; transition: border-color 200ms, background 200ms, box-shadow 200ms; min-width: 0; }
+.prov b { font-size: 12.5px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.prov span { display: block; font-size: 11.5px; color: var(--color-text-muted); margin-top: 2px; }
+.prov.on { border-color: var(--color-app-accent); background: var(--color-app-accent-soft); box-shadow: 0 0 0 1px var(--color-app-accent); }
+.prov .badge { display: inline; margin: 0; font-size: 10.5px; font-weight: 500; padding: 1px 6px; border-radius: 999px; }
+.badge.rec { color: var(--color-ai); background: var(--color-ai-soft); }
+.badge.local { color: var(--color-success); background: var(--color-success-soft); }
+.fieldset { padding: 0 12px; font-size: 12px; color: var(--color-text-muted); }
+.field { margin-top: 4px; height: 28px; display: flex; align-items: center; padding: 0 8px; border: 1px solid var(--color-border); border-radius: var(--radius-md); font: 400 12px/1 var(--font-mono); color: var(--color-text-subtle); white-space: nowrap; overflow: hidden; }
+.fieldset small { display: block; margin-top: 4px; font-size: 11.5px; color: var(--color-text-subtle); }
 
 /* supported */
 .support { padding: 40px 0 8px; }
@@ -175,21 +377,18 @@ section.block { padding: 96px 0 0; }
 .head h2 { font-size: clamp(28px, 3.6vw, 36px); line-height: 1.15; }
 .head p { margin-top: 12px; font-size: 17px; color: var(--color-text-muted); }
 
-.card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-card); overflow: hidden; }
-.card-text { padding: 28px 28px 0; }
-.card-text h3 { font-size: 18px; }
-.card-text p { margin-top: 8px; color: var(--color-text-muted); max-width: 32em; }
-.card img { width: 100%; height: auto; }
-.feature-wide { margin-top: 40px; }
-.feature-wide .card-text { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 40px; align-items: start; }
-.feature-wide .card-text p { margin-top: 0; }
-.feature-wide img { padding: 8px 8px 0; }
-.pair { margin-top: 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-.pair img { margin-top: 12px; padding: 0 12px; }
+.cards { margin-top: 40px; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.card { background: var(--color-card); border: 1px solid var(--color-border); border-radius: var(--radius-card); overflow: hidden; display: flex; flex-direction: column; }
+.card-text { padding: 24px 24px 0; }
+.card-text h3 { font-size: 17px; }
+.card-text p { margin-top: 6px; color: var(--color-text-muted); font-size: 15px; }
+.card .mini { margin-top: auto; }
 @media (max-width: 760px) {
-  .feature-wide .card-text, .pair { grid-template-columns: 1fr; }
-  .card-text { padding: 22px 20px 0; }
+  .cards { grid-template-columns: 1fr; }
+  .card-text { padding: 20px 18px 0; }
+  .mini { margin-left: 12px; margin-right: 12px; }
 }
+.card-text + .mini { margin-top: 20px; }
 
 .facts { margin-top: 16px; display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid var(--color-border); border-radius: var(--radius-card); background: var(--color-surface); overflow: hidden; }
 .fact { padding: 24px; border-right: 1px solid var(--color-border-subtle); border-bottom: 1px solid var(--color-border-subtle); }
@@ -252,10 +451,29 @@ section.block { padding: 96px 0 0; }
   <symbol id="i-lock" viewBox="0 0 24 24"><rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></symbol>
   <symbol id="i-key" viewBox="0 0 24 24"><path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor"/></symbol>
   <symbol id="i-monitor" viewBox="0 0 24 24"><rect width="20" height="14" x="2" y="3" rx="2"/><path d="M8 21h8M12 17v4"/></symbol>
-  <symbol id="i-wrench" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></symbol>
   <symbol id="i-save" viewBox="0 0 24 24"><path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/></symbol>
   <symbol id="i-plug" viewBox="0 0 24 24"><path d="M12 22v-5M9 8V2m6 6V2"/><path d="M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z"/></symbol>
   <symbol id="i-plus" viewBox="0 0 24 24"><path d="M5 12h14M12 5v14"/></symbol>
+  <symbol id="i-wand" viewBox="0 0 24 24"><path d="m21.64 3.64-1.28-1.28a1.21 1.21 0 0 0-1.72 0L2.36 18.64a1.21 1.21 0 0 0 0 1.72l1.28 1.28a1.2 1.2 0 0 0 1.72 0L21.64 5.36a1.2 1.2 0 0 0 0-1.72"/><path d="m14 7 3 3M5 6v4M19 14v4M10 2v2M7 8H3M21 16h-4M11 3H9"/></symbol>
+  <symbol id="i-sparkles" viewBox="0 0 24 24"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4M22 5h-4"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="m6 3 14 9-14 9V3z"/></symbol>
+  <symbol id="i-db" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/></symbol>
+  <symbol id="i-server" viewBox="0 0 24 24"><rect width="20" height="8" x="2" y="2" rx="2"/><rect width="20" height="8" x="2" y="14" rx="2"/><path d="M6 6h.01M6 18h.01"/></symbol>
+  <symbol id="i-table" viewBox="0 0 24 24"><path d="M12 3v18"/><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18M3 15h18"/></symbol>
+  <symbol id="i-folder" viewBox="0 0 24 24"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></symbol>
+  <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+  <symbol id="i-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></symbol>
+  <symbol id="i-settings" viewBox="0 0 24 24"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="m10 13-2 2 2 2M14 17l2-2-2-2"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></symbol>
+  <symbol id="i-corner" viewBox="0 0 24 24"><path d="m15 10 5 5-5 5"/><path d="M4 4v7a4 4 0 0 0 4 4h12"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4M12 17h.01"/></symbol>
+  <symbol id="i-circle-x" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></symbol>
 </svg>
 
 <header class="nav">
@@ -286,10 +504,57 @@ section.block { padding: 96px 0 0; }
       <a class="btn btn-lg" href="https://github.com/dithzz/sayql"><svg class="icon"><use href="#i-github"/></svg>View on GitHub</a>
     </div>
     <p class="meta">macOS, Windows and Linux · Open source, Apache 2.0<span data-downloads hidden> · <span data-downloads-count></span> downloads</span></p>
-  </div>
-  <div class="shot">
-    <img class="for-light" src="/img/hero-light.webp" width="2328" height="1575" fetchpriority="high" alt="SayQL: a plain-English question, the SQL it wrote, and the results">
-    <img class="for-dark" src="/img/hero-dark.webp" width="2328" height="1575" fetchpriority="high" alt="SayQL: a plain-English question, the SQL it wrote, and the results">
+
+    <div class="app window" id="hero-demo" role="img" aria-label="Demo: SayQL turns a plain-English question into SQL as you type, then runs it read-only">
+      <div class="titlebar"><div class="lights"><i></i><i></i><i></i></div>SayQL</div>
+      <div class="topbar">
+        <span class="logo"><svg width="18" height="18"><use href="#i-logo"/></svg>SayQL</span>
+        <span class="ghost"><svg class="i"><use href="#i-plus"/></svg>New connection</span>
+        <span class="chip"><svg class="i k-sl"><use href="#i-db"/></svg>Demo store (SQLite)<span class="k">SQLite</span></span>
+        <span class="end"><svg class="i"><use href="#i-monitor"/></svg><svg class="i"><use href="#i-settings"/></svg></span>
+      </div>
+      <div class="body">
+        <aside class="navigator">
+          <div class="pane-h"><svg class="i"><use href="#i-server"/></svg>Database Navigator<span class="end"><svg class="i"><use href="#i-plus"/></svg><svg class="i"><use href="#i-refresh"/></svg></span></div>
+          <div class="filter"><svg class="i"><use href="#i-search"/></svg>Filter tables and columns</div>
+          <div class="tree">
+            <div class="row l0"><svg class="chev i"><use href="#i-down"/></svg><svg class="i k-sl"><use href="#i-db"/></svg>Demo store (SQLite)<span class="n">SL</span></div>
+            <div class="row l1"><svg class="chev i"><use href="#i-down"/></svg><svg class="i"><use href="#i-folder"/></svg>Tables<span class="n">5</span></div>
+            <div class="row l2" data-t="categories"><svg class="chev i"><use href="#i-right"/></svg><svg class="i"><use href="#i-table"/></svg><span class="mono">categories</span><span class="n">8</span></div>
+            <div class="row l2" data-t="customers"><svg class="chev i"><use href="#i-right"/></svg><svg class="i"><use href="#i-table"/></svg><span class="mono">customers</span><span class="n">500</span></div>
+            <div class="row l2" data-t="order_items"><svg class="chev i"><use href="#i-right"/></svg><svg class="i"><use href="#i-table"/></svg><span class="mono">order_items</span><span class="n">7,500</span></div>
+            <div class="row l2" data-t="orders"><svg class="chev i"><use href="#i-right"/></svg><svg class="i"><use href="#i-table"/></svg><span class="mono">orders</span><span class="n">3,000</span></div>
+            <div class="row l2" data-t="products"><svg class="chev i"><use href="#i-right"/></svg><svg class="i"><use href="#i-table"/></svg><span class="mono">products</span><span class="n">120</span></div>
+            <div class="row l1"><svg class="chev i"><use href="#i-right"/></svg><svg class="i"><use href="#i-folder"/></svg>Views<span class="n">1</span></div>
+            <div class="row l0"><svg class="chev i"><use href="#i-right"/></svg><svg class="i k-pg"><use href="#i-server"/></svg>analytics@prod-replica<span class="n">PG</span></div>
+            <div class="row l0"><svg class="chev i"><use href="#i-right"/></svg><svg class="i k-my"><use href="#i-server"/></svg>shop@localhost<span class="n">MY</span></div>
+            <div class="row l0"><svg class="chev i"><use href="#i-right"/></svg><svg class="i k-ms"><use href="#i-server"/></svg>sales@azure<span class="n">MS</span></div>
+          </div>
+        </aside>
+        <div class="main">
+          <div class="tabs"><div class="tab"><svg class="i k-sl"><use href="#i-file"/></svg>Demo store (SQLite)<span class="dot"></span></div><span class="plus"><svg class="i"><use href="#i-plus"/></svg></span></div>
+          <div class="ed-h"><svg class="i"><use href="#i-file"/></svg><b>SQL Editor</b><span class="sub">Demo store (SQLite)</span>
+            <span class="end"><svg class="i tool"><use href="#i-save"/></svg><span class="tool"><svg class="i"><use href="#i-wand"/></svg>Improve</span><span class="run-btn" data-run><svg class="i"><use href="#i-play"/></svg>Run <span class="kbd">⌘↵</span></span></span>
+          </div>
+          <div class="askbox" data-ask>
+            <span class="pill"><svg class="i"><use href="#i-table"/></svg><span data-pill>customers, orders</span><svg class="i"><use href="#i-eye"/></svg><svg class="i"><use href="#i-x"/></svg></span>
+            <div class="q-line"><svg class="i spark"><use href="#i-sparkles"/></svg><span class="q" data-q><span class="ph">Ask in plain English…</span></span></div>
+          </div>
+          <div class="hintbar">
+            <span class="building" data-building hidden><svg class="i"><use href="#i-corner"/></svg>Building on your last query</span>
+            <span class="newq" data-newq>New query</span>
+            <span class="state" data-state></span>
+            <span class="keys"><span class="kbd">↵</span> run <span class="kbd">⇧↵</span> new line <span class="kbd">esc</span> clear</span>
+          </div>
+          <div class="editor"><div class="gutter" data-gutter>1</div><div class="code" data-code></div></div>
+          <div class="results">
+            <div class="pane-h"><svg class="i"><use href="#i-table"/></svg>Results <span class="sub" data-meta></span><span class="end"><svg class="i"><use href="#i-copy"/></svg>Copy as CSV</span></div>
+            <div class="grid" data-grid><div class="empty">Run a query to see rows here</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="statusbar"><span class="ok"><i></i>Connected · Demo store (SQLite)</span><span class="cols">6 tables · 25 columns</span><span class="end"><svg class="i"><use href="#i-sparkles"/></svg>Haiku 5.5 while typing · Opus 5.5 for fixes</span></div>
+    </div>
   </div>
 </section>
 
@@ -311,31 +576,69 @@ section.block { padding: 96px 0 0; }
       <p>SayQL writes the query. You see it before anything runs.</p>
     </div>
 
-    <article class="card feature-wide">
-      <div class="card-text">
-        <h3>Plain English in, SQL out</h3>
-        <p>The SQL streams in as you type. Follow-ups like “only Canada” edit the query you already have.</p>
-      </div>
-      <img class="for-light" src="/img/feature-ask-light.webp" width="2344" height="752" loading="lazy" alt="A question in the Ask box above the SQL that SayQL wrote for it">
-      <img class="for-dark" src="/img/feature-ask-dark.webp" width="2344" height="752" loading="lazy" alt="A question in the Ask box above the SQL that SayQL wrote for it">
-    </article>
+    <div class="cards">
+      <article class="card">
+        <div class="card-text">
+          <h3>Follow-ups edit your query</h3>
+          <p>Say “remove the middle name” and it changes the query you have.</p>
+        </div>
+        <div class="app mini" id="demo-follow" role="img" aria-label="Demo: a follow-up removes a column from the current query">
+          <div class="askbox" data-ask><div class="q-line" style="margin-top:0"><svg class="i spark"><use href="#i-sparkles"/></svg><span class="q" data-q></span></div></div>
+          <div class="hintbar"><span class="building"><svg class="i"><use href="#i-corner"/></svg>Building on your last query</span></div>
+          <div class="code" data-code></div>
+        </div>
+      </article>
 
-    <div class="pair">
       <article class="card">
         <div class="card-text">
           <h3>Read-only unless you say so</h3>
-          <p>Reads run in read-only transactions. Anything that may change data stops and asks first.</p>
+          <p>Anything that may change data stops and asks first.</p>
         </div>
-        <img class="for-light" src="/img/feature-write-confirm-light.webp" width="1096" height="994" loading="lazy" alt="SayQL asking for confirmation before running an UPDATE">
-        <img class="for-dark" src="/img/feature-write-confirm-dark.webp" width="1096" height="994" loading="lazy" alt="SayQL asking for confirmation before running an UPDATE">
+        <div class="app mini" id="demo-confirm" role="img" aria-label="Demo: SayQL asks for confirmation before running an UPDATE">
+          <div class="ed-h"><svg class="i"><use href="#i-file"/></svg><b>SQL Editor</b><span class="sub">Production</span><span class="end"><span class="run-btn" data-run><svg class="i"><use href="#i-play"/></svg>Run</span></span></div>
+          <div class="code" data-code></div>
+          <div class="backdrop" data-dialog>
+            <div class="dialog">
+              <h4>Run a statement that may change data?</h4>
+              <div class="warn"><svg class="i"><use href="#i-alert"/></svg><span>SayQL can’t confirm this only reads data on <b>Production</b>. If it changes data, SayQL can’t undo it.</span></div>
+              <div class="foot"><span class="dbtn focus">Cancel</span><span class="dbtn danger"><svg class="i"><use href="#i-alert"/></svg>Run it</span></div>
+            </div>
+          </div>
+        </div>
       </article>
+
+      <article class="card">
+        <div class="card-text">
+          <h3>Errors fix themselves</h3>
+          <p>If the database rejects a query, SayQL corrects it and runs it again, in plain sight.</p>
+        </div>
+        <div class="app mini" id="demo-fix" role="img" aria-label="Demo: a failing query is corrected and run again">
+          <div class="ed-h"><svg class="i"><use href="#i-file"/></svg><b>SQL Editor</b><span class="sub">Demo store (SQLite)</span><span class="end"><span class="run-btn" data-run><svg class="i"><use href="#i-play"/></svg>Run</span></span></div>
+          <div class="code" data-code></div>
+          <div class="bar err" data-err hidden><svg class="i"><use href="#i-circle-x"/></svg><span>no such column: signup_date</span></div>
+          <div class="bar fix" data-fixing hidden><svg class="i"><use href="#i-sparkles"/></svg><span>Fixing with Opus 5.5…</span></div>
+          <div class="bar ok" data-ok hidden><svg class="i"><use href="#i-check"/></svg><span>Fixed: used <b class="mono">signed_up_at</b> and ran it again</span></div>
+        </div>
+      </article>
+
       <article class="card">
         <div class="card-text">
           <h3>Any AI, or a local one</h3>
-          <p>Use your own key with the provider you like, or run a model with Ollama or LM Studio.</p>
+          <p>Bring your own key, or run a model with Ollama or LM Studio.</p>
         </div>
-        <img class="for-light" src="/img/feature-setup-ai-light.webp" width="1336" height="1316" loading="lazy" alt="Choosing an AI provider in SayQL">
-        <img class="for-dark" src="/img/feature-setup-ai-dark.webp" width="1336" height="1316" loading="lazy" alt="Choosing an AI provider in SayQL">
+        <div class="app mini" id="demo-ai" role="img" aria-label="Demo: choosing an AI provider in SayQL">
+          <div class="providers">
+            <div class="prov" data-p><b>Anthropic Claude <span class="badge rec">Recommended</span></b><span>Tuned for SayQL.</span></div>
+            <div class="prov" data-p><b>OpenAI</b><span>GPT models with your key.</span></div>
+            <div class="prov" data-p><b>Google Gemini</b><span>Gemini with an AI Studio key.</span></div>
+            <div class="prov" data-p><b>Ollama <span class="badge local">On this computer</span></b><span>Nothing leaves your machine.</span></div>
+          </div>
+          <div class="fieldset">
+            <span data-label></span>
+            <div class="field" data-field></div>
+            <small data-help></small>
+          </div>
+        </div>
       </article>
     </div>
 
@@ -353,8 +656,8 @@ section.block { padding: 96px 0 0; }
         <p>A desktop app that connects straight to your database.</p>
       </div>
       <div class="fact">
-        <h3><svg class="icon"><use href="#i-wrench"/></svg>Errors fix themselves</h3>
-        <p>If the database rejects a query, SayQL corrects it in plain sight.</p>
+        <h3><svg class="icon"><use href="#i-wand"/></svg>Improve on request</h3>
+        <p>One click asks a stronger model for a clearer or faster version.</p>
       </div>
       <div class="fact">
         <h3><svg class="icon"><use href="#i-save"/></svg>Tabs and saved scripts</h3>
@@ -436,6 +739,7 @@ section.block { padding: 96px 0 0; }
 <script>
 (function () {
   var root = document.documentElement;
+  var reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   /* theme */
   document.getElementById("theme").addEventListener("click", function () {
@@ -444,6 +748,201 @@ section.block { padding: 96px 0 0; }
     root.setAttribute("data-theme", next);
     try { localStorage.setItem("sayql-site-theme", next); } catch (e) {}
   });
+
+  /* ---------- demo helpers ---------- */
+  var KEYWORDS = /^(SELECT|FROM|WHERE|JOIN|LEFT|ON|AS|AND|OR|GROUP|BY|ORDER|LIMIT|DESC|ASC|DISTINCT|UPDATE|SET)$/;
+  var FUNCS = /^(COUNT|SUM|ROUND)$/;
+  var OPERATOR_WORDS = /^(NOT|IN)$/;
+  function esc(s) { return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+  // Colors follow the app's Monaco themes: keywords bold blue, functions magenta, strings red.
+  function highlight(sql) {
+    var out = "", re = /('[^']*'?)|(\b\d+(?:\.\d+)?\b)|([A-Za-z_][A-Za-z0-9_]*)|(\|\||[<>=!*+\-\/]+)|([\s\S])/g, m;
+    while ((m = re.exec(sql))) {
+      if (m[1]) out += '<span class="tk-s">' + esc(m[1]) + "</span>";
+      else if (m[2]) out += '<span class="tk-n">' + m[2] + "</span>";
+      else if (m[3]) out += OPERATOR_WORDS.test(m[3]) ? '<span class="tk-o">' + m[3] + "</span>"
+        : KEYWORDS.test(m[3]) ? '<span class="tk-k">' + m[3] + "</span>"
+        : FUNCS.test(m[3]) ? '<span class="tk-f">' + m[3] + "</span>" : esc(m[3]);
+      else if (m[4]) out += '<span class="tk-o">' + esc(m[4]) + "</span>";
+      else out += esc(m[0]);
+    }
+    return out;
+  }
+  function lines(sql, mark) {
+    return sql.split("\n").map(function (l, i) { return '<div class="line' + (mark ? mark(l, i) : "") + '">' + (highlight(l) || " ") + "</div>"; }).join("");
+  }
+  function pressRun(btn) { btn.classList.remove("press"); void btn.offsetWidth; btn.classList.add("press"); }
+
+  // Plays `play(later, loop)` while `el` is on screen. With reduced motion, only `still()` (the end state) shows.
+  function demo(el, play, still) {
+    var timers = [], running = false;
+    function later(fn, ms) { timers.push(setTimeout(fn, ms)); }
+    function stop() { timers.forEach(clearTimeout); timers = []; running = false; }
+    function loop() { stop(); running = true; play(later, loop); }
+    still();
+    if (reduce || !("IntersectionObserver" in window)) return;
+    new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) { if (e.isIntersecting) { if (!running) loop(); } else stop(); });
+    }, { threshold: 0.25 }).observe(el);
+  }
+  function typeInto(el, text, t, later, onChar) {
+    text.split("").forEach(function (_, k) {
+      t += 34 + Math.random() * 36;
+      later(function () { el.innerHTML = esc(text.slice(0, k + 1)) + '<span class="caret"></span>'; if (onChar) onChar(k); }, t);
+    });
+    return t;
+  }
+
+  /* ---------- hero: the workbench, with the app's built-in demo database ---------- */
+  (function () {
+    var el = document.getElementById("hero-demo");
+    var $ = function (s) { return el.querySelector(s); };
+    var ask = $("[data-ask]"), q = $("[data-q]"), code = $("[data-code]"), gutter = $("[data-gutter]"), grid = $("[data-grid]"),
+        meta = $("[data-meta]"), state = $("[data-state]"), building = $("[data-building]"), newq = $("[data-newq]"),
+        pill = $("[data-pill]"), run = $("[data-run]");
+
+    var TOP = "SELECT c.id AS customer_id,\n       c.first_name || ' ' || c.last_name AS customer,\n       c.country,\n       COUNT(DISTINCT o.id) AS orders,\n       ROUND(SUM(oi.quantity * oi.unit_price), 2) AS total_spend\nFROM customers c\nJOIN orders o ON o.customer_id = c.id\nJOIN order_items oi ON oi.order_id = o.id\nWHERE o.status NOT IN ('cancelled', 'refunded')\nGROUP BY c.id\nORDER BY total_spend DESC\nLIMIT 10;";
+    var PEOPLE = [[214, "Ava Smith", "USA", 31, 18420.5], [87, "Liam Patel", "India", 27, 16935], [342, "Noah Garcia", "Spain", 26, 15210.75], [19, "Emma Kim", "South Korea", 24, 14388.2], [156, "Olivia Nguyen", "Australia", 22, 13702.4], [401, "Arjun Müller", "Germany", 21, 12950], [63, "Priya Rossi", "Italy", 20, 12118.65], [278, "Mateo Silva", "Brazil", 19, 11640.3], [125, "Sofia Haddad", "Canada", 18, 10987.1], [330, "Kenji Watanabe", "Japan", 17, 10402.85]];
+    var COLS = ["customer_id", "customer", "country", "orders", "total_spend"];
+    var SCENES = [
+      { tables: ["customers", "orders"], question: "Top 10 customers by total spend", sql: TOP, cols: COLS, rows: PEOPLE, meta: "10 rows · 9 ms" },
+      { tables: ["customers", "orders"], followup: true, question: "only Europe",
+        sql: TOP.replace("\nGROUP BY", "\n  AND c.country IN ('Spain', 'Germany', 'Italy')\nGROUP BY"),
+        cols: COLS, rows: PEOPLE.filter(function (r) { return /Spain|Germany|Italy/.test(r[2]); }), meta: "3 rows · 6 ms" },
+      { tables: ["orders"], question: "how many orders in each status", sql: "SELECT status, COUNT(*) AS orders\nFROM orders\nGROUP BY status\nORDER BY orders DESC;",
+        cols: ["status", "orders"], rows: [["delivered", 2154], ["shipped", 389], ["processing", 201], ["cancelled", 152], ["refunded", 104]], meta: "5 rows · 4 ms" }
+    ];
+    var current = 0;
+
+    function setSql(sql) {
+      code.innerHTML = highlight(sql);
+      var n = Math.max(1, sql.split("\n").length), g = "";
+      for (var i = 1; i <= n; i++) g += i + "\n";
+      gutter.textContent = g;
+    }
+    function clearRows() { grid.innerHTML = '<div class="empty">Run a query to see rows here</div>'; meta.textContent = ""; }
+    function showRows(s, later) {
+      var h = "<table><thead><tr><th></th>";
+      s.cols.forEach(function (c) { h += "<th>" + c + "</th>"; });
+      h += "</tr></thead><tbody>";
+      s.rows.forEach(function (r, i) {
+        h += '<tr><td class="idx">' + (i + 1) + "</td>";
+        r.forEach(function (v) { h += typeof v === "number" ? '<td class="num">' + v + "</td>" : "<td>" + esc(v) + "</td>"; });
+        h += "</tr>";
+      });
+      grid.innerHTML = h + "</tbody></table>";
+      meta.textContent = s.meta;
+      grid.querySelectorAll("tbody tr").forEach(function (tr, i) { if (later) later(function () { tr.classList.add("in"); }, 35 * i); else tr.classList.add("in"); });
+    }
+    function setScene(s) {
+      el.querySelectorAll(".row[data-t]").forEach(function (r) { r.classList.toggle("sel", s.tables.indexOf(r.getAttribute("data-t")) >= 0); });
+      pill.textContent = s.tables.join(", ");
+      building.hidden = !s.followup;
+      newq.hidden = !!s.followup;
+    }
+    function done(s) {
+      ask.classList.remove("live");
+      q.textContent = s.question;
+      state.className = "state";
+      state.innerHTML = '<svg class="i"><use href="#i-check"/></svg>Haiku 5.5';
+    }
+
+    demo(el, function (later, loop) {
+      var s = SCENES[current];
+      setScene(s);
+      if (!s.followup) { setSql(""); clearRows(); }
+      ask.classList.add("live");
+      q.innerHTML = '<span class="caret"></span>';
+      state.className = "state"; state.textContent = "";
+      var t = typeInto(q, s.question, 500, later, function (k) {
+        if (k === 3) { state.className = "state ai"; state.innerHTML = "<i></i>Drafting with Haiku 5.5…"; if (s.followup) clearRows(); }
+      });
+      // The SQL streams in while the question is still being typed, like in the app.
+      var tokens = s.sql.match(/\s+|[^\s]+/g), shown = "", start = Math.max(800, t - 900);
+      tokens.forEach(function (tok, k) { later(function () { shown += tok; setSql(shown); }, start + k * 28); });
+      var end = Math.max(t, start + tokens.length * 28) + 250;
+      later(function () { done(s); }, end);
+      later(function () { pressRun(run); }, end + 600);
+      later(function () { showRows(s, later); }, end + 850);
+      later(function () { current = (current + 1) % SCENES.length; loop(); }, end + 5200);
+    }, function () {
+      var s = SCENES[0];
+      setScene(s); setSql(s.sql); showRows(s); done(s);
+    });
+  })();
+
+  /* ---------- follow-ups ---------- */
+  (function () {
+    var el = document.getElementById("demo-follow");
+    var q = el.querySelector("[data-q]"), code = el.querySelector("[data-code]"), ask = el.querySelector("[data-ask]");
+    var SQL = "SELECT first_name,\n       middle_name,\n       last_name,\n       email\nFROM clients\nWHERE status = 'active';";
+    var QUESTION = "remove the middle name";
+    demo(el, function (later, loop) {
+      code.innerHTML = lines(SQL);
+      q.innerHTML = '<span class="caret"></span>';
+      ask.classList.add("live");
+      var t = typeInto(q, QUESTION, 700, later);
+      later(function () { code.children[1].classList.add("del"); }, t + 300);
+      later(function () { code.children[1].classList.add("gone"); ask.classList.remove("live"); q.textContent = QUESTION; }, t + 1300);
+      later(loop, t + 4800);
+    }, function () {
+      code.innerHTML = lines(SQL); q.textContent = QUESTION; code.children[1].classList.add("del", "gone");
+    });
+  })();
+
+  /* ---------- confirm before anything that may change data ---------- */
+  (function () {
+    var el = document.getElementById("demo-confirm");
+    var dialog = el.querySelector("[data-dialog]"), run = el.querySelector("[data-run]");
+    el.querySelector("[data-code]").innerHTML = lines("UPDATE orders\nSET status = 'shipped'\nWHERE id = 48213;");
+    demo(el, function (later, loop) {
+      dialog.classList.remove("show");
+      later(function () { pressRun(run); }, 1000);
+      later(function () { dialog.classList.add("show"); }, 1350);
+      later(function () { dialog.classList.remove("show"); }, 5800);
+      later(loop, 6500);
+    }, function () { dialog.classList.add("show"); });
+  })();
+
+  /* ---------- errors fix themselves ---------- */
+  (function () {
+    var el = document.getElementById("demo-fix");
+    var code = el.querySelector("[data-code]"), run = el.querySelector("[data-run]");
+    var err = el.querySelector("[data-err]"), fixing = el.querySelector("[data-fixing]"), ok = el.querySelector("[data-ok]");
+    var BAD = "SELECT first_name, signup_date\nFROM customers\nORDER BY signup_date DESC\nLIMIT 5;";
+    var GOOD = BAD.replace(/signup_date/g, "signed_up_at");
+    function fixed() { code.innerHTML = lines(GOOD, function (l) { return /signed_up_at/.test(l) ? " add" : ""; }); }
+    demo(el, function (later, loop) {
+      code.innerHTML = lines(BAD);
+      err.hidden = fixing.hidden = ok.hidden = true;
+      later(function () { pressRun(run); }, 800);
+      later(function () { err.hidden = false; }, 1100);
+      later(function () { fixing.hidden = false; }, 2100);
+      later(function () { fixed(); err.hidden = fixing.hidden = true; ok.hidden = false; }, 3600);
+      later(loop, 7600);
+    }, function () { fixed(); ok.hidden = false; });
+  })();
+
+  /* ---------- pick your AI ---------- */
+  (function () {
+    var el = document.getElementById("demo-ai");
+    var cards = el.querySelectorAll("[data-p]"), label = el.querySelector("[data-label]"), field = el.querySelector("[data-field]"), help = el.querySelector("[data-help]");
+    var KEYCHAIN = "Stored in your system keychain, never in a file.";
+    var STATES = [
+      ["Anthropic Claude API key", "Saved in Keychain", KEYCHAIN],
+      ["OpenAI API key", "Saved in Keychain", KEYCHAIN],
+      ["Google Gemini API key", "Saved in Keychain", KEYCHAIN],
+      ["Ollama address", "http://localhost:11434", "No key needed. Nothing leaves your machine."]
+    ];
+    function select(i) {
+      cards.forEach(function (c, j) { c.classList.toggle("on", i === j); });
+      label.textContent = STATES[i][0]; field.textContent = STATES[i][1]; help.textContent = STATES[i][2];
+    }
+    demo(el, function (later, loop) {
+      STATES.forEach(function (_, i) { later(function () { select(i); }, i * 1800); });
+      later(loop, STATES.length * 1800);
+    }, function () { select(0); });
+  })();
 
   /* download count
    * Installer downloads across all published releases, from GitHub's public API.
