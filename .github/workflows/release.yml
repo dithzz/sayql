@@ -78,7 +78,7 @@ jobs:
       # The MCP server (src/bin/sayql-mcp.rs) needs no step here: Tauri bundles every binary
       # in the crate next to the app (Contents/MacOS, /usr/bin, Program Files), where
       # Settings → AI apps finds it. Adding it as an externalBin as well duplicates it.
-      - uses: tauri-apps/tauri-action@v0
+      - uses: tauri-apps/tauri-action@v1
         env:
           # Creates the release in the separate releases repo, which hosts the downloads and update feed.
           GITHUB_TOKEN: ${{ secrets.RELEASES_TOKEN }}
@@ -99,7 +99,12 @@ jobs:
             - **macOS:** open the app once, then go to System Settings → Privacy & Security and click **Open Anyway**.
             - **Windows:** on "Windows protected your PC", click **More info → Run anyway**.
             - **Linux:** use the `.AppImage` (make it executable), or install the `.deb` or `.rpm`.
+          # v1 fails if a release with this tag already exists and isn't a draft,
+          # so re-running a published tag stops instead of changing it.
           releaseDraft: true
           prerelease: false
-          includeUpdaterJson: true
+          # latest.json links to each archive by its GitHub API asset URL
+          # (api.github.com/repos/dithzz/sayql-releases/releases/assets/<id>). The updater
+          # downloads it with "Accept: application/octet-stream", which that URL needs.
+          uploadUpdaterJson: true
           args: ${{ matrix.args }}
