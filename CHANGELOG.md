@@ -46,6 +46,12 @@ All notable changes to SayQL are listed here. Downloads are on the
 - **SQL Server `geometry` shows as WKT,** as `STAsText()` writes it, instead of bytes.
 - **SQLite scripts over MCP** return the first result set, instead of every statement's rows under the
   first one's columns.
+- **MySQL 5.7 with "Require SSL" connects.** PostgreSQL and MySQL connections now use your system's TLS
+  (rustls couldn't negotiate with MySQL 5.7).
+- **MariaDB `ed25519` accounts sign in,** and MariaDB JSON columns show as JSON instead of text.
+- **SQL Server `money` is exact** (shown as `12.3400`, as in SSMS) instead of a float that lost digits above
+  about 900 billion. **`geography` and `hierarchyid` show as text** (`POINT (-122.3 47.6)`, `/1/2/`), as SQL
+  Server writes them.
 
 ## 0.2.6 (2026-10-22)
 - **Deleting a connection** also removes its password from the keychain item older versions saved it in.

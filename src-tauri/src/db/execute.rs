@@ -226,9 +226,14 @@ async fn run_mssql(pool: &MssqlPool, sql: &str, read_only: bool, cap: usize, can
         let first = out.into_iter().next().unwrap_or_default();
         let columns: Vec<String> = first.first().map(|r| r.columns().iter().map(|c| c.name().to_string()).collect()).unwrap_or_default();
         let truncated = first.len() > cap;
-        let rows = first.iter().take(cap).map(|row| (0..row.len()).map(|i| ms_cell(row, i)).collect()).collect();
+        let kept = &first[..first.len().min(cap)];
+        let rows = kept.iter().map(|row| (0..row.len()).map(|i| ms_cell(row, i)).collect()).collect();
+        let udts = first.first().map(|r| udt_columns(r.columns())).unwrap_or_default();
+        let udts = udts.into_iter().map(|c| (c, kept.iter().map(|row| udt_bytes(row, c)).collect())).collect();
         let rows_affected = if columns.is_empty() { Some(affected) } else { None };
-        return Ok(QueryResult { columns, rows, rows_affected, truncated, elapsed_ms: 0 });
+        let mut res = QueryResult { columns, rows, rows_affected, truncated, elapsed_ms: 0 };
+        show_udts(pool, sql, &mut res, udts).await;
+        return Ok(res);
     }
 
     conn.client().simple_query("BEGIN TRANSACTION").await?.into_results().await?;
@@ -242,12 +247,95 @@ async fn run_mssql(pool: &MssqlPool, sql: &str, read_only: bool, cap: usize, can
     };
     // A cut-off result leaves unread rows on the wire, and a failed rollback leaves the
     // transaction open: either way, close the connection (the server rolls back).
-    let cut_off = out.as_ref().map(|r| r.truncated).unwrap_or(false);
+    let cut_off = out.as_ref().map(|(r, _)| r.truncated).unwrap_or(false);
     let rolled_back = !cut_off && rollback(conn.client()).await.is_ok();
-    if !rolled_back {
+    if rolled_back {
+        drop(conn);
+    } else {
         conn.discard();
     }
-    out
+    let (mut res, udts) = out?;
+    show_udts(pool, sql, &mut res, udts).await;
+    Ok(res)
+}
+
+/// The raw values of a result's CLR-typed columns (geography, geometry, hierarchyid), by
+/// column, one per row.
+type Udts = Vec<(usize, Vec<Option<Vec<u8>>>)>;
+
+fn udt_columns(columns: &[tiberius::Column]) -> Vec<usize> {
+    columns.iter().enumerate().filter(|(_, c)| c.column_type() == tiberius::ColumnType::Udt).map(|(i, _)| i).collect()
+}
+
+fn udt_bytes(row: &tiberius::Row, i: usize) -> Option<Vec<u8>> {
+    match row.cells().nth(i) {
+        Some((_, tiberius::ColumnData::Binary(Some(b)))) => Some(b.to_vec()),
+        _ => None,
+    }
+}
+
+/// geography, geometry and hierarchyid values arrive as bytes, and the driver doesn't say
+/// which type a column is. Asks SQL Server what each column is, then has it write the values
+/// as text, the way its own tools show them (`STAsText()`, `ToString()`). Anything that fails
+/// keeps what `ms_cell` showed.
+async fn show_udts(pool: &MssqlPool, sql: &str, res: &mut QueryResult, udts: Udts) {
+    if udts.is_empty() || res.rows.is_empty() {
+        return;
+    }
+    let Ok(mut conn) = pool.acquire().await else { return };
+    if convert_udts(conn.client(), sql, res, udts).await.is_err() {
+        // It may have stopped mid-result: start the next query on a fresh connection.
+        conn.discard();
+    }
+}
+
+/// Most bytes of values converted in one round trip; a bigger single value keeps its bytes.
+const UDT_BATCH_BYTES: usize = 1 << 20;
+
+async fn convert_udts(client: &mut MssqlClient, sql: &str, res: &mut QueryResult, udts: Udts) -> AppResult<()> {
+    // Describes the statement without running it.
+    let described = client.query("EXEC sp_describe_first_result_set @tsql = @P1", &[&sql]).await?.into_first_result().await?;
+    let type_of = |col: usize| {
+        described.iter().find_map(|r| {
+            let ordinal: i32 = r.try_get("column_ordinal").ok()??;
+            let ty: &str = r.try_get("system_type_name").ok()??;
+            (usize::try_from(ordinal - 1).ok()? == col).then(|| ty.to_ascii_lowercase())
+        })
+    };
+    for (col, values) in udts {
+        let to_text = match type_of(col).as_deref() {
+            Some("geography") => "CAST(v.b AS geography).STAsText()",
+            Some("geometry") => "CAST(v.b AS geometry).STAsText()",
+            Some("hierarchyid") => "CAST(v.b AS hierarchyid).ToString()",
+            _ => continue,
+        };
+        let present: Vec<(usize, &Vec<u8>)> =
+            values.iter().enumerate().filter_map(|(i, v)| v.as_ref().map(|b| (i, b))).filter(|(_, b)| b.len() <= UDT_BATCH_BYTES).collect();
+        // Batches of at most 500 values (VALUES takes 1,000 rows) and about 1 MB.
+        let mut start = 0;
+        while start < present.len() {
+            let mut end = start;
+            let mut size = 0;
+            while end < present.len() && end - start < 500 && (end == start || size + present[end].1.len() <= UDT_BATCH_BYTES) {
+                size += present[end].1.len();
+                end += 1;
+            }
+            let list: Vec<String> = present[start..end]
+                .iter()
+                .map(|(i, b)| format!("({i}, 0x{})", b.iter().map(|x| format!("{x:02x}")).collect::<String>()))
+                .collect();
+            // Only row numbers and hex digits go into this SQL.
+            let q = format!("SELECT v.i, {to_text} FROM (VALUES {}) v(i, b)", list.join(", "));
+            for row in client.simple_query(q).await?.into_first_result().await? {
+                let (Some(i), text) = (row.try_get::<i32, _>(0)?, row.try_get::<&str, _>(1)?) else { continue };
+                if let Some(cell) = res.rows.get_mut(i as usize).and_then(|r| r.get_mut(col)) {
+                    *cell = text.map_or(Value::Null, |t| Value::String(t.to_string()));
+                }
+            }
+            start = end;
+        }
+    }
+    Ok(())
 }
 
 /// Sends SQL Server an attention (the protocol's cancel) for the running batch, then closes
@@ -272,15 +360,17 @@ async fn rollback(client: &mut MssqlClient) -> AppResult<()> {
     Ok(())
 }
 
-/// Collects the first result set, up to `cap` rows.
-async fn collect_mssql(client: &mut MssqlClient, sql: &str, cap: usize) -> AppResult<QueryResult> {
+/// Collects the first result set, up to `cap` rows, and the raw values of its CLR-typed columns.
+async fn collect_mssql(client: &mut MssqlClient, sql: &str, cap: usize) -> AppResult<(QueryResult, Udts)> {
     let mut stream = client.simple_query(sql).await?;
-    let columns: Vec<String> = stream
-        .columns()
-        .await?
-        // An expression without an alias has no name; SQL Server's own tools show this.
-        .map(|cols| cols.iter().map(|c| if c.name().is_empty() { "(No column name)".into() } else { c.name().to_string() }).collect())
-        .unwrap_or_default();
+    let (columns, mut udts): (Vec<String>, Udts) = match stream.columns().await? {
+        Some(cols) => (
+            // An expression without an alias has no name; SQL Server's own tools show this.
+            cols.iter().map(|c| if c.name().is_empty() { "(No column name)".into() } else { c.name().to_string() }).collect(),
+            udt_columns(cols).into_iter().map(|c| (c, Vec::new())).collect(),
+        ),
+        None => Default::default(),
+    };
     let mut rows = Vec::new();
     let mut truncated = false;
     while let Some(item) = stream.try_next().await? {
@@ -293,6 +383,9 @@ async fn collect_mssql(client: &mut MssqlClient, sql: &str, cap: usize) -> AppRe
             break;
         }
         rows.push((0..row.len()).map(|i| ms_cell(&row, i)).collect());
+        for (c, values) in &mut udts {
+            values.push(udt_bytes(&row, *c));
+        }
     }
-    Ok(QueryResult { columns, rows, rows_affected: None, truncated, elapsed_ms: 0 })
+    Ok((QueryResult { columns, rows, rows_affected: None, truncated, elapsed_ms: 0 }, udts))
 }

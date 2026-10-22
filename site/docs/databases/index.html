@@ -390,9 +390,9 @@ the tests passing against one PostgreSQL, MySQL, MariaDB and SQL Server version.
   <thead><tr><th>Database</th><th>Tested</th><th>Good to know</th></tr></thead>
   <tbody>
     <tr><td>PostgreSQL</td><td>13, 15, 16, 17</td><td>Partitioned tables appear once, under the parent. Materialized views are listed.</td></tr>
-    <tr><td>MySQL</td><td>5.7, 8.0, 8.4</td><td>On 5.7, connect with <b>Require SSL</b> off: its encryption is too old for SayQL.</td></tr>
-    <tr><td>MariaDB</td><td>10.6, 10.11, 11.4</td><td>Accounts using <code>ed25519</code> can't sign in; use a password account.</td></tr>
-    <tr><td>SQL Server</td><td>2019, 2022</td><td>Also Azure SQL. <code>geography</code> values show as bytes: use <code>.STAsText()</code>.</td></tr>
+    <tr><td>MySQL</td><td>5.7, 8.0, 8.4</td><td>All password types, with or without SSL.</td></tr>
+    <tr><td>MariaDB</td><td>10.6, 10.11, 11.4</td><td><code>ed25519</code> accounts sign in too, and JSON columns show as JSON.</td></tr>
+    <tr><td>SQL Server</td><td>2019, 2022</td><td>Also Azure SQL. <code>geometry</code>, <code>geography</code> and <code>hierarchyid</code> show as text, and <code>money</code> exactly.</td></tr>
     <tr><td>SQLite</td><td>3 (bundled)</td><td>Reads use a connection opened read-only.</td></tr>
   </tbody>
 </table></div>

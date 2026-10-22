@@ -695,6 +695,13 @@ async fn zero_dates_geometry_and_unnamed_columns() {
         let pool = open(Kind::Mssql, &t, &t.database).await;
         let r = query(&pool, "SELECT 1, 2 AS two, COUNT(*) FROM sys.databases WHERE 1 = 0", true).await;
         assert_eq!(r.columns, ["(No column name)", "two", "(No column name)"]);
+        // money is exact to its 4 places, at the ends of its range too (tiberius is patched for it).
+        let r = query(&pool, "SELECT CAST(922337203685477.5807 AS money), CAST(-922337203685477.5808 AS money), \
+            CAST(-214748.3648 AS smallmoney), CAST(0.01 AS money), CAST(NULL AS money)", true).await;
+        assert_eq!(
+            r.rows[0],
+            [json!("922337203685477.5807"), json!("-922337203685477.5808"), json!("-214748.3648"), json!("0.0100"), Value::Null]
+        );
         // geometry reads as SQL Server's own STAsText() writes it.
         for wkt in [
             "POINT (1.5 -2)",
@@ -712,9 +719,16 @@ async fn zero_dates_geometry_and_unnamed_columns() {
             let r = query(&pool, &sql, true).await;
             assert_eq!(r.rows[0][0], r.rows[0][1], "{wkt}");
         }
-        // geography and hierarchyid stay as bytes.
-        let r = query(&pool, "SELECT geography::Point(47.6, -122.3, 4326), hierarchyid::Parse('/1/2/')", true).await;
-        assert!(r.rows[0].iter().all(|v| v.as_str().is_some_and(|s| s.starts_with("0x"))), "{:?}", r.rows);
+        // geography, SRID-4326 geometry and hierarchyid read as SQL Server writes them too, with
+        // NULLs kept, in read-only and confirmed statements alike.
+        let sql = "SELECT g, h, p FROM (VALUES (geography::Point(47.6, -122.3, 4326), hierarchyid::Parse('/1/2/'), \
+                   geometry::STGeomFromText('LINESTRING (0 0, 3 4)', 4326)), (NULL, NULL, NULL)) x(g, h, p)";
+        let want = [
+            vec![json!("POINT (-122.3 47.6)"), json!("/1/2/"), json!("LINESTRING (0 0, 3 4)")],
+            vec![Value::Null, Value::Null, Value::Null],
+        ];
+        assert_eq!(query(&pool, sql, true).await.rows, want);
+        assert_eq!(query(&pool, &format!("DECLARE @x int = 1; {sql}"), false).await.rows, want);
     }
 }
 
@@ -779,11 +793,8 @@ async fn mysql_integration() {
 
     // ---- value decoding, inside and outside the read-only transaction
     let version = scalar(&pool, "SELECT VERSION()").await.as_str().unwrap_or_default().to_string();
-    let mut expected = my_expected();
-    if version.contains("MariaDB") {
-        // MariaDB's JSON is LONGTEXT with a check: it arrives as text.
-        expected["js"] = json!("{\"a\": 1}");
-    }
+    // MariaDB stores JSON as LONGTEXT; sqlx-mysql is patched to read its JSON marker.
+    let expected = my_expected();
     let r = query(&pool, "SELECT * FROM all_types ORDER BY id", true).await;
     check_row("mysql read-only", &r, 0, &expected);
     assert!(r.rows[1][1..].iter().all(Value::is_null), "{:?}", r.rows[1]);
@@ -857,11 +868,27 @@ async fn check_connection_errors(kind: Kind, t: &Target) {
     let err = connect(&base, Some("wrong-password".into())).await.err().expect("wrong password").to_string();
     assert!(err.contains("password authentication failed") || err.contains("Access denied"), "{err}");
 
-    // With SSL off, a server whose TLS can't be used (MySQL 5.7) still connects, unencrypted.
-    connect(&base, t.password.clone()).await.expect("connect with SSL off");
-    // With SSL required, either it works or the error says how to connect without it.
-    if let Err(e) = connect(&ConnConfig { ssl: true, ..base }, t.password.clone()).await {
-        assert!(e.to_string().contains("Turn off \"Require SSL\""), "{e}");
+    let plain = connect(&base, t.password.clone()).await.expect("connect with SSL off");
+    // A server that offers TLS (MySQL 5.7 included) connects with SSL required, encrypted.
+    // One without TLS fails with a message saying how to connect without it.
+    let offers_tls = match kind {
+        Kind::Postgres => scalar(&plain, "SHOW ssl").await == json!("on"),
+        // MySQL 8.4 dropped `have_ssl`; it always has TLS unless built without it.
+        _ => query(&plain, "SHOW VARIABLES LIKE 'have_ssl'", true).await.rows.first().is_none_or(|r| r[1] == json!("YES")),
+    };
+    match connect(&ConnConfig { ssl: true, ..base }, t.password.clone()).await {
+        Ok(tls) => {
+            assert!(offers_tls, "connected with SSL required to a server without TLS");
+            let cipher = match kind {
+                Kind::Postgres => scalar(&tls, "SELECT cipher FROM pg_stat_ssl WHERE pid = pg_backend_pid()").await,
+                _ => query(&tls, "SHOW SESSION STATUS LIKE 'Ssl_cipher'", true).await.rows[0][1].clone(),
+            };
+            assert!(cipher.as_str().is_some_and(|c| !c.is_empty()), "not encrypted: {cipher}");
+        }
+        Err(e) => {
+            assert!(!offers_tls, "the server offers TLS, but SSL required failed: {e}");
+            assert!(e.to_string().contains("Turn off \"Require SSL\""), "{e}");
+        }
     }
 }
 
@@ -941,7 +968,7 @@ async fn mssql_integration() {
         0,
         &json!({
             "id": 1, "t_tiny": 255, "t_small": -32768, "t_big": 9007199254740993_i64, "t_bit": true,
-            "t_real": 1.1, "t_float": 2.5, "t_dec": "12345678901234567890.0123456789", "t_money": 12.34,
+            "t_real": 1.1, "t_float": 2.5, "t_dec": "12345678901234567890.0123456789", "t_money": "12.3400",
             "t_nvarchar": "héllo 世界", "t_char": "ab ", "t_guid": "6f9619ff-8b86-d011-b42d-00c04fc964ff",
             "t_bin": "0xdeadbeef", "t_date": "2026-10-21", "t_time": "13:45:30.123",
             "t_dt": "2026-10-21 13:45:30.997", "t_dt2": "2026-10-21 13:45:30.123456700",
@@ -1184,4 +1211,27 @@ async fn cancelled_queries_stop_on_the_server() {
         check_cancel(&pool, "SELECT 1 AS a; WAITFOR DELAY '00:00:30'", true, running).await;
         check_cancel(&pool, "WAITFOR DELAY '00:00:30'", false, running).await;
     }
+}
+
+/// MariaDB accounts that use the ed25519 plugin sign in (sqlx-mysql is patched for it).
+#[tokio::test]
+async fn mariadb_ed25519_accounts_sign_in() {
+    let Some(t) = env_target("SAYQL_TEST_MYSQL_URL") else { return };
+    let admin = open(Kind::Mysql, &t, &t.database).await;
+    let version = scalar(&admin, "SELECT VERSION()").await;
+    if !version.as_str().is_some_and(|v| v.contains("MariaDB")) {
+        return;
+    }
+    // Loaded by default on some versions; installing it twice is an error worth ignoring.
+    let _ = run_query(&admin, "INSTALL SONAME 'auth_ed25519'", false).await;
+    let pw = format!("Ed-{}", uuid::Uuid::new_v4().simple());
+    exec(&admin, "DROP USER IF EXISTS 'sayql_ed'@'%'").await;
+    exec(&admin, &format!("CREATE USER 'sayql_ed'@'%' IDENTIFIED VIA ed25519 USING PASSWORD('{pw}')")).await;
+    let user = Target { user: "sayql_ed".into(), password: Some(pw), ..parse_url(&std::env::var("SAYQL_TEST_MYSQL_URL").unwrap()) };
+    let pool = connect(&config(Kind::Mysql, &user, ""), user.password.clone()).await.expect("ed25519 sign-in");
+    assert_eq!(scalar(&pool, "SELECT CURRENT_USER()").await, json!("sayql_ed@%"));
+    let wrong = connect(&config(Kind::Mysql, &user, ""), Some("wrong".into())).await.err().expect("wrong password accepted");
+    assert!(wrong.to_string().contains("Access denied"), "{wrong}");
+    drop(pool);
+    exec(&admin, "DROP USER 'sayql_ed'@'%'").await;
 }
