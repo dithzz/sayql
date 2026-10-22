@@ -150,33 +150,38 @@ export function QueryTab({ tab, active, label, schema, settings, modelNames, onC
             connectionName={label}
             schema={schema}
             active={active}
-            askRef={askRef}
-            question={generation.question}
-            onQuestionChange={generation.setQuestion}
-            status={generation.status}
             modelNames={modelNames}
-            sql={tab.sql}
-            onSqlChange={setSql}
-            onRun={runSelectionOrAll}
-            onSubmit={submit}
-            selection={selection}
-            onSelectionChange={setSelection}
-            select={widened?.range ?? null}
-            skills={skills}
-            onCreateSkill={onCreateSkill}
-            explanation={generation.explanation}
-            onDismissExplanation={generation.dismissExplanation}
-            running={query.running}
-            onImprove={() => generation.improve(tab.sql)}
-            canImprove={canUseAi && !busy && !!tab.sql.trim()}
-            onSave={onSave}
             onOpenSettings={onOpenSettings}
-            onRetry={generation.retry}
-            followUp={lastRun ? { onStartFresh: () => onChange({ lastRun: null }) } : undefined}
-            focusTables={tab.focusTables ?? []}
-            focusEnabled={focusEnabled}
-            onFocusEnabledChange={(enabled) => onChange({ focusEnabled: enabled })}
-            onFocusTablesChange={(focusTables) => onChange({ focusTables })}
+            skills={{ list: skills, onCreate: onCreateSkill }}
+            generation={{
+              askRef,
+              question: generation.question,
+              onQuestionChange: generation.setQuestion,
+              status: generation.status,
+              onSubmit: submit,
+              onRetry: generation.retry,
+              onImprove: () => generation.improve(tab.sql),
+              canImprove: canUseAi && !busy && !!tab.sql.trim(),
+              followUp: lastRun ? { onStartFresh: () => onChange({ lastRun: null }) } : undefined,
+              explanation: generation.explanation,
+              onDismissExplanation: generation.dismissExplanation,
+            }}
+            query={{
+              sql: tab.sql,
+              onSqlChange: setSql,
+              onRun: runSelectionOrAll,
+              running: query.running,
+              selection,
+              onSelectionChange: setSelection,
+              select: widened?.range ?? null,
+              onSave,
+            }}
+            focus={{
+              tables: tab.focusTables ?? [],
+              enabled: focusEnabled,
+              onEnabledChange: (enabled) => onChange({ focusEnabled: enabled }),
+              onTablesChange: (focusTables) => onChange({ focusTables }),
+            }}
             origin={tab.origin}
           />
         }

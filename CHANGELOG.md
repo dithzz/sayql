@@ -4,6 +4,9 @@ All notable changes to SayQL are listed here. Downloads are on the
 [releases page](https://github.com/dithzz/sayql-releases/releases).
 
 ## Unreleased
+- **Deleting a connection shows why when it fails** (e.g. keychain access denied); the connection and its tabs stay.
+
+## 0.2.5 (2026-10-22)
 
 - **Voice input:** click the mic in the Ask box, or press ⌘⇧M (Ctrl+Shift+M), and say your question. It
   becomes the question as if you'd typed it, keeping any `/command`; press ↵ to run. Speech is turned into

@@ -16,6 +16,8 @@ import { exampleQuestions, OnboardingDialog, type OnboardingStep } from "../feat
 import { QueryTab } from "./QueryTab";
 import { StatusBar } from "./StatusBar";
 import { TopBar } from "./TopBar";
+import { useConnectionActions } from "./useConnectionActions";
+import { useScriptActions } from "./useScriptActions";
 import styles from "./Workbench.module.css";
 
 type OpenDialog =
@@ -36,6 +38,8 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
   const conn = useConnections(boot.connections);
   const tabs = useTabs();
   const scripts = useScripts();
+  const { scriptOf, saveTab, openScript, deleteScript } = useScriptActions(scripts, tabs);
+  const connActions = useConnectionActions(conn, tabs);
   const skills = useSkills();
   const { settings, setSettings, modelNames } = useSettings(boot.settings);
   const updates = useUpdate();
@@ -89,22 +93,6 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
   };
 
   const tabById = (id: string) => tabs.tabs.find((t) => t.id === id) ?? null;
-  const scriptOf = (t: EditorTab) => (t.scriptId ? (scripts.scripts.find((s) => s.id === t.scriptId) ?? null) : null);
-
-  /** Saves the tab as a script (named `name`, or keeping its script's name) and marks it saved. */
-  const saveTab = async (t: EditorTab, name?: string) => {
-    const existing = scriptOf(t);
-    const saved = await scripts.save({
-      id: existing?.id ?? "",
-      name: name ?? existing?.name ?? t.title,
-      connectionId: t.target.connectionId,
-      database: t.target.database,
-      question: t.question,
-      sql: t.sql,
-      updatedAt: 0,
-    });
-    tabs.update(t.id, { scriptId: saved.id, title: saved.name, savedSql: t.sql });
-  };
 
   /** Saves straight away when the tab already is a script; otherwise asks for a name first. */
   const requestSave = (t: EditorTab, closeAfter = false) => {
@@ -119,26 +107,6 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
     const t = tabById(id);
     if (t && hasUnsavedChanges(t)) setDialog({ kind: "closeTab", tabId: id });
     else tabs.close(id);
-  };
-
-  /** Shows the saved script's tab, opening it if needed; false when there's no such script. */
-  const openScript = (id: string) => {
-    const s = scripts.scripts.find((x) => x.id === id);
-    if (!s) return false;
-    const open = tabs.tabs.find((t) => t.scriptId === id);
-    if (open) tabs.activate(open.id);
-    else
-      tabs.open(
-        { connectionId: s.connectionId, database: s.database },
-        { scriptId: s.id, title: s.name, sql: s.sql, question: s.question, savedSql: s.sql },
-      );
-    return true;
-  };
-
-  const deleteScript = async (s: Script) => {
-    await scripts.remove(s.id);
-    // Open tabs keep their SQL, now unsaved, so nothing is lost by accident.
-    tabs.tabs.filter((t) => t.scriptId === s.id).forEach((t) => tabs.update(t.id, { scriptId: undefined, savedSql: undefined }));
   };
 
   // ⌘T / Ctrl+T opens a new tab on the current database; ⌘S / Ctrl+S saves the active tab.
@@ -167,11 +135,6 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
   /** SQL from the navigator in a new tab on the open database; only read-only SQL is run straight away. */
   const openSql = (title: string, sql: string, run: boolean) => {
     if (target) tabs.open(target, { title, sql, savedSql: sql, autoRun: run });
-  };
-
-  const forgetConnection = (id: string) => {
-    conn.remove(id);
-    tabs.closeWhere((t) => t.target.connectionId === id);
   };
 
   const tabLabel = (t: EditorTab) => {
@@ -267,6 +230,20 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
             }
           >
             {error}
+          </Alert>
+        </div>
+      )}
+      {connActions.error && (
+        <div className={styles.banner}>
+          <Alert
+            tone="danger"
+            actions={
+              <Button size="sm" variant="ghost" onClick={connActions.dismissError}>
+                Dismiss
+              </Button>
+            }
+          >
+            {connActions.error}
           </Alert>
         </div>
       )}
@@ -399,7 +376,7 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
           }}
           onDeleted={(id) => {
             setDialog(null);
-            forgetConnection(id);
+            connActions.forget(id);
           }}
         />
       )}
@@ -461,11 +438,9 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
               <Button onClick={() => setDialog(null)}>Cancel</Button>
               <Button
                 variant="danger"
-                onClick={async () => {
-                  const { id } = dialog.connection;
+                onClick={() => {
                   setDialog(null);
-                  await commands.deleteConnection(id);
-                  forgetConnection(id);
+                  void connActions.remove(dialog.connection.id);
                 }}
               >
                 Delete
