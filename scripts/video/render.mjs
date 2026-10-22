@@ -36,6 +36,8 @@ const S = WIN.w / view.width; // CSS px → stage px
 // `trim` drops seconds from its start, `max` caps its length, `speed` > 1 plays it faster.
 const EDITS = {
   full: [
+    { card: "problem", dur: 4.9 },
+    { card: "audience", dur: 5.2 },
     { card: "title", dur: 3.2 },
     { scene: "ask", until: "followup" },
     { scene: "followup", until: "skill" },
@@ -48,9 +50,9 @@ const EDITS = {
     { card: "end", dur: 4.6 },
   ],
   short: [
-    { card: "title", dur: 1.4 },
+    { card: "problem", dur: 2.6 },
     { scene: "ask", until: "followup", speed: 1.35, trim: 1.2 },
-    { scene: "followup", until: "skill", speed: 1.55, trim: 0.6, max: 3.8 },
+    { scene: "followup", until: "skill", speed: 1.55, trim: 0.6, max: 3.3 },
     { card: "end", dur: 2.2 },
   ],
 };
@@ -164,18 +166,23 @@ const frameAt = (ts) => {
 
 /** Everything compositor.html needs for output time `t`. */
 function stateAt(t) {
-  const s = { layers: [], card: null, caption: null };
+  const s = { layers: [], cards: [], caption: null };
   for (const it of items) {
     if (t < it.start || t >= it.start + it.dur) continue;
     const local = t - it.start;
     const next = items[items.indexOf(it) + 1];
     const fadesOut = next && !next.contiguous;
+    // Text cards fade in over the second half of a cross-fade and out over the first, so two
+    // cards' text never overlaps; the app window cross-fades over the whole of it.
+    const prev = items[items.indexOf(it) - 1];
+    const fadeIn = (x) => (it.kind === "card" && prev?.kind === "card" ? 2 * x - 1 : x);
+    const fadeOut = (x) => (it.kind === "card" && next?.kind === "card" ? 2 * x - 1 : x);
     let opacity = 1;
-    if (!it.contiguous && it.start > 0) opacity = Math.min(opacity, local / XFADE);
-    if (fadesOut) opacity = Math.min(opacity, (it.dur - local) / XFADE);
+    if (!it.contiguous && it.start > 0) opacity = Math.min(opacity, fadeIn(local / XFADE));
+    if (fadesOut) opacity = Math.min(opacity, fadeOut((it.dur - local) / XFADE));
     opacity = ease(Math.max(0, Math.min(1, opacity)));
     if (it.kind === "card") {
-      s.card = { kind: it.card, opacity, rise: (1 - ease(Math.min(1, local / 0.8))) * 16 };
+      s.cards.push({ kind: it.card, opacity, rise: (1 - ease(Math.min(1, local / 0.8))) * 16, local });
       continue;
     }
     const ts = it.from + local * it.speed;
@@ -295,7 +302,7 @@ if (cut === "poster") {
   }
   await page.close();
 
-  const titleCard = items.find((it) => it.card === "title");
+  const firstClip = items.find((it) => it.kind === "clip");
   const endCard = items.find((it) => it.card === "end");
   let music = null;
   const picked = JSON.parse(readFileSync(join(import.meta.dirname, "music.json"), "utf8"));
@@ -309,7 +316,7 @@ if (cut === "poster") {
   } else if (process.env.MUSIC !== "0") {
     console.warn(`${picked.file} is missing, so music.py's track is used. Download it from:\n  ${picked.download}`);
     music = join(work, "music.wav");
-    run("python3", [join(import.meta.dirname, "music.py"), music, total.toFixed(3), "--intro", String(titleCard?.dur ?? 0), "--outro", String(total - endCard.start)]);
+    run("python3", [join(import.meta.dirname, "music.py"), music, total.toFixed(3), "--intro", firstClip.start.toFixed(2), "--outro", String(total - endCard.start)]);
   }
   // The full cut carries the voiceover when there is one; the short cut is music only.
   const lines = cut === "full" ? voiceLines(work) : [];

@@ -278,7 +278,7 @@ scene("privacy");
 const guide = await waitFor('[role="dialog"]');
 const points = await waitFor('[role="dialog"] ul');
 cam({ ...guide, h: points.y + points.h - guide.y }, { maxZoom: 1.8, pad: 40 });
-caption("Your rows never go to the AI");
+caption("Your data is never processed by AI");
 await sleep(3200);
 caption("It only sees your schema");
 await sleep(3000);

@@ -1,4 +1,6 @@
 [
+  { "id": "problem", "card": "problem", "at": 0.3, "text": "You know the question. Writing the SQL is the hard part." },
+  { "id": "audience", "card": "audience", "at": 0.3, "text": "SayQL is for anyone who needs answers, not SQL." },
   { "id": "title", "card": "title", "at": 0.15, "text": "Say what you need. It knows your schema." },
   { "id": "ask", "scene": "ask", "at": 0.6, "text": "Ask your database in plain English. The SQL appears as you type, so there's no waiting." },
   { "id": "run", "scene": "run", "at": 0.2, "text": "It knows your tables and columns, so the query fits." },
@@ -6,7 +8,7 @@
   { "id": "skill", "scene": "skill", "at": 0.3, "text": "Skills add your own rules. This one keeps personal data out." },
   { "id": "safety", "scene": "safety", "at": 0.3, "text": "Anything that could change data asks you first." },
   { "id": "fix", "scene": "fix", "at": 0.3, "text": "And if a query fails, it fixes itself." },
-  { "id": "privacy", "scene": "privacy", "at": 0.3, "text": "Your rows never go to the AI. It only sees your question and your schema." },
+  { "id": "privacy", "scene": "privacy", "at": 0.3, "text": "Your data is never processed by AI. It only sees your question and your schema." },
   { "id": "ai", "scene": "ai", "at": 0.3, "text": "Use Claude, OpenAI or Gemini, or stay fully local with Ollama." },
   { "id": "mcp", "scene": "mcp", "at": 0.3, "text": "Claude can even query your databases through SayQL, read-only." },
   { "id": "end", "card": "end", "at": 0.2, "text": "Free and open source. Early access at sayql.dev." }
