@@ -32,3 +32,4 @@ dist-ssr
 # The bundled MCP server, built by the release workflow (see .github/workflows/release.yml)
 src-tauri/binaries/
 scripts/video/out/
+__pycache__/
