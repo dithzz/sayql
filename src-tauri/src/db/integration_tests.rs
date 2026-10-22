@@ -51,6 +51,13 @@ fn env_target(var: &str) -> Option<Target> {
     }
 }
 
+/// The connection settings and password from `var`, for tests outside this module.
+pub(crate) fn env_config(var: &str, kind: Kind) -> Option<(ConnConfig, Option<String>)> {
+    let t = env_target(var)?;
+    let db = if kind == Kind::Postgres && t.database.is_empty() { "postgres".to_string() } else { t.database.clone() };
+    Some((config(kind, &t, &db), t.password))
+}
+
 async fn open(kind: Kind, t: &Target, database: &str) -> DbPool {
     connect(&config(kind, t, database), t.password.clone()).await.expect("connect")
 }
@@ -441,14 +448,25 @@ CREATE TABLE order_items (
 
 CREATE VIEW paid_orders AS SELECT * FROM orders WHERE status = 'paid';
 
+-- 1..1000 without a recursive CTE, which MySQL 5.7 lacks. Temporary, so not part of the schema.
+CREATE TEMPORARY TABLE n (i INT PRIMARY KEY);
+INSERT INTO n
+SELECT a.d * 100 + b.d * 10 + c.d + 1
+FROM (SELECT 0 d UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4
+      UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) a,
+     (SELECT 0 d UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4
+      UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) b,
+     (SELECT 0 d UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4
+      UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) c;
+
 INSERT INTO customers (email, tier, signed_up_at)
-WITH RECURSIVE n (i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < 200)
-SELECT CONCAT('c', i, '@example.com'), ELT(1 + i % 3, 'free', 'pro', 'enterprise'), '2024-01-01' + INTERVAL i DAY FROM n;
+SELECT CONCAT('c', i, '@example.com'), ELT(1 + i % 3, 'free', 'pro', 'enterprise'), '2024-01-01' + INTERVAL i DAY
+FROM n WHERE i <= 200 ORDER BY i;
 
 INSERT INTO orders (customer_id, status, total, meta, ordered_at)
-WITH RECURSIVE n (i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < 1000)
 SELECT 1 + i % 200, ELT(1 + i % 4, 'pending', 'paid', 'shipped', 'it''s late'), (i % 500) + 0.99,
-       JSON_OBJECT('n', i), '2024-01-01' + INTERVAL i HOUR FROM n;
+       JSON_OBJECT('n', i), '2024-01-01' + INTERVAL i HOUR FROM n ORDER BY i;
+DROP TEMPORARY TABLE n;
 
 CREATE TABLE all_types (
   id INT PRIMARY KEY,
@@ -498,7 +516,9 @@ async fn mysql_integration() {
 
     // ---- schema reading
     let schema = introspect(&pool, Kind::Mysql).await.expect("introspect");
-    let names: Vec<&str> = schema.tables.iter().map(|t| t.name.as_str()).collect();
+    // Sorted here: MySQL and MariaDB order `_` differently.
+    let mut names: Vec<&str> = schema.tables.iter().map(|t| t.name.as_str()).collect();
+    names.sort();
     assert_eq!(names, ["all_types", "customers", "order_items", "orders", "paid_orders"]);
     let tb = &schema.tables;
     let customers = table(tb, None, "customers");
@@ -516,7 +536,8 @@ async fn mysql_integration() {
     assert_eq!(status.enum_values.as_deref(), Some(&["pending", "paid", "shipped", "it's late"].map(String::from)[..]));
     assert_eq!(column(customers, "tier").enum_values.as_deref(), Some(&["free", "pro", "enterprise"].map(String::from)[..]));
     assert_eq!(column(orders, "total").data_type, "decimal(12,2)");
-    assert_eq!(column(customers, "id").data_type, "int unsigned");
+    // MySQL 5.7 and MariaDB still write display widths: `int(10) unsigned`.
+    assert_eq!(column(customers, "id").data_type.replace("(10)", ""), "int unsigned");
     assert!(column(orders, "meta").nullable);
     assert!(!column(orders, "total").nullable);
     exec(&pool, "ANALYZE TABLE customers, orders").await;
@@ -528,12 +549,18 @@ async fn mysql_integration() {
     assert_eq!(est("paid_orders"), None);
 
     // ---- value decoding, inside and outside the read-only transaction
+    let version = scalar(&pool, "SELECT VERSION()").await.as_str().unwrap_or_default().to_string();
+    let mut expected = my_expected();
+    if version.contains("MariaDB") {
+        // MariaDB's JSON is LONGTEXT with a check: it arrives as text.
+        expected["js"] = json!("{\"a\": 1}");
+    }
     let r = query(&pool, "SELECT * FROM all_types ORDER BY id", true).await;
-    check_row("mysql read-only", &r, 0, &my_expected());
+    check_row("mysql read-only", &r, 0, &expected);
     assert!(r.rows[1][1..].iter().all(Value::is_null), "{:?}", r.rows[1]);
     assert!(!r.rows[0].iter().any(is_placeholder));
     let w = query(&pool, "SELECT * FROM all_types ORDER BY id", false).await;
-    check_row("mysql read-write", &w, 0, &my_expected());
+    check_row("mysql read-write", &w, 0, &expected);
     let r = query(&pool, "SELECT status, COUNT(*) AS n, SUM(total) AS s FROM orders GROUP BY status ORDER BY status", true).await;
     assert_eq!(r.columns, ["status", "n", "s"]);
     assert_eq!(r.rows.iter().map(|row| row[1].as_i64().unwrap()).sum::<i64>(), 1000);
@@ -544,7 +571,10 @@ async fn mysql_integration() {
     assert!(!query(&pool, "SHOW TABLES", true).await.rows.is_empty());
     assert!(!query(&pool, "DESCRIBE orders", true).await.rows.is_empty());
     assert!(!query(&pool, "EXPLAIN SELECT * FROM orders", true).await.rows.is_empty());
-    assert_eq!(scalar(&pool, "WITH x AS (SELECT 41 AS v) SELECT v + 1 FROM x").await, json!(42));
+    // MySQL 5.7 has no WITH.
+    if !version.starts_with("5.7") {
+        assert_eq!(scalar(&pool, "WITH x AS (SELECT 41 AS v) SELECT v + 1 FROM x").await, json!(42));
+    }
 
     // ---- empty results keep their headers
     for ro in [true, false] {
@@ -555,6 +585,12 @@ async fn mysql_integration() {
     }
 
     // ---- read-only enforcement
+    // MariaDB before 11.1 calls it tx_read_only.
+    let show_ro = if run_query(&pool, "SELECT @@transaction_read_only", true).await.is_ok() {
+        "SELECT @@transaction_read_only"
+    } else {
+        "SELECT @@tx_read_only"
+    };
     check_read_only(
         &pool,
         "SELECT COUNT(*) FROM orders WHERE status = 'paid'",
@@ -564,7 +600,7 @@ async fn mysql_integration() {
             "SELECT 1; COMMIT; UPDATE orders SET status = 'paid'",
             "SELECT 1; ROLLBACK; UPDATE orders SET status = 'paid'",
         ],
-        "SELECT @@transaction_read_only",
+        show_ro,
         "UPDATE orders SET status = 'paid' WHERE id = 1",
     )
     .await;

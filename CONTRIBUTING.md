@@ -53,9 +53,20 @@ SAYQL_TEST_MSSQL_URL="mssql://sa:$SAYQL_TEST_DB_PASSWORD@localhost:14334/master"
 cargo test --lib integration
 ```
 
-The URLs take the form `scheme://user:password@host:port/database` (no percent-encoding). The tests drop and
-recreate the Postgres schemas `sayql_it` and `sayql_it_inv` and the MySQL and SQL Server databases `sayql_it`,
-so use throwaway servers. MySQL needs a few seconds after `docker run` before it accepts connections.
+The URLs take the form `scheme://user:password@host:port/database` (no percent-encoding). `SAYQL_TEST_MYSQL_URL`
+also takes a MariaDB server. The tests create and drop their own schemas, databases and roles (all named
+`sayql_*`), so use throwaway servers. MySQL needs a few seconds after `docker run` before it accepts connections.
+
+To run them against every version SayQL supports (PostgreSQL 13 to 17, MySQL 5.7 to 8.4, MariaDB 10.6 to
+11.4, SQL Server 2019 and 2022), each in its own throwaway container that is removed afterwards:
+
+```bash
+scripts/test-databases.sh            # all of them, or name some: scripts/test-databases.sh pg17 mariadb114
+```
+
+CI runs them on every pull request against three combinations (the `integration` job in
+`.github/workflows/ci.yml`). [docs/DATABASE_COMPATIBILITY.md](docs/DATABASE_COMPATIBILITY.md) has the full
+matrix and what each check covers.
 
 ### The MCP server in development
 

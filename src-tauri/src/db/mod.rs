@@ -111,4 +111,6 @@ pub struct QueryResult {
 #[cfg(test)]
 mod integration_tests;
 #[cfg(test)]
+pub(crate) use integration_tests::env_config;
+#[cfg(test)]
 mod tests;

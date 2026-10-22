@@ -557,6 +557,70 @@ mod tests {
         assert!(all.contains("dbo.Person") && all.contains("dbo.Account"), "{all}");
     }
 
+    /// 1000 rows, 0..999, in SQL every supported server runs.
+    const THOUSAND: &str = "SELECT a.d * 100 + b.d * 10 + c.d AS v FROM \
+        (SELECT 0 AS d UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) a CROSS JOIN \
+        (SELECT 0 AS d UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) b CROSS JOIN \
+        (SELECT 0 AS d UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) c \
+        ORDER BY v";
+
+    /// The tools against real servers (skipped unless the SAYQL_TEST_*_URL variables are
+    /// set; see db/integration_tests.rs). The connection is saved without a password and its
+    /// pool opened directly, so the test never touches the keychain.
+    #[tokio::test]
+    async fn tools_work_against_real_databases() {
+        for (var, kind) in [("SAYQL_TEST_PG_URL", Kind::Postgres), ("SAYQL_TEST_MYSQL_URL", Kind::Mysql), ("SAYQL_TEST_MSSQL_URL", Kind::Mssql)] {
+            let Some((cfg, password)) = db::env_config(var, kind) else { continue };
+            let dir = std::env::temp_dir().join(format!("sayql-mcp-{}", uuid::Uuid::new_v4()));
+            let state = AppState::new(dir.clone(), dir.clone()).unwrap();
+            state.store.save_connections(&[cfg.clone()]).unwrap();
+            state.set_pool(Target::default_of(&cfg.id), db::connect(&cfg, password).await.unwrap());
+            let server = SayqlServer::new(state);
+            let json = |s: String| serde_json::from_str::<Value>(&s).unwrap();
+            let conn = || ConnectionParams { connection_id: cfg.id.clone() };
+
+            let list = json(server.list_connections().await.unwrap());
+            assert_eq!(list[0]["dialect"], json!(kind.dialect()), "{kind:?}");
+            let dbs = json(server.list_databases(Parameters(conn())).await.unwrap());
+            assert!(dbs["databases"].is_array(), "{kind:?}: {dbs}");
+            let schema = server
+                .describe_schema(Parameters(SchemaParams { connection_id: cfg.id.clone(), database: None, search: None }))
+                .await
+                .unwrap();
+            assert!(schema.starts_with(&format!("Dialect: {}.", kind.dialect())), "{schema}");
+
+            let run = |sql: &str, offset: Option<usize>| {
+                server.run_query(Parameters(QueryParams {
+                    connection_id: cfg.id.clone(),
+                    database: None,
+                    sql: sql.into(),
+                    max_rows: Some(300),
+                    offset,
+                }))
+            };
+            // Pages through the rows, and says where the next page starts.
+            let first = json(run(THOUSAND, None).await.unwrap());
+            assert_eq!((first["row_count"].clone(), first["next_offset"].clone()), (json!(300), json!(300)), "{kind:?}");
+            assert_eq!(first["rows"][0], json!([0]));
+            let last = json(run(THOUSAND, Some(900)).await.unwrap());
+            assert_eq!((last["row_count"].clone(), last["next_offset"].clone()), (json!(100), Value::Null), "{kind:?}");
+            assert_eq!(last["rows"][99], json!([999]));
+            assert_eq!(last["truncated"], json!(false));
+            // Anything that could change data is refused, however it is dressed up.
+            for sql in ["DELETE FROM t", "SELECT 1; DROP TABLE t", "WITH x AS (SELECT 1 AS a) UPDATE t SET a = 1"] {
+                assert_eq!(run(sql, None).await.unwrap_err(), WRITE_REFUSED, "{kind:?}: {sql}");
+            }
+
+            // export_csv writes to Downloads; check what it writes without writing there.
+            let pool = server.state.target_pool(&Target::default_of(&cfg.id)).await.unwrap();
+            let r = db::run_query_capped(&pool, THOUSAND, true, EXPORT_ROWS).await.unwrap();
+            let csv = to_csv(&r.columns, &r.rows);
+            assert_eq!(csv.lines().count(), 1001, "{kind:?}");
+            assert!(csv.starts_with("v\n0\n1\n") && csv.ends_with("999\n"), "{kind:?}");
+            let _ = std::fs::remove_dir_all(dir);
+        }
+    }
+
     #[test]
     fn describe_lists_names_for_huge_schemas() {
         let cols: Vec<String> = (0..60).map(|i| format!("column_{i}")).collect();

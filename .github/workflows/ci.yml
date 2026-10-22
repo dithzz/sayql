@@ -1,4 +1,5 @@
-# Runs the type check, all tests and the lint checks on every pull request and push to main.
+# Runs the type check, all tests (the database tests against real servers too) and the lint
+# checks on every pull request and push to main.
 # It uses no secrets, so it is safe for pull requests from forks.
 name: CI
 
@@ -68,6 +69,86 @@ jobs:
         run: |
           python3 scripts/build_docs.py
           git diff --exit-code -- site/docs site/sitemap.xml site/robots.txt site/index.html
+
+  # The database tests in src-tauri/src/db/integration_tests.rs (and the MCP tools test) against
+  # real servers. Each entry covers one PostgreSQL, one MySQL-family and one SQL Server version;
+  # docs/DATABASE_COMPATIBILITY.md has the full matrix tested before releases. The password is a
+  # throwaway for these job-local containers, not a secret.
+  integration:
+    name: integration (${{ matrix.name }})
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: PostgreSQL 17, MySQL 8.4, SQL Server 2022
+            postgres: postgres:17
+            mysql: mysql:8.4
+            mysql_health: mysqladmin ping -h 127.0.0.1 -uroot -p"$MYSQL_ROOT_PASSWORD"
+            mssql: mcr.microsoft.com/mssql/server:2022-latest
+          - name: PostgreSQL 13, MariaDB 10.11, SQL Server 2019
+            postgres: postgres:13
+            mysql: mariadb:10.11
+            mysql_health: healthcheck.sh --connect --innodb_initialized
+            mssql: mcr.microsoft.com/mssql/server:2019-latest
+          - name: PostgreSQL 16, MySQL 5.7
+            postgres: postgres:16
+            mysql: mysql:5.7
+            mysql_health: mysqladmin ping -h 127.0.0.1 -uroot -p"$MYSQL_ROOT_PASSWORD"
+            mssql: ""
+    env:
+      DB_PASSWORD: Sayql-ci-throwaway-1
+    services:
+      postgres:
+        image: ${{ matrix.postgres }}
+        env:
+          POSTGRES_PASSWORD: Sayql-ci-throwaway-1
+          POSTGRES_DB: sayql
+        ports: ["5432:5432"]
+        options: --health-cmd "pg_isready -U postgres" --health-interval 3s --health-retries 40
+      mysql:
+        image: ${{ matrix.mysql }}
+        env:
+          MYSQL_ROOT_PASSWORD: Sayql-ci-throwaway-1
+          MARIADB_ROOT_PASSWORD: Sayql-ci-throwaway-1
+        ports: ["3306:3306"]
+        options: --health-cmd "${{ matrix.mysql_health }}" --health-interval 3s --health-retries 60
+      mssql:
+        # An empty image skips the service.
+        image: ${{ matrix.mssql }}
+        env:
+          ACCEPT_EULA: "Y"
+          MSSQL_SA_PASSWORD: Sayql-ci-throwaway-1
+        ports: ["1433:1433"]
+        options: >-
+          --health-cmd "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P \"$MSSQL_SA_PASSWORD\" -Q 'SELECT 1' -b"
+          --health-interval 5s --health-retries 40
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libssl-dev libdbus-1-dev libasound2-dev
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+
+      # tauri::generate_context! needs the built UI folder to exist.
+      - run: mkdir -p dist
+
+      - name: Database tests
+        working-directory: src-tauri
+        run: |
+          export SAYQL_TEST_PG_URL="postgres://postgres:$DB_PASSWORD@127.0.0.1:5432/sayql"
+          export SAYQL_TEST_MYSQL_URL="mysql://root:$DB_PASSWORD@127.0.0.1:3306"
+          if [ -n "${{ matrix.mssql }}" ]; then
+            export SAYQL_TEST_MSSQL_URL="mssql://sa:$DB_PASSWORD@127.0.0.1:1433/master"
+          fi
+          cargo test --lib -- integration_tests:: mcp::tests::tools_work_against_real_databases
 
   # Non-blocking for now: main isn't rustfmt-clean (about 270 hunks in 36 of 45 files), and
   # reformatting while many PRs are open would conflict with all of them. Once they land, run
