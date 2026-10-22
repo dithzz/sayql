@@ -17,7 +17,7 @@ The right SQL in seconds, and nothing changes unless you say so.
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-1f6feb)](LICENSE)
 [![Platforms](https://img.shields.io/badge/platforms-macOS%20%7C%20Windows%20%7C%20Linux-475569)](https://github.com/dithzz/sayql-releases/releases/latest)
 
-[**Download**](https://github.com/dithzz/sayql-releases/releases/latest) · [Docs](https://sayql.vercel.app/docs/) · [Website](https://sayql.vercel.app) · [Discussions](https://github.com/dithzz/sayql/discussions)
+[**Download**](https://github.com/dithzz/sayql-releases/releases/latest) · [Docs](https://sayql.dev/docs/) · [Website](https://sayql.dev) · [Discussions](https://github.com/dithzz/sayql/discussions)
 
 <br>
 
@@ -120,8 +120,8 @@ built in, so you can try everything without connecting anything.
 3. **Follow the setup guide:** pick your AI, use the demo database or connect your own, and ask your first
    question.
 
-The [docs](https://sayql.vercel.app/docs/) cover every step, each AI provider and database, and
-[troubleshooting](https://sayql.vercel.app/docs/troubleshooting/). SayQL updates itself: when a new version is
+The [docs](https://sayql.dev/docs/) cover every step, each AI provider and database, and
+[troubleshooting](https://sayql.dev/docs/troubleshooting/). SayQL updates itself: when a new version is
 out, **Update to x.y.z** appears in the status bar, and every update is signature-checked.
 
 ## Your data
@@ -131,7 +131,7 @@ database, and sends data only to services you configure:
 
 | When | What's sent | Where |
 | --- | --- | --- |
-| You ask in plain English | Your question and the schema (table and column names, types, keys) | Your AI provider |
+| You ask in plain English | Your question, the schema (table and column names, types, keys), and the current SQL for follow-ups | Your AI provider |
 | A query fails and SayQL fixes it | The query and the database's error message | Your AI provider |
 | You run a query | Your SQL | Your database |
 | SayQL starts | The app version and your operating system, to check for updates | GitHub (dithzz/sayql-releases) |
@@ -172,7 +172,7 @@ use the connections you saved in SayQL: `list_connections`, `list_databases`, `d
 `run_query`. It's read-only, with the same checks as the app. Results are capped (100 rows by default, 1,000
 at most) and are sent to that app. Passwords never are.
 
-> **Note:** the MCP server comes with SayQL 0.2.3 and later. On Linux, use the `.deb` or `.rpm` for MCP:
+> **Note:** on Linux, use the `.deb` or `.rpm` for MCP:
 > the AppImage opens from a new folder each time, so the path would change.
 > Until then, build it from source (`cargo build --bin sayql-mcp`); see [CONTRIBUTING.md](CONTRIBUTING.md).
 
@@ -234,5 +234,5 @@ along with the license, notices and [privacy notice](PRIVACY.md).
 
 <div align="center">
 <br>
-<sub>Built with Tauri, Rust and React · <a href="https://sayql.vercel.app">sayql.vercel.app</a></sub>
+<sub>Built with Tauri, Rust and React · <a href="https://sayql.dev">sayql.dev</a></sub>
 </div>
