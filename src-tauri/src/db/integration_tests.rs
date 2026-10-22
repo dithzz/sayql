@@ -683,6 +683,82 @@ async fn mssql_integration() {
     exec(&admin, "ALTER DATABASE sayql_it SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE sayql_it").await;
 }
 
+/// A failed statement's error text, and the same text masked for the AI. Reads run read-only
+/// and writes as confirmed, as in the app.
+async fn error_and_masked(pool: &DbPool, sql: &str) -> (String, String) {
+    let read_only = is_read_only(sql, pool.kind());
+    let e = run_query(pool, sql, read_only).await.err().unwrap_or_else(|| panic!("{sql} succeeded")).to_string();
+    let masked = crate::ai::mask_database_error(&e);
+    (e, masked)
+}
+
+/// Each database's real errors read as the database's message, and their values (not the
+/// names the AI needs to fix the query) are masked before they go to the AI.
+#[tokio::test]
+async fn database_errors_are_readable_and_masked_for_the_ai() {
+    if let Some(t) = env_target("SAYQL_TEST_PG_URL") {
+        let db = if t.database.is_empty() { "postgres".to_string() } else { t.database.clone() };
+        let pool = open(Kind::Postgres, &t, &db).await;
+        exec(&pool, "DROP SCHEMA IF EXISTS sayql_err CASCADE; CREATE SCHEMA sayql_err;
+            CREATE TABLE sayql_err.u (id int PRIMARY KEY, email text UNIQUE, n int CHECK (n > 0));
+            INSERT INTO sayql_err.u VALUES (1, 'ann@example.com', 5);").await;
+        let (e, m) = error_and_masked(&pool, "INSERT INTO sayql_err.u VALUES (2, 'ann@example.com', 5)").await;
+        assert_eq!(
+            e,
+            "duplicate key value violates unique constraint \"u_email_key\"\nDETAIL: Key (email)=(ann@example.com) already exists."
+        );
+        assert_eq!(m, "duplicate key value violates unique constraint \"u_email_key\"\nDETAIL: Key (email)=(…) already exists.");
+        let (e, m) = error_and_masked(&pool, "SELECT 'secret-abc'::int").await;
+        assert_eq!(e, "invalid input syntax for type integer: \"secret-abc\"");
+        assert_eq!(m, "invalid input syntax for type integer: \"…\"");
+        let (e, m) = error_and_masked(&pool, "SELECT nme FROM sayql_err.u").await;
+        assert!(e.starts_with("column \"nme\" does not exist") && m.starts_with("column \"nme\" does not exist"), "{e}");
+        exec(&pool, "DROP SCHEMA sayql_err CASCADE").await;
+    }
+    if let Some(t) = env_target("SAYQL_TEST_MYSQL_URL") {
+        let admin = open(Kind::Mysql, &t, &t.database).await;
+        exec(&admin, "DROP DATABASE IF EXISTS sayql_err; CREATE DATABASE sayql_err;
+            CREATE TABLE sayql_err.u (id int PRIMARY KEY, email varchar(100) UNIQUE, n int);
+            INSERT INTO sayql_err.u VALUES (1, 'ann@example.com', 5);").await;
+        let pool = open(Kind::Mysql, &t, "sayql_err").await;
+        let (e, m) = error_and_masked(&pool, "INSERT INTO u VALUES (2, 'ann@example.com', 5)").await;
+        assert!(e.starts_with("1062 (23000): Duplicate entry 'ann@example.com' for key"), "{e}");
+        assert!(m.starts_with("1062 (23000): Duplicate entry '…' for key"), "{m}");
+        let (_, m) = error_and_masked(&pool, "INSERT INTO u VALUES (3, 'b@example.com', 'secret-text')").await;
+        assert!(m.contains("Incorrect integer value: '…' for column") && !m.contains("secret"), "{m}");
+        let (_, m) = error_and_masked(&pool, "SELECT nme FROM u").await;
+        assert!(m.starts_with("1054 (42S22): Unknown column 'nme' in '"), "{m}");
+        assert!(!m.ends_with("'…'"), "the clause name is not a value: {m}");
+        exec(&admin, "DROP DATABASE sayql_err").await;
+    }
+    if let Some(t) = env_target("SAYQL_TEST_MSSQL_URL") {
+        let admin = open(Kind::Mssql, &t, &t.database).await;
+        exec(&admin, "IF DB_ID('sayql_err') IS NOT NULL BEGIN ALTER DATABASE sayql_err SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE sayql_err; END").await;
+        exec(&admin, "CREATE DATABASE sayql_err").await;
+        let pool = open(Kind::Mssql, &t, "sayql_err").await;
+        exec(&pool, "CREATE TABLE dbo.u (id int PRIMARY KEY, email nvarchar(100) CONSTRAINT u_email UNIQUE, n int);
+            INSERT INTO dbo.u VALUES (1, N'ann@example.com', 5);").await;
+        let (e, m) = error_and_masked(&pool, "INSERT INTO dbo.u VALUES (2, N'ann@example.com', 5)").await;
+        assert_eq!(
+            e,
+            "Violation of UNIQUE KEY constraint 'u_email'. Cannot insert duplicate key in object 'dbo.u'. \
+             The duplicate key value is (ann@example.com).\n(SQL Server error 2627, line 1)"
+        );
+        assert_eq!(
+            m,
+            "Violation of UNIQUE KEY constraint 'u_email'. Cannot insert duplicate key in object 'dbo.u'. \
+             The duplicate key value is (…).\n(SQL Server error 2627, line 1)"
+        );
+        let (_, m) = error_and_masked(&pool, "SELECT CAST('secret-abc' AS int)").await;
+        assert_eq!(m, "Conversion failed when converting the varchar value '…' to data type int.\n(SQL Server error 245, line 1)");
+        let (_, m) = error_and_masked(&pool, "SELECT id\nFROM dbo.u\nWHERE nme = 1").await;
+        // The column name stays; which line SQL Server reports depends on how the batch ran.
+        assert!(m.starts_with("Invalid column name 'nme'.\n(SQL Server error 207, line "), "{m}");
+        drop(pool);
+        exec(&admin, "ALTER DATABASE sayql_err SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE sayql_err").await;
+    }
+}
+
 #[tokio::test]
 async fn mssql_connection_errors() {
     let Some(t) = env_target("SAYQL_TEST_MSSQL_URL") else { return };

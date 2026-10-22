@@ -28,12 +28,48 @@ impl fmt::Display for AppError {
         match self {
             AppError::NeedsWriteConfirmation => f.write_str(WRITE_CONFIRM),
             AppError::User(msg) => f.write_str(msg),
-            AppError::Database(e) => write!(f, "{e}"),
-            AppError::SqlServer(e) => write!(f, "{e}"),
+            AppError::Database(e) => f.write_str(&database_error(e)),
+            AppError::SqlServer(e) => f.write_str(&sql_server_error(e)),
             AppError::Io(e) => write!(f, "File error: {e}"),
             AppError::Keychain(e) => write!(f, "Keychain error: {e}"),
             AppError::Json(e) => write!(f, "Could not read saved data: {e}"),
         }
+    }
+}
+
+/// The database's own message, without sqlx's "error returned from database:" prefix or the
+/// line in the Postgres source code that raised it (which reads like a line of the query).
+/// Postgres' DETAIL and HINT lines are kept: they name the key or value at fault and the fix.
+/// Values in them are masked before an error goes to the AI (see ai/redact.rs).
+fn database_error(e: &sqlx::Error) -> String {
+    match e {
+        sqlx::Error::Database(db) => match db.try_downcast_ref::<sqlx::postgres::PgDatabaseError>() {
+            Some(pg) => {
+                let mut out = pg.message().to_string();
+                if let Some(detail) = pg.detail() {
+                    out.push_str(&format!("\nDETAIL: {detail}"));
+                }
+                if let Some(hint) = pg.hint() {
+                    out.push_str(&format!("\nHINT: {hint}"));
+                }
+                out
+            }
+            None => db.to_string(),
+        },
+        sqlx::Error::Io(io) => format!("Lost the connection to the database: {io}"),
+        sqlx::Error::PoolTimedOut => "Timed out waiting for a connection to the database.".into(),
+        other => other.to_string(),
+    }
+}
+
+/// SQL Server's message without tiberius' wrapping (`Token error: '…' on server … executing …
+/// on line 1 (code: …, state: …, class: …)`): the quotes around the whole message made it
+/// look like one quoted value, so masking values for the AI hid the column and table names too.
+/// The error number and line go on a line of their own, as in SQL Server's own tools.
+fn sql_server_error(e: &tiberius::error::Error) -> String {
+    match e {
+        tiberius::error::Error::Server(t) => format!("{}\n(SQL Server error {}, line {})", t.message(), t.code(), t.line()),
+        other => other.to_string(),
     }
 }
 

@@ -3,6 +3,15 @@
 All notable changes to SayQL are listed here. Downloads are on the
 [releases page](https://github.com/dithzz/sayql-releases/releases).
 
+## Unreleased
+- **Readable database errors:** PostgreSQL errors no longer end in "at line 414" (a line in Postgres' own
+  source code, not your query) and now include the DETAIL and HINT lines, e.g. which key already exists.
+  SQL Server errors show the message, then the error number and the line of your query, instead of
+  `Token error: '…' on server … executing …`.
+- **Fixing SQL Server queries with AI works again:** the wrapped SQL Server message looked like one quoted
+  value, so masking values before sending the error to the AI hid the whole message, column names
+  included. Only the values are masked now, on every database.
+
 ## 0.2.6 (2026-10-22)
 - **Deleting a connection** also removes its password from the keychain item older versions saved it in.
 - **API keys:** release builds no longer fall back to the `ANTHROPIC_API_KEY` environment variable; save the

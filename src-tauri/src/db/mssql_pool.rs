@@ -124,24 +124,30 @@ async fn open(config: &Config) -> AppResult<MssqlClient> {
 
 /// Adds the likely fix to errors people hit when setting up a connection.
 fn explain(e: tiberius::error::Error) -> AppError {
-    let text = e.to_string();
+    let code = match &e {
+        tiberius::error::Error::Server(t) => t.code(),
+        _ => 0,
+    };
+    let text = AppError::SqlServer(e).to_string();
     if text.contains("certificate") || text.contains("UnknownIssuer") {
+        // tiberius goes on to suggest its own API calls; keep only the reason.
+        let reason = text.split(" To connect anyway").next().unwrap_or(&text);
         format!(
-            "{text}\nThe server's certificate isn't trusted. SQL Server always encrypts the login, so this applies even \
+            "{reason}\nThe server's certificate isn't trusted. SQL Server always encrypts the login, so this applies even \
              with \"Encrypt connection\" off. If this is an internal server, turn on \"Trust server certificate\"."
         )
         .into()
-    } else if text.contains("code: 18456") {
+    } else if code == 18456 {
         // SQL Server reports every credential problem the same way; the real reason is only in its log.
         format!(
             "{text}\nThe server was reached but didn't accept this user and password. Check them, or try them in another \
              SQL client. It can also mean the login is disabled, or the server only allows Windows/Entra sign-in."
         )
         .into()
-    } else if text.contains("code: 4060") {
+    } else if code == 4060 {
         format!("{text}\nThe login works but can't open this database. Check the database name, or leave it empty.").into()
     } else {
-        AppError::SqlServer(e)
+        text.into()
     }
 }
 
