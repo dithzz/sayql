@@ -3,6 +3,12 @@
 All notable changes to SayQL are listed here. Downloads are on the
 [releases page](https://github.com/dithzz/sayql-releases/releases).
 
+## Unreleased
+- **AI and names that need quotes:** the schema SayQL sends to the AI (and MCP's `describe_schema`) now
+  writes table and column names the way your database needs them: `"FirstName"` in PostgreSQL,
+  `` `first name` `` in MySQL, `[Order Lines]` in SQL Server. Before, the AI copied such names unquoted and the
+  query failed.
+
 ## 0.2.6 (2026-10-22)
 - **Deleting a connection** also removes its password from the keychain item older versions saved it in.
 - **API keys:** release builds no longer fall back to the `ANTHROPIC_API_KEY` environment variable; save the
