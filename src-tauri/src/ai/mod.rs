@@ -36,6 +36,8 @@ pub struct GenRequest {
     pub schema_text: String,
     pub question: String,
     pub task: Task,
+    /// The instruction text of the skill the person picked, if any.
+    pub skill: Option<String>,
 }
 
 #[derive(Clone, Serialize)]

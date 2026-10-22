@@ -5,6 +5,9 @@ All notable changes to SayQL are listed here. Downloads are on the
 
 ## Unreleased
 
+- **Slash commands** in the Ask box: type `/` for `/followup`, `/new`, `/explain`, `/fix` and `/improve`.
+- **Skills:** save an instruction once, like `/pii-safe` = "Never select email, phone or address columns", and add it
+  to any question. Text only, stored on your computer, managed in Settings.
 - **Setup guide** on first launch: pick your AI (the key is checked before saving), pick the demo or your own
   database, and run a first question. Reopen it from Settings.
 - **Claude API keys are checked** in the setup guide before they're saved, so a typo shows up straight away.

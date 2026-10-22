@@ -3,6 +3,7 @@ import { RefreshCw } from "lucide-react";
 import { commands, type AiProvider, type Settings } from "../../api";
 import { Alert, Button, Dialog, Field, Select, TextInput } from "../../components/ui";
 import { errorText } from "../../lib/errors";
+import { SkillsSection, type SkillsApi } from "../skills";
 import { ClaudeIntegration } from "./ClaudeIntegration";
 import { version } from "../../../package.json";
 import styles from "./SettingsDialog.module.css";
@@ -13,6 +14,9 @@ export interface SettingsDialogProps {
   onSaved: (s: Settings) => void;
   /** Reopens the first-run setup. */
   onShowSetup: () => void;
+  skills: SkillsApi;
+  /** Opened from "Create skill…" in the Ask box: start a new skill. */
+  createSkill?: boolean;
 }
 
 /** What the form holds for one provider; kept per provider so switching back loses nothing. */
@@ -31,7 +35,7 @@ function privacyNote(p: AiProvider): string {
   return `Your question and table and column names are sent to ${to}, never the data in your tables.`;
 }
 
-export function SettingsDialog({ settings, onClose, onSaved, onShowSetup }: SettingsDialogProps) {
+export function SettingsDialog({ settings, onClose, onSaved, onShowSetup, skills, createSkill }: SettingsDialogProps) {
   const [providerId, setProviderId] = useState(settings.provider);
   const [drafts, setDrafts] = useState<Record<string, Draft>>(() =>
     Object.fromEntries(settings.providers.map((p) => [p.id, draftOf(p)])),
@@ -209,6 +213,9 @@ export function SettingsDialog({ settings, onClose, onSaved, onShowSetup }: Sett
         </>
       )}
 
+      <Field label="Skills" hint="Saved instructions you add to a question by typing / and the name. Saved right away.">
+        {() => <SkillsSection skills={skills} startCreating={createSkill} />}
+      </Field>
       <Field label="Use SayQL from AI apps (MCP)">{() => <ClaudeIntegration />}</Field>
       <Field label="About">
         {() => (

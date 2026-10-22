@@ -7,6 +7,7 @@ import { DatabaseNavigator, type NavigatorScript } from "../features/navigator";
 import { CloseTabDialog, SaveScriptDialog, useScripts } from "../features/scripts";
 import { selectAllSql } from "../features/schema/sql";
 import { SettingsDialog, useSettings } from "../features/settings";
+import { useSkills } from "../features/skills";
 import { hasUnsavedChanges, useTabs, type EditorTab } from "../features/tabs";
 import { useUpdate } from "../features/updates";
 import { FeedbackDialog } from "../features/feedback";
@@ -19,7 +20,8 @@ import styles from "./Workbench.module.css";
 type OpenDialog =
   /** `fromSetup`: opened from the first-run setup, which resumes when it closes. */
   | { kind: "connection"; config: ConnectionConfig; fromSetup?: boolean }
-  | { kind: "settings" }
+  /** `createSkill`: opened from "Create skill…" in the Ask box. */
+  | { kind: "settings"; createSkill?: boolean }
   | { kind: "saveScript"; tabId: string; closeAfter: boolean }
   | { kind: "closeTab"; tabId: string }
   | { kind: "deleteConnection"; connection: ConnectionConfig }
@@ -32,6 +34,7 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
   const conn = useConnections(boot.connections);
   const tabs = useTabs();
   const scripts = useScripts();
+  const skills = useSkills();
   const { settings, setSettings, modelNames } = useSettings(boot.settings);
   const updates = useUpdate();
   const [dialog, setDialog] = useState<OpenDialog>(null);
@@ -303,6 +306,8 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
                       modelNames={modelNames}
                       onChange={(patch) => tabs.update(t.id, patch)}
                       onOpenSettings={openSettings}
+                      skills={skills.skills}
+                      onCreateSkill={() => setDialog({ kind: "settings", createSkill: true })}
                       onSave={() => requestSave(t)}
                     />
                     </ErrorBoundary>
@@ -444,6 +449,8 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
       {dialog?.kind === "settings" && (
         <SettingsDialog
           settings={settings}
+          skills={skills}
+          createSkill={dialog.createSkill}
           onShowSetup={() => {
             setDialog(null);
             setSetupStep("welcome");

@@ -6,6 +6,21 @@
   <li><b>Follow-ups:</b> after running a query, say what to change: "only Canada", "remove the middle name", "sort by date". SayQL edits the query you have, and shows <b>Building on your last query</b>. Click <b>New query</b> to start fresh.</li>
 </ul>
 
+<h2>Slash commands</h2>
+<p>Type <kbd>/</kbd> at the start of the Ask box to pick a command. Use <kbd>↑</kbd> <kbd>↓</kbd> to move, <kbd>↵</kbd> or <kbd>Tab</kbd> to pick and <kbd>esc</kbd> to close. The command shows as a chip; type the rest of your question after it. <kbd>⌫</kbd> at the start removes the chip.</p>
+<ul>
+  <li><b>/followup</b>: change the current query, even when the request sounds like a new question.</li>
+  <li><b>/new</b>: ignore the last query and start fresh, like <b>New query</b>.</li>
+  <li><b>/explain</b>: explain the current query in plain English. Add a question after it to ask about one part.</li>
+  <li><b>/fix</b>: fix the current query, or the error it got. Say what's wrong if there's no error.</li>
+  <li><b>/improve</b>: the same as <b>Improve</b>.</li>
+</ul>
+<p>With <b>/explain</b>, <b>/fix</b> and <b>/improve</b>, <kbd>↵</kbd> does the command instead of running the query.</p>
+
+<h2>Skills</h2>
+<p>A skill is an instruction you save once and add to any question with <kbd>/</kbd> and its name. For example, <b>/pii-safe</b> with "Never select email, phone or address columns". The instruction is sent to the AI with that question. Skills are text only: they hold no SQL, run nothing on their own, and don't change the read-only safety. Anything that could change data still asks first.</p>
+<p>Create, edit and delete skills in <b>Settings → Skills</b>, or pick <b>Create skill…</b> at the bottom of the <kbd>/</kbd> menu. Names use lowercase letters, numbers and dashes, and can't be a built-in command. Skills are saved on your computer.</p>
+
 <h2>Point it at the right tables</h2>
 <p>Click a table in the navigator to give it to the AI as context. <kbd>⌘</kbd>-click (or <kbd>Ctrl</kbd>-click) adds more, and <kbd>⇧</kbd>-click picks a range. Picked tables show as a pill in the Ask box. Click the eye on the pill to hide them from the AI without losing the selection. This helps most in large databases.</p>
 

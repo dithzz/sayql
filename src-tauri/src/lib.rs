@@ -9,7 +9,7 @@ mod schema;
 mod state;
 mod store;
 
-use commands::{app, connections, generation, query, scripts, settings, updates};
+use commands::{app, connections, generation, query, scripts, settings, skills, updates};
 use state::AppState;
 use tauri::Manager;
 
@@ -36,6 +36,9 @@ pub fn run() {
             scripts::list_scripts,
             scripts::save_script,
             scripts::delete_script,
+            skills::list_skills,
+            skills::save_skill,
+            skills::delete_skill,
             generation::generate_sql,
             generation::cancel_generation,
             settings::save_settings,

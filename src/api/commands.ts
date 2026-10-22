@@ -7,6 +7,7 @@ import type {
   McpSetup,
   QueryResult,
   Script,
+  Skill,
   Schema,
   ProviderChoice,
   Settings,
@@ -34,14 +35,20 @@ export const commands = {
 
   /** `slot` scopes cancellation: a new request replaces the previous one in the same slot (editor tab). */
   /** `focusTables`: qualified table names the person picked; drafts see only those and their neighbours. */
-  generateSql: (t: Target, question: string, reqId: number, slot: string, task: GenerationTask, focusTables: string[]) =>
-    invoke<void>("generate_sql", { id: t.connectionId, database: t.database, question, reqId, slot, task, focusTables }),
+  /** `skill`: the slug of a saved skill whose instruction goes with the request. */
+  generateSql: (t: Target, question: string, reqId: number, slot: string, task: GenerationTask, focusTables: string[], skill: string | null) =>
+    invoke<void>("generate_sql", { id: t.connectionId, database: t.database, question, reqId, slot, task, focusTables, skill }),
   cancelGeneration: (slot: string) => invoke<void>("cancel_generation", { slot }),
 
   listScripts: () => invoke<Script[]>("list_scripts"),
   /** Creates the script when `id` is empty; returns it as stored. */
   saveScript: (script: Script) => invoke<Script>("save_script", { script }),
   deleteScript: (id: string) => invoke<void>("delete_script", { id }),
+
+  listSkills: () => invoke<Skill[]>("list_skills"),
+  /** Creates a skill, or replaces the one whose slug was `original`; returns it as stored. */
+  saveSkill: (skill: Skill, original: string | null) => invoke<Skill>("save_skill", { skill, original }),
+  deleteSkill: (slug: string) => invoke<void>("delete_skill", { slug }),
 
   mcpSetup: () => invoke<McpSetup>("mcp_setup"),
 
