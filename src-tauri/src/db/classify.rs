@@ -13,6 +13,20 @@ const WRITE_KEYWORDS: &[&str] = &[
     "DUMPFILE", "LOAD_EXTENSION", "DBLINK", "DBLINK_EXEC", "LO_IMPORT", "LO_EXPORT", "LO_UNLINK", "NEXTVAL",
     "SETVAL", "PG_TERMINATE_BACKEND", "PG_CANCEL_BACKEND", "PG_RELOAD_CONF", "PG_ROTATE_LOGFILE", "PG_PROMOTE",
     "PG_SWITCH_WAL",
+    // Effects that a read-only transaction allows and a rollback doesn't undo. Session-level
+    // locks stay held by the pooled connection; replication slots keep WAL until the disk fills.
+    "PG_ADVISORY_LOCK", "PG_ADVISORY_LOCK_SHARED", "PG_TRY_ADVISORY_LOCK", "PG_TRY_ADVISORY_LOCK_SHARED", "GET_LOCK",
+    "PG_CREATE_RESTORE_POINT", "PG_BACKUP_START", "PG_BACKUP_STOP", "PG_START_BACKUP", "PG_STOP_BACKUP",
+    "PG_WAL_REPLAY_PAUSE", "PG_WAL_REPLAY_RESUME", "PG_LOGICAL_EMIT_MESSAGE", "PG_FILE_WRITE", "PG_FILE_RENAME",
+    "PG_FILE_UNLINK",
+];
+
+/// Function families with the same kind of lasting effect: `pg_stat_reset_shared`,
+/// `pg_create_logical_replication_slot`, `pg_replication_origin_drop`, ...
+const WRITE_PREFIXES: &[&str] = &[
+    "PG_STAT_RESET", "PG_STAT_STATEMENTS_RESET", "PG_CREATE_PHYSICAL_REPLICATION_SLOT", "PG_CREATE_LOGICAL_REPLICATION_SLOT",
+    "PG_COPY_PHYSICAL_REPLICATION_SLOT", "PG_COPY_LOGICAL_REPLICATION_SLOT", "PG_DROP_REPLICATION_SLOT",
+    "PG_REPLICATION_SLOT_ADVANCE", "PG_REPLICATION_ORIGIN_",
 ];
 
 /// True when the statement only reads data: it starts with a reading keyword and
@@ -51,7 +65,13 @@ fn reads_only(sql: &str, lexer: Lexer) -> bool {
     let is = |w: &str, k: &str| w.eq_ignore_ascii_case(k);
     // SQL Server's `NEXT VALUE FOR seq` advances a sequence, and a rollback doesn't undo it.
     let next_value = words.windows(3).any(|w| is(w[0], "NEXT") && is(w[1], "VALUE") && is(w[2], "FOR"));
-    !next_value && !words.iter().any(|w| WRITE_KEYWORDS.iter().any(|k| is(w, k)))
+    let writes = |i: usize, w: &str| {
+        // MySQL's `SHOW CREATE TABLE t` only shows the statement.
+        let shown = is(w, "CREATE") && i > 0 && is(words[i - 1], "SHOW");
+        let upper = w.to_ascii_uppercase();
+        !shown && (WRITE_KEYWORDS.contains(&upper.as_str()) || WRITE_PREFIXES.iter().any(|p| upper.starts_with(p)))
+    };
+    !next_value && !words.iter().enumerate().any(|(i, w)| writes(i, w))
 }
 
 #[derive(Debug, PartialEq)]
@@ -276,6 +296,37 @@ mod tests {
         assert!(rw_everywhere("SELECT NEXT VALUE FOR dbo.order_seq"));
         // Reading a file is a read.
         assert!(is_read_only("SELECT LOAD_FILE('/etc/hosts')", Kind::Mysql));
+    }
+
+    #[test]
+    fn effects_a_rollback_does_not_undo_need_confirmation() {
+        for sql in [
+            "SELECT pg_create_physical_replication_slot('s')",
+            "SELECT * FROM pg_create_logical_replication_slot('s', 'pgoutput')",
+            "SELECT pg_drop_replication_slot('s')",
+            "SELECT pg_stat_reset()",
+            "SELECT pg_stat_reset_shared('bgwriter')",
+            "SELECT pg_stat_statements_reset()",
+            "SELECT pg_advisory_lock(42)",
+            "SELECT pg_try_advisory_lock_shared(42)",
+            "SELECT pg_replication_origin_create('o')",
+            "SELECT pg_create_restore_point('r')",
+            "SELECT GET_LOCK('sayql', 10)",
+        ] {
+            assert!(rw_everywhere(sql), "{sql}");
+        }
+        // Transaction-level advisory locks end with the read-only transaction.
+        assert!(ro_everywhere("SELECT pg_try_advisory_xact_lock(42)"));
+        assert!(ro_everywhere("SELECT * FROM pg_stat_activity"));
+        assert!(ro_everywhere("SELECT slot_name FROM pg_replication_slots"));
+    }
+
+    #[test]
+    fn show_create_is_a_read() {
+        assert!(is_read_only("SHOW CREATE TABLE `orders`", Kind::Mysql));
+        assert!(is_read_only("show create view v", Kind::Mysql));
+        assert!(!is_read_only("SHOW TABLES; CREATE TABLE x (a int)", Kind::Mysql));
+        assert!(!is_read_only("SELECT 1; CREATE TABLE x (a int)", Kind::Mysql));
     }
 
     #[test]

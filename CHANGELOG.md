@@ -24,6 +24,10 @@ All notable changes to SayQL are listed here. Downloads are on the
 - **Fixing SQL Server queries with AI works again:** the wrapped SQL Server message looked like one quoted
   value, so masking values before sending the error to the AI hid the whole message, column names
   included. Only the values are masked now, on every database.
+- **Read-only mode covers effects a rollback keeps:** PostgreSQL functions that a read-only transaction
+  allows but that outlast it now ask for confirmation, like any other write: creating or dropping
+  replication slots, resetting statistics, and session advisory locks. So does MySQL's `GET_LOCK`.
+- **`SHOW CREATE TABLE` runs in read-only mode** on MySQL and MariaDB; it no longer asks for confirmation.
 
 ## 0.2.6 (2026-10-22)
 - **Deleting a connection** also removes its password from the keychain item older versions saved it in.

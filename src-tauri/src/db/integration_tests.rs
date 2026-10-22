@@ -176,6 +176,38 @@ async fn check_read_only(pool: &DbPool, count_sql: &str, writes: &[&str], show_r
     assert!(w.columns.is_empty());
 }
 
+/// Effects a read-only transaction allows and its rollback doesn't undo are refused in
+/// read-only mode, and leave nothing behind.
+#[tokio::test]
+async fn read_only_refuses_effects_a_rollback_keeps() {
+    if let Some(t) = env_target("SAYQL_TEST_PG_URL") {
+        let db = if t.database.is_empty() { "postgres".to_string() } else { t.database.clone() };
+        let pool = open(Kind::Postgres, &t, &db).await;
+        for sql in [
+            "SELECT pg_create_physical_replication_slot('sayql_it_slot')",
+            "SELECT pg_advisory_lock(4242)",
+            "SELECT pg_stat_reset()",
+        ] {
+            assert!(run_query(&pool, sql, true).await.is_err(), "read-only mode allowed: {sql}");
+        }
+        let slots = "SELECT count(*) FROM pg_replication_slots WHERE slot_name = 'sayql_it_slot'";
+        assert_eq!(scalar(&pool, slots).await, json!(0));
+        let locks = "SELECT count(*) FROM pg_locks WHERE locktype = 'advisory' AND objid = 4242";
+        assert_eq!(scalar(&pool, locks).await, json!(0));
+    }
+    if let Some(t) = env_target("SAYQL_TEST_MYSQL_URL") {
+        let admin = open(Kind::Mysql, &t, &t.database).await;
+        exec(&admin, "DROP DATABASE IF EXISTS sayql_ro; CREATE DATABASE sayql_ro; CREATE TABLE sayql_ro.t (id int PRIMARY KEY)").await;
+        let pool = open(Kind::Mysql, &t, "sayql_ro").await;
+        assert!(run_query(&pool, "SELECT GET_LOCK('sayql_it', 0)", true).await.is_err());
+        assert_eq!(scalar(&pool, "SELECT IS_FREE_LOCK('sayql_it')").await, json!(1));
+        // Showing a table's CREATE statement is a read.
+        let r = query(&pool, "SHOW CREATE TABLE t", true).await;
+        assert!(r.rows[0][1].as_str().is_some_and(|s| s.starts_with("CREATE TABLE `t`")), "{:?}", r.rows);
+        exec(&admin, "DROP DATABASE sayql_ro").await;
+    }
+}
+
 // ---------------------------------------------------------------- PostgreSQL
 
 const PG_SEED: &str = r#"
