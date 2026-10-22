@@ -4,6 +4,10 @@ All notable changes to SayQL are listed here. Downloads are on the
 [releases page](https://github.com/dithzz/sayql-releases/releases).
 
 ## Unreleased
+- **MCP: opening a saved script launches SayQL and opens it.** Before, if SayQL was closed, it opened but said
+  the script "isn't saved here".
+- **SQL Server `geography`, `geometry`, `hierarchyid` and `xml` columns** are described without a length (the AI
+  saw `geography(max)`, which isn't valid SQL Server).
 - **MCP sees schema changes:** `describe_schema` reads the schema each time, so tables and columns added
   while your AI app is open show up without restarting it.
 - **MySQL 5.7 connects:** with "Require SSL" off, SayQL now falls back to an unencrypted connection when

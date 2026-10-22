@@ -954,6 +954,9 @@ async fn mssql_integration() {
     assert_eq!(column(orders, "total").data_type, "decimal(12,2)");
     assert_eq!(column(table(tb, Some("dbo"), "customers"), "name").data_type, "nvarchar(100)");
     assert_eq!(column(table(tb, Some("dbo"), "all_types"), "t_nvarchar").data_type, "nvarchar(max)");
+    // Types that report a length but don't take one are written bare.
+    assert_eq!(column(table(tb, Some("dbo"), "all_types"), "t_xml").data_type, "xml");
+    assert_eq!(column(table(tb, Some("dbo"), "all_types"), "t_bin").data_type, "varbinary(8)");
     assert!(column(table(tb, Some("dbo"), "customers"), "email").nullable);
     assert!(!column(orders, "status").nullable);
     assert_eq!(table(tb, Some("sales"), "paid_orders").kind, "view");
