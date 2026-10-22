@@ -1,5 +1,5 @@
 //! Handoffs from AI apps to the SayQL window: `sayql-mcp` asks the app to open a prefilled
-//! New connection dialog or a new SQL tab, and the person finishes the job there.
+//! New connection dialog, a new SQL tab or a saved script, and the person finishes the job there.
 //!
 //! The MCP process opens a `sayql://` deep link with the OS opener, so it works whether SayQL
 //! is running (the single-instance plugin routes the link to it) or not (the OS starts it).
@@ -57,11 +57,19 @@ pub struct QueryDraft {
     pub question: Option<String>,
 }
 
+/// A saved script to open, unrun.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ScriptRef {
+    pub script_id: String,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum Action {
     NewConnection(ConnectionDraft),
     OpenQuery(QueryDraft),
+    OpenScript(ScriptRef),
 }
 
 impl Action {
@@ -69,6 +77,7 @@ impl Action {
         match self {
             Action::NewConnection(_) => "new-connection",
             Action::OpenQuery(_) => "open-query",
+            Action::OpenScript(_) => "open-script",
         }
     }
 }
@@ -148,11 +157,18 @@ pub fn port(value: i64) -> Result<u16, String> {
 
 /// A connection id from list_connections: letters, digits, `-` and `_`.
 pub fn connection_id(value: &str) -> Result<String, String> {
+    saved_id(value).ok_or_else(|| format!("`connection_id` {value:?} is not a SayQL connection id; use one from list_connections."))
+}
+
+/// A script id from list_scripts.
+pub fn script_id(value: &str) -> Result<String, String> {
+    saved_id(value).ok_or_else(|| format!("`script_id` {value:?} is not a SayQL script id; use one from list_scripts."))
+}
+
+fn saved_id(value: &str) -> Option<String> {
     let v = value.trim();
-    if v.is_empty() || v.len() > 64 || !v.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_') {
-        return Err(format!("`connection_id` {v:?} is not a SayQL connection id; use one from list_connections."));
-    }
-    Ok(v.to_string())
+    let ok = !v.is_empty() && v.len() <= 64 && v.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_');
+    ok.then(|| v.to_string())
 }
 
 /// The AI app's name as shown in SayQL ("From Claude (MCP)").
@@ -235,6 +251,7 @@ pub fn to_url(handoff: &Handoff, token: &str) -> Result<String, String> {
                 put("title", qd.title.as_deref().unwrap_or_default());
                 put("question", qd.question.as_deref().unwrap_or_default());
             }
+            Action::OpenScript(s) => put("script_id", &s.script_id),
         }
     }
     let url = String::from(url);
@@ -267,6 +284,7 @@ pub fn parse_url(link: &str) -> Result<(Handoff, String), String> {
             &["token", "from", "type", "name", "host", "port", "database", "user", "file", "ssl", "trust_server_certificate"]
         }
         Some("open-query") => &["token", "from", "connection_id", "database", "sql", "title", "question"],
+        Some("open-script") => &["token", "from", "script_id"],
         _ => return Err("Unknown SayQL link.".into()),
     };
     if !matches!(url.path(), "" | "/") || url.fragment().is_some() {
@@ -277,7 +295,9 @@ pub fn parse_url(link: &str) -> Result<(Handoff, String), String> {
     }
     let token = params.get("token").cloned().ok_or("The link has no token.")?;
     let get = |k: &str| params.get(k).cloned();
-    let action = if url.host_str() == Some("new-connection") {
+    let action = if url.host_str() == Some("open-script") {
+        Action::OpenScript(ScriptRef { script_id: script_id(&get("script_id").unwrap_or_default())? })
+    } else if url.host_str() == Some("new-connection") {
         let port_value = match get("port") {
             Some(p) => Some(p.parse::<i64>().map_err(|_| format!("`port` {p:?} is not a number."))?),
             None => None,
@@ -409,6 +429,11 @@ mod tests {
         };
         let link = to_url(&query, token).unwrap();
         assert_eq!(parse_url(&link).unwrap(), (query, token.to_string()));
+
+        let script = Handoff { source: Some("Cursor".into()), action: Action::OpenScript(ScriptRef { script_id: "s-1".into() }) };
+        let link = to_url(&script, token).unwrap();
+        assert!(link.starts_with("sayql://open-script?"), "{link}");
+        assert_eq!(parse_url(&link).unwrap(), (script, token.to_string()));
     }
 
     #[test]
@@ -426,6 +451,9 @@ mod tests {
             "sayql://new-connection?token=t&type=postgres&host=h&password=hunter2",
             "sayql://new-connection?token=t&type=postgres&port=abc",
             "sayql://new-connection?token=t&type=postgres&ssl=yes",
+            "sayql://open-script?token=t",
+            "sayql://open-script?token=t&script_id=../x",
+            "sayql://open-script?token=t&script_id=s1&sql=select+1",
         ] {
             assert!(parse_url(bad).is_err(), "{bad}");
         }

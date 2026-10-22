@@ -40,8 +40,8 @@ export function ClaudeIntegration() {
         queries. Query results are sent to that app.
       </p>
       <p className={styles.intro}>
-        It can also fill in a new connection or open SQL in a tab here, for you to finish. Passwords and writes never
-        go through MCP.
+        It can also fill in a new connection, or open SQL or a saved script here, for you to finish. Passwords and
+        writes never go through MCP.
       </p>
       {!setup.exists && (
         <Alert tone="warning">

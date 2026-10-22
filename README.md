@@ -169,15 +169,20 @@ Ollama or LM Studio, nothing leaves your computer. Details: [PRIVACY.md](PRIVACY
 
 SayQL includes an MCP server, `sayql-mcp`, that lets Claude Code, Claude Desktop, Cursor and other MCP apps
 use the connections you saved in SayQL: `list_connections`, `list_databases`, `describe_schema` and
-`run_query`. It's read-only, with the same checks as the app. Results are capped (100 rows by default, 1,000
-at most) and are sent to that app. Passwords never are.
+`run_query`. It's read-only, with the same checks as the app. Results come in pages (100 rows by default,
+1,000 at most) and are sent to that app. Passwords never are.
 
-Two more tools hand work to you in SayQL instead of doing it:
+- `list_scripts` lists your saved scripts, with their SQL.
+- `export_csv` saves a read-only query's rows (up to 100,000) to a new CSV in your Downloads folder. The rows
+  aren't sent to the app, only the file path.
+
+Three more tools hand work to you in SayQL instead of doing it:
 
 - `add_connection` opens SayQL's New connection dialog with the details filled in. You type the password in
   SayQL, test and save. The tool refuses passwords and other secrets.
 - `open_query` opens SQL in a new SayQL tab without running it. You review it and click Run; SayQL asks before
   anything that changes data, and the results stay in SayQL.
+- `open_script` opens one of your saved scripts, unrun.
 
 Passwords and writes never go through MCP.
 

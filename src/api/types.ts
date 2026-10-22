@@ -231,4 +231,5 @@ export interface QueryDraft {
 export type Handoff = { source: string | null } & (
   | ({ type: "newConnection" } & ConnectionDraft)
   | ({ type: "openQuery" } & QueryDraft)
+  | { type: "openScript"; scriptId: string }
 );

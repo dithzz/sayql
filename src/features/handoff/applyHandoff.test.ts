@@ -20,6 +20,7 @@ function actions(connections: ConnectionConfig[] = [demo]) {
     connection: (id: string) => connections.find((c) => c.id === id) ?? null,
     openConnectionDialog: vi.fn(),
     openTab: vi.fn(),
+    openScript: vi.fn((id: string) => id === "s1"),
     notify: vi.fn(),
   } satisfies HandoffActions;
 }
@@ -72,6 +73,16 @@ describe("applyHandoff", () => {
     applyHandoff({ source: "Claude", type: "openQuery", connectionId: "gone", database: null, sql: "SELECT 1", title: null, question: null }, a);
     expect(a.openTab).not.toHaveBeenCalled();
     expect(a.notify).toHaveBeenCalledWith(expect.stringContaining("From Claude (MCP)"));
+  });
+
+  it("opens a saved script, or says it isn't saved", () => {
+    const a = actions();
+    applyHandoff({ source: "Claude", type: "openScript", scriptId: "s1" }, a);
+    expect(a.openScript).toHaveBeenCalledWith("s1");
+    expect(a.notify).not.toHaveBeenCalled();
+    applyHandoff({ source: "Claude", type: "openScript", scriptId: "gone" }, a);
+    expect(a.notify).toHaveBeenCalledWith(expect.stringContaining("script"));
+    expect(a.openTab).not.toHaveBeenCalled();
   });
 
   it("names the AI app", () => {

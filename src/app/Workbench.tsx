@@ -121,15 +121,18 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
     else tabs.close(id);
   };
 
+  /** Shows the saved script's tab, opening it if needed; false when there's no such script. */
   const openScript = (id: string) => {
     const s = scripts.scripts.find((x) => x.id === id);
-    if (!s) return;
+    if (!s) return false;
     const open = tabs.tabs.find((t) => t.scriptId === id);
-    if (open) return tabs.activate(open.id);
-    tabs.open(
-      { connectionId: s.connectionId, database: s.database },
-      { scriptId: s.id, title: s.name, sql: s.sql, question: s.question, savedSql: s.sql },
-    );
+    if (open) tabs.activate(open.id);
+    else
+      tabs.open(
+        { connectionId: s.connectionId, database: s.database },
+        { scriptId: s.id, title: s.name, sql: s.sql, question: s.question, savedSql: s.sql },
+      );
+    return true;
   };
 
   const deleteScript = async (s: Script) => {
@@ -224,6 +227,7 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
     connection: conn.connection,
     openConnectionDialog: (config, note) => setDialog({ kind: "connection", config, note, key: crypto.randomUUID() }),
     openTab: (t, init) => tabs.open(t, init),
+    openScript,
     notify: setNotice,
   });
 

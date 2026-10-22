@@ -8,6 +8,8 @@ export interface HandoffActions {
   /** Shows the New connection dialog, filled in, with `note` on top. */
   openConnectionDialog: (config: ConnectionConfig, note: string) => void;
   openTab: (target: Target, init: NewTab) => void;
+  /** Opens a saved script (or shows its open tab); false when there's no such script. */
+  openScript: (id: string) => boolean;
   notify: (text: string) => void;
 }
 
@@ -38,6 +40,10 @@ export function applyHandoff(h: Handoff, a: HandoffActions): void {
   const note = handoffNote(h.source);
   if (h.type === "newConnection") {
     a.openConnectionDialog(draftToConnection(h), note);
+    return;
+  }
+  if (h.type === "openScript") {
+    if (!a.openScript(h.scriptId)) a.notify(`${note} asked to open a script that isn't saved here.`);
     return;
   }
   const c = a.connection(h.connectionId);

@@ -12,6 +12,9 @@ All notable changes to SayQL are listed here. Downloads are on the
 - **MCP: hand work to SayQL.** Two new tools for AI apps. `add_connection` opens the New connection dialog
   filled in; you type the password in SayQL. `open_query` opens SQL in a new tab for you to review and run.
   Passwords and writes never go through MCP, and nothing runs or saves on its own.
+- **MCP: saved scripts.** `list_scripts` lists them with their SQL; `open_script` opens one in SayQL, unrun.
+- **MCP: more rows.** `run_query` pages with `offset`, and `export_csv` saves up to 100,000 rows of a
+  read-only query to a new CSV in Downloads without sending them to the AI app.
 
 ## 0.2.5 (2026-10-22)
 

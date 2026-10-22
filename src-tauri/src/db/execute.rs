@@ -8,6 +8,11 @@ use sqlx::{AssertSqlSafe, Column as _, Either, Executor, Row, SqlSafeStr, Statem
 use std::time::Instant;
 
 pub async fn run_query(pool: &DbPool, sql: &str, read_only: bool) -> AppResult<QueryResult> {
+    run_query_capped(pool, sql, read_only, MAX_ROWS).await
+}
+
+/// `run_query`, collecting up to `cap` rows instead of MAX_ROWS (for exports).
+pub async fn run_query_capped(pool: &DbPool, sql: &str, read_only: bool, cap: usize) -> AppResult<QueryResult> {
     let sql = sql.trim().trim_end_matches(';').trim();
     if sql.is_empty() {
         return Err("Nothing to run.".into());
@@ -22,7 +27,7 @@ pub async fn run_query(pool: &DbPool, sql: &str, read_only: bool) -> AppResult<Q
             if read_only {
                 conn.execute("BEGIN READ ONLY").await?;
             }
-            let out = collect_pg(&mut conn, sql).await;
+            let out = collect_pg(&mut conn, sql, cap).await;
             if read_only && conn.execute("ROLLBACK").await.is_err() {
                 // Never hand a connection with an open transaction back to the pool.
                 conn.detach();
@@ -34,7 +39,7 @@ pub async fn run_query(pool: &DbPool, sql: &str, read_only: bool) -> AppResult<Q
             if read_only {
                 conn.execute("START TRANSACTION READ ONLY").await?;
             }
-            let out = collect_my(&mut conn, sql).await;
+            let out = collect_my(&mut conn, sql, cap).await;
             if read_only && conn.execute("ROLLBACK").await.is_err() {
                 conn.detach();
             }
@@ -42,20 +47,20 @@ pub async fn run_query(pool: &DbPool, sql: &str, read_only: bool) -> AppResult<Q
         }
         DbPool::Lite(p) => {
             let mut conn = if read_only { p.ro.acquire() } else { p.rw.acquire() }.await?;
-            collect_lite(&mut conn, sql).await?
+            collect_lite(&mut conn, sql, cap).await?
         }
-        DbPool::Ms(p) => run_mssql(p, sql, read_only).await?,
+        DbPool::Ms(p) => run_mssql(p, sql, read_only, cap).await?,
     };
     res.elapsed_ms = start.elapsed().as_millis();
     Ok(res)
 }
 
-/// Runs one statement, collecting up to MAX_ROWS rows and the affected-row count.
+/// Runs one statement, collecting up to `cap` rows and the affected-row count.
 /// A macro rather than a generic fn: generic sqlx executors make the future
 /// non-`Send` across the Tauri command boundary.
 macro_rules! collect_fn {
     ($name:ident, $conn:ty, $cell:ident) => {
-        async fn $name(conn: &mut $conn, sql: &str) -> AppResult<QueryResult> {
+        async fn $name(conn: &mut $conn, sql: &str, cap: usize) -> AppResult<QueryResult> {
             // Running the user's own SQL is the point; read-only mode is enforced around this call.
             let sql = AssertSqlSafe(sql).into_sql_str();
             let mut columns: Vec<String> = Vec::new();
@@ -74,7 +79,7 @@ macro_rules! collect_fn {
                             if columns.is_empty() {
                                 columns = row.columns().iter().map(|c| c.name().to_string()).collect();
                             }
-                            if rows.len() >= MAX_ROWS {
+                            if rows.len() >= cap {
                                 truncated = true;
                                 break;
                             }
@@ -102,7 +107,7 @@ collect_fn!(collect_lite, sqlx::SqliteConnection, lite_cell);
 /// SQL Server has no read-only transaction mode. Reads run inside a transaction that is
 /// always rolled back, on top of the keyword check in `classify` that sends anything
 /// containing a write keyword to the confirmation path instead.
-async fn run_mssql(pool: &MssqlPool, sql: &str, read_only: bool) -> AppResult<QueryResult> {
+async fn run_mssql(pool: &MssqlPool, sql: &str, read_only: bool, cap: usize) -> AppResult<QueryResult> {
     let mut conn = pool.acquire().await?;
     if !read_only {
         let done = conn.client().execute(sql, &[]).await?;
@@ -111,7 +116,7 @@ async fn run_mssql(pool: &MssqlPool, sql: &str, read_only: bool) -> AppResult<Qu
     }
 
     conn.client().simple_query("BEGIN TRANSACTION").await?.into_results().await?;
-    let out = collect_mssql(conn.client(), sql).await;
+    let out = collect_mssql(conn.client(), sql, cap).await;
     // A cut-off result leaves unread rows on the wire, and a failed rollback leaves the
     // transaction open: either way, close the connection (the server rolls back).
     let cut_off = out.as_ref().map(|r| r.truncated).unwrap_or(false);
@@ -127,8 +132,8 @@ async fn rollback(client: &mut MssqlClient) -> AppResult<()> {
     Ok(())
 }
 
-/// Collects the first result set, up to MAX_ROWS rows.
-async fn collect_mssql(client: &mut MssqlClient, sql: &str) -> AppResult<QueryResult> {
+/// Collects the first result set, up to `cap` rows.
+async fn collect_mssql(client: &mut MssqlClient, sql: &str, cap: usize) -> AppResult<QueryResult> {
     let mut stream = client.simple_query(sql).await?;
     let columns: Vec<String> = stream
         .columns()
@@ -142,7 +147,7 @@ async fn collect_mssql(client: &mut MssqlClient, sql: &str) -> AppResult<QueryRe
         if row.result_index() > 0 {
             continue;
         }
-        if rows.len() >= MAX_ROWS {
+        if rows.len() >= cap {
             truncated = true;
             break;
         }
