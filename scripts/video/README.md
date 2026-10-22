@@ -36,6 +36,9 @@ node scripts/video/render.mjs light full
   soundtrack is redone) writes `media/explainer-voiceover.mp4`, with the music ducked under
   the voice:
   - recordings: one file per line, `media/voiceover/<id>.wav`;
+  - Kokoro, an open-source voice model (Apache-2.0): set it up and read the lines as in
+    `voiceover.py`'s header, then render with `VO_DIR=<its out dir>`. Good voices to try:
+    `af_heart`, `am_michael`, `bf_emma`;
   - a macOS voice: `VOICE="Ava (Premium)" node scripts/video/render.mjs dark full audio`.
     Premium voices are a free download in System Settings → Accessibility → Spoken Content
     → System voice → Manage Voices; the default ones sound robotic.

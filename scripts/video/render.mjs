@@ -228,7 +228,7 @@ function voiceLines(work) {
     .filter((l) => l.t !== null);
   lines.forEach((l, i) => (l.room = (lines[i + 1]?.t ?? total) - l.t));
   for (const l of lines) {
-    const recorded = join(root, "media", "voiceover", `${l.id}.wav`);
+    const recorded = join(process.env.VO_DIR ?? join(root, "media", "voiceover"), `${l.id}.wav`);
     if (process.env.VOICE) {
       mkdirSync(join(work, "vo"), { recursive: true });
       l.file = join(work, "vo", `${l.id}.aiff`);
