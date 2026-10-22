@@ -53,7 +53,12 @@ export function ConnectionDialog({ initial, onClose, onSaved, onDeleted }: Conne
 
   const remove = async () => {
     if (!confirmDelete) return setConfirmDelete(true);
-    await commands.deleteConnection(c.id);
+    try {
+      await commands.deleteConnection(c.id);
+    } catch (e) {
+      setConfirmDelete(false);
+      return setStatus({ ok: false, text: `Could not delete the connection: ${errorText(e)}` });
+    }
     onDeleted(c.id);
   };
 
