@@ -140,7 +140,10 @@ it stops a release that installed copies could never verify.
 ### Where updates are hosted
 
 The release workflow uploads `latest.json` and the signed update archives
-(`SayQL.app.tar.gz` and `.sig` on macOS) to the GitHub Release. Installed apps
+(`SayQL_<version>_aarch64.app.tar.gz` and `.sig` on macOS) to the GitHub Release.
+`latest.json` points at each archive through the GitHub API
+(`api.github.com/.../releases/assets/<id>`), which allows 60 unauthenticated
+requests an hour per IP address. Installed apps
 fetch `releases/latest/download/latest.json`, which only resolves to a release
 that is **published** (not a draft) and **not marked pre-release**.
 
