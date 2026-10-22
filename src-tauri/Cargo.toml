@@ -43,10 +43,10 @@ rust_decimal = "1"
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json", "stream"] }
 keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service"] }
 tauri-plugin-updater = "2"
-tiberius = { version = "0.12", default-features = false, features = ["tds73", "rustls", "chrono"] }
+tiberius = { version = "0.13", default-features = false, features = ["tds73", "rustls", "chrono"] }
 tokio-util = { version = "0.7", features = ["compat"] }
 rmcp = { version = "3.6.0", features = ["server", "transport-io", "macros"] }
-dirs = "6"
+dirs = "7"
 schemars = "1"
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration
