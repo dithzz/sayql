@@ -32,10 +32,11 @@ node scripts/video/render.mjs light full
   and `MUSIC=0` renders silent; add `audio` to the render command to redo only the sound.
 - **Voiceover:** the lines and their cue points are in `voiceover.json`; each render writes
   the script with start times and how long each line can run to `media/<name>-cuts.md`.
-  Add a voice either way, then `node scripts/video/render.mjs dark full audio` (only the
-  soundtrack is redone) writes `media/explainer-voiceover.mp4`, with the music ducked under
-  the voice:
-  - recordings: one file per line, `media/voiceover/<id>.wav`;
+  The full cuts use the lines in `media/voiceover/<id>.wav` (Kokoro's `am_michael` voice),
+  with the music ducked under the voice; the 15-second cut is music only. After changing a
+  line, read it again and run `node scripts/video/render.mjs dark full audio` (only the
+  soundtrack is redone). Other voices:
+  - recordings: one file per line, in `media/voiceover/<id>.wav`;
   - Kokoro, an open-source voice model (Apache-2.0): set it up and read the lines as in
     `voiceover.py`'s header, then render with `VO_DIR=<its out dir>`. Good voices to try:
     `af_heart`, `am_michael`, `bf_emma`;

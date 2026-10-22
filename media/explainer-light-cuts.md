@@ -35,8 +35,8 @@ recordings, save them as media/voiceover/<id>.wav and re-run `node scripts/video
 
 | Starts | Room | id | Line |
 |---|---|---|---|
-| 0:00.3 | 2.7 s | title | Say what you need. It knows your schema. |
-| 0:03.0 | 7.9 s | ask | Ask your database in plain English. The SQL appears as you type, so there's no waiting. |
+| 0:00.1 | 3.2 s | title | Say what you need. It knows your schema. |
+| 0:03.3 | 7.6 s | ask | Ask your database in plain English. The SQL appears as you type, so there's no waiting. |
 | 0:10.9 | 4.3 s | run | It knows your tables and columns, so the query fits. |
 | 0:15.2 | 7.5 s | followup | Follow up in plain words, and it changes the last query. |
 | 0:22.7 | 8.9 s | skill | Skills add your own rules. This one keeps personal data out. |
@@ -44,5 +44,5 @@ recordings, save them as media/voiceover/<id>.wav and re-run `node scripts/video
 | 0:41.2 | 7.5 s | fix | And if a query fails, it fixes itself. |
 | 0:48.6 | 7.6 s | privacy | Your rows never go to the AI. It only sees your question and your schema. |
 | 0:56.3 | 7.2 s | ai | Use Claude, OpenAI or Gemini, or stay fully local with Ollama. |
-| 1:03.4 | 5.1 s | mcp | Claude can even query your databases through SayQL, read-only. |
-| 1:08.5 | 4.2 s | end | Free and open source. Early access at sayql.dev. |
+| 1:03.4 | 4.9 s | mcp | Claude can even query your databases through SayQL, read-only. |
+| 1:08.3 | 4.4 s | end | Free and open source. Early access at sayql.dev. |

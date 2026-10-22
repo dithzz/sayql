@@ -5,10 +5,10 @@
 //
 // Frames are drawn by compositor.html in headless Chrome and piped to ffmpeg (H.264, 30 fps).
 // The music is the track in music.json (downloaded to its `file`), else music.py's original
-// one; MUSIC_FILE=path picks another, MUSIC=0 none. Plus, with VOICE set to a
-// macOS voice or recordings in media/voiceover/<id>.wav, the lines in voiceover.json; that
-// version goes to <name>-voiceover.mp4. "audio" redoes only the soundtrack. Cut points and the
-// voiceover script go to media/*-cuts.md.
+// one; MUSIC_FILE=path picks another, MUSIC=0 none. The full cut also carries the lines in
+// voiceover.json, from media/voiceover/<id>.wav (Kokoro's am_michael, from voiceover.py), or
+// VO_DIR, or a macOS voice with VOICE set. "audio" redoes only the soundtrack. Cut points and
+// the voiceover script go to media/*-cuts.md.
 import { spawn, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -311,11 +311,11 @@ if (cut === "poster") {
     music = join(work, "music.wav");
     run("python3", [join(import.meta.dirname, "music.py"), music, total.toFixed(3), "--intro", String(titleCard?.dur ?? 0), "--outro", String(total - endCard.start)]);
   }
-  soundtrack(video, music, [], join(root, "media", `${name}.mp4`));
+  // The full cut carries the voiceover when there is one; the short cut is music only.
   const lines = cut === "full" ? voiceLines(work) : [];
   const voiced = lines.filter((l) => l.file);
-  if (voiced.length) soundtrack(video, music, voiced, join(root, "media", `${name}-voiceover.mp4`));
-  console.log(`\r${name}: ${total.toFixed(1)} s${voiced.length ? ", with a voiceover version" : ""}`);
+  soundtrack(video, music, voiced, join(root, "media", `${name}.mp4`));
+  console.log(`\r${name}: ${total.toFixed(1)} s${voiced.length ? ", with the voiceover" : ""}`);
 
   // Where each part starts, for editing music or a voiceover in later, and the voiceover script.
   const rows = items.map((it) => {
