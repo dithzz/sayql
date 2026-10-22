@@ -65,7 +65,7 @@ src-tauri/src/
     mod.rs              Kind, ConnConfig, DbPool, QueryResult, public API
     connect.rs          pools per database kind
     mssql_pool.rs       SQL Server connection (tiberius), Azure redirects, host,port parsing
-    classify.rs         is_read_only: reading first keyword and no write keyword anywhere
+    classify.rs         is_read_only: per-dialect lexer; reading first keyword and no write keyword anywhere
     execute.rs          run_query: read-only transactions, row cap, column headers
     decode/             driver values → JSON for display (postgres binary wire format, mysql, sqlite, mssql)
     introspect/         schema reading per database kind, shared assembly in mod.rs

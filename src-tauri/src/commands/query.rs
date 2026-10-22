@@ -14,7 +14,7 @@ pub async fn run_query(
     allow_write: bool,
 ) -> AppResult<QueryResult> {
     let pool = state.open_pool(&Target::new(id, database))?;
-    let read_only = db::is_read_only(&sql);
+    let read_only = db::is_read_only(&sql, pool.kind());
     if !read_only && !allow_write {
         return Err(AppError::NeedsWriteConfirmation);
     }

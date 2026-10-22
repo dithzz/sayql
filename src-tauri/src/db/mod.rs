@@ -79,6 +79,17 @@ pub enum DbPool {
     Ms(MssqlPool),
 }
 
+impl DbPool {
+    pub fn kind(&self) -> Kind {
+        match self {
+            DbPool::Pg(_) => Kind::Postgres,
+            DbPool::My(_) => Kind::Mysql,
+            DbPool::Lite(_) => Kind::Sqlite,
+            DbPool::Ms(_) => Kind::Mssql,
+        }
+    }
+}
+
 /// SQLite runs every statement in a script and lets a script turn `PRAGMA query_only`
 /// back off, so read-only queries get connections opened read-only instead.
 #[derive(Clone)]

@@ -3,6 +3,13 @@
 All notable changes to SayQL are listed here. Downloads are on the
 [releases page](https://github.com/dithzz/sayql-releases/releases).
 
+## Unreleased
+
+- **Stricter read-only check:** SayQL now reads each statement the way your database does (MySQL `#` comments,
+  `/*! */` and backslash escapes; Postgres `E'...'` and `$$` strings), so a write can't hide inside them.
+  `INTO OUTFILE`, `INTO DUMPFILE`, `NEXT VALUE FOR` and side-effect functions such as `nextval`, `dblink` and
+  `pg_terminate_backend` now ask before running, and MCP refuses them.
+
 ## 0.2.5 (2026-10-22)
 
 - **Security:** updated the SQL Server driver, which fixes a high-severity issue in a TLS library it used.

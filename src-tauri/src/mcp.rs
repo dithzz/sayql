@@ -103,13 +103,13 @@ impl SayqlServer {
     #[tool(description = "Run one read-only SQL statement and return the rows as JSON. \
                           Statements that could change data are refused.")]
     async fn run_query(&self, Parameters(p): Parameters<QueryParams>) -> Result<String, String> {
-        if !db::is_read_only(&p.sql) {
+        let target = Target::new(p.connection_id, p.database);
+        let pool = target_pool(&self.state, &target).await.map_err(|e| e.to_string())?;
+        if !db::is_read_only(&p.sql, pool.kind()) {
             return Err("SayQL's MCP access is read-only, and this statement could change data. \
                         Show it to the user to run in the SayQL app, where they can review it."
                 .into());
         }
-        let target = Target::new(p.connection_id, p.database);
-        let pool = target_pool(&self.state, &target).await.map_err(|e| e.to_string())?;
         let mut r = db::run_query(&pool, &p.sql, true).await.map_err(|e| e.to_string())?;
         let limit = p.max_rows.unwrap_or(DEFAULT_ROWS).clamp(1, MAX_ROWS);
         let truncated = r.truncated || r.rows.len() > limit;
