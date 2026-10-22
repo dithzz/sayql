@@ -13,6 +13,9 @@
     --text: #f1f5f9;
     --muted: #94a3b8;
     --blue: #4a8dff;
+    --violet: #a98bff;
+    --violet-bg: rgba(112, 72, 232, 0.16);
+    --violet-border: rgba(112, 72, 232, 0.45);
     --caption-bg: rgba(15, 20, 30, 0.82);
     --caption-border: rgba(255, 255, 255, 0.08);
     --window-border: rgba(255, 255, 255, 0.09);
@@ -25,6 +28,9 @@
     --text: #0f172a;
     --muted: #475569;
     --blue: #1f6feb;
+    --violet: #7048e8;
+    --violet-bg: rgba(112, 72, 232, 0.09);
+    --violet-border: rgba(112, 72, 232, 0.35);
     --caption-bg: rgba(255, 255, 255, 0.9);
     --caption-border: rgba(15, 23, 42, 0.08);
     --window-border: rgba(15, 23, 42, 0.12);
@@ -60,7 +66,11 @@
   .card .tagline { color: var(--text); font-size: 54px; font-weight: 600; letter-spacing: -0.02em; }
   .card .big { color: var(--text); font-size: 76px; font-weight: 700; letter-spacing: -0.03em; }
   .card .url { color: var(--blue); font-size: 44px; font-weight: 600; }
-  .card .sub { color: var(--muted); font-size: 30px; font-weight: 500; margin-top: -18px; }
+  .card .sub { color: var(--muted); font-size: 28px; font-weight: 500; margin-top: -24px; }
+  .card .pill {
+    padding: 10px 24px; border-radius: 999px; font-size: 28px; font-weight: 600; letter-spacing: 0.02em;
+    color: var(--violet); background: var(--violet-bg); border: 1px solid var(--violet-border);
+  }
 </style>
 </head>
 <body>
@@ -83,10 +93,12 @@
     return layers[i];
   }
 
-  window.setup = ({ theme, win, wordmark }) => {
+  window.setup = ({ theme, win, wordmark, site, siteNow }) => {
     document.documentElement.classList.toggle("light", theme === "light");
     window.WIN = win;
     window.WORDMARK = wordmark;
+    window.SITE = site;
+    window.SITE_NOW = siteNow;
     return document.fonts.load("600 40px Inter").then(() => document.fonts.check("600 40px Inter"), () => false);
   };
 
@@ -119,8 +131,9 @@
       if (card.dataset.kind !== s.card.kind) {
         card.dataset.kind = s.card.kind;
         card.innerHTML = s.card.kind === "title"
-          ? `<img src="${WORDMARK}"><div class="tagline">Say what you need. It knows your schema.</div>`
-          : `<div class="big">Free and open source</div><img src="${WORDMARK}"><div class="url">sayql.vercel.app</div>`;
+          ? `<img src="${WORDMARK}"><div class="tagline">Say what you need. It knows your schema.</div><div class="pill">Early access</div>`
+          : `<div class="big">Free and open source</div><img src="${WORDMARK}"><div class="pill">Early access</div>` +
+            `<div class="url">${SITE}</div>${SITE_NOW ? `<div class="sub">${SITE_NOW}</div>` : ""}`;
         loads.push(...[...card.querySelectorAll("img")].map((i) => i.decode().catch(() => {})));
       }
       card.style.opacity = s.card.opacity;

@@ -1,26 +1,48 @@
 # explainer.mp4 — cut points
 
-65.2 s, 30 fps, 1920×1080. Cross-fades are 0.45 s and start at the time shown.
-The audio track is silent.
+72.7 s, 30 fps, 1920×1080. Cross-fades are 0.45 s and start at the time shown.
+The soundtrack is scripts/video/music.py's original track (no samples or licensed music).
 
 - 0:00.0 title card (cut)
 - 0:02.8 ask (cut)
-    - 0:02.8 caption: “Pick tables. Ask in plain English.”
-    - 0:09.8 caption: “SQL writes itself as you type”
-    - 0:13.2 caption: “Run it. Get answers.”
-- 0:16.3 followup (continues, no cut)
-    - 0:16.3 caption: “Follow up in plain words”
-- 0:23.8 skill (continues, no cut)
-    - 0:23.8 caption: “Skills: your rules, every time”
-    - 0:25.9 caption: “/pii-safe: no email, phone or address”
-- 0:32.5 safety (continues, no cut)
-    - 0:32.5 caption: “Changes always ask first”
-- 0:41.9 fix (continues, no cut)
-    - 0:41.9 caption: “Errors fix themselves”
-- 0:49.1 ai (cut)
-    - 0:49.1 caption: “Use the AI you like”
-    - 0:54.5 caption: “Even fully local, with Ollama”
-- 0:56.2 mcp (cut)
-    - 0:56.2 caption: “Claude can query through SayQL”
-    - 0:59.2 caption: “Read-only. Changes are refused.”
-- 1:01.2 end card (cut)
+    - 0:02.8 caption: “Ask in plain English”
+    - 0:07.2 caption: “SQL appears as you type. No waiting.”
+    - 0:10.8 caption: “It already knows your schema”
+- 0:15.1 followup (continues, no cut)
+    - 0:15.1 caption: “Follow up in plain words”
+- 0:22.7 skill (continues, no cut)
+    - 0:22.7 caption: “Skills: your rules, every time”
+    - 0:24.8 caption: “/pii-safe: no email, phone or address”
+- 0:31.5 safety (continues, no cut)
+    - 0:31.5 caption: “Changes always ask first”
+- 0:40.9 fix (continues, no cut)
+    - 0:40.9 caption: “Errors fix themselves”
+- 0:48.4 privacy (cut)
+    - 0:48.4 caption: “Your rows never go to the AI”
+    - 0:51.6 caption: “It only sees your schema”
+- 0:56.0 ai (continues, no cut)
+    - 0:56.0 caption: “Use the AI you like”
+    - 1:01.4 caption: “Even fully local, with Ollama”
+- 1:03.1 mcp (cut)
+    - 1:03.1 caption: “Claude can query through SayQL”
+    - 1:06.1 caption: “Read-only. Changes are refused.”
+- 1:08.1 end card (cut)
+
+## Voiceover script
+
+Each line starts at the time shown and should end within its room. To use your own
+recordings, save them as media/voiceover/<id>.wav and re-run `node scripts/video/render.mjs dark full audio`.
+
+| Starts | Room | id | Line |
+|---|---|---|---|
+| 0:00.3 | 2.7 s | title | Say what you need. It knows your schema. |
+| 0:03.0 | 8.0 s | ask | Ask your database in plain English. The SQL appears as you type, so there's no waiting. |
+| 0:11.0 | 4.3 s | run | It knows your tables and columns, so the query fits. |
+| 0:15.4 | 7.6 s | followup | Follow up in plain words, and it changes the last query. |
+| 0:23.0 | 8.9 s | skill | Skills add your own rules. This one keeps personal data out. |
+| 0:31.8 | 9.4 s | safety | Anything that could change data asks you first. |
+| 0:41.2 | 7.4 s | fix | And if a query fails, it fixes itself. |
+| 0:48.7 | 7.6 s | privacy | Your rows never go to the AI. It only sees your question and your schema. |
+| 0:56.3 | 7.1 s | ai | Use Claude, OpenAI or Gemini, or stay fully local with Ollama. |
+| 1:03.4 | 5.1 s | mcp | Claude can even query your databases through SayQL, read-only. |
+| 1:08.5 | 4.2 s | end | Free and open source. Early access at sayql.app. |

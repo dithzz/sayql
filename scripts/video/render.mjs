@@ -1,12 +1,15 @@
 // Turns a capture (capture.mjs) into the videos: the app as a window on a brand background,
 // eased zoom and pan onto each camera target, a drawn cursor, captions and title/end cards.
 //
-//   node scripts/video/render.mjs [dark|light] [full|short|poster]
+//   node scripts/video/render.mjs [dark|light] [full|short|poster] [audio]
 //
-// Frames are drawn by compositor.html in headless Chrome and piped to ffmpeg (H.264, 30 fps,
-// with a silent AAC track to drop music or a voiceover onto). Cut points go to media/*-cuts.md.
-import { spawn } from "node:child_process";
-import { readFileSync, writeFileSync } from "node:fs";
+// Frames are drawn by compositor.html in headless Chrome and piped to ffmpeg (H.264, 30 fps).
+// The soundtrack is music.py's original track (MUSIC=0 for silence) plus, with VOICE set to a
+// macOS voice or recordings in media/voiceover/<id>.wav, the lines in voiceover.json; that
+// version goes to <name>-voiceover.mp4. "audio" redoes only the soundtrack. Cut points and the
+// voiceover script go to media/*-cuts.md.
+import { spawn, spawnSync } from "node:child_process";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { launch } from "./cdp.mjs";
@@ -16,6 +19,9 @@ const cut = process.argv[3] ?? "full";
 const FFMPEG = process.env.FFMPEG ?? "/opt/homebrew/bin/ffmpeg";
 const FPS = 30;
 const XFADE = 0.45;
+/** The site on the end card; SITE_NOW is shown under it until the domain is live (null hides it). */
+const SITE = "sayql.app";
+const SITE_NOW = "sayql.vercel.app";
 /** Where the app window sits in the 1920×1080 frame at zoom 1. */
 const WIN = { x: 160, y: 46, w: 1600, h: 900 };
 
@@ -35,14 +41,15 @@ const EDITS = {
     { scene: "skill", until: "safety" },
     { scene: "safety", until: "fix" },
     { scene: "fix" },
+    { scene: "privacy" },
     { scene: "ai" },
     { scene: "mcp" },
-    { card: "end", dur: 4 },
+    { card: "end", dur: 4.6 },
   ],
   short: [
     { card: "title", dur: 1.4 },
-    { scene: "ask", until: "followup", speed: 1.35, trim: 1.5 },
-    { scene: "followup", until: "skill", speed: 1.5, max: 3.4 },
+    { scene: "ask", until: "followup", speed: 1.35, trim: 1.2 },
+    { scene: "followup", until: "skill", speed: 1.55, trim: 0.6, max: 3.8 },
     { card: "end", dur: 2.2 },
   ],
 };
@@ -184,7 +191,7 @@ function stateAt(t) {
 const page = await launch({ width: 1920, height: 1080, scale: 1 });
 await page.goto(pathToFileURL(join(import.meta.dirname, "compositor.html")).href);
 const wordmark = pathToFileURL(join(root, ".github", "assets", `wordmark-${theme}.svg`)).href;
-const interLoaded = await page.evaluate(`setup(${JSON.stringify({ theme, win: WIN, wordmark })})`);
+const interLoaded = await page.evaluate(`setup(${JSON.stringify({ theme, win: WIN, wordmark, site: SITE, siteNow: SITE_NOW })})`);
 if (!interLoaded) console.warn("Inter didn't load (offline?); captions fall back to the system font.");
 
 const shot = async (t, format = "jpeg") => {
@@ -194,49 +201,122 @@ const shot = async (t, format = "jpeg") => {
 };
 
 const suffix = theme === "light" ? "-light" : "";
+const fmt = (s) => `${Math.floor(s / 60)}:${(s % 60).toFixed(1).padStart(4, "0")}`;
+const run = (cmd, args) => {
+  const r = spawnSync(cmd, args, { stdio: ["ignore", "pipe", "inherit"], encoding: "utf8" });
+  if (r.status !== 0) throw new Error(`${cmd} failed`);
+  return r.stdout;
+};
+const duration = (file) => Number(run(FFMPEG.replace(/ffmpeg$/, "ffprobe"), ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", file]));
+
+/** Output time of `at` seconds into a card or a capture scene, or null if the edit leaves it out. */
+function outputTime(line) {
+  if (line.card) {
+    const it = items.find((i) => i.card === line.card);
+    return it ? it.start + line.at : null;
+  }
+  const t = sceneStart(line.scene) + line.at;
+  const it = items.find((i) => i.kind === "clip" && t >= i.from && t < i.to);
+  return it ? it.start + (t - it.from) / it.speed : null;
+}
+
+/** The voiceover lines in this edit, with their time, the room before the next one, and audio if any. */
+function voiceLines(work) {
+  const lines = JSON.parse(readFileSync(join(import.meta.dirname, "voiceover.json"), "utf8"))
+    .map((l) => ({ ...l, t: outputTime(l) }))
+    .filter((l) => l.t !== null);
+  lines.forEach((l, i) => (l.room = (lines[i + 1]?.t ?? total) - l.t));
+  for (const l of lines) {
+    const recorded = join(root, "media", "voiceover", `${l.id}.wav`);
+    if (process.env.VOICE) {
+      mkdirSync(join(work, "vo"), { recursive: true });
+      l.file = join(work, "vo", `${l.id}.aiff`);
+      run("say", ["-v", process.env.VOICE, "-r", process.env.RATE ?? "178", "-o", l.file, l.text]);
+    } else if (existsSync(recorded)) l.file = recorded;
+    if (l.file) {
+      l.length = duration(l.file);
+      if (l.length > l.room) console.warn(`Voiceover "${l.id}" runs ${(l.length - l.room).toFixed(1)} s into the next line.`);
+    }
+  }
+  return lines;
+}
+
+/** Muxes `video` with the music (ducked under the voice, if any) into `out`. */
+function soundtrack(video, music, voice, out) {
+  const args = ["-y", "-loglevel", "error", "-i", video];
+  args.push(...(music ? ["-i", music] : ["-f", "lavfi", "-t", String(total), "-i", "anullsrc=r=48000:cl=stereo"]));
+  voice.forEach((l) => args.push("-i", l.file));
+  const f = [`[1:a]aresample=48000,volume=${voice.length ? 0.6 : 1}[m]`];
+  if (voice.length) {
+    voice.forEach((l, i) => f.push(`[${i + 2}:a]aresample=48000,pan=stereo|c0=c0|c1=c0,adelay=${Math.round(l.t * 1000)}:all=1[v${i}]`));
+    f.push(`${voice.map((_, i) => `[v${i}]`).join("")}amix=inputs=${voice.length}:normalize=0:duration=longest,asplit[vk][vm]`);
+    f.push(`[m][vk]sidechaincompress=threshold=0.02:ratio=8:attack=15:release=350[md]`);
+    f.push(`[md][vm]amix=inputs=2:normalize=0:duration=first,loudnorm=I=-16:TP=-1.5[a]`);
+  } else f.push(music ? `[m]loudnorm=I=-18:TP=-1.5[a]` : `[m]anull[a]`);
+  args.push("-filter_complex", f.join(";"), "-map", "0:v", "-map", "[a]", "-t", total.toFixed(3));
+  args.push("-c:v", "copy", "-c:a", "aac", "-b:a", "160k", "-ar", "48000", "-movflags", "+faststart", out);
+  run(FFMPEG, args);
+}
+
 if (cut === "poster") {
   // The first question's SQL, streamed in, with its caption: just before it runs.
   const ask = items.find((it) => it.scene === "ask");
   const t = ask.start + (sceneStart("run") - 0.15 - ask.from) / ask.speed;
   writeFileSync(join(root, "media", `explainer${suffix}-poster.png`), await shot(t, "png"));
+  await page.close();
 } else {
   const name = cut === "short" ? `explainer${suffix}-15s` : `explainer${suffix}`;
-  const file = join(root, "media", `${name}.mp4`);
-  const ff = spawn(
-    FFMPEG,
-    [
-      "-y", "-loglevel", "error",
-      "-f", "image2pipe", "-framerate", String(FPS), "-c:v", "mjpeg", "-i", "-",
-      "-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo",
-      "-map", "0:v", "-map", "1:a", "-shortest",
-      "-c:v", "libx264", "-preset", "slow", "-crf", process.env.CRF ?? "22", "-tune", "animation",
-      "-pix_fmt", "yuv420p", "-profile:v", "high", "-r", String(FPS), "-g", String(FPS * 2),
-      "-c:a", "aac", "-b:a", "32k",
-      "-movflags", "+faststart",
-      file,
-    ],
-    { stdio: ["pipe", "inherit", "inherit"] },
-  );
-  const n = Math.round(total * FPS);
-  for (let i = 0; i < n; i++) {
-    const buf = await shot(i / FPS);
-    if (!ff.stdin.write(buf)) await new Promise((r) => ff.stdin.once("drain", r));
-    if (i % 150 === 0) process.stdout.write(`\r${name}: ${((i / n) * 100).toFixed(0)}%`);
+  const work = join(capture, name);
+  mkdirSync(work, { recursive: true });
+  const video = join(work, "video.mp4");
+  if (process.argv[4] !== "audio" || !existsSync(video)) {
+    const ff = spawn(
+      FFMPEG,
+      [
+        "-y", "-loglevel", "error",
+        "-f", "image2pipe", "-framerate", String(FPS), "-c:v", "mjpeg", "-i", "-",
+        "-c:v", "libx264", "-preset", "slow", "-crf", process.env.CRF ?? "22", "-tune", "animation",
+        "-pix_fmt", "yuv420p", "-profile:v", "high", "-r", String(FPS), "-g", String(FPS * 2),
+        video,
+      ],
+      { stdio: ["pipe", "inherit", "inherit"] },
+    );
+    const n = Math.round(total * FPS);
+    for (let i = 0; i < n; i++) {
+      const buf = await shot(i / FPS);
+      if (!ff.stdin.write(buf)) await new Promise((r) => ff.stdin.once("drain", r));
+      if (i % 150 === 0) process.stdout.write(`\r${name}: ${((i / n) * 100).toFixed(0)}%`);
+    }
+    ff.stdin.end();
+    await new Promise((r) => ff.on("close", r));
   }
-  ff.stdin.end();
-  await new Promise((r) => ff.on("close", r));
-  console.log(`\r${name}: ${total.toFixed(1)} s → ${file}`);
+  await page.close();
 
-  // Where each part starts, for laying music or a voiceover on later.
-  const fmt = (s) => `${Math.floor(s / 60)}:${(s % 60).toFixed(1).padStart(4, "0")}`;
+  const titleCard = items.find((it) => it.card === "title");
+  const endCard = items.find((it) => it.card === "end");
+  let music = null;
+  if (process.env.MUSIC !== "0") {
+    music = join(work, "music.wav");
+    run("python3", [join(import.meta.dirname, "music.py"), music, total.toFixed(3), "--intro", String(titleCard?.dur ?? 0), "--outro", String(total - endCard.start)]);
+  }
+  soundtrack(video, music, [], join(root, "media", `${name}.mp4`));
+  const lines = cut === "full" ? voiceLines(work) : [];
+  const voiced = lines.filter((l) => l.file);
+  if (voiced.length) soundtrack(video, music, voiced, join(root, "media", `${name}-voiceover.mp4`));
+  console.log(`\r${name}: ${total.toFixed(1)} s${voiced.length ? ", with a voiceover version" : ""}`);
+
+  // Where each part starts, for editing music or a voiceover in later, and the voiceover script.
   const rows = items.map((it) => {
     const caps = it.kind === "clip" ? events.filter((e) => e.type === "caption" && e.text && e.t >= it.from - 0.2 && e.t < it.to) : [];
-    const lines = caps.map((c) => `    - ${fmt(it.start + Math.max(0, c.t - it.from) / it.speed)} caption: “${c.text}”`);
-    return [`- ${fmt(it.start)} ${it.card ? `${it.card} card` : it.scene}${it.contiguous ? " (continues, no cut)" : " (cut)"}`, ...lines].join("\n");
+    const capLines = caps.map((c) => `    - ${fmt(it.start + Math.max(0, c.t - it.from) / it.speed)} caption: “${c.text}”`);
+    return [`- ${fmt(it.start)} ${it.card ? `${it.card} card` : it.scene}${it.contiguous ? " (continues, no cut)" : " (cut)"}`, ...capLines].join("\n");
   });
+  const script = lines.length
+    ? `\n## Voiceover script\n\nEach line starts at the time shown and should end within its room. To use your own\nrecordings, save them as media/voiceover/<id>.wav and re-run \`node scripts/video/render.mjs ${theme} full audio\`.\n\n| Starts | Room | id | Line |\n|---|---|---|---|\n${lines.map((l) => `| ${fmt(l.t)} | ${l.room.toFixed(1)} s | ${l.id} | ${l.text} |`).join("\n")}\n`
+    : "";
   writeFileSync(
     join(root, "media", `${name}-cuts.md`),
-    `# ${name}.mp4 — cut points\n\n${total.toFixed(1)} s, ${FPS} fps, 1920×1080. Cross-fades are ${XFADE} s and start at the time shown.\nThe audio track is silent.\n\n${rows.join("\n")}\n`,
+    `# ${name}.mp4 — cut points\n\n${total.toFixed(1)} s, ${FPS} fps, 1920×1080. Cross-fades are ${XFADE} s and start at the time shown.\n` +
+      `The soundtrack is scripts/video/music.py's original track (no samples or licensed music).\n\n${rows.join("\n")}\n${script}`,
   );
 }
-await page.close();

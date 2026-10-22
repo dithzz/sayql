@@ -164,33 +164,28 @@ const caption = (text) => log("caption", { text });
 const hideCursor = () => log("cursor", { hidden: true });
 
 // ── Storyboard ─────────────────────────────────────────────────────────────
-// 2. Ask: pick tables, type the question, SQL streams in.
+// 2. Ask: type the question, SQL streams in.
 scene("ask");
 cam(null);
-caption("Pick tables. Ask in plain English.");
-await sleep(900);
-await click(await waitFor("span, div", "customers"));
-await click(await rect("*", "orders"), { modifiers: 4, glide: 380 });
-await click(await rect("*", "order_items"), { modifiers: 4, glide: 380 });
-await sleep(300);
+caption("Ask in plain English");
+await sleep(1000);
 cam(union(await askBar(), await editor()), { maxZoom: 1.55 });
-await sleep(700);
-hideCursor();
+await sleep(900);
 await focusAsk();
 await type("Top 10 customers by spend");
-caption("SQL writes itself as you type");
+caption("SQL appears as you type. No waiting.");
 await waitForText("Haiku 5.5 · first SQL");
-await sleep(1200);
+await sleep(1400);
 
 // 3. Run it.
 scene("run");
 cam(null);
-caption("Run it. Get answers.");
+caption("It already knows your schema");
 await press("Enter");
 await waitForText("Kenji Watanabe");
 await sleep(400);
 cam(union(await results(), await askBar()), { maxZoom: 1.3 });
-await sleep(2600);
+await sleep(3800);
 
 // 4. Follow-up.
 scene("followup");
@@ -270,17 +265,31 @@ cam(union(await results(), await askBar()), { maxZoom: 1.3 });
 await sleep(2200);
 log("end");
 
-// Off camera: open the setup guide's AI step.
+// Off camera: open the setup guide.
 await click(await rect('button[aria-label="Settings"]'), { glide: 0 });
 await click(await waitFor("button", "About"), { glide: 0 });
 await click(await waitFor("button", "Show the setup guide again"), { glide: 0 });
-await click(await waitFor("button", "Get started"), { glide: 0 });
-await waitFor('[role="radiogroup"]');
+await waitFor('[role="dialog"] ul');
 await sleep(800);
 
-// 8. Any AI.
+// 8. Privacy, in the guide's own words.
+scene("privacy");
+// The dialog from its title down to the end of the list.
+const guide = await waitFor('[role="dialog"]');
+const points = await waitFor('[role="dialog"] ul');
+cam({ ...guide, h: points.y + points.h - guide.y }, { maxZoom: 1.8, pad: 40 });
+caption("Your rows never go to the AI");
+await sleep(3200);
+caption("It only sees your schema");
+await sleep(3000);
+cam(await waitFor('[role="dialog"]'), { maxZoom: 1.5, pad: 40 });
+await click(await waitFor("button", "Get started"));
+await waitFor('[role="radiogroup"]');
+await sleep(300);
+
+// 9. Any AI.
 scene("ai");
-cam(union(await waitFor('[role="dialog"]')), { maxZoom: 1.5, pad: 40 });
+cam(await waitFor('[role="dialog"]'), { maxZoom: 1.5, pad: 40 });
 caption("Use the AI you like");
 await sleep(900);
 for (const id of ["OpenAI", "Google Gemini", "Ollama"]) {
@@ -305,7 +314,7 @@ await click(await waitFor("button", "AI apps (MCP)"), { glide: 0 });
 await waitForText("Use SayQL from AI apps (MCP)");
 await sleep(800);
 
-// 9. MCP.
+// 10. MCP.
 scene("mcp");
 cam(null);
 caption("Claude can query through SayQL");
