@@ -374,6 +374,12 @@ footer a { color: var(--color-text-muted); }
       <p class="lead">SayQL includes an MCP server, so AI assistants like Claude and Cursor can query your databases through the connections you saved in SayQL.</p>
 <div class="callout"><svg><use href="#i-info"/></svg><p><b>On Linux,</b> use the <code>.deb</code> or <code>.rpm</code> for MCP. The AppImage opens from a new folder each time, so the path you give your AI app would stop working.</p></div>
 <p>The assistant gets four tools: list connections, list databases, describe the schema, and run a read-only query. The same read-only rules apply. Results default to 100 rows, at most 1,000. Database passwords are never shared with the assistant, but query results are sent to it.</p>
+<p>Two more tools hand work to you in SayQL instead of doing it:</p>
+<ul>
+  <li><b>Add connection</b> opens SayQL's New connection dialog with the details filled in. You type the password in SayQL, test and save.</li>
+  <li><b>Open query</b> opens SQL in a new SayQL tab, unrun. You review it and click Run; SayQL asks before anything that changes data, and the results stay in SayQL.</li>
+</ul>
+<p>Passwords and writes never go through MCP. SayQL brings its window to the front and marks what came from an AI app, e.g. <i>From Claude (MCP)</i>.</p>
 <h2 id="set-it-up"><a class="anchor" href="#set-it-up" aria-hidden="true">#</a>Set it up</h2>
 <p>Open <b>Settings → AI apps (MCP)</b>. It shows the exact command and config for your install:</p>
 <ul>

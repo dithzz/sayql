@@ -336,6 +336,8 @@ export function installMockBackend() {
           return null;
         case "check_update":
           return null;
+        case "take_handoffs":
+          return [];
         case "mcp_setup":
           return { path: "/Applications/SayQL.app/Contents/MacOS/sayql-mcp", exists: true, appimage: false };
         case "test_connection":

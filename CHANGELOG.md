@@ -9,6 +9,9 @@ All notable changes to SayQL are listed here. Downloads are on the
   SayQL no longer treats it as empty and erases it on the next save. It moves the file aside as
   `<name>.corrupt-<time>` and says where. Saves are now written in one step, so a crash mid-save can't
   leave a half-written file.
+- **MCP: hand work to SayQL.** Two new tools for AI apps. `add_connection` opens the New connection dialog
+  filled in; you type the password in SayQL. `open_query` opens SQL in a new tab for you to review and run.
+  Passwords and writes never go through MCP, and nothing runs or saves on its own.
 
 ## 0.2.5 (2026-10-22)
 

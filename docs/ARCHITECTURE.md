@@ -54,6 +54,7 @@ src-tauri/src/
   lib.rs                plugin + state + command registration only
   mcp.rs                sayql-mcp: MCP server over stdio (read-only tools), reusing state/db/schema
   bin/sayql-mcp.rs      its entry point
+  handoff.rs            sayql:// links from sayql-mcp to the app (prefilled connection, SQL tab): validation, one-time tokens
   error.rs              AppError / AppResult: the single error type; serializes to a message for the UI
   state.rs              AppState: store, open connections, the running AI generation
   commands/             Tauri commands, one file per UI area (thin: validate, call modules, map results)
@@ -61,6 +62,7 @@ src-tauri/src/
     query.rs            run_query (write confirmation gate)
     generation.rs       generate_sql, cancel_generation
     settings.rs         save_settings, the settings view sent to the UI
+    handoff.rs          receives sayql:// links, queues valid handoffs for the window (take_handoffs)
   db/                   database access, no Tauri types
     mod.rs              Kind, ConnConfig, DbPool, QueryResult, public API
     connect.rs          pools per database kind

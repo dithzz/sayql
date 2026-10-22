@@ -37,7 +37,11 @@ export function ClaudeIntegration() {
     <div className={styles.section}>
       <p className={styles.intro}>
         Let Claude, Cursor or any other MCP app list your connections, read schemas and run <strong>read-only</strong>{" "}
-        queries. Anything that could change data is refused. Query results are sent to that app.
+        queries. Query results are sent to that app.
+      </p>
+      <p className={styles.intro}>
+        It can also fill in a new connection or open SQL in a tab here, for you to finish. Passwords and writes never
+        go through MCP.
       </p>
       {!setup.exists && (
         <Alert tone="warning">

@@ -1,17 +1,21 @@
 //! An MCP server over stdio (`sayql-mcp`), so Claude (Claude Code, Claude Desktop) can use
 //! the person's saved SayQL connections. Read-only: anything that could change data is
 //! refused and has to be run in the SayQL app, where the person reviews it first.
+//! Two tools hand work to the app instead (see handoff.rs): a prefilled New connection
+//! dialog, where the person types the password, and SQL in a new tab, which they run.
 
 use crate::commands::connections::{load_schema, target_pool};
 use crate::db::{self, Kind};
+use crate::handoff::{self, Action, Handoff};
 use crate::schema::{self, Schema, Table};
 use crate::state::{AppState, Target};
 use rmcp::handler::server::{router::tool::ToolRouter, wrapper::Parameters};
 use rmcp::model::{Implementation, ServerCapabilities, ServerConfig};
-use rmcp::{ServerHandler, ServiceExt, tool, tool_handler, tool_router};
+use rmcp::service::RequestContext;
+use rmcp::{RoleServer, ServerHandler, ServiceExt, tool, tool_handler, tool_router};
 use schemars::JsonSchema;
 use serde::Deserialize;
-use serde_json::json;
+use serde_json::{Map, Value, json};
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -27,7 +31,9 @@ const INSTRUCTIONS: &str = "SayQL gives read-only access to the user's saved dat
 server connection, then describe_schema (pass `search` terms for large databases), then run_query. \
 Queries run read-only and the database itself enforces it where it can; statements that could change \
 data are refused, and the user must run those in the SayQL app. Keep results small (TOP/LIMIT) and \
-select only the columns you need.";
+select only the columns you need. To hand work to the user in the SayQL app: add_connection opens a \
+prefilled New connection dialog (never pass a password; the user types it in SayQL), and open_query \
+opens SQL in a new SayQL tab for the user to review and run (use it for statements that change data).";
 
 #[derive(Debug, Deserialize, JsonSchema)]
 struct ConnectionParams {
@@ -55,6 +61,47 @@ struct QueryParams {
     sql: String,
     /// Most rows to return (default 100, at most 1000).
     max_rows: Option<usize>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+struct AddConnectionParams {
+    /// Database type: postgres, mysql, sqlite or sqlserver (SQL Server and Azure SQL).
+    #[serde(rename = "type")]
+    kind: String,
+    /// Name shown in SayQL. Optional.
+    name: Option<String>,
+    /// Server host name or IP (not for sqlite). For SQL Server, `host,port` also works.
+    host: Option<String>,
+    /// Server port (not for sqlite). Omit for the default.
+    port: Option<i64>,
+    /// Database to open by default (not for sqlite).
+    database: Option<String>,
+    /// User name (not for sqlite).
+    user: Option<String>,
+    /// sqlite only: path to the database file.
+    file: Option<String>,
+    /// Require SSL (postgres, mysql) or encrypt the connection (sqlserver).
+    ssl: Option<bool>,
+    /// sqlserver only: trust a self-signed server certificate.
+    trust_server_certificate: Option<bool>,
+    /// Anything else. Checked so a password is refused with a clear message.
+    #[serde(flatten)]
+    #[schemars(skip)]
+    extra: Map<String, Value>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+struct OpenQueryParams {
+    /// A connection id from list_connections.
+    connection_id: String,
+    /// Database on the server (from list_databases). Omit to use the connection's default.
+    database: Option<String>,
+    /// The SQL to put in the editor, in the connection's dialect. At most 10,000 characters.
+    sql: String,
+    /// Short tab title. Optional.
+    title: Option<String>,
+    /// The user's question this SQL answers, shown above the editor. Optional.
+    question: Option<String>,
 }
 
 #[derive(Clone)]
@@ -124,9 +171,80 @@ impl SayqlServer {
         })
         .to_string())
     }
+
+    #[tool(description = "Open SayQL's New connection dialog with these details filled in, for the user to finish. \
+                          Never pass a password or any other secret: it is refused. The user types the password \
+                          in SayQL, tests the connection and saves it. Returns right away; call list_connections \
+                          later to use the new connection.")]
+    async fn add_connection(&self, Parameters(p): Parameters<AddConnectionParams>, ctx: RequestContext<RoleServer>) -> Result<String, String> {
+        let draft = connection_draft(p)?;
+        self.hand_off(Action::NewConnection(draft), &ctx)?;
+        Ok("Opened SayQL's New connection dialog with these details. The user enters the password there, \
+            tests the connection and saves it."
+            .into())
+    }
+
+    #[tool(description = "Open SQL in a new SayQL tab on a saved connection, without running it. The user reviews it \
+                          and clicks Run; SayQL asks before anything that changes data. Use this for statements \
+                          run_query refuses. The results stay in SayQL and are not returned.")]
+    async fn open_query(&self, Parameters(p): Parameters<OpenQueryParams>, ctx: RequestContext<RoleServer>) -> Result<String, String> {
+        let draft = handoff::query_draft(&p.connection_id, p.database.as_deref(), &p.sql, p.title.as_deref(), p.question.as_deref())?;
+        let conn = self.state.store.connection(&draft.connection_id).map_err(|_| {
+            format!("No saved connection has id {:?}; use one from list_connections.", draft.connection_id)
+        })?;
+        self.hand_off(Action::OpenQuery(draft), &ctx)?;
+        Ok(format!(
+            "Opened a new SayQL tab on {:?} with the SQL. Nothing ran: the user reviews it and clicks Run.",
+            conn.name
+        ))
+    }
+}
+
+/// The New connection fields from `add_connection`'s arguments; refuses passwords.
+fn connection_draft(p: AddConnectionParams) -> Result<handoff::ConnectionDraft, String> {
+    if p.extra.keys().any(|k| handoff::is_secret_field(k)) {
+        return Err(handoff::secret_refused());
+    }
+    if let Some(k) = p.extra.keys().next() {
+        return Err(format!("Unknown field `{k}`."));
+    }
+    let get = |k: &str| match k {
+        "type" => Some(p.kind.clone()),
+        "name" => p.name.clone(),
+        "host" => p.host.clone(),
+        "database" => p.database.clone(),
+        "user" => p.user.clone(),
+        "file" => p.file.clone(),
+        _ => None,
+    };
+    let flag = |k: &str| Ok(if k == "ssl" { p.ssl } else { p.trust_server_certificate });
+    handoff::connection_draft(get, p.port, flag)
+}
+
+/// The AI app's name for "From Claude (MCP)", from what it sent when it connected.
+fn client_label(info: &Implementation) -> Option<String> {
+    let name = info.name.to_ascii_lowercase();
+    let known = if name.contains("claude-code") {
+        Some("Claude Code")
+    } else if name.starts_with("claude") {
+        Some("Claude")
+    } else if name.contains("cursor") {
+        Some("Cursor")
+    } else {
+        None
+    };
+    handoff::source(known.or(info.title.as_deref()).or(Some(&info.name)))
 }
 
 impl SayqlServer {
+    /// Opens `action` in the SayQL app through a one-time `sayql://` link.
+    fn hand_off(&self, action: Action, ctx: &RequestContext<RoleServer>) -> Result<(), String> {
+        let source = ctx.peer.peer_info().and_then(|i| client_label(&i.client_info));
+        let token = handoff::issue_token(self.state.store.dir())?;
+        let link = handoff::to_url(&Handoff { source, action }, &token)?;
+        handoff::open_in_app(&link)
+    }
+
     async fn schema(&self, connection_id: &str, database: Option<String>) -> Result<Schema, String> {
         let target = Target::new(connection_id.to_string(), database);
         match self.state.schema(&target) {
@@ -214,6 +332,40 @@ mod tests {
             foreign_keys: vec![],
             row_estimate: Some(10),
         }
+    }
+
+    fn add_params(args: Value) -> Result<AddConnectionParams, serde_json::Error> {
+        serde_json::from_value(args)
+    }
+
+    #[test]
+    fn add_connection_refuses_passwords() {
+        let p = add_params(json!({ "type": "postgres", "host": "db", "password": "hunter2" })).unwrap();
+        assert_eq!(connection_draft(p).unwrap_err(), handoff::secret_refused());
+        let p = add_params(json!({ "type": "mysql", "apiKey": "x" })).unwrap();
+        assert_eq!(connection_draft(p).unwrap_err(), handoff::secret_refused());
+        let p = add_params(json!({ "type": "mysql", "colour": "red" })).unwrap();
+        assert!(connection_draft(p).unwrap_err().contains("colour"));
+    }
+
+    #[test]
+    fn add_connection_validates_fields() {
+        let p = add_params(json!({ "type": "sqlserver", "host": "sql.local", "port": 1433, "ssl": true, "trust_server_certificate": true })).unwrap();
+        let d = connection_draft(p).unwrap();
+        assert_eq!((d.kind, d.port, d.ssl, d.trust_cert), (Kind::Mssql, Some(1433), Some(true), Some(true)));
+        assert!(connection_draft(add_params(json!({ "type": "postgres", "port": 0 })).unwrap()).is_err());
+        assert!(connection_draft(add_params(json!({ "type": "sqlite" })).unwrap()).is_err());
+        assert!(add_params(json!({ "host": "db" })).is_err(), "type is required");
+        assert!(add_params(json!({ "type": "postgres", "port": "5432" })).is_err());
+    }
+
+    #[test]
+    fn labels_known_clients() {
+        let info = |name: &str| Implementation::new(name, "1");
+        assert_eq!(client_label(&info("claude-ai")).as_deref(), Some("Claude"));
+        assert_eq!(client_label(&info("claude-code")).as_deref(), Some("Claude Code"));
+        assert_eq!(client_label(&info("cursor-vscode")).as_deref(), Some("Cursor"));
+        assert_eq!(client_label(&info("Zed")).as_deref(), Some("Zed"));
     }
 
     #[test]

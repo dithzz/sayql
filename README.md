@@ -172,6 +172,15 @@ use the connections you saved in SayQL: `list_connections`, `list_databases`, `d
 `run_query`. It's read-only, with the same checks as the app. Results are capped (100 rows by default, 1,000
 at most) and are sent to that app. Passwords never are.
 
+Two more tools hand work to you in SayQL instead of doing it:
+
+- `add_connection` opens SayQL's New connection dialog with the details filled in. You type the password in
+  SayQL, test and save. The tool refuses passwords and other secrets.
+- `open_query` opens SQL in a new SayQL tab without running it. You review it and click Run; SayQL asks before
+  anything that changes data, and the results stay in SayQL.
+
+Passwords and writes never go through MCP.
+
 > **Note:** on Linux, use the `.deb` or `.rpm` for MCP:
 > the AppImage opens from a new folder each time, so the path would change.
 > Until then, build it from source (`cargo build --bin sayql-mcp`); see [CONTRIBUTING.md](CONTRIBUTING.md).
