@@ -163,7 +163,8 @@ async fn collect_mssql(client: &mut MssqlClient, sql: &str, cap: usize) -> AppRe
     let columns: Vec<String> = stream
         .columns()
         .await?
-        .map(|cols| cols.iter().map(|c| c.name().to_string()).collect())
+        // An expression without an alias has no name; SQL Server's own tools show this.
+        .map(|cols| cols.iter().map(|c| if c.name().is_empty() { "(No column name)".into() } else { c.name().to_string() }).collect())
         .unwrap_or_default();
     let mut rows = Vec::new();
     let mut truncated = false;
