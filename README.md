@@ -1,8 +1,11 @@
 <div align="center">
 
-<img src="src-tauri/icons/128x128@2x.png" width="104" height="104" alt="SayQL logo">
-
-# SayQL
+<h1>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/wordmark-dark.svg">
+  <img src=".github/assets/wordmark-light.svg" height="64" alt="SayQL">
+</picture>
+</h1>
 
 ### Say what you need. It knows your schema.
 
