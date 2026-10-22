@@ -713,27 +713,28 @@ section.block { padding: 96px 0 0; }
           <div class="code" data-code></div>
         </div>
       </article>
-      <article class="card b-2">
+      <article class="card b-6 b-wide">
         <div class="card-text">
-          <h3>Type / for commands</h3>
-          <p>/explain, /fix, /improve, /new and /followup, right in the Ask box.</p>
+          <h3>Works with Claude and Cursor</h3>
+          <p>AI apps can query through SayQL, read-only, or hand you a query to review. You click Run.</p>
         </div>
-        <div class="app mini" id="demo-slash" role="img" aria-label="Demo: typing / opens the command menu, and /explain explains the current query">
-          <div class="askbox" data-ask><div class="q-line" style="margin-top:0"><svg class="i spark"><use href="#i-sparkles"/></svg><span class="cmd-chip" data-chip hidden></span><span class="q" data-q></span></div></div>
-          <div class="slash-menu" data-menu hidden></div>
-          <div class="explain" data-explain hidden><svg class="i"><use href="#i-book"/></svg><span data-explain-text></span></div>
+        <div class="app mini" id="demo-mcp" role="img" aria-label="Demo: Claude hands a query to SayQL, which opens it in a new tab without running it">
+          <div class="ed-h"><svg class="i"><use href="#i-file"/></svg><b>SQL Editor</b><span class="sub">Demo store (SQLite)</span><span class="origin-badge" data-origin hidden>From Claude (MCP)</span><span class="end"><span class="run-btn" data-run><svg class="i"><use href="#i-play"/></svg>Run</span></span></div>
           <div class="code" data-code></div>
+          <div class="bar ok" data-note hidden><svg class="i"><use href="#i-check"/></svg><span>Opened from Claude. Nothing has run.</span></div>
         </div>
       </article>
       <article class="card b-2">
         <div class="card-text">
-          <h3>Skills</h3>
-          <p>Save an instruction once, like “never select email, phone or address columns”, and add it to any question.</p>
+          <h3>Errors fix themselves</h3>
+          <p>If the database rejects a query, SayQL corrects it and runs it again, in plain sight.</p>
         </div>
-        <div class="app mini" id="demo-skill" role="img" aria-label="Demo: the /pii-safe skill keeps personal columns out of the query">
-          <div class="askbox" data-ask><div class="q-line" style="margin-top:0"><svg class="i spark"><use href="#i-sparkles"/></svg><span class="cmd-chip skill" data-chip hidden></span><span class="q" data-q></span></div></div>
-          <div class="slash-menu" data-menu hidden></div>
+        <div class="app mini" id="demo-fix" role="img" aria-label="Demo: a failing query is corrected and run again">
+          <div class="ed-h"><svg class="i"><use href="#i-file"/></svg><b>SQL Editor</b><span class="sub">Demo store (SQLite)</span><span class="end"><span class="run-btn" data-run><svg class="i"><use href="#i-play"/></svg>Run</span></span></div>
           <div class="code" data-code></div>
+          <div class="bar err" data-err hidden><svg class="i"><use href="#i-circle-x"/></svg><span>no such column: signup_date</span></div>
+          <div class="bar fix" data-fixing hidden><svg class="i"><use href="#i-sparkles"/></svg><span>Fixing the query with Opus 5.5…</span></div>
+          <div class="bar ok" data-ok hidden><svg class="i"><use href="#i-check"/></svg><span>Fixed: used <b class="mono">signed_up_at</b> and ran it again</span></div>
         </div>
       </article>
       <article class="card b-2">
@@ -755,6 +756,17 @@ section.block { padding: 96px 0 0; }
           </div>
         </div>
       </article>
+      <article class="card b-2">
+        <div class="card-text">
+          <h3>Skills</h3>
+          <p>Save an instruction once, like “never select email, phone or address columns”, and add it to any question.</p>
+        </div>
+        <div class="app mini" id="demo-skill" role="img" aria-label="Demo: the /pii-safe skill keeps personal columns out of the query">
+          <div class="askbox" data-ask><div class="q-line" style="margin-top:0"><svg class="i spark"><use href="#i-sparkles"/></svg><span class="cmd-chip skill" data-chip hidden></span><span class="q" data-q></span></div></div>
+          <div class="slash-menu" data-menu hidden></div>
+          <div class="code" data-code></div>
+        </div>
+      </article>
       <article class="card b-3">
         <div class="card-text">
           <h3>Half a statement never runs</h3>
@@ -771,26 +783,14 @@ section.block { padding: 96px 0 0; }
       </article>
       <article class="card b-3">
         <div class="card-text">
-          <h3>Errors fix themselves</h3>
-          <p>If the database rejects a query, SayQL corrects it and runs it again, in plain sight.</p>
+          <h3>Type / for commands</h3>
+          <p>/explain, /fix, /improve, /new and /followup, right in the Ask box.</p>
         </div>
-        <div class="app mini" id="demo-fix" role="img" aria-label="Demo: a failing query is corrected and run again">
-          <div class="ed-h"><svg class="i"><use href="#i-file"/></svg><b>SQL Editor</b><span class="sub">Demo store (SQLite)</span><span class="end"><span class="run-btn" data-run><svg class="i"><use href="#i-play"/></svg>Run</span></span></div>
+        <div class="app mini" id="demo-slash" role="img" aria-label="Demo: typing / opens the command menu, and /explain explains the current query">
+          <div class="askbox" data-ask><div class="q-line" style="margin-top:0"><svg class="i spark"><use href="#i-sparkles"/></svg><span class="cmd-chip" data-chip hidden></span><span class="q" data-q></span></div></div>
+          <div class="slash-menu" data-menu hidden></div>
+          <div class="explain" data-explain hidden><svg class="i"><use href="#i-book"/></svg><span data-explain-text></span></div>
           <div class="code" data-code></div>
-          <div class="bar err" data-err hidden><svg class="i"><use href="#i-circle-x"/></svg><span>no such column: signup_date</span></div>
-          <div class="bar fix" data-fixing hidden><svg class="i"><use href="#i-sparkles"/></svg><span>Fixing the query with Opus 5.5…</span></div>
-          <div class="bar ok" data-ok hidden><svg class="i"><use href="#i-check"/></svg><span>Fixed: used <b class="mono">signed_up_at</b> and ran it again</span></div>
-        </div>
-      </article>
-      <article class="card b-6 b-wide">
-        <div class="card-text">
-          <h3>Works with Claude and Cursor</h3>
-          <p>AI apps can query through SayQL, read-only, or hand you a query to review. You click Run.</p>
-        </div>
-        <div class="app mini" id="demo-mcp" role="img" aria-label="Demo: Claude hands a query to SayQL, which opens it in a new tab without running it">
-          <div class="ed-h"><svg class="i"><use href="#i-file"/></svg><b>SQL Editor</b><span class="sub">Demo store (SQLite)</span><span class="origin-badge" data-origin hidden>From Claude (MCP)</span><span class="end"><span class="run-btn" data-run><svg class="i"><use href="#i-play"/></svg>Run</span></span></div>
-          <div class="code" data-code></div>
-          <div class="bar ok" data-note hidden><svg class="i"><use href="#i-check"/></svg><span>Opened from Claude. Nothing has run.</span></div>
         </div>
       </article>
     </div>
