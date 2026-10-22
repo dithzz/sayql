@@ -5,7 +5,7 @@ import EditorWorker from "monaco-editor/editor/editor.worker?worker";
 import { loader } from "@monaco-editor/react";
 import type { Schema } from "../../api";
 import type { ResolvedTheme } from "../theme";
-import { qualifiedName } from "../schema/sql";
+import { qualifiedName } from "../schema";
 
 self.MonacoEnvironment = { getWorker: () => new EditorWorker() };
 loader.config({ monaco });

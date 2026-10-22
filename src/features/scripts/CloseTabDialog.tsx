@@ -28,7 +28,7 @@ export function CloseTabDialog({ tabName, onCancel, onDiscard, onSave }: CloseTa
         </>
       }
     >
-      <p style={{ margin: 0 }}>This tab has SQL that isn’t saved. If you close it without saving, it’s gone.</p>
+      <p>This tab has SQL that isn’t saved. If you close it without saving, it’s gone.</p>
     </Dialog>
   );
 }

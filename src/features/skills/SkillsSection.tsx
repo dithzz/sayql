@@ -3,7 +3,7 @@ import { Pencil, Plus, ScrollText, Trash2 } from "lucide-react";
 import type { Skill } from "../../api";
 import { Alert, Button, Field, IconButton, TextInput } from "../../components/ui";
 import { errorText } from "../../lib/errors";
-import { EXAMPLE_SKILLS, SKILL_LIMITS, skillError } from "../ask/slashCommands";
+import { EXAMPLE_SKILLS, SKILL_LIMITS, skillError } from "./rules";
 import type { SkillsApi } from "./useSkills";
 import styles from "./SkillsSection.module.css";
 

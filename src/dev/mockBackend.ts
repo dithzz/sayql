@@ -3,7 +3,7 @@
 import { emit } from "@tauri-apps/api/event";
 import { mockIPC } from "@tauri-apps/api/mocks";
 import type { AiProvider, Bootstrap, QueryResult, Schema, Settings, Skill, Table } from "../api";
-import { EXAMPLE_SKILLS, skillError } from "../features/ask/slashCommands";
+import { EXAMPLE_SKILLS, skillError } from "../features/skills";
 
 /** `?video`: answers and a saved skill for the explainer video (scripts/video), with slower streaming. */
 const VIDEO = new URLSearchParams(window.location.search).has("video");

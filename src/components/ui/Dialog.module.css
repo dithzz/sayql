@@ -47,6 +47,11 @@
   overflow: auto;
 }
 
+/* Body text sits on the flex gap. Zero specificity, so a component class can still set a margin. */
+:where(.body > p) {
+  margin: 0;
+}
+
 .footer {
   display: flex;
   align-items: center;

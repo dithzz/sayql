@@ -25,8 +25,8 @@ import {
 import type { ConnectionConfig, DatabaseList, Schema, Table } from "../../api";
 import { ContextMenu, IconButton, Panel, Spinner, TextInput, TreeRow, useContextMenu, type MenuEntry } from "../../components/ui";
 import { cx } from "../../lib/cx";
-import { DATABASE_KINDS } from "../connections/kinds";
-import { countRowsSql, qualifiedName, tableRef, templateSql, type SqlTemplate } from "../schema/sql";
+import { DATABASE_KINDS } from "../connections";
+import { countRowsSql, qualifiedName, tableRef, templateSql, type SqlTemplate } from "../schema";
 import styles from "./DatabaseNavigator.module.css";
 
 export interface DatabaseNavigatorProps {
