@@ -6,6 +6,7 @@
   <li><b>Run part of a query:</b> select some SQL in the editor and click <b>Run selection</b> (or press <kbd>⌘↵</kbd>) to run only that. If the selection cuts a statement in half (say, a <code>DELETE</code> without its <code>WHERE</code>), SayQL runs the whole statement instead, highlights it, and shows <b>Ran the full statement(s)</b>. A complete subquery inside brackets runs as selected. The same read-only checks apply. <kbd>↵</kbd> in the Ask box always runs the whole query.</li>
   <li><b>Run when ready:</b> while the AI is still writing, the button reads <b>Run when ready</b>. Click it, or press <kbd>↵</kbd>, and the query runs as soon as it's written.</li>
   <li>Above the editor, <b>Save</b> keeps the query as a script and <b>Clear</b> empties the editor.</li>
+  <li><b>Writing SQL yourself:</b> the editor suggests your tables and columns as you type (<kbd>Ctrl+Space</kbd> shows them any time). <kbd>⌘F</kbd> finds, <kbd>⌥⌘F</kbd> replaces, and <kbd>⌘/</kbd> comments lines out.</li>
   <li>Reads also run inside a read-only transaction (PostgreSQL and MySQL) or on a read-only connection (SQLite), so the database itself refuses writes. SQL Server has no read-only mode, so reads run in a transaction that's always rolled back. For production SQL Servers, use a login that can only read (<code>db_datareader</code>).</li>
   <li>Results show up to 5,000 rows. Use <code>LIMIT</code> / <code>TOP</code> or filters for more focused results. <b>Copy as CSV</b> copies the rows shown.</li>
 </ul>
