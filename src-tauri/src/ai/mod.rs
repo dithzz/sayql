@@ -6,6 +6,7 @@ mod models;
 mod openai;
 mod prompt;
 mod providers;
+mod redact;
 mod sse;
 
 pub use models::{DEFAULT_EXPERT_MODEL, DEFAULT_TYPING_MODEL, MODELS, is_known};

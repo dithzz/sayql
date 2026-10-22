@@ -9,6 +9,8 @@ All notable changes to SayQL are listed here. Downloads are on the
   SayQL no longer treats it as empty and erases it on the next save. It moves the file aside as
   `<name>.corrupt-<time>` and says where. Saves are now written in one step, so a crash mid-save can't
   leave a half-written file.
+- **Privacy:** when SayQL fixes a failed query, values from your rows that the database quotes in its error
+  (a duplicate email, a value that failed to convert) are masked before the error goes to your AI provider.
 
 ## 0.2.5 (2026-10-22)
 
