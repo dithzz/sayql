@@ -10,3 +10,4 @@ pub mod scripts;
 pub mod settings;
 pub mod skills;
 pub mod updates;
+pub mod voice;

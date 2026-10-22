@@ -39,6 +39,15 @@ jobs:
             args: ""
             rust_targets: ""
     runs-on: ${{ matrix.platform }}
+    env:
+      # whisper.cpp (voice input) otherwise tunes itself to the build machine's CPU, and voice
+      # input would crash on older ones. Intel and AMD builds target AVX2 and FMA (Intel
+      # Haswell, 2013, and later) for speed; ARM builds ignore these.
+      GGML_NATIVE: "OFF"
+      GGML_AVX: "ON"
+      GGML_AVX2: "ON"
+      GGML_FMA: "ON"
+      GGML_F16C: "ON"
     steps:
       - uses: actions/checkout@v7
 
@@ -46,7 +55,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libssl-dev libdbus-1-dev
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libssl-dev libdbus-1-dev libasound2-dev
 
       - uses: pnpm/action-setup@v6
         with:

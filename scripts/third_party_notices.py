@@ -96,6 +96,11 @@ def main() -> None:
     monaco = ROOT / "node_modules" / "monaco-editor" / "ThirdPartyNotices.txt"
     if monaco.exists():
         lines += ["=" * 78, "Notices bundled with monaco-editor:", "-" * 78, monaco.read_text(errors="replace").strip(), ""]
+    # whisper-rs-sys builds the bundled whisper.cpp (voice input), whose license sits in its own folder.
+    for p in packages:
+        whisper = p["dir"] / "whisper.cpp" / "LICENSE"
+        if p["name"] == "whisper-rs-sys" and whisper.exists():
+            lines += ["=" * 78, f"whisper.cpp, bundled with whisper-rs-sys {p['version']} (MIT) https://github.com/ggml-org/whisper.cpp", "-" * 78, whisper.read_text(errors="replace").strip(), ""]
 
     OUT.write_text("\n".join(lines))
     print(f"Wrote {OUT.relative_to(ROOT)}: {len(packages)} packages, {len(missing)} without a license file.", file=sys.stderr)

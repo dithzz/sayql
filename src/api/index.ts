@@ -1,3 +1,3 @@
 export { commands } from "./commands";
-export { subscribeToAi, subscribeToHandoffs } from "./events";
+export { subscribeToAi, subscribeToHandoffs, subscribeToVoice } from "./events";
 export * from "./types";

@@ -51,7 +51,8 @@
     "macOS": {
       "minimumSystemVersion": "10.15",
       "signingIdentity": "-",
-      "hardenedRuntime": true
+      "hardenedRuntime": true,
+      "entitlements": "./Entitlements.plist"
     },
     "windows": {
       "digestAlgorithm": "sha256"

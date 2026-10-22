@@ -5,6 +5,10 @@ All notable changes to SayQL are listed here. Downloads are on the
 
 ## Unreleased
 
+- **Voice input:** click the mic in the Ask box, or press ⌘⇧M (Ctrl+Shift+M), and say your question. It
+  becomes the question as if you'd typed it, keeping any `/command`; press ↵ to run. Speech is turned into
+  text on your computer by Whisper, and audio is never saved or sent anywhere. The first time, the speech
+  model (82 MB) downloads once from Hugging Face; remove or redownload it in Settings → Voice.
 - **Safer saved connections:** if a saved file (connections, settings, scripts or skills) is damaged,
   SayQL no longer treats it as empty and erases it on the next save. It moves the file aside as
   `<name>.corrupt-<time>` and says where. Saves are now written in one step, so a crash mid-save can't
@@ -25,7 +29,6 @@ All notable changes to SayQL are listed here. Downloads are on the
   own backend, so injected content can't load remote code or send data elsewhere.
 
 ## 0.2.5 (2026-10-22)
-
 - **Security:** updated the SQL Server driver, which fixes a high-severity issue in a TLS library it used.
 - **Under the hood:** newer database drivers (sqlx 0.9, tiberius 0.13), editor (Monaco 0.57) and icons.
 - **Editor:** suggests your tables and columns as you type, plus find and replace (⌘F, ⌥⌘F) and comment

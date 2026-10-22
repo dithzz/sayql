@@ -1,5 +1,5 @@
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import type { AiDelta, AiDone } from "./types";
+import type { AiDelta, AiDone, VoiceProgress } from "./types";
 
 export interface AiEventHandlers {
   delta: (e: AiDelta) => void;
@@ -21,4 +21,22 @@ export async function subscribeToAi(handlers: AiEventHandlers): Promise<Unlisten
 /** Calls `onNew` when an AI app hands work to SayQL; fetch it with `commands.takeHandoffs`. */
 export function subscribeToHandoffs(onNew: () => void): Promise<UnlistenFn> {
   return listen("handoff://new", onNew);
+}
+
+export interface VoiceEventHandlers {
+  progress?: (e: VoiceProgress) => void;
+  /** Microphone loudness, 0–1, about 20 times a second while recording. */
+  level?: (level: number) => void;
+  /** The system is withholding the microphone's audio (access denied). */
+  blocked?: (message: string) => void;
+}
+
+/** Subscribes to the voice input events emitted by src-tauri/src/commands/voice.rs. */
+export async function subscribeToVoice(handlers: VoiceEventHandlers): Promise<UnlistenFn> {
+  const unlisten = await Promise.all([
+    listen<VoiceProgress>("voice://progress", (e) => handlers.progress?.(e.payload)),
+    listen<number>("voice://level", (e) => handlers.level?.(e.payload)),
+    listen<string>("voice://blocked", (e) => handlers.blocked?.(e.payload)),
+  ]);
+  return () => unlisten.forEach((u) => u());
 }

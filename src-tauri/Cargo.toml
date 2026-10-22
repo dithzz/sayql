@@ -52,6 +52,9 @@ dirs = "7"
 schemars = "1"
 url = "2"
 open = "5"
+whisper-rs = "0.16"
+cpal = "0.18"
+sha2 = "0.10"
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration
 [profile.release]

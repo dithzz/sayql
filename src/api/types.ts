@@ -233,3 +233,15 @@ export type Handoff = { source: string | null } & (
   | ({ type: "openQuery" } & QueryDraft)
   | { type: "openScript"; scriptId: string }
 );
+
+/** Voice input's on-device speech model. */
+export interface VoiceStatus {
+  ready: boolean;
+  downloading: boolean;
+  modelBytes: number;
+}
+
+export interface VoiceProgress {
+  received: number;
+  total: number;
+}

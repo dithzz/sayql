@@ -9,6 +9,7 @@ pub mod mcp;
 mod schema;
 mod state;
 mod store;
+mod voice;
 
 use commands::{app, connections, generation, handoff as handoffs, query, scripts, settings, skills, updates};
 use state::AppState;
@@ -62,6 +63,13 @@ pub fn run() {
             settings::mcp_setup,
             updates::check_update,
             updates::install_update,
+            commands::voice::voice_status,
+            commands::voice::voice_download,
+            commands::voice::voice_cancel_download,
+            commands::voice::voice_delete_model,
+            commands::voice::voice_start,
+            commands::voice::voice_stop,
+            commands::voice::voice_cancel,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
