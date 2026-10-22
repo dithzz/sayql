@@ -1,5 +1,5 @@
 import type { RefObject } from "react";
-import { Eraser, FileCode2, Play, Save, Wand2 } from "lucide-react";
+import { Eraser, FileCode2, Play, Save, Square, Wand2 } from "lucide-react";
 import type { Schema, Skill } from "../api";
 import { Badge, Button, IconButton, Panel } from "../components/ui";
 import { AskBar, type GenerationStatus } from "../features/ask";
@@ -32,6 +32,8 @@ export interface WorkspaceQuery {
   /** Runs the selected SQL if there is any, else all of it (Run button, ⌘↵ in the editor). */
   onRun: () => void;
   running: boolean;
+  /** Stops the running query on the server. */
+  onCancel: () => void;
   /** Where the selection is in the editor; Run runs just that (snapped to whole statements). */
   selection: TextRange | null;
   onSelectionChange: (selection: TextRange | null) => void;
@@ -92,6 +94,11 @@ export function SqlWorkspace({ connectionName, schema, active, modelNames, onOpe
           >
             Improve
           </Button>
+          {q.running && (
+            <Button size="sm" variant="ghost" icon={Square} onClick={q.onCancel} title="Stop the running query on the server">
+              Cancel
+            </Button>
+          )}
           <Button
             size="sm"
             variant="primary"

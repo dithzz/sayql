@@ -48,6 +48,7 @@ pub fn run() {
             connections::refresh_schema,
             connections::list_databases,
             query::run_query,
+            query::cancel_query,
             scripts::list_scripts,
             scripts::save_script,
             scripts::delete_script,

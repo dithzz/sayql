@@ -11,6 +11,32 @@
   </tbody>
 </table></div>
 
+<h2>Tested versions</h2>
+<p>SayQL is tested against real servers of each of these versions, and a pull request can't land without
+the tests passing against one PostgreSQL, MySQL, MariaDB and SQL Server version.</p>
+<div class="table-wrap"><table>
+  <thead><tr><th>Database</th><th>Tested</th><th>Good to know</th></tr></thead>
+  <tbody>
+    <tr><td>PostgreSQL</td><td>13, 15, 16, 17</td><td>Partitioned tables appear once, under the parent. Materialized views are listed.</td></tr>
+    <tr><td>MySQL</td><td>5.7, 8.0, 8.4</td><td>All password types, with or without SSL.</td></tr>
+    <tr><td>MariaDB</td><td>10.6, 10.11, 11.4</td><td><code>ed25519</code> accounts sign in too, and JSON columns show as JSON.</td></tr>
+    <tr><td>SQL Server</td><td>2019, 2022</td><td>Also Azure SQL. <code>geometry</code>, <code>geography</code> and <code>hierarchyid</code> show as text, and <code>money</code> exactly.</td></tr>
+    <tr><td>SQLite</td><td>3 (bundled)</td><td>Reads use a connection opened read-only.</td></tr>
+  </tbody>
+</table></div>
+<p>Click <b>Cancel</b> to stop a slow query on the server. The full results, and every known limitation, are in
+<a href="https://github.com/dithzz/sayql/blob/main/docs/DATABASE_COMPATIBILITY.md">Database compatibility</a>.</p>
+
+<h2>Use a read-only login</h2>
+<p>SayQL runs queries read-only and asks before anything that changes data. A login that can only read
+makes your database enforce that too. MySQL and SQL Server can't fully enforce read-only for a login that
+could write, so a read-only login matters most there.</p>
+<ul>
+  <li><b>PostgreSQL:</b> a role with <code>CONNECT</code>, <code>USAGE</code> on the schema and <code>SELECT</code> on its tables.</li>
+  <li><b>MySQL / MariaDB:</b> a user with <code>SELECT, SHOW VIEW</code> on the database.</li>
+  <li><b>SQL Server / Azure SQL:</b> a user in the <code>db_datareader</code> role.</li>
+</ul>
+
 <h2>Every database on the server</h2>
 <p>For server databases, the navigator lists every database your login can open, under <b>Databases</b>. Click one to open it. The <b>Database</b> field in the connection only sets which one opens first; leave it empty to use the server's default.</p>
 

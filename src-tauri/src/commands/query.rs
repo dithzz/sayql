@@ -4,7 +4,7 @@ use crate::state::{AppState, Target};
 use tauri::State;
 
 /// Runs one statement. Statements that change data fail with `WRITE_CONFIRM` unless
-/// `allow_write` is set; the UI asks the person and calls again.
+/// `allow_write` is set; the UI asks the person and calls again. `cancel_query(run_id)` stops it.
 #[tauri::command]
 pub async fn run_query(
     state: State<'_, AppState>,
@@ -12,10 +12,22 @@ pub async fn run_query(
     database: Option<String>,
     sql: String,
     allow_write: bool,
+    run_id: Option<String>,
 ) -> AppResult<QueryResult> {
     let pool = state.open_pool(&Target::new(id, database))?;
     let read_only = write_gate(&sql, pool.kind(), allow_write)?;
-    db::run_query(&pool, &sql, read_only).await
+    let Some(run_id) = run_id else { return db::run_query(&pool, &sql, read_only).await };
+    let cancel = state.start_query(&run_id);
+    let out = db::run_query_with(&pool, &sql, read_only, db::MAX_ROWS, &cancel).await;
+    state.finish_query(&run_id);
+    out
+}
+
+/// Stops the query started with `run_id`, if it's still running; it then fails with
+/// `QUERY_CANCELLED`.
+#[tauri::command]
+pub fn cancel_query(state: State<'_, AppState>, run_id: String) {
+    state.cancel_query(&run_id);
 }
 
 /// Whether `sql` may run, and if so whether it runs read-only. A statement that changes

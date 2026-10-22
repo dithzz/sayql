@@ -11,16 +11,58 @@ const RELEVANT_TABLE_LIMIT: usize = 30;
 /// Tables that reference a focus table, included so the model can join to them.
 const REFERENCING_TABLE_LIMIT: usize = 15;
 
+/// Words that must be quoted to be used as names. Matches `quoteIdent` in src/features/schema/sql.ts.
+const RESERVED: &[&str] = &[
+    "user", "order", "group", "table", "select", "where", "from", "limit", "offset", "desc", "asc", "key", "index",
+    "check", "default", "column", "values", "references", "primary", "case", "end",
+];
+
+/// `ident` as it must be written in `dialect`'s SQL: quoted only when it needs it (symbols,
+/// spaces, reserved words, and in Postgres, which folds unquoted names to lowercase, capitals).
+/// The model copies names from the schema text, so they must work as written.
+pub fn quote_ident(ident: &str, dialect: &str) -> String {
+    let postgres = dialect == "PostgreSQL";
+    let plain_char = |c: char| c == '_' || c.is_ascii_digit() || if postgres { c.is_ascii_lowercase() } else { c.is_ascii_alphabetic() };
+    let plain = ident.chars().next().is_some_and(|c| !c.is_ascii_digit()) && ident.chars().all(plain_char);
+    if plain && !RESERVED.contains(&ident.to_ascii_lowercase().as_str()) {
+        return ident.to_string();
+    }
+    match dialect {
+        "MySQL" => format!("`{}`", ident.replace('`', "``")),
+        "SQL Server" => format!("[{}]", ident.replace(']', "]]")),
+        _ => format!("\"{}\"", ident.replace('"', "\"\"")),
+    }
+}
+
+/// The table's name as written in a query: `schema.table`, each part quoted when needed.
+pub fn render_name(t: &Table, dialect: &str) -> String {
+    match &t.schema {
+        Some(s) if s != "public" => format!("{}.{}", quote_ident(s, dialect), quote_ident(&t.name, dialect)),
+        _ => quote_ident(&t.name, dialect),
+    }
+}
+
+/// A foreign key's target (`schema.table`, or `table` where tables aren't qualified), quoted
+/// like `render_name`.
+fn render_ref(ref_table: &str, dialect: &str) -> String {
+    match ref_table.split_once('.') {
+        Some((s, t)) if dialect == "PostgreSQL" || dialect == "SQL Server" => {
+            format!("{}.{}", quote_ident(s, dialect), quote_ident(t, dialect))
+        }
+        _ => quote_ident(ref_table, dialect),
+    }
+}
+
 /// One line per table, e.g.
 /// `orders [table, ~1000 rows](id integer PK, customer_id integer -> customers.id, status text)`
-pub fn render_table(t: &Table) -> String {
+pub fn render_table(t: &Table, dialect: &str) -> String {
     let fk: HashMap<&str, &ForeignKey> =
         t.foreign_keys.iter().map(|f| (f.column.as_str(), f)).collect();
     let cols: Vec<String> = t
         .columns
         .iter()
         .map(|c| {
-            let mut s = format!("{} {}", c.name, c.data_type);
+            let mut s = format!("{} {}", quote_ident(&c.name, dialect), c.data_type);
             if c.primary_key {
                 s.push_str(" PK");
             }
@@ -28,7 +70,7 @@ pub fn render_table(t: &Table) -> String {
                 s.push_str(" NOT NULL");
             }
             if let Some(f) = fk.get(c.name.as_str()) {
-                s.push_str(&format!(" -> {}.{}", f.ref_table, f.ref_column));
+                s.push_str(&format!(" -> {}.{}", render_ref(&f.ref_table, dialect), quote_ident(&f.ref_column, dialect)));
             }
             if let Some(vals) = &c.enum_values {
                 s.push_str(&format!(" {{{}}}", vals.join("|")));
@@ -41,11 +83,11 @@ pub fn render_table(t: &Table) -> String {
         .filter(|n| *n >= 0)
         .map(|n| format!(", ~{n} rows"))
         .unwrap_or_default();
-    format!("{} [{}{}]({})", t.qualified_name(), t.kind, rows, cols.join(", "))
+    format!("{} [{}{}]({})", render_name(t, dialect), t.kind, rows, cols.join(", "))
 }
 
 pub fn render_full(schema: &Schema) -> String {
-    schema.tables.iter().map(render_table).collect::<Vec<_>>().join("\n")
+    schema.tables.iter().map(|t| render_table(t, &schema.dialect)).collect::<Vec<_>>().join("\n")
 }
 
 /// The schema text to put in the prompt for this question.
@@ -103,7 +145,7 @@ pub fn schema_for_prompt(schema: &Schema, full: &str, question: &str) -> String 
     }
     if picked.is_empty() {
         // Nothing matched: send the table list without columns so the model can still orient.
-        let names: Vec<String> = schema.tables.iter().map(|t| t.qualified_name()).collect();
+        let names: Vec<String> = schema.tables.iter().map(|t| render_name(t, &schema.dialect)).collect();
         return format!("(schema too large to include in full; table names only)\n{}", names.join(", "));
     }
     picked.sort();
@@ -111,7 +153,7 @@ pub fn schema_for_prompt(schema: &Schema, full: &str, question: &str) -> String 
     out.push_str(
         &picked
             .iter()
-            .map(|&i| render_table(&schema.tables[i]))
+            .map(|&i| render_table(&schema.tables[i], &schema.dialect))
             .collect::<Vec<_>>()
             .join("\n"),
     );
@@ -147,7 +189,7 @@ pub fn schema_with_focus(schema: &Schema, focus: &[String]) -> Option<String> {
         .collect::<Vec<_>>();
     related.extend(referencing);
 
-    let render = |ids: &[usize]| ids.iter().map(|&i| render_table(&schema.tables[i])).collect::<Vec<_>>().join("\n");
+    let render = |ids: &[usize]| ids.iter().map(|&i| render_table(&schema.tables[i], &schema.dialect)).collect::<Vec<_>>().join("\n");
     let mut out = format!(
         "(The person selected these tables for this request: build the query on them.)\n{}",
         render(&focused)
@@ -186,6 +228,53 @@ mod tests {
                 .collect(),
             row_estimate: None,
         }
+    }
+
+    #[test]
+    fn names_are_quoted_the_way_each_dialect_needs() {
+        for d in ["PostgreSQL", "MySQL", "SQLite", "SQL Server"] {
+            assert_eq!(quote_ident("customer_id", d), "customer_id");
+            assert_eq!(quote_ident("t2", d), "t2");
+        }
+        assert_eq!(quote_ident("FirstName", "PostgreSQL"), "\"FirstName\"");
+        assert_eq!(quote_ident("FirstName", "SQL Server"), "FirstName");
+        assert_eq!(quote_ident("FirstName", "MySQL"), "FirstName");
+        assert_eq!(quote_ident("first name", "PostgreSQL"), "\"first name\"");
+        assert_eq!(quote_ident("first name", "MySQL"), "`first name`");
+        assert_eq!(quote_ident("first name", "SQL Server"), "[first name]");
+        assert_eq!(quote_ident("first name", "SQLite"), "\"first name\"");
+        assert_eq!(quote_ident("order", "PostgreSQL"), "\"order\"");
+        assert_eq!(quote_ident("User", "SQL Server"), "[User]");
+        assert_eq!(quote_ident("zoë", "MySQL"), "`zoë`");
+        assert_eq!(quote_ident("2024_sales", "SQLite"), "\"2024_sales\"");
+        assert_eq!(quote_ident("a\"b", "PostgreSQL"), "\"a\"\"b\"");
+        assert_eq!(quote_ident("a]b", "SQL Server"), "[a]]b]");
+        assert_eq!(quote_ident("a`b", "MySQL"), "`a``b`");
+    }
+
+    #[test]
+    fn the_schema_text_uses_names_as_they_must_be_written() {
+        let t = Table {
+            schema: Some("Sales Ops".into()),
+            name: "Order Lines".into(),
+            kind: "table".into(),
+            columns: vec![
+                Column { name: "id".into(), data_type: "integer".into(), nullable: false, primary_key: true, enum_values: None },
+                Column { name: "CustomerId".into(), data_type: "integer".into(), nullable: true, primary_key: false, enum_values: None },
+            ],
+            foreign_keys: vec![ForeignKey { column: "CustomerId".into(), ref_table: "crm.Customers".into(), ref_column: "Id".into() }],
+            row_estimate: Some(3),
+        };
+        assert_eq!(
+            render_table(&t, "PostgreSQL"),
+            r#""Sales Ops"."Order Lines" [table, ~3 rows](id integer PK, "CustomerId" integer -> crm."Customers"."Id")"#
+        );
+        assert_eq!(
+            render_table(&t, "SQL Server"),
+            "[Sales Ops].[Order Lines] [table, ~3 rows](id integer PK, CustomerId integer -> crm.Customers.Id)"
+        );
+        let mysql = Table { schema: None, foreign_keys: vec![], ..t };
+        assert_eq!(render_table(&mysql, "MySQL"), "`Order Lines` [table, ~3 rows](id integer PK, CustomerId integer)");
     }
 
     #[test]

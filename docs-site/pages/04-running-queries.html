@@ -4,6 +4,7 @@
 <ul>
   <li><b>Run several statements:</b> statements separated by <code>;</code> run one after another, each in its own results tab. Each one that could change data asks first. The run stops at the first error, or at a change you decline, and its tab shows where it stopped.</li>
   <li><b>Run part of a query:</b> select some SQL in the editor and click <b>Run selection</b> (or press <kbd>⌘↵</kbd>) to run only that. If the selection cuts a statement in half (say, a <code>DELETE</code> without its <code>WHERE</code>), SayQL runs the whole statement instead, highlights it, and shows <b>Ran the full statement(s)</b>. A complete subquery inside brackets runs as selected. The same read-only checks apply. <kbd>↵</kbd> in the Ask box always runs the whole query.</li>
+  <li><b>Cancel a slow query:</b> while a query runs, click <b>Cancel</b> next to <b>Run</b>. SayQL asks the database to stop the statement, so it doesn't keep running on the server. In a script, the statements after it don't start.</li>
   <li><b>Run when ready:</b> while the AI is still writing, the button reads <b>Run when ready</b>. Click it, or press <kbd>↵</kbd>, and the query runs as soon as it's written.</li>
   <li>Above the editor, <b>Save</b> keeps the query as a script and <b>Clear</b> empties the editor.</li>
   <li><b>Writing SQL yourself:</b> the editor suggests your tables and columns as you type (<kbd>Ctrl+Space</kbd> shows them any time). <kbd>⌘F</kbd> finds, <kbd>⌥⌘F</kbd> replaces, and <kbd>⌘/</kbd> comments lines out.</li>

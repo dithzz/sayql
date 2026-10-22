@@ -10,6 +10,7 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::time::Duration;
 use tauri::async_runtime::JoinHandle;
+use tokio_util::sync::CancellationToken;
 
 /// Locks `m`, recovering the data if another thread panicked while holding it. Every map
 /// guarded here stays valid between operations, so a panic elsewhere shouldn't take the
@@ -53,6 +54,8 @@ pub struct AppState {
     schemas: Mutex<HashMap<Target, Arc<LoadedSchema>>>,
     /// The running AI generation per slot (one slot per editor tab).
     generations: Mutex<HashMap<String, JoinHandle<()>>>,
+    /// Running queries the UI can stop, by the id it gave each run.
+    queries: Mutex<HashMap<String, CancellationToken>>,
     pub voice: Voice,
 }
 
@@ -73,6 +76,7 @@ impl AppState {
             pools: Mutex::new(HashMap::new()),
             schemas: Mutex::new(HashMap::new()),
             generations: Mutex::new(HashMap::new()),
+            queries: Mutex::new(HashMap::new()),
         })
     }
 
@@ -107,6 +111,23 @@ impl AppState {
     pub fn replace_generation(&self, slot: &str, handle: JoinHandle<()>) {
         if let Some(prev) = lock(&self.generations).insert(slot.to_string(), handle) {
             prev.abort();
+        }
+    }
+
+    /// A token that `cancel_query(run_id)` fires, for the query about to run.
+    pub fn start_query(&self, run_id: &str) -> CancellationToken {
+        let token = CancellationToken::new();
+        lock(&self.queries).insert(run_id.to_string(), token.clone());
+        token
+    }
+
+    pub fn finish_query(&self, run_id: &str) {
+        lock(&self.queries).remove(run_id);
+    }
+
+    pub fn cancel_query(&self, run_id: &str) {
+        if let Some(token) = lock(&self.queries).remove(run_id) {
+            token.cancel();
         }
     }
 

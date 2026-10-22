@@ -83,7 +83,8 @@ export function DatabaseNavigator(p: DatabaseNavigatorProps) {
     const all = (p.schema?.tables ?? []).filter(
       (t) => !query || t.name.toLowerCase().includes(query) || t.columns.some((c) => c.name.toLowerCase().includes(query)),
     );
-    return { tables: all.filter((t) => t.kind === "table"), views: all.filter((t) => t.kind === "view") };
+    // Materialized views go with views: both are queried like tables but are not written to.
+    return { tables: all.filter((t) => t.kind === "table"), views: all.filter((t) => t.kind !== "table") };
   }, [p.schema, query]);
 
   // Click selects one table, ⌘/Ctrl-click adds or removes one, ⇧-click selects a range.
@@ -148,7 +149,7 @@ export function DatabaseNavigator(p: DatabaseNavigatorProps) {
         icon: Wand2,
         // Views are usually read-only, so they only offer SELECT.
         submenu:
-          t.kind === "view"
+          t.kind !== "table"
             ? [template("select", "SELECT")]
             : [template("select", "SELECT"), template("insert", "INSERT"), template("update", "UPDATE"), template("delete", "DELETE")],
       },
@@ -192,8 +193,8 @@ export function DatabaseNavigator(p: DatabaseNavigatorProps) {
         <TreeRow
           depth={depth}
           expanded={open}
-          icon={t.kind === "view" ? <Eye size={14} /> : <Table2 size={14} />}
-          label={<span className={cx(styles.mono, t.kind === "view" && styles.view)}>{key}</span>}
+          icon={t.kind !== "table" ? <Eye size={14} /> : <Table2 size={14} />}
+          label={<span className={cx(styles.mono, t.kind !== "table" && styles.view)}>{key}</span>}
           meta={t.row_estimate != null && t.row_estimate >= 0 ? t.row_estimate.toLocaleString() : undefined}
           selected={p.selectedTables.includes(key)}
           title="Click to use as AI context (⌘-click for several, ⇧-click for a range) · double-click to preview rows"

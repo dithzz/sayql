@@ -7,9 +7,11 @@ use tiberius::Row;
 
 const COLUMNS: &str = r#"
 SELECT c.TABLE_SCHEMA, c.TABLE_NAME, c.COLUMN_NAME,
-       CASE WHEN c.CHARACTER_MAXIMUM_LENGTH = -1 THEN c.DATA_TYPE + '(max)'
-            WHEN c.CHARACTER_MAXIMUM_LENGTH IS NOT NULL
-                 THEN c.DATA_TYPE + '(' + CAST(c.CHARACTER_MAXIMUM_LENGTH AS varchar(10)) + ')'
+       -- Only character and binary types take a length: xml, geography, geometry and hierarchyid
+       -- also report one (-1 or a byte size), but `geography(max)` isn't a type anyone can write.
+       CASE WHEN c.DATA_TYPE IN ('char', 'varchar', 'nchar', 'nvarchar', 'binary', 'varbinary') THEN
+                 c.DATA_TYPE + '(' + CASE WHEN c.CHARACTER_MAXIMUM_LENGTH = -1 THEN 'max'
+                                          ELSE CAST(c.CHARACTER_MAXIMUM_LENGTH AS varchar(10)) END + ')'
             WHEN c.DATA_TYPE IN ('decimal', 'numeric')
                  THEN c.DATA_TYPE + '(' + CAST(c.NUMERIC_PRECISION AS varchar(5)) + ',' + CAST(c.NUMERIC_SCALE AS varchar(5)) + ')'
             ELSE c.DATA_TYPE END,

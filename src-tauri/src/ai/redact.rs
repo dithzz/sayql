@@ -18,16 +18,19 @@ const IDENTIFIER_WORDS: &[&str] = &[
     "procedure", "relation", "schema", "sequence", "table", "trigger", "view",
 ];
 
-/// MySQL names parts of the query in quotes: `Unknown column 'x' in 'field list'`.
-const QUERY_PARTS: &[&str] =
-    &["field list", "where clause", "on clause", "order clause", "group statement", "having clause"];
+/// MySQL names parts of the query in quotes: `Unknown column 'x' in 'field list'`; MariaDB 11
+/// names the clause instead: `in 'SELECT'`.
+const QUERY_PARTS: &[&str] = &[
+    "field list", "where clause", "on clause", "order clause", "group statement", "having clause", "select", "where",
+    "on", "order by", "group by", "having", "set", "returning",
+];
 
 /// Text that follows a quoted value in MySQL and SQL Server messages, used to find where
 /// a value that itself contains a quote ends (`Duplicate entry 'O'Brien' for key ...`).
 const AFTER_VALUE: &[&str] = &["' for key", "' for column", "' to data type", "' at row", "' overflowed"];
 
 /// The database error with quoted and listed values replaced by `…`.
-pub(super) fn database_error(error: &str) -> String {
+pub(crate) fn database_error(error: &str) -> String {
     error.lines().map(|line| mask_quotes(&mask_value_lists(line))).collect::<Vec<_>>().join("\n")
 }
 
@@ -69,7 +72,8 @@ fn mask_quotes(line: &str) -> String {
         let keep = match quote {
             "\"" => !is_value_context(&out, &["value", "entry"]),
             _ => {
-                let names_query_part = next_quote.is_some_and(|q| QUERY_PARTS.contains(&line[body..q].trim()));
+                let names_query_part =
+                    next_quote.is_some_and(|q| QUERY_PARTS.iter().any(|p| p.eq_ignore_ascii_case(line[body..q].trim())));
                 names_query_part || !is_value_context(&out, &[]) && follows_identifier_word(&out)
             }
         };
@@ -177,6 +181,7 @@ mod tests {
             "Incorrect datetime value: '…' for column 'created_at' at row 1"
         );
         assert_eq!(r("Unknown column 'nme' in 'field list'"), "Unknown column 'nme' in 'field list'");
+        assert_eq!(r("Unknown column 'nme' in 'SELECT'"), "Unknown column 'nme' in 'SELECT'");
         assert_eq!(r("Table 'shop.clients' doesn't exist"), "Table 'shop.clients' doesn't exist");
         assert_eq!(r("Column 'name' cannot be null"), "Column 'name' cannot be null");
         assert_eq!(r("Data too long for column 'name' at row 1"), "Data too long for column 'name' at row 1");

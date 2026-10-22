@@ -28,7 +28,9 @@ tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time"
 futures-util = "0.3"
 sqlx = { version = "0.9", default-features = false, features = [
   "runtime-tokio",
-  "tls-rustls",
+  # The platform's TLS (Security.framework, SChannel, OpenSSL) rather than rustls: rustls has no
+  # DHE or RSA key exchange, which is all MySQL 5.7's OpenSSL 1.0.2 actually negotiates.
+  "tls-native-tls",
   "postgres",
   "mysql",
   # MySQL 8 sends the password RSA-encrypted when the connection has no TLS.
@@ -67,3 +69,8 @@ strip = true
 [target.'cfg(target_os = "linux")'.dependencies]
 # tauri-plugin-deep-link 2.6.2 doesn't compile with rust-ini 0.21.2+ (new ParseOption fields).
 rust-ini = "=0.21.1"
+
+# Patched copies of two database drivers; see vendor/README.md for what changed and why.
+[patch.crates-io]
+sqlx-mysql = { path = "vendor/sqlx-mysql" }
+tiberius = { path = "vendor/tiberius" }

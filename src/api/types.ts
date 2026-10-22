@@ -37,7 +37,7 @@ export interface ForeignKey {
 export interface Table {
   schema: string | null;
   name: string;
-  kind: "table" | "view";
+  kind: "table" | "view" | "materialized view";
   columns: Column[];
   foreign_keys: ForeignKey[];
   row_estimate: number | null;
@@ -189,6 +189,9 @@ export interface Bootstrap {
 
 /** Sentinel error from `run_query`: the statement writes data and needs confirmation. */
 export const WRITE_CONFIRM = "WRITE_CONFIRM";
+
+/** The error of a query stopped with `cancel_query`. Must match `CANCELLED` in db/execute.rs. */
+export const QUERY_CANCELLED = "Query cancelled.";
 
 export interface AiDelta {
   reqId: number;

@@ -322,7 +322,7 @@ export function installMockBackend() {
           return a.id === "demo" ? null : { databases: ["analytics", "master", "sales", "staging"], current: "master" };
         case "run_query":
           if (String(a.sql).includes("first_nme")) return Promise.reject(VIDEO ? "no such column: first_nme" : "Invalid column name 'first_nme'.");
-          if (!isReadOnly(String(a.sql))) {
+          if (!isReadOnly(String(a.sql), boot.connections.find((c) => c.id === a.id)?.kind)) {
             if (!a.allowWrite) return Promise.reject("WRITE_CONFIRM");
             return { columns: [], rows: [], rowsAffected: 1, truncated: false, elapsedMs: 3 };
           }
@@ -336,6 +336,7 @@ export function installMockBackend() {
           void streamSql(Number(a.reqId), mockAnswer(String(a.question), a.task as { kind: string }, (a.skill as string | null) ?? null));
           return null;
         case "cancel_generation":
+        case "cancel_query":
           return null;
         case "list_scripts":
           return [];

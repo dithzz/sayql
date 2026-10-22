@@ -1,5 +1,6 @@
 // What "Run selection" runs. A selection that cuts a statement in half would fail or, worse,
 // run something else than meant (a DELETE without its WHERE), so it snaps to whole statements.
+import type { Dialect } from "../../api";
 import { statementRanges, stripLeading, type Range } from "../../lib/sqlStatements";
 
 export type { Range };
@@ -40,13 +41,13 @@ export interface Resolved {
  * - anything else: every statement the selection touches, in full.
  * Null when the selection is empty or blank.
  */
-export function resolveSelection(sql: string, sel: Range): Resolved | null {
+export function resolveSelection(sql: string, sel: Range, dialect?: Dialect): Resolved | null {
   const text = sql.slice(sel.start, sel.end);
   if (!text.trim()) return null;
   const lead = text.length - text.trimStart().length;
   const trimmed = { start: sel.start + lead, end: sel.start + text.trimEnd().length };
 
-  const touched = statementRanges(sql).filter((r) => r.start < trimmed.end && trimmed.start < r.end);
+  const touched = statementRanges(sql, dialect).filter((r) => r.start < trimmed.end && trimmed.start < r.end);
   if (touched.length === 0) return null;
   const whole = { start: touched[0].start, end: touched[touched.length - 1].end };
 

@@ -32,8 +32,11 @@ export const commands = {
   /** `null` for SQLite, where a file is a single database. */
   listDatabases: (connectionId: string) => invoke<DatabaseList | null>("list_databases", { id: connectionId }),
 
-  runQuery: (t: Target, sql: string, allowWrite: boolean) =>
-    invoke<QueryResult>("run_query", { id: t.connectionId, database: t.database, sql, allowWrite }),
+  /** `runId` lets `cancelQuery` stop the query while it runs. */
+  runQuery: (t: Target, sql: string, allowWrite: boolean, runId?: string) =>
+    invoke<QueryResult>("run_query", { id: t.connectionId, database: t.database, sql, allowWrite, runId }),
+  /** Stops the query started with `runId` on the server; it then fails with QUERY_CANCELLED. */
+  cancelQuery: (runId: string) => invoke<void>("cancel_query", { runId }),
 
   /**
    * Asks the AI for SQL; the answer streams back as `ai://` events (see `subscribeToAi`).

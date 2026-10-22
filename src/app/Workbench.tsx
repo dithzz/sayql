@@ -192,7 +192,7 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
     openTab: (t, init) => tabs.open(t, init),
     openScript,
     notify: setNotice,
-  });
+  }, scripts.loaded);
 
   return (
     <div className={styles.workbench}>

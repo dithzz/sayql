@@ -14,7 +14,7 @@ pub use classify::is_read_only;
 pub use connect::connect;
 pub use databases::{DatabaseList, list_databases, open_database};
 pub use demo::ensure_demo;
-pub use execute::{run_query, run_query_capped};
+pub use execute::{CANCELLED, run_query, run_query_with};
 pub use introspect::introspect;
 pub use mssql_pool::MssqlPool;
 
@@ -110,5 +110,7 @@ pub struct QueryResult {
 
 #[cfg(test)]
 mod integration_tests;
+#[cfg(test)]
+pub(crate) use integration_tests::env_config;
 #[cfg(test)]
 mod tests;

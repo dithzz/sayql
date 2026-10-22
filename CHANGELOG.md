@@ -3,6 +3,62 @@
 All notable changes to SayQL are listed here. Downloads are on the
 [releases page](https://github.com/dithzz/sayql-releases/releases).
 
+## Unreleased
+- **MCP: opening a saved script launches SayQL and opens it.** Before, if SayQL was closed, it opened but said
+  the script "isn't saved here".
+- **SQL Server `geography`, `geometry`, `hierarchyid` and `xml` columns** are described without a length (the AI
+  saw `geography(max)`, which isn't valid SQL Server).
+- **MCP sees schema changes:** `describe_schema` reads the schema each time, so tables and columns added
+  while your AI app is open show up without restarting it.
+- **MySQL 5.7 connects:** with "Require SSL" off, SayQL now falls back to an unencrypted connection when
+  the server's encryption can't be used, as MySQL's own clients and psql do. Before, MySQL 5.7 servers (and
+  others offering only older TLS ciphers) couldn't be reached at all.
+- **Clearer connection errors:** a wrong port or a stopped server now says "Could not reach host:port:
+  Connection refused" right away, instead of "pool timed out" after 10 seconds. SSL problems say so, and how
+  to connect without SSL.
+- **PostgreSQL schema:** logins that can only `SELECT` (the setup we recommend) now see primary keys, which
+  were missing for them. Materialized views are listed. Partitioned tables are listed once, with a row
+  estimate that covers all their partitions, instead of once per partition.
+- **AI and names that need quotes:** the schema SayQL sends to the AI (and MCP's `describe_schema`) now
+  writes table and column names the way your database needs them: `"FirstName"` in PostgreSQL,
+  `` `first name` `` in MySQL, `[Order Lines]` in SQL Server. Before, the AI copied such names unquoted and the
+  query failed.
+- **Readable database errors:** PostgreSQL errors no longer end in "at line 414" (a line in Postgres' own
+  source code, not your query) and now include the DETAIL and HINT lines, e.g. which key already exists.
+  SQL Server errors show the message, then the error number and the line of your query, instead of
+  `Token error: '…' on server … executing …`.
+- **Fixing SQL Server queries with AI works again:** the wrapped SQL Server message looked like one quoted
+  value, so masking values before sending the error to the AI hid the whole message, column names
+  included. Only the values are masked now, on every database.
+- **Read-only mode covers effects a rollback keeps:** PostgreSQL functions that a read-only transaction
+  allows but that outlast it now ask for confirmation, like any other write: creating or dropping
+  replication slots, resetting statistics, and session advisory locks. So does MySQL's `GET_LOCK`.
+- **`SHOW CREATE TABLE` runs in read-only mode** on MySQL and MariaDB; it no longer asks for confirmation.
+- **Confirmed statements don't leave settings behind:** a `SET`, `USE`, lock or temporary table from a
+  statement you confirmed no longer sticks to one of SayQL's pooled connections, where it changed the
+  results of later queries at random (one query in four would run in the other database after a `USE`).
+  Each confirmed statement now runs on a connection of its own.
+- **SQL Server shows the rows a confirmed statement returns,** such as `INSERT ... OUTPUT inserted.*` or
+  `DECLARE ...; SELECT ...`. Before, only "0 rows affected" was shown.
+- **MySQL zero dates show as stored:** `0000-00-00` and dates with a zero month or day (`2024-00-15`) used
+  to show as NULL. They now show as MySQL writes them.
+- **MySQL geometry shows as WKT:** `POINT(1.5 -2)`, `POLYGON(...)` and the rest, instead of `<geometry>`.
+- **SQL Server columns without a name** show as "(No column name)", as in SQL Server's own tools.
+- **Cancel a running query:** a **Cancel** button next to **Run** stops a slow query on the database
+  server itself (PostgreSQL, MySQL, MariaDB, SQL Server, SQLite), not just in SayQL. Queries from AI apps
+  over MCP stop on their own after 2 minutes (exports after 10).
+- **Scripts split the way your database reads them:** a `;` inside a MySQL `#` comment or `'it\'s'` string,
+  or a Postgres `$tag1$` string, no longer splits a statement in two.
+- **SQL Server `geometry` shows as WKT,** as `STAsText()` writes it, instead of bytes.
+- **SQLite scripts over MCP** return the first result set, instead of every statement's rows under the
+  first one's columns.
+- **MySQL 5.7 with "Require SSL" connects.** PostgreSQL and MySQL connections now use your system's TLS
+  (rustls couldn't negotiate with MySQL 5.7).
+- **MariaDB `ed25519` accounts sign in,** and MariaDB JSON columns show as JSON instead of text.
+- **SQL Server `money` is exact** (shown as `12.3400`, as in SSMS) instead of a float that lost digits above
+  about 900 billion. **`geography` and `hierarchyid` show as text** (`POINT (-122.3 47.6)`, `/1/2/`), as SQL
+  Server writes them.
+
 ## 0.2.6 (2026-10-22)
 - **Deleting a connection** also removes its password from the keychain item older versions saved it in.
 - **API keys:** release builds no longer fall back to the `ANTHROPIC_API_KEY` environment variable; save the
