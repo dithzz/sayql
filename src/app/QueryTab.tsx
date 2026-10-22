@@ -1,8 +1,10 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Wand2 } from "lucide-react";
 import type { Schema, Settings, Skill } from "../api";
 import { Button, SplitPane } from "../components/ui";
 import { parseCommand, planRequest, useSqlGeneration, type TaskKind } from "../features/ask";
+import { resolveSelection, type TextRange } from "../features/editor";
+import { statementRanges } from "../lib/sqlStatements";
 import { ConfirmWriteDialog, useQueryRunner } from "../features/query";
 import { ResultsPanel } from "../features/results";
 import type { ModelNames } from "../features/settings";
@@ -34,9 +36,15 @@ export function QueryTab({ tab, active, label, schema, settings, modelNames, onC
   const focusEnabled = tab.focusEnabled ?? true;
   /** A failed AI query is fixed automatically once; if the fix fails too, the person decides. */
   const autoFixUsed = useRef(false);
+  /** Where the selection is in the editor; Run runs just that. */
+  const [selection, setSelection] = useState<TextRange | null>(null);
+  /** A selection that cut a statement ran as whole statements: these, selected to show it. */
+  const [widened, setWidened] = useState<{ range: TextRange; count: number } | null>(null);
+  /** The last run was a selection: the AI fixes whole queries, so it stays out of it. */
+  const ranSelection = useRef(false);
 
   const query = useQueryRunner(tab.target, (sql, error) => {
-    if (autoFixUsed.current || !settings.aiReady || !generation.question.trim()) return;
+    if (ranSelection.current || autoFixUsed.current || !settings.aiReady || !generation.question.trim()) return;
     autoFixUsed.current = true;
     generation.fix(sql, error);
   });
@@ -44,6 +52,8 @@ export function QueryTab({ tab, active, label, schema, settings, modelNames, onC
   /** Runs `sql` and remembers it as the query follow-ups build on. */
   const runAndRemember = (sql: string, question: string, task: TaskKind | "manual" = "manual") => {
     if (task !== "fix") autoFixUsed.current = false;
+    ranSelection.current = false;
+    setWidened(null);
     // Follow-ups see the question without its "/command".
     onChange({ lastRun: sql.trim() ? { question: parseCommand(question, skills).rest, sql } : null });
     query.run(sql);
@@ -68,6 +78,19 @@ export function QueryTab({ tab, active, label, schema, settings, modelNames, onC
 
   const run = () => {
     if (!generation.requestRun()) runAndRemember(tab.sql, generation.question);
+  };
+
+  /**
+   * Runs just the selected SQL, if any. A selection that cuts a statement (a DELETE without
+   * its WHERE) runs the whole statements it touches instead, selected in the editor to show
+   * it. Follow-ups keep building on the whole query, since the AI rewrites the whole editor.
+   */
+  const runSelectionOrAll = () => {
+    const r = selection && resolveSelection(tab.sql, selection);
+    if (!r) return run();
+    ranSelection.current = true;
+    setWidened(r.expanded ? { range: r.range, count: statementRanges(r.sql).length } : null);
+    query.run(r.sql);
   };
 
   /** ↵ in the Ask box: /explain, /fix and /improve work on the editor's SQL; anything else runs. */
@@ -134,8 +157,11 @@ export function QueryTab({ tab, active, label, schema, settings, modelNames, onC
             modelNames={modelNames}
             sql={tab.sql}
             onSqlChange={setSql}
-            onRun={run}
+            onRun={runSelectionOrAll}
             onSubmit={submit}
+            selection={selection}
+            onSelectionChange={setSelection}
+            select={widened?.range ?? null}
             skills={skills}
             onCreateSkill={onCreateSkill}
             explanation={generation.explanation}
@@ -155,16 +181,18 @@ export function QueryTab({ tab, active, label, schema, settings, modelNames, onC
         }
         second={
           <ResultsPanel
-            result={query.result}
-            error={query.error}
+            outcomes={query.outcomes}
+            total={query.total}
             running={query.running}
+            note={widened ? `Ran the full statement${widened.count > 1 ? "s" : ""}` : undefined}
             errorHint={
               autoFixFailed
                 ? `${modelNames.expert} couldn't fix it automatically. Try rephrasing your question, or edit the SQL above.`
                 : undefined
             }
             errorAction={
-              canUseAi && (
+              // The AI rewrites one whole query, so a selection or a script is left to the person.
+              canUseAi && !ranSelection.current && query.total === 1 && (
                 <Button
                   size="sm"
                   variant="ghost"

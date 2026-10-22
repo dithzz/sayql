@@ -9,6 +9,10 @@ All notable changes to SayQL are listed here. Downloads are on the
 - **Skills:** save an instruction once, like `/pii-safe` = "Never select email, phone or address columns", and add it
   to any question. Text only, stored on your computer, managed in Settings.
 - **Settings is a full-window page** with a sidebar: AI provider, Skills, AI apps (MCP) and About.
+- **Run scripts:** several statements run one after another, each with its own results tab. Writes still ask
+  first, and the run stops at the first error.
+- **Run selection:** select part of the SQL and press Run or ⌘↵ to run only that. A selection that cuts a
+  statement in half runs the whole statement instead, so a `DELETE` never runs without its `WHERE`.
 - **Setup guide** on first launch: pick your AI (the key is checked before saving), pick the demo or your own
   database, and run a first question. Reopen it from Settings.
 - **Claude API keys are checked** in the setup guide before they're saved, so a typo shows up straight away.

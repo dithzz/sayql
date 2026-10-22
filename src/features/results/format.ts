@@ -27,3 +27,11 @@ export function columnWidths(r: QueryResult, sampleRows = 200): number[] {
 export function plural(n: number, word: string): string {
   return `${n.toLocaleString()} ${word}${n === 1 ? "" : "s"}`;
 }
+
+/** A short name for a statement's result tab: the table it reads or changes, else its first word. */
+export function statementLabel(sql: string): string {
+  const s = sql.replace(/--[^\n]*/g, " ").replace(/\/\*[\s\S]*?\*\//g, " ");
+  const name = s.match(/\b(?:from|into|update|table)\s+([\w."`[\]]+)/i)?.[1];
+  if (name) return name.replace(/["`[\]]/g, "").split(".").pop() || name;
+  return (s.trim().split(/\s+/)[0] ?? "").toLowerCase();
+}
