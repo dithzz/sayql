@@ -17,3 +17,8 @@ export async function subscribeToAi(handlers: AiEventHandlers): Promise<Unlisten
   ]);
   return () => unlisten.forEach((u) => u());
 }
+
+/** Calls `onNew` when an AI app hands work to SayQL; fetch it with `commands.takeHandoffs`. */
+export function subscribeToHandoffs(onNew: () => void): Promise<UnlistenFn> {
+  return listen("handoff://new", onNew);
+}

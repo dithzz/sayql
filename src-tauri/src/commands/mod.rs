@@ -4,6 +4,7 @@
 pub mod app;
 pub mod connections;
 pub mod generation;
+pub mod handoff;
 pub mod query;
 pub mod scripts;
 pub mod settings;

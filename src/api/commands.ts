@@ -4,6 +4,7 @@ import type {
   ConnectionConfig,
   DatabaseList,
   GenerationTask,
+  Handoff,
   McpSetup,
   QueryResult,
   Script,
@@ -51,6 +52,8 @@ export const commands = {
   deleteSkill: (slug: string) => invoke<void>("delete_skill", { slug }),
 
   mcpSetup: () => invoke<McpSetup>("mcp_setup"),
+  /** Handoffs from AI apps waiting to be shown (see the `handoff://new` event). */
+  takeHandoffs: () => invoke<Handoff[]>("take_handoffs"),
 
   /** Version, OS and chip, for pre-filling feedback. */
   appInfo: () => invoke<AppInfo>("app_info"),

@@ -11,6 +11,7 @@ import { useSkills } from "../features/skills";
 import { hasUnsavedChanges, useTabs, type EditorTab } from "../features/tabs";
 import { useUpdate } from "../features/updates";
 import { FeedbackDialog } from "../features/feedback";
+import { useHandoffs } from "../features/handoff";
 import { exampleQuestions, OnboardingDialog, type OnboardingStep } from "../features/onboarding";
 import { QueryTab } from "./QueryTab";
 import { StatusBar } from "./StatusBar";
@@ -19,7 +20,8 @@ import styles from "./Workbench.module.css";
 
 type OpenDialog =
   /** `fromSetup`: opened from the first-run setup, which resumes when it closes. */
-  | { kind: "connection"; config: ConnectionConfig; fromSetup?: boolean }
+  /** `note`: where the details came from, for a handoff from an AI app. */
+  | { kind: "connection"; config: ConnectionConfig; fromSetup?: boolean; note?: string; key?: string }
   /** `createSkill`: opened from "Create skill…" in the Ask box. */
   | { kind: "settings"; section?: SettingsSection; createSkill?: boolean }
   | { kind: "saveScript"; tabId: string; closeAfter: boolean }
@@ -38,6 +40,7 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
   const { settings, setSettings, modelNames } = useSettings(boot.settings);
   const updates = useUpdate();
   const [dialog, setDialog] = useState<OpenDialog>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   // First launch: the setup shows until it's finished or dismissed. People who already
   // have an AI provider working (from before the setup existed) never see it.
   const [setupStep, setSetupStep] = useState<OnboardingStep | null>(() =>
@@ -118,15 +121,18 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
     else tabs.close(id);
   };
 
+  /** Shows the saved script's tab, opening it if needed; false when there's no such script. */
   const openScript = (id: string) => {
     const s = scripts.scripts.find((x) => x.id === id);
-    if (!s) return;
+    if (!s) return false;
     const open = tabs.tabs.find((t) => t.scriptId === id);
-    if (open) return tabs.activate(open.id);
-    tabs.open(
-      { connectionId: s.connectionId, database: s.database },
-      { scriptId: s.id, title: s.name, sql: s.sql, question: s.question, savedSql: s.sql },
-    );
+    if (open) tabs.activate(open.id);
+    else
+      tabs.open(
+        { connectionId: s.connectionId, database: s.database },
+        { scriptId: s.id, title: s.name, sql: s.sql, question: s.question, savedSql: s.sql },
+      );
+    return true;
   };
 
   const deleteScript = async (s: Script) => {
@@ -177,8 +183,8 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
   const tabItems: TabItem[] = tabs.tabs.map((t) => {
     const { name, db } = tabLabel(t);
     const c = conn.connection(t.target.connectionId);
-    // Named tabs are table previews, unless they are saved scripts.
-    const Icon = t.title && !t.scriptId ? Table2 : FileCode2;
+    // Named tabs are table previews, unless they are saved scripts or SQL from an AI app.
+    const Icon = t.title && !t.scriptId && !t.origin ? Table2 : FileCode2;
     return {
       id: t.id,
       label: t.title || db || name,
@@ -216,6 +222,15 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
   };
   const openNewConnection = () => setDialog({ kind: "connection", config: newConnection() });
 
+  // AI apps hand over a connection to finish or SQL to review; nothing runs or saves on its own.
+  useHandoffs({
+    connection: conn.connection,
+    openConnectionDialog: (config, note) => setDialog({ kind: "connection", config, note, key: crypto.randomUUID() }),
+    openTab: (t, init) => tabs.open(t, init),
+    openScript,
+    notify: setNotice,
+  });
+
   return (
     <div className={styles.workbench}>
       <TopBar
@@ -225,6 +240,21 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
         onNewConnection={openNewConnection}
         onOpenSettings={openSettings}
       />
+
+      {notice && (
+        <div className={styles.banner}>
+          <Alert
+            tone="warning"
+            actions={
+              <Button size="sm" variant="ghost" onClick={() => setNotice(null)}>
+                Dismiss
+              </Button>
+            }
+          >
+            {notice}
+          </Alert>
+        </div>
+      )}
 
       {error && target && (
         <div className={styles.banner}>
@@ -353,7 +383,10 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
 
       {dialog?.kind === "connection" && (
         <ConnectionDialog
+          // A new handoff replaces the form rather than keeping the old one's edits.
+          key={dialog.key}
           initial={dialog.config}
+          note={dialog.note}
           onClose={() => {
             setDialog(null);
             if (dialog.fromSetup) setSetupStep("database");

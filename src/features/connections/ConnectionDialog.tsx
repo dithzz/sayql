@@ -16,12 +16,14 @@ function defaultName(c: ConnectionConfig): string {
 
 export interface ConnectionDialogProps {
   initial: ConnectionConfig;
+  /** Where the details came from, e.g. "From Claude (MCP)". */
+  note?: string;
   onClose: () => void;
   onSaved: (c: ConnectionConfig) => void;
   onDeleted: (id: string) => void;
 }
 
-export function ConnectionDialog({ initial, onClose, onSaved, onDeleted }: ConnectionDialogProps) {
+export function ConnectionDialog({ initial, note, onClose, onSaved, onDeleted }: ConnectionDialogProps) {
   const isNew = !initial.id;
   const [c, setC] = useState(initial);
   // null = leave the password saved in the keychain unchanged.
@@ -80,6 +82,7 @@ export function ConnectionDialog({ initial, onClose, onSaved, onDeleted }: Conne
         </>
       }
     >
+      {note && <Alert tone="info">{note}. Check the details, then enter the password.</Alert>}
       <Field label="Database type">
         {() => (
           <SegmentedControl<DatabaseKind>

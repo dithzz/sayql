@@ -1,7 +1,7 @@
 import type { RefObject } from "react";
 import { Eraser, FileCode2, Play, Save, Wand2 } from "lucide-react";
 import type { Schema, Skill } from "../api";
-import { Button, IconButton, Panel } from "../components/ui";
+import { Badge, Button, IconButton, Panel } from "../components/ui";
 import { AskBar, type GenerationStatus } from "../features/ask";
 import { SqlEditor, type TextRange } from "../features/editor";
 import type { ModelNames } from "../features/settings";
@@ -45,6 +45,8 @@ export interface SqlWorkspaceProps {
   focusEnabled: boolean;
   onFocusEnabledChange: (enabled: boolean) => void;
   onFocusTablesChange: (names: string[]) => void;
+  /** Opened by an AI app, e.g. "From Claude (MCP)". */
+  origin?: string;
 }
 
 /** The SQL editor view: the plain-English Ask bar above an editable SQL editor. */
@@ -58,6 +60,11 @@ export function SqlWorkspace(p: SqlWorkspaceProps) {
       subtitle={p.connectionName}
       actions={
         <>
+          {p.origin && (
+            <Badge tone="ai" title="Opened by an AI app. Nothing has run.">
+              {p.origin}
+            </Badge>
+          )}
           <IconButton icon={Save} label="Save script (⌘S)" size="sm" onClick={p.onSave} disabled={!p.sql.trim()} />
           <IconButton icon={Eraser} label="Clear" size="sm" onClick={() => p.onSqlChange("")} disabled={!p.sql} />
           <Button

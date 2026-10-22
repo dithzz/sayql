@@ -177,6 +177,7 @@ export function QueryTab({ tab, active, label, schema, settings, modelNames, onC
             focusEnabled={focusEnabled}
             onFocusEnabledChange={(enabled) => onChange({ focusEnabled: enabled })}
             onFocusTablesChange={(focusTables) => onChange({ focusTables })}
+            origin={tab.origin}
           />
         }
         second={
