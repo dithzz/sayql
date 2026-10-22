@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Wand2 } from "lucide-react";
-import type { Schema, Settings } from "../api";
+import type { Schema, Settings, Skill } from "../api";
 import { Button, SplitPane } from "../components/ui";
-import { useSqlGeneration, type TaskKind } from "../features/ask";
+import { parseCommand, planRequest, useSqlGeneration, type TaskKind } from "../features/ask";
 import { resolveSelection, type TextRange } from "../features/editor";
 import { statementRanges } from "../lib/sqlStatements";
 import { ConfirmWriteDialog, useQueryRunner } from "../features/query";
@@ -22,11 +22,14 @@ export interface QueryTabProps {
   modelNames: ModelNames;
   onChange: (patch: Partial<EditorTab>) => void;
   onOpenSettings: () => void;
+  skills: Skill[];
+  /** "Create skill…" in the "/" menu. */
+  onCreateSkill: () => void;
   onSave: () => void;
 }
 
 /** One editor tab: Ask bar and SQL editor above, results below, bound to the tab's database. */
-export function QueryTab({ tab, active, label, schema, settings, modelNames, onChange, onOpenSettings, onSave }: QueryTabProps) {
+export function QueryTab({ tab, active, label, schema, settings, modelNames, onChange, onOpenSettings, skills, onCreateSkill, onSave }: QueryTabProps) {
   const askRef = useRef<HTMLTextAreaElement>(null);
   const setSql = (sql: string) => onChange({ sql });
   const lastRun = tab.lastRun ?? null;
@@ -51,7 +54,8 @@ export function QueryTab({ tab, active, label, schema, settings, modelNames, onC
     if (task !== "fix") autoFixUsed.current = false;
     ranSelection.current = false;
     setWidened(null);
-    onChange({ lastRun: sql.trim() ? { question, sql } : null });
+    // Follow-ups see the question without its "/command".
+    onChange({ lastRun: sql.trim() ? { question: parseCommand(question, skills).rest, sql } : null });
     query.run(sql);
   };
 
@@ -65,6 +69,8 @@ export function QueryTab({ tab, active, label, schema, settings, modelNames, onC
     previous: lastRun,
     // Hidden picks stay selected but don't reach the AI.
     focusTables: focusEnabled ? (tab.focusTables ?? []) : [],
+    skills,
+    sql: tab.sql,
     onQuestionChange: (question) => onChange({ question }),
     onSql: setSql,
     onRunRequested: (sql, task) => runAndRemember(sql, generation.question, task),
@@ -85,6 +91,13 @@ export function QueryTab({ tab, active, label, schema, settings, modelNames, onC
     ranSelection.current = true;
     setWidened(r.expanded ? { range: r.range, count: statementRanges(r.sql).length } : null);
     query.run(r.sql);
+  };
+
+  /** ↵ in the Ask box: /explain, /fix and /improve work on the editor's SQL; anything else runs. */
+  const submit = () => {
+    const plan = planRequest(generation.question, skills, { previous: lastRun, sql: tab.sql });
+    if (plan.kind === "draft") return run();
+    generation.act(plan.command, tab.sql, plan.command === "fix" ? query.error : null);
   };
 
   // From the first-run setup: ask the tab's question as soon as it shows, then run the answer.
@@ -145,10 +158,14 @@ export function QueryTab({ tab, active, label, schema, settings, modelNames, onC
             sql={tab.sql}
             onSqlChange={setSql}
             onRun={runSelectionOrAll}
-            onAskRun={run}
+            onSubmit={submit}
             selection={selection}
             onSelectionChange={setSelection}
             select={widened?.range ?? null}
+            skills={skills}
+            onCreateSkill={onCreateSkill}
+            explanation={generation.explanation}
+            onDismissExplanation={generation.dismissExplanation}
             running={query.running}
             onImprove={() => generation.improve(tab.sql)}
             canImprove={canUseAi && !busy && !!tab.sql.trim()}

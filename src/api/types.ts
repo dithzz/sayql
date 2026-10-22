@@ -132,9 +132,13 @@ export interface PreviousQuery {
 
 /** What the AI is asked to do; mirrors `ai::Task` in src-tauri/src/ai/prompt.rs. */
 export type GenerationTask =
-  | { kind: "draft"; previous: PreviousQuery | null }
+  /** `forceFollowUp` (`/followup`): treat the request as a change to `previous`. */
+  | { kind: "draft"; previous: PreviousQuery | null; forceFollowUp?: boolean }
+  /** An empty `error` means the person says the query is wrong. */
   | { kind: "fix"; sql: string; error: string }
-  | { kind: "improve"; sql: string };
+  | { kind: "improve"; sql: string }
+  /** The reply is plain English, not SQL. */
+  | { kind: "explain"; sql: string };
 
 /** This copy of SayQL, for pre-filling feedback; mirrors `AppInfo` in src-tauri/src/commands/app.rs. */
 export interface AppInfo {
@@ -167,6 +171,13 @@ export interface Script {
   sql: string;
   /** Milliseconds since the Unix epoch. */
   updatedAt: number;
+}
+
+/** Saved instructions added to a question with `/slug`; mirrors `store::Skill` in src-tauri/src/store/mod.rs. */
+export interface Skill {
+  slug: string;
+  description: string;
+  instruction: string;
 }
 
 export interface Bootstrap {

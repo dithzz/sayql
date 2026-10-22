@@ -1,0 +1,114 @@
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--control-h-md);
+  padding: 0 var(--space-1) 0 var(--space-2);
+}
+.row + .row {
+  border-top: 1px solid var(--color-border-subtle);
+}
+.icon {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+}
+.slug {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+}
+.description {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.examples {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+}
+.examplesLabel {
+  margin-right: var(--space-1);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-subtle);
+}
+.example {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: var(--control-h-sm);
+  padding: 0 var(--space-2);
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: none;
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+.example:hover {
+  border-color: var(--color-accent);
+  background: var(--color-surface-hover);
+}
+
+.editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-sunken);
+}
+.slugInput {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.slash {
+  font-family: var(--font-mono);
+  color: var(--color-text-muted);
+}
+.textarea {
+  width: 100%;
+  padding: var(--space-1) var(--space-2);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--font-size-md);
+  line-height: 1.4;
+  resize: vertical;
+  outline: none;
+}
+.textarea:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--color-focus-ring);
+}
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}

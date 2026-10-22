@@ -106,3 +106,59 @@
   font-size: var(--font-size-xs);
   color: var(--color-text-subtle);
 }
+
+/* A picked slash command, before the rest of the question. */
+.chip {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 2px;
+  height: 20px;
+  padding: 0 2px 0 6px;
+  border-radius: var(--radius-sm);
+  background: var(--color-ai-soft);
+  color: var(--color-ai);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+}
+.skillChip {
+  background: var(--color-surface-selected);
+  color: var(--color-accent);
+}
+.chipRemove {
+  display: inline-flex;
+  padding: 2px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: inherit;
+  opacity: 0.7;
+  cursor: pointer;
+}
+.chipRemove:hover {
+  opacity: 1;
+}
+
+/* The /explain answer. */
+.explanation {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border-radius: var(--radius-md);
+  background: var(--color-ai-soft);
+  font-size: var(--font-size-md);
+}
+.explanationIcon {
+  flex-shrink: 0;
+  margin-top: 3px;
+  color: var(--color-ai);
+}
+.explanationText {
+  flex: 1;
+  max-height: 160px;
+  margin: 0;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  line-height: 1.5;
+}

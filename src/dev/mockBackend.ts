@@ -2,7 +2,8 @@
 // for design work without the Rust backend. Never loaded inside the Tauri app.
 import { emit } from "@tauri-apps/api/event";
 import { mockIPC } from "@tauri-apps/api/mocks";
-import type { AiProvider, Bootstrap, QueryResult, Schema, Settings, Table } from "../api";
+import type { AiProvider, Bootstrap, QueryResult, Schema, Settings, Skill, Table } from "../api";
+import { skillError } from "../features/ask/slashCommands";
 
 const col = (name: string, data_type: string, primary_key = false) => ({
   name,
@@ -168,9 +169,19 @@ LIMIT 10;`;
 const BROKEN_SQL = "SELECT first_nme, last_name\nFROM customers\nLIMIT 10;";
 const FIXED_SQL = "SELECT first_name, last_name\nFROM customers\nLIMIT 10;";
 
-function mockAnswer(question: string, task: { kind: string }): string {
+const EXPLANATION =
+  "Lists the 10 customers who spent the most. It adds up the price of every item in their orders, " +
+  "leaves out cancelled and refunded orders, and shows each customer's name, country, order count and total spend.";
+
+/** Skills saved in this preview session; lost on reload. */
+let skills: Skill[] = [];
+
+function mockAnswer(question: string, task: { kind: string }, skill: string | null): string {
+  if (task.kind === "explain") return EXPLANATION;
   if (task.kind === "fix") return FIXED_SQL;
   if (task.kind === "improve") return `-- reviewed: added ordering\n${SAMPLE_SQL}`;
+  const instruction = skills.find((s) => s.slug === skill)?.instruction;
+  if (instruction) return `-- following /${skill}: ${instruction}\n${SAMPLE_SQL}`;
   return /broken/i.test(question) ? BROKEN_SQL : SAMPLE_SQL;
 }
 
@@ -204,7 +215,8 @@ export function installMockBackend() {
           if (/from\s+orders\s*;?\s*$/i.test(String(a.sql))) return orders;
           return String(a.sql).includes("ORDER BY total_spend DESC") ? topCustomers : result;
         case "generate_sql":
-          void streamSql(Number(a.reqId), mockAnswer(String(a.question), a.task as { kind: string }));
+          if (a.skill && !skills.some((s) => s.slug === a.skill)) return Promise.reject(`There's no skill called /${a.skill}. Create it in Settings.`);
+          void streamSql(Number(a.reqId), mockAnswer(String(a.question), a.task as { kind: string }, (a.skill as string | null) ?? null));
           return null;
         case "list_scripts":
           return [];
@@ -213,6 +225,21 @@ export function installMockBackend() {
           return { ...script, id: script.id || crypto.randomUUID(), updatedAt: Date.now() };
         }
         case "delete_script":
+          return null;
+        case "list_skills":
+          return skills;
+        case "save_skill": {
+          const original = (a.original as string | null) ?? null;
+          const raw = a.skill as Skill;
+          const problem = skillError(raw, skills, original);
+          if (problem) return Promise.reject(problem);
+          const skill = { slug: raw.slug.trim().replace(/^\//, ""), description: raw.description.trim(), instruction: raw.instruction.trim() };
+          const i = skills.findIndex((s) => s.slug === original);
+          skills = i < 0 ? [...skills, skill] : skills.map((s, j) => (j === i ? skill : s));
+          return skill;
+        }
+        case "delete_skill":
+          skills = skills.filter((s) => s.slug !== a.slug);
           return null;
         case "app_info":
           return { version: "0.1.0", os: "macos", arch: "aarch64" };

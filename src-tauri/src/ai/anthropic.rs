@@ -23,7 +23,7 @@ fn request_body(r: &GenRequest) -> Value {
                 "cache_control": { "type": "ephemeral", "ttl": "1h" }
             }
         ],
-        "messages": [{ "role": "user", "content": prompt::user_message(&r.question, &r.task) }],
+        "messages": [{ "role": "user", "content": prompt::user_message(&r.question, &r.task, r.skill.as_deref()) }],
         "output_config": { "effort": r.task.effort() },
     })
 }

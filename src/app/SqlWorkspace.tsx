@@ -1,6 +1,6 @@
 import type { RefObject } from "react";
 import { Eraser, FileCode2, Play, Save, Wand2 } from "lucide-react";
-import type { Schema } from "../api";
+import type { Schema, Skill } from "../api";
 import { Button, IconButton, Panel } from "../components/ui";
 import { AskBar, type GenerationStatus } from "../features/ask";
 import { SqlEditor, type TextRange } from "../features/editor";
@@ -26,8 +26,6 @@ export interface SqlWorkspaceProps {
   onSqlChange: (sql: string) => void;
   /** Runs the selected SQL if there is any, else all of it (Run button, ⌘↵ in the editor). */
   onRun: () => void;
-  /** ↵ in the Ask box: always the whole query. */
-  onAskRun: () => void;
   /** Where the selection is in the editor; Run runs just that (snapped to whole statements). */
   selection: TextRange | null;
   onSelectionChange: (selection: TextRange | null) => void;
@@ -37,6 +35,12 @@ export interface SqlWorkspaceProps {
   onOpenSettings: () => void;
   onRetry: () => void;
   followUp?: { onStartFresh: () => void };
+  /** ↵ in the Ask box: run, or the picked /explain, /fix or /improve. */
+  onSubmit: () => void;
+  skills: Skill[];
+  onCreateSkill: () => void;
+  explanation: string | null;
+  onDismissExplanation: () => void;
   focusTables: string[];
   focusEnabled: boolean;
   onFocusEnabledChange: (enabled: boolean) => void;
@@ -85,13 +89,17 @@ export function SqlWorkspace(p: SqlWorkspaceProps) {
         ref={p.askRef}
         question={p.question}
         onQuestionChange={p.onQuestionChange}
-        onSubmit={p.onAskRun}
+        onSubmit={p.onSubmit}
         status={p.status}
         modelNames={p.modelNames}
         disabled={!p.schema}
         onOpenSettings={p.onOpenSettings}
         onRetry={p.onRetry}
         followUp={p.followUp}
+        skills={p.skills}
+        onCreateSkill={p.onCreateSkill}
+        explanation={p.explanation}
+        onDismissExplanation={p.onDismissExplanation}
         focusTables={p.focusTables}
         focusEnabled={p.focusEnabled}
         onFocusEnabledChange={p.onFocusEnabledChange}

@@ -1,0 +1,40 @@
+/* Same look as the app's context menus. */
+.menu {
+  composes: menu from "../../components/ui/ContextMenu.module.css";
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.item {
+  composes: item from "../../components/ui/ContextMenu.module.css";
+}
+.active {
+  background: var(--color-surface-selected);
+}
+
+.icon {
+  composes: icon from "../../components/ui/ContextMenu.module.css";
+}
+
+.label {
+  composes: label from "../../components/ui/ContextMenu.module.css";
+}
+
+.slug {
+  flex-shrink: 0;
+  min-width: 10ch;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+}
+
+.description {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--color-text-muted);
+}
+
+.separator {
+  composes: separator from "../../components/ui/ContextMenu.module.css";
+}
