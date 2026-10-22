@@ -407,6 +407,77 @@ async fn postgres_integration() {
     exec(&pool, "DROP SCHEMA sayql_it CASCADE; DROP SCHEMA sayql_it_inv CASCADE;").await;
 }
 
+const PG_PARTS_SEED: &str = r#"
+DROP SCHEMA IF EXISTS sayql_pt CASCADE;
+DROP ROLE IF EXISTS sayql_pt_reader;
+CREATE SCHEMA sayql_pt;
+CREATE TABLE sayql_pt.events (id int, at date NOT NULL, note text, PRIMARY KEY (id, at)) PARTITION BY RANGE (at);
+CREATE TABLE sayql_pt.events_2024 PARTITION OF sayql_pt.events FOR VALUES FROM ('2024-01-01') TO ('2025-01-01');
+CREATE TABLE sayql_pt.events_2025 PARTITION OF sayql_pt.events FOR VALUES FROM ('2025-01-01') TO ('2026-01-01');
+INSERT INTO sayql_pt.events SELECT i, date '2024-01-01' + (i % 700), 'n' FROM generate_series(1, 3000) i;
+CREATE TABLE sayql_pt.event_tags (event_id int, event_at date, tag text,
+  PRIMARY KEY (event_id, event_at, tag), FOREIGN KEY (event_id, event_at) REFERENCES sayql_pt.events (id, at));
+CREATE MATERIALIZED VIEW sayql_pt.daily AS SELECT at, count(*) AS n FROM sayql_pt.events GROUP BY at;
+ANALYZE sayql_pt.events, sayql_pt.events_2024, sayql_pt.events_2025, sayql_pt.daily;
+"#;
+
+/// Partitioned tables and materialized views, read by the owner and by a role that can
+/// only SELECT (the setup the docs recommend).
+#[tokio::test]
+async fn postgres_partitions_matviews_and_read_only_roles() {
+    let Some(t) = env_target("SAYQL_TEST_PG_URL") else { return };
+    let db = if t.database.is_empty() { "postgres".to_string() } else { t.database.clone() };
+    let pool = open(Kind::Postgres, &t, &db).await;
+    exec(&pool, PG_PARTS_SEED).await;
+    let reader_pw = uuid::Uuid::new_v4().simple().to_string();
+    exec(
+        &pool,
+        &format!(
+            "CREATE ROLE sayql_pt_reader LOGIN PASSWORD '{reader_pw}'; GRANT USAGE ON SCHEMA sayql_pt TO sayql_pt_reader; \
+             GRANT SELECT ON ALL TABLES IN SCHEMA sayql_pt TO sayql_pt_reader;"
+        ),
+    )
+    .await;
+    let reader_target = Target { user: "sayql_pt_reader".into(), password: Some(reader_pw), ..parse_url(&std::env::var("SAYQL_TEST_PG_URL").unwrap()) };
+    let reader = open(Kind::Postgres, &reader_target, &db).await;
+
+    for (who, pool) in [("owner", &pool), ("reader", &reader)] {
+        let schema = introspect(pool, Kind::Postgres).await.expect("introspect");
+        let ours: Vec<String> = schema
+            .tables
+            .iter()
+            .filter(|t| t.schema.as_deref() == Some("sayql_pt"))
+            .map(|t| t.qualified_name())
+            .collect();
+        // Partitions are left out: queries go through the parent.
+        assert_eq!(ours, ["sayql_pt.daily", "sayql_pt.event_tags", "sayql_pt.events"], "{who}");
+        let tb = &schema.tables;
+        let events = table(tb, Some("sayql_pt"), "events");
+        assert_eq!(events.kind, "table");
+        // A role with only SELECT still sees the keys.
+        assert_eq!(pk_columns(events), ["id", "at"], "{who}");
+        assert_eq!(pk_columns(table(tb, Some("sayql_pt"), "event_tags")), ["event_id", "event_at", "tag"], "{who}");
+        // One foreign key to the parent, not one per partition.
+        assert_eq!(
+            fks(table(tb, Some("sayql_pt"), "event_tags")),
+            [fk("event_at", "sayql_pt.events", "at"), fk("event_id", "sayql_pt.events", "id")],
+            "{who}"
+        );
+        // The parent's estimate covers all its partitions (on PG 13 its own estimate is 0).
+        assert_eq!(events.row_estimate, Some(3000), "{who}");
+        let daily = table(tb, Some("sayql_pt"), "daily");
+        assert_eq!(daily.kind, "materialized view");
+        assert_eq!(daily.columns.iter().map(|c| c.name.as_str()).collect::<Vec<_>>(), ["at", "n"]);
+        assert_eq!(column(daily, "at").data_type, "date");
+        assert_eq!(column(daily, "n").data_type, "bigint");
+        assert_eq!(daily.row_estimate, Some(700), "{who}");
+        let text = crate::schema::render_full(&schema);
+        assert!(text.contains("sayql_pt.daily [materialized view, ~700 rows](at date, n bigint)"), "{text}");
+    }
+    drop(reader);
+    exec(&pool, "DROP SCHEMA sayql_pt CASCADE; DROP ROLE sayql_pt_reader;").await;
+}
+
 // ---------------------------------------------------------------- MySQL
 
 const MY_SEED: &str = r#"

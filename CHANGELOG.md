@@ -3,6 +3,11 @@
 All notable changes to SayQL are listed here. Downloads are on the
 [releases page](https://github.com/dithzz/sayql-releases/releases).
 
+## Unreleased
+- **PostgreSQL schema:** logins that can only `SELECT` (the setup we recommend) now see primary keys, which
+  were missing for them. Materialized views are listed. Partitioned tables are listed once, with a row
+  estimate that covers all their partitions, instead of once per partition.
+
 ## 0.2.6 (2026-10-22)
 - **Deleting a connection** also removes its password from the keychain item older versions saved it in.
 - **API keys:** release builds no longer fall back to the `ANTHROPIC_API_KEY` environment variable; save the
