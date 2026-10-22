@@ -3,6 +3,14 @@
 All notable changes to SayQL are listed here. Downloads are on the
 [releases page](https://github.com/dithzz/sayql-releases/releases).
 
+## Unreleased
+- **Confirmed statements don't leave settings behind:** a `SET`, `USE`, lock or temporary table from a
+  statement you confirmed no longer sticks to one of SayQL's pooled connections, where it changed the
+  results of later queries at random (one query in four would run in the other database after a `USE`).
+  Each confirmed statement now runs on a connection of its own.
+- **SQL Server shows the rows a confirmed statement returns,** such as `INSERT ... OUTPUT inserted.*` or
+  `DECLARE ...; SELECT ...`. Before, only "0 rows affected" was shown.
+
 ## 0.2.6 (2026-10-22)
 - **Deleting a connection** also removes its password from the keychain item older versions saved it in.
 - **API keys:** release builds no longer fall back to the `ANTHROPIC_API_KEY` environment variable; save the

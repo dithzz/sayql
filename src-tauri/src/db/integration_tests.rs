@@ -97,6 +97,81 @@ async fn scalar(pool: &DbPool, sql: &str) -> Value {
     query(pool, sql, true).await.rows.remove(0).remove(0)
 }
 
+/// Runs `sql` with a deadline, so a query stuck behind a leftover lock fails instead of hanging.
+async fn query_within(pool: &DbPool, sql: &str, read_only: bool) -> QueryResult {
+    tokio::time::timeout(std::time::Duration::from_secs(10), run_query(pool, sql, read_only))
+        .await
+        .unwrap_or_else(|_| panic!("{sql}: still waiting after 10 s"))
+        .unwrap_or_else(|e| panic!("{sql}: {e}"))
+}
+
+/// A confirmed statement commits, and the session state it leaves (SET, USE, locks) doesn't
+/// carry over to the queries after it.
+#[tokio::test]
+async fn confirmed_statements_commit_and_leave_no_session_state() {
+    if let Some(t) = env_target("SAYQL_TEST_PG_URL") {
+        let db = if t.database.is_empty() { "postgres".to_string() } else { t.database.clone() };
+        let pool = open(Kind::Postgres, &t, &db).await;
+        exec(&pool, "DROP SCHEMA IF EXISTS sayql_cw CASCADE; CREATE SCHEMA sayql_cw; CREATE TABLE sayql_cw.t (id int PRIMARY KEY, n int);
+            INSERT INTO sayql_cw.t VALUES (1, 0);").await;
+        let w = query_within(&pool, "UPDATE sayql_cw.t SET n = n + 1 RETURNING n", false).await;
+        assert_eq!(w.rows, [[json!(1)]]);
+        query_within(&pool, "SET search_path TO sayql_cw", false).await;
+        query_within(&pool, "SELECT pg_advisory_lock(4343)", false).await;
+        for _ in 0..8 {
+            // Committed, and seen from every pooled connection.
+            assert_eq!(query_within(&pool, "SELECT n FROM sayql_cw.t", true).await.rows, [[json!(1)]]);
+            let path = query_within(&pool, "SHOW search_path", true).await.rows[0][0].clone();
+            assert_ne!(path, json!("sayql_cw"), "a confirmed SET carried over");
+        }
+        let locks = "SELECT count(*) FROM pg_locks WHERE locktype = 'advisory' AND objid = 4343";
+        assert_eq!(query_within(&pool, locks, true).await.rows, [[json!(0)]], "the session lock outlived its statement");
+        exec(&pool, "DROP SCHEMA sayql_cw CASCADE").await;
+    }
+    if let Some(t) = env_target("SAYQL_TEST_MYSQL_URL") {
+        let admin = open(Kind::Mysql, &t, &t.database).await;
+        exec(&admin, "DROP DATABASE IF EXISTS sayql_cw; CREATE DATABASE sayql_cw; CREATE TABLE sayql_cw.t (id int PRIMARY KEY, n int);
+            INSERT INTO sayql_cw.t VALUES (1, 0);").await;
+        let pool = open(Kind::Mysql, &t, "sayql_cw").await;
+        let w = query_within(&pool, "UPDATE t SET n = n + 1", false).await;
+        assert_eq!(w.rows_affected, Some(1));
+        // MySQL 8 can't prepare these two (an error, nothing held); MariaDB runs them.
+        let _ = run_query(&pool, "LOCK TABLES t WRITE", false).await;
+        let _ = run_query(&pool, "USE mysql", false).await;
+        query_within(&pool, "SET SESSION sql_mode = 'ANSI_QUOTES'", false).await;
+        query_within(&pool, "SELECT GET_LOCK('sayql_cw', 0)", false).await;
+        for _ in 0..8 {
+            assert_eq!(query_within(&pool, "SELECT n FROM t", true).await.rows, [[json!(1)]]);
+            assert_eq!(query_within(&pool, "SELECT DATABASE()", true).await.rows, [[json!("sayql_cw")]]);
+            let mode = query_within(&pool, "SELECT @@SESSION.sql_mode", true).await.rows[0][0].clone();
+            assert!(!mode.as_str().unwrap_or("").contains("ANSI_QUOTES"), "a confirmed SET carried over: {mode}");
+        }
+        assert_eq!(query_within(&pool, "SELECT IS_FREE_LOCK('sayql_cw')", true).await.rows, [[json!(1)]]);
+        exec(&admin, "DROP DATABASE sayql_cw").await;
+    }
+    if let Some(t) = env_target("SAYQL_TEST_MSSQL_URL") {
+        let admin = open(Kind::Mssql, &t, &t.database).await;
+        exec(&admin, "IF DB_ID('sayql_cw') IS NOT NULL BEGIN ALTER DATABASE sayql_cw SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE sayql_cw; END").await;
+        exec(&admin, "CREATE DATABASE sayql_cw").await;
+        let pool = open(Kind::Mssql, &t, "sayql_cw").await;
+        exec(&pool, "CREATE TABLE dbo.t (id int IDENTITY PRIMARY KEY, n int); INSERT INTO dbo.t (n) VALUES (0), (0);").await;
+        // Rows a confirmed statement returns are shown, not dropped.
+        let w = query_within(&pool, "INSERT INTO dbo.t (n) OUTPUT inserted.id, inserted.n VALUES (5)", false).await;
+        assert_eq!((w.columns.clone(), w.rows.clone()), (vec!["id".to_string(), "n".to_string()], vec![vec![json!(3), json!(5)]]));
+        let w = query_within(&pool, "DECLARE @x int = 41; SELECT @x + 1 AS answer", false).await;
+        assert_eq!(w.rows, [[json!(42)]]);
+        // Statements without rows report how many rows they changed, across the whole batch.
+        let w = query_within(&pool, "UPDATE dbo.t SET n = n + 1 WHERE n = 0; DELETE FROM dbo.t WHERE n = 5", false).await;
+        assert_eq!((w.columns.len(), w.rows_affected), (0, Some(3)));
+        assert_eq!(query_within(&pool, "SELECT COUNT(*) AS c FROM dbo.t", true).await.rows, [[json!(2)]]);
+        query_within(&pool, "EXEC sp_set_session_context 'sayql', 'leftover'", false).await;
+        let ctx = query_within(&pool, "SELECT CAST(SESSION_CONTEXT(N'sayql') AS nvarchar(20)) AS v", true).await;
+        assert_eq!(ctx.rows, [[Value::Null]], "session state carried over");
+        drop(pool);
+        exec(&admin, "ALTER DATABASE sayql_cw SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE sayql_cw").await;
+    }
+}
+
 fn table<'a>(tables: &'a [Table], schema: Option<&str>, name: &str) -> &'a Table {
     tables
         .iter()

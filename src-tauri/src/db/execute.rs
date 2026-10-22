@@ -6,6 +6,7 @@ use futures_util::TryStreamExt;
 use serde_json::Value;
 use sqlx::{AssertSqlSafe, Column as _, Either, Executor, Row, SqlSafeStr, Statement};
 use std::time::Instant;
+use tiberius::Command;
 
 pub async fn run_query(pool: &DbPool, sql: &str, read_only: bool) -> AppResult<QueryResult> {
     run_query_capped(pool, sql, read_only, MAX_ROWS).await
@@ -21,6 +22,10 @@ pub async fn run_query_capped(pool: &DbPool, sql: &str, read_only: bool, cap: us
         return Err("This statement can change data, so it can't run in read-only mode.".into());
     }
     let start = Instant::now();
+    // A confirmed statement can leave session state behind: a SET, USE, LOCK TABLES, temp
+    // table or session lock. Its connection is closed afterwards instead of going back to the
+    // pool, so none of that carries over to later queries (a held LOCK TABLES would make
+    // them wait forever).
     let mut res = match pool {
         DbPool::Pg(p) => {
             let mut conn = p.acquire().await?;
@@ -28,9 +33,9 @@ pub async fn run_query_capped(pool: &DbPool, sql: &str, read_only: bool, cap: us
                 conn.execute("BEGIN READ ONLY").await?;
             }
             let out = collect_pg(&mut conn, sql, cap).await;
-            if read_only && conn.execute("ROLLBACK").await.is_err() {
+            if !read_only || conn.execute("ROLLBACK").await.is_err() {
                 // Never hand a connection with an open transaction back to the pool.
-                conn.detach();
+                let _ = conn.close().await;
             }
             out?
         }
@@ -40,14 +45,18 @@ pub async fn run_query_capped(pool: &DbPool, sql: &str, read_only: bool, cap: us
                 conn.execute("START TRANSACTION READ ONLY").await?;
             }
             let out = collect_my(&mut conn, sql, cap).await;
-            if read_only && conn.execute("ROLLBACK").await.is_err() {
-                conn.detach();
+            if !read_only || conn.execute("ROLLBACK").await.is_err() {
+                let _ = conn.close().await;
             }
             out?
         }
         DbPool::Lite(p) => {
             let mut conn = if read_only { p.ro.acquire() } else { p.rw.acquire() }.await?;
-            collect_lite(&mut conn, sql, cap).await?
+            let out = collect_lite(&mut conn, sql, cap).await;
+            if !read_only {
+                let _ = conn.close().await;
+            }
+            out?
         }
         DbPool::Ms(p) => run_mssql(p, sql, read_only, cap).await?,
     };
@@ -110,9 +119,25 @@ collect_fn!(collect_lite, sqlx::SqliteConnection, lite_cell);
 async fn run_mssql(pool: &MssqlPool, sql: &str, read_only: bool, cap: usize) -> AppResult<QueryResult> {
     let mut conn = pool.acquire().await?;
     if !read_only {
-        let done = conn.client().execute(sql, &[]).await?;
-        let affected = done.rows_affected().iter().sum();
-        return Ok(QueryResult { columns: vec![], rows: vec![], rows_affected: Some(affected), truncated: false, elapsed_ms: 0 });
+        // sp_executesql reports both the rows a statement returns (INSERT ... OUTPUT,
+        // DECLARE ...; SELECT) and how many rows it changed. It reads every row, which is fine
+        // for statements the person confirmed one by one.
+        let mut cmd = Command::new("sp_executesql");
+        cmd.bind_param("@stmt", sql.to_string());
+        let out = match cmd.exec(conn.client()).await {
+            Ok(stream) => stream.into_command_result().await,
+            Err(e) => Err(e),
+        };
+        // Like the other databases: a fresh connection afterwards, so no session state carries over.
+        conn.discard();
+        let out = out?;
+        let affected: u64 = out.rows_affected().iter().sum();
+        let first = out.into_iter().next().unwrap_or_default();
+        let columns: Vec<String> = first.first().map(|r| r.columns().iter().map(|c| c.name().to_string()).collect()).unwrap_or_default();
+        let truncated = first.len() > cap;
+        let rows = first.iter().take(cap).map(|row| (0..row.len()).map(|i| ms_cell(row, i)).collect()).collect();
+        let rows_affected = if columns.is_empty() { Some(affected) } else { None };
+        return Ok(QueryResult { columns, rows, rows_affected, truncated, elapsed_ms: 0 });
     }
 
     conn.client().simple_query("BEGIN TRANSACTION").await?.into_results().await?;
