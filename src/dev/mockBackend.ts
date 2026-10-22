@@ -4,6 +4,8 @@ import { emit } from "@tauri-apps/api/event";
 import { mockIPC } from "@tauri-apps/api/mocks";
 import type { AiProvider, Bootstrap, QueryResult, Schema, Settings, Skill, Table } from "../api";
 import { EXAMPLE_SKILLS, skillError } from "../features/ask/slashCommands";
+import { version } from "../../package.json";
+import { isReadOnly } from "./readOnly";
 
 /** `?video`: answers and a saved skill for the explainer video (scripts/video), with slower streaming. */
 const VIDEO = new URLSearchParams(window.location.search).has("video");
@@ -287,8 +289,10 @@ export function installMockBackend() {
           return a.id === "demo" ? null : { databases: ["analytics", "master", "sales", "staging"], current: "master" };
         case "run_query":
           if (String(a.sql).includes("first_nme")) return Promise.reject(VIDEO ? "no such column: first_nme" : "Invalid column name 'first_nme'.");
-          if (/^\s*(update|delete|insert|drop)/i.test(String(a.sql)) && !a.allowWrite) return Promise.reject("WRITE_CONFIRM");
-          if (/^\s*(update|delete|insert)/i.test(String(a.sql))) return { columns: [], rows: [], rowsAffected: 1, truncated: false, elapsedMs: 3 };
+          if (!isReadOnly(String(a.sql))) {
+            if (!a.allowWrite) return Promise.reject("WRITE_CONFIRM");
+            return { columns: [], rows: [], rowsAffected: 1, truncated: false, elapsedMs: 3 };
+          }
           if (/from\s+orders\s*;?\s*$/i.test(String(a.sql))) return orders;
           if (String(a.sql).includes("c.country IN")) return europe;
           if (String(a.sql).includes("start of month")) return newCustomers;
@@ -297,6 +301,8 @@ export function installMockBackend() {
         case "generate_sql":
           if (a.skill && !skills.some((s) => s.slug === a.skill)) return Promise.reject(`There's no skill called /${a.skill}. Create it in Settings.`);
           void streamSql(Number(a.reqId), mockAnswer(String(a.question), a.task as { kind: string }, (a.skill as string | null) ?? null));
+          return null;
+        case "cancel_generation":
           return null;
         case "list_scripts":
           return [];
@@ -322,7 +328,9 @@ export function installMockBackend() {
           skills = skills.filter((s) => s.slug !== a.slug);
           return null;
         case "app_info":
-          return { version: "0.1.0", os: "macos", arch: "aarch64" };
+          return { version, os: "macos", arch: "aarch64" };
+        case "install_update":
+          return Promise.reject("Updates aren't available in the browser preview.");
         case "plugin:opener|open_url":
           window.open(String(a.url), "_blank");
           return null;
@@ -334,6 +342,9 @@ export function installMockBackend() {
           return "Connected. Found 6 tables and views.";
         case "save_connection":
           return { ...(a.config as object), id: (a.config as { id: string }).id || crypto.randomUUID() };
+        case "delete_connection":
+          boot.connections = boot.connections.filter((c) => c.id !== a.id);
+          return null;
         case "save_settings": {
           const id = a.provider as string;
           const providers = settings.providers.map((p) =>
@@ -355,7 +366,8 @@ export function installMockBackend() {
           if (a.provider === "anthropic") return settings.models.map((m) => m.id);
           return a.provider === "ollama" ? ["llama3.3:70b", "qwen3:32b", "sqlcoder:15b"] : ["model-small", "model-large"];
         default:
-          return null;
+          // Fail loudly so a command added to src/api/commands.ts without a mock here shows up.
+          throw new Error(`mockBackend: no mock for command "${cmd}"`);
       }
     },
     { shouldMockEvents: true },
