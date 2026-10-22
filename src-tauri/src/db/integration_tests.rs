@@ -572,6 +572,44 @@ async fn mysql_integration() {
     exec(&admin, "DROP DATABASE sayql_it").await;
 }
 
+/// Connection failures say what went wrong, quickly, instead of "pool timed out".
+async fn check_connection_errors(kind: Kind, t: &Target) {
+    let db = t.database.clone();
+    let base = config(kind, t, &db);
+    let started = std::time::Instant::now();
+    let closed = ConnConfig { host: "127.0.0.1".into(), port: Some(1), ..base.clone() };
+    let err = connect(&closed, t.password.clone()).await.err().expect("closed port").to_string();
+    assert!(err.starts_with("Could not reach 127.0.0.1:1:"), "{err}");
+    assert!(started.elapsed() < std::time::Duration::from_secs(5), "took {:?}", started.elapsed());
+
+    let err = connect(&ConnConfig { host: "no-such-host.invalid".into(), ..base.clone() }, t.password.clone())
+        .await
+        .err()
+        .expect("unknown host")
+        .to_string();
+    assert!(err.starts_with("Could not reach no-such-host.invalid:"), "{err}");
+
+    let err = connect(&base, Some("wrong-password".into())).await.err().expect("wrong password").to_string();
+    assert!(err.contains("password authentication failed") || err.contains("Access denied"), "{err}");
+
+    // With SSL off, a server whose TLS can't be used (MySQL 5.7) still connects, unencrypted.
+    connect(&base, t.password.clone()).await.expect("connect with SSL off");
+    // With SSL required, either it works or the error says how to connect without it.
+    if let Err(e) = connect(&ConnConfig { ssl: true, ..base }, t.password.clone()).await {
+        assert!(e.to_string().contains("Turn off \"Require SSL\""), "{e}");
+    }
+}
+
+#[tokio::test]
+async fn connection_errors_are_clear() {
+    if let Some(t) = env_target("SAYQL_TEST_PG_URL") {
+        check_connection_errors(Kind::Postgres, &t).await;
+    }
+    if let Some(t) = env_target("SAYQL_TEST_MYSQL_URL") {
+        check_connection_errors(Kind::Mysql, &t).await;
+    }
+}
+
 const MS_SEED: &[&str] = &[
     "CREATE SCHEMA sales",
     "CREATE TABLE dbo.customers (id int IDENTITY PRIMARY KEY, name nvarchar(100) NOT NULL, email varchar(200) NULL)",

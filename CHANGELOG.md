@@ -3,6 +3,14 @@
 All notable changes to SayQL are listed here. Downloads are on the
 [releases page](https://github.com/dithzz/sayql-releases/releases).
 
+## Unreleased
+- **MySQL 5.7 connects:** with "Require SSL" off, SayQL now falls back to an unencrypted connection when
+  the server's encryption can't be used, as MySQL's own clients and psql do. Before, MySQL 5.7 servers (and
+  others offering only older TLS ciphers) couldn't be reached at all.
+- **Clearer connection errors:** a wrong port or a stopped server now says "Could not reach host:port:
+  Connection refused" right away, instead of "pool timed out" after 10 seconds. SSL problems say so, and how
+  to connect without SSL.
+
 ## 0.2.6 (2026-10-22)
 - **Deleting a connection** also removes its password from the keychain item older versions saved it in.
 - **API keys:** release builds no longer fall back to the `ANTHROPIC_API_KEY` environment variable; save the
