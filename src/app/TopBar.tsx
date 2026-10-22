@@ -1,6 +1,6 @@
 import { Database, Plus, Settings as SettingsIcon } from "lucide-react";
 import type { ConnectionConfig, Schema } from "../api";
-import { Badge, BrandMark, Button, IconButton, ToolbarDivider } from "../components/ui";
+import { Badge, Wordmark, Button, IconButton, ToolbarDivider } from "../components/ui";
 import { DATABASE_KINDS } from "../features/connections";
 import { ThemeToggle } from "../features/theme";
 import styles from "./Workbench.module.css";
@@ -17,8 +17,7 @@ export function TopBar({ active, databaseName, schema, onNewConnection, onOpenSe
   return (
     <header className={styles.topbar}>
       <div className={styles.brand}>
-        <BrandMark size={20} />
-        SayQL
+        <Wordmark height={18} />
       </div>
       <ToolbarDivider />
       <Button size="sm" variant="ghost" icon={Plus} onClick={onNewConnection}>

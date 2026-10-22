@@ -13,4 +13,4 @@ export type { TabItem } from "./TabBar";
 export { ErrorBoundary } from "./ErrorBoundary";
 export { ContextMenu, useContextMenu } from "./ContextMenu";
 export type { MenuEntry, MenuPosition } from "./ContextMenu";
-export { BrandMark } from "./BrandMark";
+export { BrandMark, Wordmark } from "./BrandMark";
