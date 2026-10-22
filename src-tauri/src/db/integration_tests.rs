@@ -471,6 +471,37 @@ INSERT INTO all_types VALUES (
 INSERT INTO all_types (id) VALUES (2);
 "#;
 
+/// Values the drivers don't decode on their own: MySQL zero dates (which sqlx reads as NULL)
+/// and geometry, and SQL Server columns without a name.
+#[tokio::test]
+async fn zero_dates_geometry_and_unnamed_columns() {
+    if let Some(t) = env_target("SAYQL_TEST_MYSQL_URL") {
+        let admin = open(Kind::Mysql, &t, &t.database).await;
+        exec(&admin, "DROP DATABASE IF EXISTS sayql_val; CREATE DATABASE sayql_val;
+            CREATE TABLE sayql_val.zd (id int PRIMARY KEY, d date, dt datetime(6), ts timestamp NULL);
+            CREATE TABLE sayql_val.geo (id int PRIMARY KEY, p point, g geometry, g4326 geometry);").await;
+        // Zero dates need a non-strict sql_mode, on the same connection as the insert.
+        exec(&admin, "SET SESSION sql_mode = ''; INSERT INTO sayql_val.zd VALUES
+            (1, '0000-00-00', '0000-00-00 00:00:00', '0000-00-00 00:00:00'),
+            (2, '2024-00-15', '2024-02-00 10:00:05.5', NULL), (3, NULL, NULL, NULL);").await;
+        exec(&admin, "INSERT INTO sayql_val.geo VALUES (1, POINT(1.5, -2), ST_GeomFromText('POLYGON((0 0,4 0,4 4,0 0))'),
+            ST_GeomFromText('MULTIPOINT(1 2,3 4)'))").await;
+        let pool = open(Kind::Mysql, &t, "sayql_val").await;
+        let r = query(&pool, "SELECT d, dt, ts FROM zd ORDER BY id", true).await;
+        assert_eq!(r.rows[0], [json!("0000-00-00"), json!("0000-00-00 00:00:00"), json!("0000-00-00 00:00:00")]);
+        assert_eq!(r.rows[1], [json!("2024-00-15"), json!("2024-02-00 10:00:05.500000"), Value::Null]);
+        assert_eq!(r.rows[2], [Value::Null, Value::Null, Value::Null]);
+        let r = query(&pool, "SELECT p, g, g4326 FROM geo", true).await;
+        assert_eq!(r.rows[0], [json!("POINT(1.5 -2)"), json!("POLYGON((0 0,4 0,4 4,0 0))"), json!("MULTIPOINT((1 2),(3 4))")]);
+        exec(&admin, "DROP DATABASE sayql_val").await;
+    }
+    if let Some(t) = env_target("SAYQL_TEST_MSSQL_URL") {
+        let pool = open(Kind::Mssql, &t, &t.database).await;
+        let r = query(&pool, "SELECT 1, 2 AS two, COUNT(*) FROM sys.databases WHERE 1 = 0", true).await;
+        assert_eq!(r.columns, ["(No column name)", "two", "(No column name)"]);
+    }
+}
+
 fn my_expected() -> Value {
     serde_json::from_str(
         r#"{

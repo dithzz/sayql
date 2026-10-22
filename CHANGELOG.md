@@ -3,6 +3,12 @@
 All notable changes to SayQL are listed here. Downloads are on the
 [releases page](https://github.com/dithzz/sayql-releases/releases).
 
+## Unreleased
+- **MySQL zero dates show as stored:** `0000-00-00` and dates with a zero month or day (`2024-00-15`) used
+  to show as NULL. They now show as MySQL writes them.
+- **MySQL geometry shows as WKT:** `POINT(1.5 -2)`, `POLYGON(...)` and the rest, instead of `<geometry>`.
+- **SQL Server columns without a name** show as "(No column name)", as in SQL Server's own tools.
+
 ## 0.2.6 (2026-10-22)
 - **Deleting a connection** also removes its password from the keychain item older versions saved it in.
 - **API keys:** release builds no longer fall back to the `ANTHROPIC_API_KEY` environment variable; save the
