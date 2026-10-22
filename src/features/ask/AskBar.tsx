@@ -68,20 +68,20 @@ export const AskBar = forwardRef<HTMLTextAreaElement, AskBarProps>(function AskB
     input.current?.focus();
   };
 
-  // Grow with the text, up to the CSS max-height.
+  // Grow with the text, up to the CSS max-height. Empty, it's one line: the placeholder doesn't count.
   useLayoutEffect(() => {
     const el = input.current;
     if (!el) return;
     el.style.height = "auto";
-    el.style.height = `${el.scrollHeight}px`;
-  }, [p.question]);
+    if (rest) el.style.height = `${el.scrollHeight}px`;
+  }, [p.question, rest]);
 
   const placeholder =
     command?.kind === "builtin"
       ? command.builtin.placeholder
       : command
         ? "Ask in plain English"
-        : "Ask in plain English — e.g. top 10 customers by total spend this year. Type / for commands";
+        : "Ask in plain English, or type / for commands";
   // /new and the actions don't build on the last query; /followup always does.
   const followUp = p.followUp && slug !== "new" && !isAction(command) ? p.followUp : undefined;
 

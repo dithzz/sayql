@@ -57,6 +57,9 @@
 }
 .input::placeholder {
   color: var(--color-text-subtle);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .input:focus-visible {
   outline: none;
