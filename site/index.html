@@ -294,7 +294,16 @@ p { text-wrap: pretty; }
 .pill { display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 7px; border: 1px solid var(--color-border); border-radius: var(--radius-md); font: 400 11.5px/1 var(--font-mono); color: var(--color-text-muted); }
 .q-line { display: flex; align-items: center; gap: 7px; margin-top: 5px; min-height: 20px; }
 .q-line .spark { color: var(--color-ai); }
-.q-line .pill.end { margin-left: auto; flex-shrink: 0; }
+.q-line .mic.end { margin-left: auto; flex-shrink: 0; color: var(--color-text-subtle); }
+.q-line .pill { flex-shrink: 0; }
+.voice-strip { display: flex; align-items: center; gap: 8px; margin: 8px 10px 0; font-size: 12.5px; color: var(--color-text-muted); }
+.voice-strip[hidden], .voice-strip [hidden], .origin-badge[hidden] { display: none; }
+.voice-strip .rec { width: 8px; height: 8px; border-radius: 50%; background: var(--color-danger); animation: breathe 900ms ease-in-out infinite; }
+.voice-strip .meter { display: inline-flex; align-items: center; gap: 2px; height: 14px; }
+.voice-strip .meter i { width: 3px; height: 4px; border-radius: 2px; background: var(--color-text-subtle); transition: height 120ms; }
+.voice-strip .esc { margin-left: auto; color: var(--color-text-subtle); }
+.askbox .mic.on { color: var(--color-danger); }
+.origin-badge { font-size: 11px; padding: 1px 7px; border-radius: 999px; background: var(--color-ai-soft); color: var(--color-ai); margin-left: 8px; }
 .q-line .q { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .q { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 13.5px; }
 .q .ph { color: var(--color-text-subtle); }
@@ -494,6 +503,7 @@ section.block { padding: 96px 0 0; }
   <symbol id="i-logo" viewBox="100 100 824 824"><rect x="100" y="100" width="824" height="824" rx="185" fill="#1f6feb"/><path fill="#fff" d="M431.23 768.15 382.82 688.25Q381.40999999999997 688.25 380.0 688.25Q347.1 688.25 322.66 675.56Q298.22 662.87 284.59000000000003 639.8399999999999Q270.96 616.81 270.96 585.79V438.21Q270.96 407.19 284.355 384.15999999999997Q297.75 361.13 322.425 348.44Q347.1 335.75 380.0 335.75Q412.9 335.75 437.34 348.44Q461.78 361.13 475.40999999999997 384.15999999999997Q489.03999999999996 407.19 489.03999999999996 438.21V585.79Q489.03999999999996 616.81 475.645 640.0749999999999Q462.25 663.3399999999999 437.81 675.56L494.67999999999995 768.15ZM380.0 636.55Q404.44 636.55 417.365 623.155Q430.28999999999996 609.76 430.28999999999996 585.79V438.21Q430.28999999999996 414.23999999999995 416.895 400.60999999999996Q403.5 386.97999999999996 380.0 386.97999999999996Q356.5 386.97999999999996 343.105 400.60999999999996Q329.71 414.23999999999995 329.71 438.21V585.79Q329.71 609.76 342.635 623.155Q355.56 636.55 380.0 636.55ZM559.87 683.55V340.45H618.62V630.4399999999999H764.3199999999999V683.55Z"/></symbol>
   <symbol id="i-wordmark" viewBox="0 0 333.0 148"><path fill="currentColor" d="M30.400000000000002 111.5Q19.8 111.5 13.5 105.9Q7.2 100.3 7.2 90.5H16.2Q16.2 96.6 20.1 100.05Q24.0 103.5 30.400000000000002 103.5Q36.6 103.5 40.3 99.9Q44.0 96.3 44.0 90.5Q44.0 86.1 41.650000000000006 82.85Q39.300000000000004 79.6 34.9 78.4L23.8 75.3Q16.900000000000002 73.3 12.950000000000001 68.15Q9.0 63.0 9.0 56.0Q9.0 50.199999999999996 11.600000000000001 45.8Q14.200000000000001 41.39999999999999 18.900000000000002 38.949999999999996Q23.6 36.5 29.700000000000003 36.5Q35.9 36.5 40.650000000000006 38.949999999999996Q45.400000000000006 41.39999999999999 48.10000000000001 45.74999999999999Q50.800000000000004 50.099999999999994 50.800000000000004 55.8H41.800000000000004Q41.800000000000004 50.8 38.400000000000006 47.65Q35.0 44.5 29.700000000000003 44.5Q24.400000000000002 44.5 21.1 47.65Q17.8 50.8 17.8 55.8Q17.8 59.8 19.950000000000003 62.65Q22.1 65.5 26.0 66.6L37.4 69.8Q44.7 71.8 48.75 77.35Q52.800000000000004 82.9 52.800000000000004 90.5Q52.800000000000004 100.1 46.7 105.8Q40.6 111.5 30.400000000000002 111.5ZM82.2 111.5Q73.7 111.5 68.7 106.75Q63.7 102.0 63.7 94.3Q63.7 89.2 66.0 85.4Q68.3 81.6 72.4 79.44999999999999Q76.5 77.3 81.8 77.3H98.80000000000001V73.0Q98.80000000000001 62.3 87.1 62.3Q81.9 62.3 78.7 64.19999999999999Q75.5 66.1 75.3 69.5H66.3Q66.8 63.0 72.35 58.75Q77.9 54.5 87.1 54.5Q97.1 54.5 102.45 59.3Q107.80000000000001 64.1 107.80000000000001 72.69999999999999V110.5H98.9V100.5H98.7Q97.9 105.6 93.60000000000001 108.55Q89.30000000000001 111.5 82.2 111.5ZM84.4 103.9Q91.0 103.9 94.9 100.7Q98.80000000000001 97.5 98.80000000000001 92.0V84.3H82.8Q78.4 84.3 75.65 86.94999999999999Q72.9 89.6 72.9 94.0Q72.9 98.6 75.95 101.25Q79.0 103.9 84.4 103.9ZM131.8 128.5 139.9 107.1 119.4 55.5H129.1L142.1 89.5Q142.9 91.5 143.60000000000002 93.7Q144.3 95.9 144.6 97.5Q144.9 95.9 145.60000000000002 93.7Q146.3 91.5 147.0 89.5L159.1 55.5H168.6L141.2 128.5Z"/><rect x="184.0" y="15.5" width="149.0" height="117.0" rx="16" fill="#1f6feb"/><path fill="#fff" d="M240.9 128.5 230.6 111.5Q230.3 111.5 230.0 111.5Q223.0 111.5 217.8 108.8Q212.6 106.1 209.7 101.19999999999999Q206.8 96.3 206.8 89.7V58.3Q206.8 51.699999999999996 209.65 46.8Q212.5 41.89999999999999 217.75 39.199999999999996Q223.0 36.5 230.0 36.5Q237.0 36.5 242.2 39.199999999999996Q247.4 41.89999999999999 250.3 46.8Q253.2 51.699999999999996 253.2 58.3V89.7Q253.2 96.3 250.35 101.25Q247.5 106.2 242.3 108.8L254.4 128.5ZM230.0 100.5Q235.2 100.5 237.95 97.65Q240.7 94.8 240.7 89.7V58.3Q240.7 53.199999999999996 237.85 50.3Q235.0 47.4 230.0 47.4Q225.0 47.4 222.15 50.3Q219.3 53.199999999999996 219.3 58.3V89.7Q219.3 94.8 222.05 97.65Q224.8 100.5 230.0 100.5ZM269.1 110.5V37.5H281.6V99.2H312.6V110.5Z"/></symbol>
   <symbol id="i-message" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></symbol>
+  <symbol id="i-mic" viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v3"/></symbol>
   <symbol id="i-github" viewBox="0 0 24 24"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.4 5.4 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"/><path d="M9 18c-4.51 2-5-2-7-2"/></symbol>
   <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2m-7.07-17.07 1.41 1.41m11.32 11.32 1.41 1.41M2 12h2m16 0h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></symbol>
   <symbol id="i-moon" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></symbol>
@@ -592,7 +602,7 @@ section.block { padding: 96px 0 0; }
             <span class="end"><svg class="i tool"><use href="#i-save"/></svg><span class="tool"><svg class="i"><use href="#i-wand"/></svg>Improve</span><span class="run-btn" data-run><svg class="i"><use href="#i-play"/></svg>Run <span class="kbd">⌘↵</span></span></span>
           </div>
           <div class="askbox" data-ask>
-            <div class="q-line" style="margin-top:0"><svg class="i spark"><use href="#i-sparkles"/></svg><span class="cmd-chip skill" data-chip hidden>/pii-safe</span><span class="q" data-q><span class="ph">Ask in plain English, or type / for commands</span></span><span class="pill end"><svg class="i"><use href="#i-table"/></svg><span data-pill>customers, orders</span><svg class="i"><use href="#i-eye"/></svg><svg class="i"><use href="#i-x"/></svg></span></div>
+            <div class="q-line" style="margin-top:0"><svg class="i spark"><use href="#i-sparkles"/></svg><span class="cmd-chip skill" data-chip hidden>/pii-safe</span><span class="q" data-q><span class="ph">Ask in plain English, or type / for commands</span></span><svg class="i mic end" aria-hidden="true"><use href="#i-mic"/></svg><span class="pill"><svg class="i"><use href="#i-table"/></svg><span data-pill>customers, orders</span><svg class="i"><use href="#i-eye"/></svg><svg class="i"><use href="#i-x"/></svg></span></div>
           </div>
           <div class="hintbar">
             <span class="building" data-building hidden><svg class="i"><use href="#i-corner"/></svg>Building on your last query <span class="newq" data-newq>New query</span></span>
@@ -673,6 +683,30 @@ section.block { padding: 96px 0 0; }
           <div class="askbox" data-ask><div class="q-line" style="margin-top:0"><svg class="i spark"><use href="#i-sparkles"/></svg><span class="cmd-chip skill" data-chip hidden></span><span class="q" data-q></span></div></div>
           <div class="slash-menu" data-menu hidden></div>
           <div class="code" data-code></div>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="card-text">
+          <h3>Just say it</h3>
+          <p>Click the mic and ask out loud. Speech turns into text on your computer; the audio never leaves it.</p>
+        </div>
+        <div class="app mini" id="demo-voice" role="img" aria-label="Demo: a question is spoken, transcribed on the computer, and the SQL is written">
+          <div class="askbox" data-ask><div class="q-line" style="margin-top:0"><svg class="i spark"><use href="#i-sparkles"/></svg><span class="q" data-q></span><svg class="i mic end" data-mic aria-hidden="true"><use href="#i-mic"/></svg></div></div>
+          <div class="voice-strip" data-strip hidden><span class="rec" data-rec></span><span data-label>Listening…</span><span class="meter" data-meter><i></i><i></i><i></i><i></i><i></i></span><span class="esc"><span class="kbd">esc</span> cancel</span></div>
+          <div class="code" data-code></div>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="card-text">
+          <h3>Works with Claude and Cursor</h3>
+          <p>AI apps can query through SayQL, read-only, or hand you a query to review. You click Run.</p>
+        </div>
+        <div class="app mini" id="demo-mcp" role="img" aria-label="Demo: Claude hands a query to SayQL, which opens it in a new tab without running it">
+          <div class="ed-h"><svg class="i"><use href="#i-file"/></svg><b>SQL Editor</b><span class="sub">Demo store (SQLite)</span><span class="origin-badge" data-origin hidden>From Claude (MCP)</span><span class="end"><span class="run-btn" data-run><svg class="i"><use href="#i-play"/></svg>Run</span></span></div>
+          <div class="code" data-code></div>
+          <div class="bar ok" data-note hidden><svg class="i"><use href="#i-check"/></svg><span>Opened from Claude. Nothing has run.</span></div>
         </div>
       </article>
 
@@ -766,8 +800,8 @@ section.block { padding: 96px 0 0; }
         <p>Keep many queries open and reuse the ones you need.</p>
       </div>
       <div class="fact">
-        <h3><svg class="icon"><use href="#i-plug"/></svg>MCP server</h3>
-        <p>Let Claude, Cursor and other AI apps query through SayQL, read-only.</p>
+        <h3><svg class="icon"><use href="#i-github"/></svg>Open source</h3>
+        <p>Apache-2.0. Read every line on GitHub.</p>
       </div>
     </div>
   </div>
@@ -1132,6 +1166,46 @@ section.block { padding: 96px 0 0; }
       var end = Math.max(t, start + tokens.length * 30) + 250;
       later(function () { ask.classList.remove("live"); q.textContent = QUESTION; }, end);
       later(loop, end + 4500);
+    }, still);
+  })();
+
+  /* ---------- voice: listen, transcribe on this computer, write the SQL ---------- */
+  (function () {
+    var el = document.getElementById("demo-voice");
+    var $ = function (s) { return el.querySelector(s); };
+    var ask = $("[data-ask]"), q = $("[data-q]"), mic = $("[data-mic]"), strip = $("[data-strip]"),
+        label = $("[data-label]"), rec = $("[data-rec]"), meter = $("[data-meter]"), code = $("[data-code]");
+    var bars = meter.querySelectorAll("i");
+    var QUESTION = "orders shipped to Canada last week";
+    var SQL = "SELECT o.id, o.created_at, o.status\nFROM orders o\nJOIN customers c ON c.id = o.customer_id\nWHERE c.country = 'Canada'\n  AND o.status = 'shipped'\n  AND o.created_at >= date('now', '-7 days');";
+    function still() { strip.hidden = true; mic.classList.remove("on"); q.textContent = QUESTION; code.innerHTML = highlight(SQL); }
+    demo(el, function (later, loop) {
+      strip.hidden = true; mic.classList.remove("on"); q.textContent = ""; code.innerHTML = "";
+      later(function () { mic.classList.add("on"); ask.classList.add("live"); strip.hidden = false; label.textContent = "Listening…"; rec.hidden = false; meter.hidden = false; }, 600);
+      for (var k = 0; k < 14; k++) {
+        later(function () { bars.forEach(function (b) { b.style.height = (4 + Math.round(Math.random() * 10)) + "px"; }); }, 700 + k * 150);
+      }
+      later(function () { mic.classList.remove("on"); label.textContent = "Transcribing…"; rec.hidden = true; meter.hidden = true; }, 2900);
+      later(function () { strip.hidden = true; q.innerHTML = esc(QUESTION) + '<span class="caret"></span>'; }, 3500);
+      var tokens = SQL.match(/\s+|[^\s]+/g), shown = "";
+      tokens.forEach(function (tok, i) { later(function () { shown += tok; code.innerHTML = highlight(shown); }, 3800 + i * 30); });
+      var end = 3800 + tokens.length * 30 + 300;
+      later(function () { ask.classList.remove("live"); q.textContent = QUESTION; }, end);
+      later(loop, end + 4000);
+    }, still);
+  })();
+
+  /* ---------- MCP: Claude hands a query over; nothing runs until you click Run ---------- */
+  (function () {
+    var el = document.getElementById("demo-mcp");
+    var code = el.querySelector("[data-code]"), origin = el.querySelector("[data-origin]"), note = el.querySelector("[data-note]");
+    var SQL = "SELECT category, SUM(quantity) AS units\nFROM order_items oi\nJOIN products p ON p.id = oi.product_id\nGROUP BY category\nORDER BY units DESC;";
+    function still() { origin.hidden = false; note.hidden = false; code.innerHTML = lines(SQL); }
+    demo(el, function (later, loop) {
+      origin.hidden = true; note.hidden = true; code.innerHTML = "";
+      later(function () { origin.hidden = false; code.innerHTML = lines(SQL); }, 900);
+      later(function () { note.hidden = false; }, 1500);
+      later(loop, 6500);
     }, still);
   })();
 
