@@ -1,0 +1,186 @@
+<!doctype html>
+<!-- One 1920×1080 video frame: render.mjs sets its state with window.frame(...) and screenshots it. -->
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=block" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0b0f17;
+    --glow-a: rgba(31, 111, 235, 0.22);
+    --glow-b: rgba(112, 72, 232, 0.18);
+    --text: #f1f5f9;
+    --muted: #94a3b8;
+    --blue: #4a8dff;
+    --violet: #a98bff;
+    --violet-bg: rgba(112, 72, 232, 0.16);
+    --violet-border: rgba(112, 72, 232, 0.45);
+    --caption-bg: rgba(15, 20, 30, 0.82);
+    --caption-border: rgba(255, 255, 255, 0.08);
+    --window-border: rgba(255, 255, 255, 0.09);
+    --shadow: 0 40px 120px rgba(0, 0, 0, 0.55), 0 8px 30px rgba(0, 0, 0, 0.35);
+  }
+  :root.light {
+    --bg: #eef2f8;
+    --glow-a: rgba(31, 111, 235, 0.16);
+    --glow-b: rgba(112, 72, 232, 0.12);
+    --text: #0f172a;
+    --muted: #475569;
+    --blue: #1f6feb;
+    --violet: #7048e8;
+    --violet-bg: rgba(112, 72, 232, 0.09);
+    --violet-border: rgba(112, 72, 232, 0.35);
+    --caption-bg: rgba(255, 255, 255, 0.9);
+    --caption-border: rgba(15, 23, 42, 0.08);
+    --window-border: rgba(15, 23, 42, 0.12);
+    --shadow: 0 40px 110px rgba(15, 23, 42, 0.22), 0 8px 26px rgba(15, 23, 42, 0.12);
+  }
+  html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; background: var(--bg); }
+  body { font-family: Inter, -apple-system, sans-serif; -webkit-font-smoothing: antialiased; }
+  .bg {
+    position: absolute; inset: 0;
+    background:
+      radial-gradient(1100px 700px at 18% 10%, var(--glow-a), transparent 70%),
+      radial-gradient(1000px 700px at 85% 95%, var(--glow-b), transparent 70%),
+      var(--bg);
+  }
+  .layer { position: absolute; inset: 0; }
+  .stage { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; transform-origin: 0 0; will-change: transform; }
+  .window {
+    position: absolute; overflow: hidden; border-radius: 14px;
+    box-shadow: var(--shadow); outline: 1px solid var(--window-border);
+  }
+  .window img { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .cursor { position: absolute; width: 22px; height: 33px; margin: -2px 0 0 -3px; filter: drop-shadow(0 2px 3px rgba(0,0,0,.4)); }
+  .ripple { position: absolute; width: 36px; height: 36px; margin: -18px 0 0 -18px; border-radius: 50%; border: 2.5px solid var(--blue); }
+  .caption {
+    position: absolute; left: 50%; bottom: 54px; transform: translateX(-50%);
+    padding: 18px 34px; border-radius: 999px; white-space: nowrap;
+    background: var(--caption-bg); border: 1px solid var(--caption-border);
+    color: var(--text); font-size: 40px; font-weight: 600; letter-spacing: -0.01em;
+    box-shadow: 0 12px 40px rgba(0,0,0,.28); backdrop-filter: blur(12px);
+  }
+  .card { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 34px; }
+  .card img { height: 170px; }
+  .card .tagline { color: var(--text); font-size: 54px; font-weight: 600; letter-spacing: -0.02em; }
+  .card .big { color: var(--text); font-size: 76px; font-weight: 700; letter-spacing: -0.03em; }
+  .card .url { color: var(--blue); font-size: 44px; font-weight: 600; }
+  .card .sub { color: var(--muted); font-size: 28px; font-weight: 500; margin-top: -24px; }
+  .card .hook { color: var(--text); font-size: 80px; font-weight: 700; letter-spacing: -0.03em; text-align: center; line-height: 1.15; }
+  .card .hook.accent { color: var(--blue); }
+  .card .chips { display: flex; gap: 18px; flex-wrap: wrap; justify-content: center; max-width: 1500px; }
+  .card .chip {
+    padding: 16px 30px; border-radius: 16px; font-size: 36px; font-weight: 600;
+    color: var(--text); background: var(--caption-bg); border: 1px solid var(--window-border);
+  }
+  .card .pill {
+    padding: 10px 24px; border-radius: 999px; font-size: 28px; font-weight: 600; letter-spacing: 0.02em;
+    color: var(--violet); background: var(--violet-bg); border: 1px solid var(--violet-border);
+  }
+</style>
+</head>
+<body>
+<div class="bg"></div>
+<div id="layers"></div>
+<div id="cards"></div>
+<div id="caption" class="caption" style="opacity:0"></div>
+<script>
+  const CURSOR = `<svg class="cursor" viewBox="0 0 22 33"><path d="M2 2v25l6.5-6.2 4.3 9.7 4-1.8-4.2-9.5H21z" fill="#fff" stroke="#000" stroke-width="1.6" stroke-linejoin="round"/></svg>`;
+  const CARDS = {
+    problem: () => `<div class="hook">You know the question.</div><div class="hook accent" data-at="1.3">Writing the SQL is the hard part.</div>`,
+    audience: () =>
+      `<div class="tagline">For anyone who needs answers, not SQL</div><div class="chips">` +
+      ["Analysts", "Product managers", "Support & ops", "Developers"].map((t, i) => `<span class="chip" data-at="${0.5 + i * 0.3}">${t}</span>`).join("") +
+      `</div>`,
+    title: () => `<img src="${WORDMARK}"><div class="tagline">Say what you need. It knows your schema.</div><div class="pill">Early access</div>`,
+    end: () =>
+      `<div class="big">Free and open source</div><img src="${WORDMARK}"><div class="pill">Early access</div>` +
+      `<div class="url">${SITE}</div>${SITE_NOW ? `<div class="sub">${SITE_NOW}</div>` : ""}`,
+  };
+  const layers = [];
+  function layer(i) {
+    if (!layers[i]) {
+      const el = document.createElement("div");
+      el.className = "layer";
+      el.innerHTML = `<div class="stage"><div class="window"><img></div>${CURSOR}<div class="ripple"></div></div>`;
+      document.getElementById("layers").appendChild(el);
+      layers[i] = { el, stage: el.querySelector(".stage"), win: el.querySelector(".window"), img: el.querySelector("img"),
+                    cursor: el.querySelector(".cursor"), ripple: el.querySelector(".ripple"), src: "" };
+    }
+    return layers[i];
+  }
+
+  window.setup = ({ theme, win, wordmark, site, siteNow }) => {
+    document.documentElement.classList.toggle("light", theme === "light");
+    window.WIN = win;
+    window.WORDMARK = wordmark;
+    window.SITE = site;
+    window.SITE_NOW = siteNow;
+    return document.fonts.load("600 40px Inter").then(() => document.fonts.check("600 40px Inter"), () => false);
+  };
+
+  // state: { layers: [{ src, opacity, cam: {z, cx, cy}, cursor: {x, y, visible}, ripple: {x, y, p} | null }],
+  //          cards: [{ kind, opacity, rise, local }], caption: { text, opacity } | null }
+  window.frame = async (s) => {
+    const loads = [];
+    s.layers.forEach((l, i) => {
+      const L = layer(i);
+      L.el.style.display = "";
+      L.el.style.opacity = l.opacity;
+      Object.assign(L.win.style, { left: WIN.x + "px", top: WIN.y + "px", width: WIN.w + "px", height: WIN.h + "px" });
+      L.stage.style.transform = `translate(${960 - l.cam.cx * l.cam.z}px, ${540 - l.cam.cy * l.cam.z}px) scale(${l.cam.z})`;
+      if (L.src !== l.src) {
+        L.src = l.src;
+        L.img.src = l.src;
+        loads.push(L.img.decode().catch(() => {}));
+      }
+      const c = l.cursor;
+      L.cursor.style.display = c && c.visible ? "" : "none";
+      if (c) Object.assign(L.cursor.style, { left: c.x + "px", top: c.y + "px", transform: `scale(${1 / Math.sqrt(l.cam.z)})`, transformOrigin: "3px 2px" });
+      const r = l.ripple;
+      L.ripple.style.display = r ? "" : "none";
+      if (r) Object.assign(L.ripple.style, { left: r.x + "px", top: r.y + "px", opacity: 1 - r.p, transform: `scale(${0.4 + r.p * 0.9})` });
+    });
+    layers.slice(s.layers.length).forEach((L) => (L.el.style.display = "none"));
+
+    // Cards: up to two at once while one fades into the next. Parts with data-at come in that
+    // many seconds into the card.
+    const box = document.getElementById("cards");
+    while (box.children.length < s.cards.length) {
+      const el = document.createElement("div");
+      el.className = "card";
+      box.appendChild(el);
+    }
+    [...box.children].forEach((card, i) => {
+      const c = s.cards[i];
+      card.style.display = c ? "" : "none";
+      if (!c) return;
+      if (card.dataset.kind !== c.kind) {
+        card.dataset.kind = c.kind;
+        card.innerHTML = CARDS[c.kind]();
+        loads.push(...[...card.querySelectorAll("img")].map((im) => im.decode().catch(() => {})));
+      }
+      card.style.opacity = c.opacity;
+      card.style.transform = `translateY(${c.rise}px)`;
+      card.querySelectorAll("[data-at]").forEach((part) => {
+        const k = Math.max(0, Math.min(1, (c.local - Number(part.dataset.at)) / 0.45));
+        const e = 1 - (1 - k) ** 3;
+        part.style.opacity = e;
+        part.style.transform = `translateY(${(1 - e) * 18}px)`;
+      });
+    });
+
+    const cap = document.getElementById("caption");
+    if (s.caption) {
+      cap.textContent = s.caption.text;
+      cap.style.opacity = s.caption.opacity;
+      cap.style.transform = `translateX(-50%) translateY(${(1 - s.caption.opacity) * 14}px)`;
+    } else cap.style.opacity = 0;
+    // A decode can hang now and then in headless Chrome; never wait on one for long.
+    await Promise.race([Promise.all(loads), new Promise((r) => setTimeout(r, 2000))]);
+    return true;
+  };
+</script>
+</body>
+</html>

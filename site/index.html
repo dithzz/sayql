@@ -411,6 +411,10 @@ section.block { padding: 96px 0 0; }
 .head { max-width: 36em; }
 .head h2 { font-size: clamp(28px, 3.6vw, 36px); line-height: 1.15; }
 .head p { margin-top: 12px; font-size: 17px; color: var(--color-text-muted); }
+.demo-video {
+  display: block; width: 100%; aspect-ratio: 16 / 9; margin-top: 40px; background: #0b0f17;
+  border: 1px solid var(--color-border); border-radius: var(--radius-card); box-shadow: var(--shadow-window);
+}
 
 .cards { margin-top: 40px; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .card { background: var(--color-card); border: 1px solid var(--color-border); border-radius: var(--radius-card); overflow: hidden; display: flex; flex-direction: column; }
@@ -524,6 +528,7 @@ section.block { padding: 96px 0 0; }
     <a class="brand" href="/" aria-label="SayQL home"><svg class="wordmark" width="54" height="24" aria-hidden="true"><use href="#i-wordmark"/></svg></a>
     <nav class="nav-links" aria-label="Main">
       <a href="#features">Features</a>
+      <a href="#demo">Demo</a>
       <a href="/docs/">Docs</a>
     </nav>
     <div class="nav-end">
@@ -737,6 +742,19 @@ section.block { padding: 96px 0 0; }
         <p>Let Claude, Cursor and other AI apps query through SayQL, read-only.</p>
       </div>
     </div>
+  </div>
+</section>
+
+<section class="block" id="demo">
+  <div class="wrap">
+    <div class="head">
+      <h2>See it in action</h2>
+      <p>An 80-second tour of the real app. Sound on.</p>
+    </div>
+    <video class="demo-video" controls preload="none" playsinline poster="/video/sayql-explainer-poster.jpg"
+      aria-label="SayQL explainer: asking in plain English, follow-ups, skills, safety, privacy and choosing your AI">
+      <source src="/video/sayql-explainer.mp4" type="video/mp4">
+    </video>
   </div>
 </section>
 
