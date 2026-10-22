@@ -19,9 +19,9 @@ const cut = process.argv[3] ?? "full";
 const FFMPEG = process.env.FFMPEG ?? "/opt/homebrew/bin/ffmpeg";
 const FPS = 30;
 const XFADE = 0.45;
-/** The site on the end card; SITE_NOW is shown under it until the domain is live (null hides it). */
+/** The sites on the end card: SITE large, SITE_NOW under it (null hides it). */
 const SITE = "sayql.app";
-const SITE_NOW = "sayql.vercel.app";
+const SITE_NOW = "sayql.dev";
 /** Where the app window sits in the 1920×1080 frame at zoom 1. */
 const WIN = { x: 160, y: 46, w: 1600, h: 900 };
 
@@ -246,13 +246,13 @@ function soundtrack(video, music, voice, out) {
   const args = ["-y", "-loglevel", "error", "-i", video];
   args.push(...(music ? ["-i", music] : ["-f", "lavfi", "-t", String(total), "-i", "anullsrc=r=48000:cl=stereo"]));
   voice.forEach((l) => args.push("-i", l.file));
-  const f = [`[1:a]aresample=48000,volume=${voice.length ? 0.6 : 1}[m]`];
+  const f = [`[1:a]aresample=48000,volume=${voice.length ? 0.4 : 1}[m]`];
   if (voice.length) {
     voice.forEach((l, i) => f.push(`[${i + 2}:a]aresample=48000,pan=stereo|c0=c0|c1=c0,adelay=${Math.round(l.t * 1000)}:all=1[v${i}]`));
     f.push(`${voice.map((_, i) => `[v${i}]`).join("")}amix=inputs=${voice.length}:normalize=0:duration=longest,asplit[vk][vm]`);
     f.push(`[m][vk]sidechaincompress=threshold=0.02:ratio=8:attack=15:release=350[md]`);
     f.push(`[md][vm]amix=inputs=2:normalize=0:duration=first,loudnorm=I=-16:TP=-1.5[a]`);
-  } else f.push(music ? `[m]loudnorm=I=-18:TP=-1.5[a]` : `[m]anull[a]`);
+  } else f.push(music ? `[m]loudnorm=I=-26:TP=-6[a]` : `[m]anull[a]`);
   args.push("-filter_complex", f.join(";"), "-map", "0:v", "-map", "[a]", "-t", total.toFixed(3));
   args.push("-c:v", "copy", "-c:a", "aac", "-b:a", "160k", "-ar", "48000", "-movflags", "+faststart", out);
   run(FFMPEG, args);

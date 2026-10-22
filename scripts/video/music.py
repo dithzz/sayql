@@ -3,9 +3,9 @@ third-party music), so there's nothing to license.
 
     python3 scripts/video/music.py OUT.wav DURATION [--intro SECONDS] [--outro SECONDS]
 
-A calm 100 BPM loop (C – G – Am – F): a soft pad and a plucked arpeggio from the start, a
-sub bass, kick and hats once the title card is over (`--intro`), back to just the pad and
-pluck for the end card (`--outro` seconds before the end), ending on a held C chord.
+Quiet and clean: a soft sine pad on a slow Cmaj7 – Am7 – Fmaj7 – G6 loop, a few gentle
+bell-like notes on top once the title card is over (`--intro`), and just the pad again for
+the end card (`--outro` seconds before the end), resolving to C. No drums, nothing sharp.
 Needs only numpy.
 """
 
@@ -15,18 +15,20 @@ import wave
 import numpy as np
 
 SR = 44100
-BPM = 100
+BPM = 72
 BEAT = 60 / BPM
-BAR = 4 * BEAT
+CHORD_LEN = 8 * BEAT  # two bars per chord
 
-# MIDI notes. Pad voicings (open, with added 9ths) and the bass root for each chord.
+# MIDI notes: pad voicing, the notes the melody may use, and a soft root.
 CHORDS = [
-    {"pad": [48, 55, 62, 64], "arp": [72, 76, 79, 74], "bass": 36},  # Cadd9
-    {"pad": [43, 50, 57, 59], "arp": [71, 74, 79, 69], "bass": 31},  # G(add9)
-    {"pad": [45, 52, 59, 60], "arp": [72, 76, 81, 71], "bass": 33},  # Am(add9)
-    {"pad": [41, 48, 55, 57], "arp": [69, 72, 77, 67], "bass": 29},  # Fmaj9-ish
+    {"pad": [48, 55, 59, 64], "keys": [76, 79, 83, 72], "root": 36},  # Cmaj7
+    {"pad": [45, 52, 55, 60], "keys": [76, 72, 79, 69], "root": 33},  # Am7
+    {"pad": [41, 48, 52, 57], "keys": [72, 76, 81, 69], "root": 29},  # Fmaj7
+    {"pad": [43, 50, 55, 59], "keys": [74, 71, 79, 76], "root": 31},  # G6
 ]
-ARP_PATTERN = [0, 1, 2, 3, 2, 1, 3, 1]  # eighth notes over one bar
+FINAL = {"pad": [48, 55, 59, 64], "root": 36}
+# When the bell notes play within a chord (in beats) and which of its notes.
+KEYS_PATTERN = [(0, 0), (1.5, 1), (3, 2), (5, 3), (6.5, 1)]
 
 
 def times(n):
@@ -41,21 +43,14 @@ def hz(midi):
     return 440.0 * 2 ** ((midi - 69) / 12)
 
 
-def soft_saw(f, t, harmonics=10, bright=3.0):
-    """A band-limited saw with its upper harmonics rolled off, like a low-passed synth."""
-    out = np.zeros_like(t)
-    for k in range(1, harmonics + 1):
-        if f * k > SR / 2.5:
-            break
-        out += np.sin(2 * np.pi * f * k * t) / k * np.exp(-k / bright)
-    return out
-
-
-def env_adsr(n, attack, release, total):
-    """Linear attack, flat, linear release, in samples of a `total`-second note."""
+def swell(n, attack, release):
+    """An equal-power rise over `attack` s and fall over the last `release` s, so overlapping
+    chords cross-fade without a dip."""
     t = times(n)
-    e = np.minimum(1, t / max(attack, 1e-4))
-    return e * np.clip((total - t) / max(release, 1e-4), 0, 1)
+    total = n / SR
+    rise = np.sin(0.5 * np.pi * np.clip(t / attack, 0, 1))
+    fall = np.sin(0.5 * np.pi * np.clip((total - t) / release, 0, 1))
+    return rise * fall
 
 
 def add(buf, start, sig, gain=1.0):
@@ -75,96 +70,55 @@ def main():
     a = ap.parse_args()
 
     total = a.duration
-    n = int((total + 3) * SR)
+    n = int((total + 4) * SR)
     left = np.zeros(n)
     right = np.zeros(n)
-    pad = np.zeros(n)
-    bass = np.zeros(n)
-    drums = np.zeros(n)
-    rng = np.random.default_rng(7)
+    final_at = total - a.outro
 
-    groove_from = a.intro
-    groove_to = total - a.outro
-    final_at = total - a.outro + 0.4  # the held last chord
-
-    bar = 0
-    while bar * BAR < total:
-        t0 = bar * BAR
-        chord = CHORDS[bar % 4] if t0 < final_at else CHORDS[0]
-        last = t0 >= final_at
-        length = (total - t0 + 1.5) if last else BAR + 0.9
-        # Pad: slow attack, overlapping release.
+    t0 = 0.0
+    i = 0
+    while t0 < total:
+        last = t0 >= final_at - CHORD_LEN * 0.5
+        chord = FINAL if last else CHORDS[i % 4]
+        length = (total - t0 + 1) if last else CHORD_LEN + 2.5
         m = int(length * SR)
         t = times(m)
-        e = env_adsr(m, 0.6, 1.2 if not last else total - t0, length)
-        for note in chord["pad"]:
+        env = swell(m, 2.5, 2.5 if not last else total - t0)
+        # Pad: pure sines with a whisper of the octave, each note panned a little.
+        for k, note in enumerate(chord["pad"]):
             f = hz(note)
-            # A centre voice plus two quieter, unevenly detuned ones: chorus without the
-            # whole chord beating to silence.
-            ph = rng.uniform(0, 1, 3)
-            voices = soft_saw(f, t + ph[0]) + 0.5 * soft_saw(f * 1.0011, t + ph[1]) + 0.5 * soft_saw(f * 0.9984, t + ph[2])
-            add(pad, t0, voices * e, 0.045)
+            tone = np.sin(2 * np.pi * f * t) + 0.12 * np.sin(4 * np.pi * f * t + 1.0)
+            pan = (k / (len(chord["pad"]) - 1)) * 0.5 + 0.25
+            add(left, t0, tone * env, 0.1 * (1 - pan))
+            add(right, t0, tone * env, 0.1 * pan)
+        root = np.sin(2 * np.pi * hz(chord["root"]) * t) * env
+        add(left, t0, root, 0.05)
+        add(right, t0, root, 0.05)
         if last:
             break
-        # Pluck arpeggio, eighth notes, with a stereo echo.
-        for i, idx in enumerate(ARP_PATTERN):
-            start = t0 + i * BEAT / 2
-            if start >= total:
-                break
-            m2 = int(0.7 * SR)
-            tt = times(m2)
-            f = hz(chord["arp"][idx])
-            tone = (np.sin(2 * np.pi * f * tt) + 0.25 * np.sin(4 * np.pi * f * tt)) * np.exp(-tt * 7)
-            tone *= np.minimum(1, tt / 0.004)
-            g = 0.07 if start < groove_from else 0.085
-            add(left, start, tone, g)
-            add(right, start, tone, g)
-            add(left, start + BEAT * 0.75, tone, g * 0.35)
-            add(right, start + BEAT * 1.5, tone, g * 0.2)
-        # Groove: sub bass on the beats, kick on every beat, hats on the off-beats.
-        if groove_from <= t0 < groove_to:
-            for beat in range(4):
-                start = t0 + beat * BEAT
-                if start < groove_from or start >= groove_to:
-                    continue
-                m3 = int(BEAT * 0.95 * SR)
-                tt = times(m3)
-                f = hz(chord["bass"])
-                b = (np.sin(2 * np.pi * f * tt) + 0.3 * np.sin(4 * np.pi * f * tt)) * env_adsr(m3, 0.012, 0.15, BEAT * 0.95)
-                add(bass, start, b, 0.12)
-                mk = int(0.35 * SR)
-                tk = times(mk)
-                sweep = 2 * np.pi * np.cumsum(50 + 110 * np.exp(-tk * 35)) / SR
-                add(drums, start, np.sin(sweep) * np.exp(-tk * 10), 0.24)
-                if t0 >= groove_from + 2 * BAR:
-                    mh = int(0.06 * SR)
-                    noise = np.diff(rng.standard_normal(mh + 1))
-                    add(drums, start + BEAT / 2, noise * np.exp(-times(mh) * 70), 0.025)
-        bar += 1
+        # Bell-like notes: sine with a soft attack and a long, gentle decay, and one quiet echo.
+        for beat, idx in KEYS_PATTERN:
+            start = t0 + beat * BEAT
+            if start < a.intro or start >= final_at - 1.0:
+                continue
+            mk = int(2.6 * SR)
+            tk = times(mk)
+            f = hz(chord["keys"][idx])
+            bell = (np.sin(2 * np.pi * f * tk) + 0.08 * np.sin(4 * np.pi * f * tk)) * np.exp(-tk * 1.6)
+            bell = bell * (0.5 - 0.5 * np.cos(np.pi * np.clip(tk / 0.02, 0, 1)))
+            add(left, start, bell, 0.045)
+            add(right, start, bell, 0.04)
+            add(right, start + BEAT * 0.75, bell, 0.014)
+            add(left, start + BEAT * 1.5, bell, 0.009)
+        t0 += CHORD_LEN
+        i += 1
 
-    # Sidechain: the pad and bass dip under each kick.
-    duck = np.ones(n)
-    b = groove_from
-    while b < groove_to:
-        if b >= groove_from:
-            i = int(b * SR)
-            m = int(BEAT * SR)
-            seg = 1 - 0.45 * np.exp(-times(m) * 9)
-            duck[i : i + m] = np.minimum(duck[i : i + m], seg[: n - i])
-        b += BEAT
-    duck.flags.writeable = False
-    bed = pad * duck + bass * duck + drums
-    left += bed
-    right += bed
     mix = np.stack([left, right], axis=1)[: int(total * SR)]
-
-    # Fade in, fade out, soft clip, normalize.
-    fade_in = int(0.8 * SR)
-    mix[:fade_in] *= np.linspace(0, 1, fade_in)[:, None]
-    fade_out = int(2.5 * SR)
-    mix[-fade_out:] *= np.linspace(1, 0, fade_out)[:, None] ** 1.5
-    mix = np.tanh(mix * 1.2)
-    mix /= np.max(np.abs(mix)) / 0.89
+    fade_in = int(1.5 * SR)
+    mix[:fade_in] *= (np.linspace(0, 1, fade_in) ** 2)[:, None]
+    fade_out = int(3.0 * SR)
+    mix[-fade_out:] *= (np.linspace(1, 0, fade_out) ** 2)[:, None]
+    mix /= np.max(np.abs(mix)) / 0.7
     pcm = (mix * 32767).astype("<i2")
     with wave.open(a.out, "wb") as w:
         w.setnchannels(2)
