@@ -3,6 +3,11 @@
 All notable changes to SayQL are listed here. Downloads are on the
 [releases page](https://github.com/dithzz/sayql-releases/releases).
 
+## Unreleased
+
+- **Privacy:** when SayQL fixes a failed query, values from your rows that the database quotes in its error
+  (a duplicate email, a value that failed to convert) are masked before the error goes to your AI provider.
+
 ## 0.2.5 (2026-10-22)
 
 - **Security:** updated the SQL Server driver, which fixes a high-severity issue in a TLS library it used.

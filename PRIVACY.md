@@ -16,7 +16,7 @@ SayQL sends data only to services you configure, and only when you use them:
 | --- | --- | --- |
 | You connect or run a query | Your login and your SQL | Your database server |
 | You ask in plain English | Your question; the database's table and column names, types, keys, enum values and row estimates; the current SQL for follow-ups, Explain, Fix and Improve; any skill you add | The AI provider you chose in Settings |
-| A query fails and SayQL fixes it | The query and the database's error message | The AI provider you chose |
+| A query fails and SayQL fixes it | The query and the database's error message, with values from your rows masked | The AI provider you chose |
 | An AI app uses SayQL through MCP | The schemas and query results it asks for | That AI app (for example Claude or Cursor) |
 | SayQL checks for updates, each time it starts | The app version and your operating system | GitHub (github.com/dithzz/sayql-releases) |
 
