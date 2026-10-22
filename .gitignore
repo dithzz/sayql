@@ -29,5 +29,3 @@ dist-ssr
 # Vercel project link (created by the CLI when deploying site/)
 .vercel
 
-# The bundled MCP server, built by the release workflow (see .github/workflows/release.yml)
-src-tauri/binaries/

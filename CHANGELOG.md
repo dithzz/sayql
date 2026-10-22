@@ -3,10 +3,13 @@
 All notable changes to SayQL are listed here. Downloads are on the
 [releases page](https://github.com/dithzz/sayql-releases/releases).
 
-## 0.2.3 (2026-10-22)
+## 0.2.4 (2026-10-22)
 
-- **MCP server included:** Claude, Cursor and other AI apps can query your saved connections through
-  SayQL, read-only. Set it up in Settings → AI apps (MCP).
+- **MCP server:** it has come with SayQL since 0.1.0 (the docs and website said "coming soon" by mistake).
+  Set it up in Settings → AI apps (MCP). On Linux, Settings now warns that the AppImage's path changes on
+  every launch; use the `.deb` or `.rpm` for MCP.
+
+0.2.3 was not released: its build failed.
 
 ## 0.2.2 (2026-10-22)
 
