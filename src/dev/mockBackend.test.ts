@@ -18,7 +18,7 @@ beforeAll(async () => {
 const COMMANDS = [
   "init", "save_connection", "delete_connection", "test_connection", "open_database", "refresh_schema",
   "list_databases", "run_query", "generate_sql", "cancel_generation", "list_scripts", "save_script",
-  "delete_script", "list_skills", "save_skill", "delete_skill", "mcp_setup", "app_info", "check_update",
+  "delete_script", "list_skills", "save_skill", "delete_skill", "mcp_setup", "take_handoffs", "app_info", "check_update",
   "install_update", "save_settings", "finish_onboarding", "list_models",
 ];
 

@@ -233,12 +233,13 @@ impl SayqlServer {
 
     #[tool(description = "List the SQL scripts the user saved in SayQL, with their SQL. Read-only ones can be run \
                           with run_query; open_script opens one in SayQL for the user.")]
-    async fn list_scripts(&self, Parameters(p): Parameters<ScriptsParams>) -> String {
-        let connections = self.state.store.connections();
+    async fn list_scripts(&self, Parameters(p): Parameters<ScriptsParams>) -> Result<String, String> {
+        let connections = self.state.store.connections().map_err(|e| e.to_string())?;
         let list: Vec<_> = self
             .state
             .store
             .scripts()
+            .map_err(|e| e.to_string())?
             .into_iter()
             .filter(|s| p.connection_id.as_ref().is_none_or(|id| &s.connection_id == id))
             .map(|s| {
@@ -247,14 +248,14 @@ impl SayqlServer {
                         "database": s.database, "question": s.question, "sql": s.sql })
             })
             .collect();
-        json!(list).to_string()
+        Ok(json!(list).to_string())
     }
 
     #[tool(description = "Open one of the user's saved scripts (from list_scripts) in SayQL, without running it. \
                           The user reviews it and clicks Run.")]
     async fn open_script(&self, Parameters(p): Parameters<ScriptParams>, ctx: RequestContext<RoleServer>) -> Result<String, String> {
         let script_id = handoff::script_id(&p.script_id)?;
-        let script = self.state.store.scripts().into_iter().find(|s| s.id == script_id).ok_or_else(|| {
+        let script = self.state.store.scripts().map_err(|e| e.to_string())?.into_iter().find(|s| s.id == script_id).ok_or_else(|| {
             format!("No saved script has id {script_id:?}; use one from list_scripts.")
         })?;
         self.hand_off(Action::OpenScript(ScriptRef { script_id }), &ctx)?;
