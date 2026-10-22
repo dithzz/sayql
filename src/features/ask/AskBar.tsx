@@ -68,36 +68,26 @@ export const AskBar = forwardRef<HTMLTextAreaElement, AskBarProps>(function AskB
     input.current?.focus();
   };
 
-  // Grow with the text, up to the CSS max-height.
+  // Grow with the text, up to the CSS max-height. Empty, it's one line: the placeholder doesn't count.
   useLayoutEffect(() => {
     const el = input.current;
     if (!el) return;
     el.style.height = "auto";
-    el.style.height = `${el.scrollHeight}px`;
-  }, [p.question]);
+    if (rest) el.style.height = `${el.scrollHeight}px`;
+  }, [p.question, rest]);
 
   const placeholder =
     command?.kind === "builtin"
       ? command.builtin.placeholder
       : command
         ? "Ask in plain English"
-        : "Ask in plain English — e.g. top 10 customers by total spend this year. Type / for commands";
+        : "Ask in plain English, or type / for commands";
   // /new and the actions don't build on the last query; /followup always does.
   const followUp = p.followUp && slug !== "new" && !isAction(command) ? p.followUp : undefined;
 
   return (
     <div className={styles.ask}>
       <div ref={box} className={styles.inputWrap}>
-        {p.focusTables.length > 0 && (
-          <div className={styles.context}>
-            <ContextPill
-              tables={p.focusTables}
-              enabled={p.focusEnabled}
-              onEnabledChange={p.onFocusEnabledChange}
-              onClear={() => p.onFocusTablesChange([])}
-            />
-          </div>
-        )}
         <div className={styles.inputRow}>
         <span className={styles.sparkle}>
           <Sparkles size={14} />
@@ -152,6 +142,16 @@ export const AskBar = forwardRef<HTMLTextAreaElement, AskBarProps>(function AskB
             }
           }}
         />
+        {p.focusTables.length > 0 && (
+          <div className={styles.context}>
+            <ContextPill
+              tables={p.focusTables}
+              enabled={p.focusEnabled}
+              onEnabledChange={p.onFocusEnabledChange}
+              onClear={() => p.onFocusTablesChange([])}
+            />
+          </div>
+        )}
         </div>
       </div>
       {menuOpen && <SlashMenu id={menuId} items={items} active={active} anchor={box} onActiveChange={setActive} onPick={pick} />}

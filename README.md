@@ -12,9 +12,9 @@
 The safe way to query production databases, without being a SQL expert.<br>
 The right SQL in seconds, and nothing changes unless you say so.
 
-[![Latest release](https://img.shields.io/github/v/release/dithzz/sayql-releases?label=release&color=4F46E5)](https://github.com/dithzz/sayql-releases/releases/latest)
+[![Latest release](https://img.shields.io/github/v/release/dithzz/sayql-releases?label=release&color=1f6feb)](https://github.com/dithzz/sayql-releases/releases/latest)
 [![CI](https://github.com/dithzz/sayql/actions/workflows/ci.yml/badge.svg)](https://github.com/dithzz/sayql/actions/workflows/ci.yml)
-[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-7C3AED)](LICENSE)
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-1f6feb)](LICENSE)
 [![Platforms](https://img.shields.io/badge/platforms-macOS%20%7C%20Windows%20%7C%20Linux-475569)](https://github.com/dithzz/sayql-releases/releases/latest)
 
 [**Download**](https://github.com/dithzz/sayql-releases/releases/latest) · [Docs](https://sayql.vercel.app/docs/) · [Website](https://sayql.vercel.app) · [Discussions](https://github.com/dithzz/sayql/discussions)
