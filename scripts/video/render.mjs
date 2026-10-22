@@ -4,7 +4,7 @@
 //   node scripts/video/render.mjs [dark|light] [full|short|poster] [audio]
 //
 // Frames are drawn by compositor.html in headless Chrome and piped to ffmpeg (H.264, 30 fps).
-// The soundtrack is music.py's original track (MUSIC=0 for silence) plus, with VOICE set to a
+// The soundtrack is music.py's original track (MUSIC_FILE=path for your own, MUSIC=0 for none) plus, with VOICE set to a
 // macOS voice or recordings in media/voiceover/<id>.wav, the lines in voiceover.json; that
 // version goes to <name>-voiceover.mp4. "audio" redoes only the soundtrack. Cut points and the
 // voiceover script go to media/*-cuts.md.
@@ -246,13 +246,15 @@ function soundtrack(video, music, voice, out) {
   const args = ["-y", "-loglevel", "error", "-i", video];
   args.push(...(music ? ["-i", music] : ["-f", "lavfi", "-t", String(total), "-i", "anullsrc=r=48000:cl=stereo"]));
   voice.forEach((l) => args.push("-i", l.file));
-  const f = [`[1:a]aresample=48000,volume=${voice.length ? 0.4 : 1}[m]`];
+  // A track of your own (MUSIC_FILE) is cut to length with a fade; music.py's already ends.
+  const fade = process.env.MUSIC_FILE ? `,afade=t=out:st=${(total - 2.5).toFixed(2)}:d=2.5` : "";
+  const f = [`[1:a]aresample=48000,volume=${voice.length ? 0.4 : 1}${fade}[m]`];
   if (voice.length) {
     voice.forEach((l, i) => f.push(`[${i + 2}:a]aresample=48000,pan=stereo|c0=c0|c1=c0,adelay=${Math.round(l.t * 1000)}:all=1[v${i}]`));
     f.push(`${voice.map((_, i) => `[v${i}]`).join("")}amix=inputs=${voice.length}:normalize=0:duration=longest,asplit[vk][vm]`);
     f.push(`[m][vk]sidechaincompress=threshold=0.02:ratio=8:attack=15:release=350[md]`);
     f.push(`[md][vm]amix=inputs=2:normalize=0:duration=first,loudnorm=I=-16:TP=-1.5[a]`);
-  } else f.push(music ? `[m]loudnorm=I=-26:TP=-6[a]` : `[m]anull[a]`);
+  } else f.push(music ? `[m]loudnorm=I=-21:TP=-3[a]` : `[m]anull[a]`);
   args.push("-filter_complex", f.join(";"), "-map", "0:v", "-map", "[a]", "-t", total.toFixed(3));
   args.push("-c:v", "copy", "-c:a", "aac", "-b:a", "160k", "-ar", "48000", "-movflags", "+faststart", out);
   run(FFMPEG, args);
@@ -295,7 +297,8 @@ if (cut === "poster") {
   const titleCard = items.find((it) => it.card === "title");
   const endCard = items.find((it) => it.card === "end");
   let music = null;
-  if (process.env.MUSIC !== "0") {
+  if (process.env.MUSIC_FILE) music = process.env.MUSIC_FILE;
+  else if (process.env.MUSIC !== "0") {
     music = join(work, "music.wav");
     run("python3", [join(import.meta.dirname, "music.py"), music, total.toFixed(3), "--intro", String(titleCard?.dur ?? 0), "--outro", String(total - endCard.start)]);
   }

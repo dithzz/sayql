@@ -24,8 +24,10 @@ node scripts/video/render.mjs light full
 
 ## Sound
 
-- **Music:** `music.py` synthesizes an original track timed to the edit (no samples or
-  licensed music, so nothing to clear). `MUSIC=0` renders silent.
+- **Music:** `music.py` synthesizes an original lo-fi groove timed to the edit (no samples
+  or licensed music, so nothing to clear). To use a track of your own instead,
+  `MUSIC_FILE=path/to/track.mp3 node scripts/video/render.mjs dark full audio` (it's cut to
+  length with a fade). `MUSIC=0` renders silent.
 - **Voiceover:** the lines and their cue points are in `voiceover.json`; each render writes
   the script with start times and how long each line can run to `media/<name>-cuts.md`.
   Add a voice either way, then `node scripts/video/render.mjs dark full audio` (only the
