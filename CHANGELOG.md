@@ -3,7 +3,7 @@
 All notable changes to SayQL are listed here. Downloads are on the
 [releases page](https://github.com/dithzz/sayql-releases/releases).
 
-## Unreleased
+## 0.2.0 (2026-10-22)
 
 - **Slash commands** in the Ask box: type `/` for `/followup`, `/new`, `/explain`, `/fix` and `/improve`.
 - **Skills:** save an instruction once, like `/pii-safe` = "Never select email, phone or address columns", and add it
