@@ -5,8 +5,19 @@ use crate::error::AppResult;
 use futures_util::TryStreamExt;
 use serde_json::Value;
 use sqlx::{AssertSqlSafe, Column as _, Either, Executor, Row, SqlSafeStr, Statement};
-use std::time::Instant;
+use std::future::Future;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::{Duration, Instant};
 use tiberius::Command;
+use tokio_util::sync::CancellationToken;
+
+/// The error of a query stopped with its `CancellationToken`. Must match `QUERY_CANCELLED`
+/// in src/api/types.ts.
+pub const CANCELLED: &str = "Query cancelled.";
+
+/// How long a cancelled query gets to stop before its connection is closed anyway.
+const STOP_GRACE: Duration = Duration::from_secs(5);
 
 pub async fn run_query(pool: &DbPool, sql: &str, read_only: bool) -> AppResult<QueryResult> {
     run_query_capped(pool, sql, read_only, MAX_ROWS).await
@@ -14,6 +25,19 @@ pub async fn run_query(pool: &DbPool, sql: &str, read_only: bool) -> AppResult<Q
 
 /// `run_query`, collecting up to `cap` rows instead of MAX_ROWS (for exports).
 pub async fn run_query_capped(pool: &DbPool, sql: &str, read_only: bool, cap: usize) -> AppResult<QueryResult> {
+    run_query_with(pool, sql, read_only, cap, &CancellationToken::new()).await
+}
+
+/// `run_query_capped` that can be stopped: when `cancel` fires, the database is asked to stop
+/// the statement (it would otherwise run on after SayQL stops waiting), the connection is
+/// closed, and the result is the `CANCELLED` error.
+pub async fn run_query_with(
+    pool: &DbPool,
+    sql: &str,
+    read_only: bool,
+    cap: usize,
+    cancel: &CancellationToken,
+) -> AppResult<QueryResult> {
     let sql = sql.trim().trim_end_matches(';').trim();
     if sql.is_empty() {
         return Err("Nothing to run.".into());
@@ -29,10 +53,24 @@ pub async fn run_query_capped(pool: &DbPool, sql: &str, read_only: bool, cap: us
     let mut res = match pool {
         DbPool::Pg(p) => {
             let mut conn = p.acquire().await?;
-            if read_only {
-                conn.execute("BEGIN READ ONLY").await?;
-            }
-            let out = collect_pg(&mut conn, sql, cap).await;
+            // The server process's id, to cancel from another connection; in the same round trip.
+            let begin = if read_only { "BEGIN READ ONLY; SELECT pg_backend_pid()" } else { "SELECT pg_backend_pid()" };
+            let pid: i32 = sqlx::raw_sql(begin).fetch_all(&mut *conn).await?.first().map(|r| r.try_get(0)).transpose()?.unwrap_or(0);
+            let out = {
+                let mut query = Box::pin(collect_pg(&mut conn, sql, cap));
+                match race(&mut query, cancel).await {
+                    Some(out) => Some(out),
+                    None => {
+                        let _ = sqlx::query("SELECT pg_cancel_backend($1)").bind(pid).execute(p).await;
+                        let _ = tokio::time::timeout(STOP_GRACE, &mut query).await;
+                        None
+                    }
+                }
+            };
+            let Some(out) = out else {
+                let _ = conn.close().await;
+                return Err(CANCELLED.into());
+            };
             if !read_only || conn.execute("ROLLBACK").await.is_err() {
                 // Never hand a connection with an open transaction back to the pool.
                 let _ = conn.close().await;
@@ -44,7 +82,25 @@ pub async fn run_query_capped(pool: &DbPool, sql: &str, read_only: bool, cap: us
             if read_only {
                 conn.execute("START TRANSACTION READ ONLY").await?;
             }
-            let out = collect_my(&mut conn, sql, cap).await;
+            // The connection's id, to stop the query from another connection with KILL QUERY.
+            let id: u64 = sqlx::query_scalar("SELECT CONNECTION_ID()").fetch_one(&mut *conn).await?;
+            let out = {
+                let mut query = Box::pin(collect_my(&mut conn, sql, cap));
+                match race(&mut query, cancel).await {
+                    Some(out) => Some(out),
+                    None => {
+                        // KILL can't be a prepared statement; `id` is the server's own number.
+                        let kill = format!("KILL QUERY {id}");
+                        let _ = sqlx::raw_sql(AssertSqlSafe(kill)).execute(p).await;
+                        let _ = tokio::time::timeout(STOP_GRACE, &mut query).await;
+                        None
+                    }
+                }
+            };
+            let Some(out) = out else {
+                let _ = conn.close().await;
+                return Err(CANCELLED.into());
+            };
             if !read_only || conn.execute("ROLLBACK").await.is_err() {
                 let _ = conn.close().await;
             }
@@ -52,13 +108,32 @@ pub async fn run_query_capped(pool: &DbPool, sql: &str, read_only: bool, cap: us
         }
         DbPool::Lite(p) => {
             let mut conn = if read_only { p.ro.acquire() } else { p.rw.acquire() }.await?;
-            let out = collect_lite(&mut conn, sql, cap).await;
+            // SQLite runs in-process: a progress handler checked every few thousand steps
+            // interrupts the statement once `stop` is set.
+            let stop = Arc::new(AtomicBool::new(false));
+            let flag = stop.clone();
+            conn.lock_handle().await?.set_progress_handler(4000, move || !flag.load(Ordering::Relaxed));
+            let out = {
+                let mut query = Box::pin(collect_lite(&mut conn, sql, cap));
+                match race(&mut query, cancel).await {
+                    Some(out) => Some(out),
+                    None => {
+                        stop.store(true, Ordering::Relaxed);
+                        let _ = tokio::time::timeout(STOP_GRACE, &mut query).await;
+                        None
+                    }
+                }
+            };
+            let Some(out) = out else {
+                let _ = conn.close().await;
+                return Err(CANCELLED.into());
+            };
             if !read_only {
                 let _ = conn.close().await;
             }
             out?
         }
-        DbPool::Ms(p) => run_mssql(p, sql, read_only, cap).await?,
+        DbPool::Ms(p) => Box::pin(run_mssql(p, sql, read_only, cap, cancel)).await?,
     };
     res.elapsed_ms = start.elapsed().as_millis();
     Ok(res)
@@ -68,7 +143,7 @@ pub async fn run_query_capped(pool: &DbPool, sql: &str, read_only: bool, cap: us
 /// A macro rather than a generic fn: generic sqlx executors make the future
 /// non-`Send` across the Tauri command boundary.
 macro_rules! collect_fn {
-    ($name:ident, $conn:ty, $cell:ident) => {
+    ($name:ident, $conn:ty, $cell:ident, $first_result_only:expr) => {
         async fn $name(conn: &mut $conn, sql: &str, cap: usize) -> AppResult<QueryResult> {
             // Running the user's own SQL is the point; read-only mode is enforced around this call.
             let sql = AssertSqlSafe(sql).into_sql_str();
@@ -83,6 +158,13 @@ macro_rules! collect_fn {
                     match item {
                         Either::Left(r) => {
                             affected = Some(affected.unwrap_or(0) + r.rows_affected());
+                            // SQLite runs every statement of a script in one call; show the first
+                            // result set only, as on the other databases. (Postgres and MySQL
+                            // prepare one statement, and stopping early here would leave MySQL's
+                            // last packet unread.)
+                            if $first_result_only && !columns.is_empty() {
+                                break;
+                            }
                         }
                         Either::Right(row) => {
                             if columns.is_empty() {
@@ -109,14 +191,14 @@ macro_rules! collect_fn {
     };
 }
 
-collect_fn!(collect_pg, sqlx::PgConnection, pg_cell);
-collect_fn!(collect_my, sqlx::MySqlConnection, my_cell);
-collect_fn!(collect_lite, sqlx::SqliteConnection, lite_cell);
+collect_fn!(collect_pg, sqlx::PgConnection, pg_cell, false);
+collect_fn!(collect_my, sqlx::MySqlConnection, my_cell, false);
+collect_fn!(collect_lite, sqlx::SqliteConnection, lite_cell, true);
 
 /// SQL Server has no read-only transaction mode. Reads run inside a transaction that is
 /// always rolled back, on top of the keyword check in `classify` that sends anything
 /// containing a write keyword to the confirmation path instead.
-async fn run_mssql(pool: &MssqlPool, sql: &str, read_only: bool, cap: usize) -> AppResult<QueryResult> {
+async fn run_mssql(pool: &MssqlPool, sql: &str, read_only: bool, cap: usize, cancel: &CancellationToken) -> AppResult<QueryResult> {
     let mut conn = pool.acquire().await?;
     if !read_only {
         // sp_executesql reports both the rows a statement returns (INSERT ... OUTPUT,
@@ -124,9 +206,18 @@ async fn run_mssql(pool: &MssqlPool, sql: &str, read_only: bool, cap: usize) -> 
         // for statements the person confirmed one by one.
         let mut cmd = Command::new("sp_executesql");
         cmd.bind_param("@stmt", sql.to_string());
-        let out = match cmd.exec(conn.client()).await {
-            Ok(stream) => stream.into_command_result().await,
-            Err(e) => Err(e),
+        let out = {
+            let mut query = Box::pin(async {
+                match cmd.exec(conn.client()).await {
+                    Ok(stream) => stream.into_command_result().await,
+                    Err(e) => Err(e),
+                }
+            });
+            race(&mut query, cancel).await
+        };
+        let Some(out) = out else {
+            stop_mssql(conn).await;
+            return Err(CANCELLED.into());
         };
         // Like the other databases: a fresh connection afterwards, so no session state carries over.
         conn.discard();
@@ -141,7 +232,14 @@ async fn run_mssql(pool: &MssqlPool, sql: &str, read_only: bool, cap: usize) -> 
     }
 
     conn.client().simple_query("BEGIN TRANSACTION").await?.into_results().await?;
-    let out = collect_mssql(conn.client(), sql, cap).await;
+    let out = {
+        let mut query = Box::pin(collect_mssql(conn.client(), sql, cap));
+        race(&mut query, cancel).await
+    };
+    let Some(out) = out else {
+        stop_mssql(conn).await;
+        return Err(CANCELLED.into());
+    };
     // A cut-off result leaves unread rows on the wire, and a failed rollback leaves the
     // transaction open: either way, close the connection (the server rolls back).
     let cut_off = out.as_ref().map(|r| r.truncated).unwrap_or(false);
@@ -150,6 +248,23 @@ async fn run_mssql(pool: &MssqlPool, sql: &str, read_only: bool, cap: usize) -> 
         conn.discard();
     }
     out
+}
+
+/// Sends SQL Server an attention (the protocol's cancel) for the running batch, then closes
+/// the connection; the server rolls back what the batch had done.
+async fn stop_mssql(mut conn: super::mssql_pool::MssqlConn<'_>) {
+    let _ = tokio::time::timeout(STOP_GRACE, conn.client().cancel_query()).await;
+    conn.discard();
+}
+
+/// The query's output, or `None` if `cancel` fired first. The query stays usable, so the
+/// caller can wait for it to stop. Queries are boxed: their futures are large, and on the
+/// stack they overflow a 2 MB thread in debug builds.
+async fn race<F: Future + Unpin>(query: &mut F, cancel: &CancellationToken) -> Option<F::Output> {
+    tokio::select! {
+        out = query => Some(out),
+        _ = cancel.cancelled() => None,
+    }
 }
 
 async fn rollback(client: &mut MssqlClient) -> AppResult<()> {

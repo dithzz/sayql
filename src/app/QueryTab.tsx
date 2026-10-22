@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Wand2 } from "lucide-react";
-import type { Schema, Settings, Skill } from "../api";
+import { QUERY_CANCELLED, type Schema, type Settings, type Skill } from "../api";
 import { Button, SplitPane } from "../components/ui";
 import { parseCommand, planRequest, useSqlGeneration, type TaskKind } from "../features/ask";
 import { resolveSelection, type TextRange } from "../features/editor";
@@ -56,7 +56,7 @@ export function QueryTab({ tab, active, label, schema, settings, modelNames, onC
     setWidened(null);
     // Follow-ups see the question without its "/command".
     onChange({ lastRun: sql.trim() ? { question: parseCommand(question, skills).rest, sql } : null });
-    query.run(sql);
+    query.run(sql, schema?.dialect);
   };
 
   const generation = useSqlGeneration({
@@ -86,11 +86,11 @@ export function QueryTab({ tab, active, label, schema, settings, modelNames, onC
    * it. Follow-ups keep building on the whole query, since the AI rewrites the whole editor.
    */
   const runSelectionOrAll = () => {
-    const r = selection && resolveSelection(tab.sql, selection);
+    const r = selection && resolveSelection(tab.sql, selection, schema?.dialect);
     if (!r) return run();
     ranSelection.current = true;
-    setWidened(r.expanded ? { range: r.range, count: statementRanges(r.sql).length } : null);
-    query.run(r.sql);
+    setWidened(r.expanded ? { range: r.range, count: statementRanges(r.sql, schema?.dialect).length } : null);
+    query.run(r.sql, schema?.dialect);
   };
 
   /** ↵ in the Ask box: /explain, /fix and /improve work on the editor's SQL; anything else runs. */
@@ -171,6 +171,7 @@ export function QueryTab({ tab, active, label, schema, settings, modelNames, onC
               onSqlChange: setSql,
               onRun: runSelectionOrAll,
               running: query.running,
+              onCancel: query.cancel,
               selection,
               onSelectionChange: setSelection,
               select: widened?.range ?? null,
@@ -198,7 +199,7 @@ export function QueryTab({ tab, active, label, schema, settings, modelNames, onC
             }
             errorAction={
               // The AI rewrites one whole query, so a selection or a script is left to the person.
-              canUseAi && !ranSelection.current && query.total === 1 && (
+              canUseAi && !ranSelection.current && query.total === 1 && query.error !== QUERY_CANCELLED && (
                 <Button
                   size="sm"
                   variant="ghost"

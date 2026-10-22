@@ -20,12 +20,11 @@ the tests passing against one PostgreSQL, MySQL, MariaDB and SQL Server version.
     <tr><td>PostgreSQL</td><td>13, 15, 16, 17</td><td>Partitioned tables appear once, under the parent. Materialized views are listed.</td></tr>
     <tr><td>MySQL</td><td>5.7, 8.0, 8.4</td><td>On 5.7, connect with <b>Require SSL</b> off: its encryption is too old for SayQL.</td></tr>
     <tr><td>MariaDB</td><td>10.6, 10.11, 11.4</td><td>Accounts using <code>ed25519</code> can't sign in; use a password account.</td></tr>
-    <tr><td>SQL Server</td><td>2019, 2022</td><td>Also Azure SQL. <code>geometry</code> and <code>geography</code> show as bytes: use <code>.STAsText()</code>.</td></tr>
+    <tr><td>SQL Server</td><td>2019, 2022</td><td>Also Azure SQL. <code>geography</code> values show as bytes: use <code>.STAsText()</code>.</td></tr>
     <tr><td>SQLite</td><td>3 (bundled)</td><td>Reads use a connection opened read-only.</td></tr>
   </tbody>
 </table></div>
-<p>SayQL can't stop a query once it's running, so limit long ones on the server side, for example with
-<code>statement_timeout</code> on PostgreSQL. The full results, and every known limitation, are in
+<p>Click <b>Cancel</b> to stop a slow query on the server. The full results, and every known limitation, are in
 <a href="https://github.com/dithzz/sayql/blob/main/docs/DATABASE_COMPATIBILITY.md">Database compatibility</a>.</p>
 
 <h2>Use a read-only login</h2>

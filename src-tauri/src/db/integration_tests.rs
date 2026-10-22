@@ -695,6 +695,26 @@ async fn zero_dates_geometry_and_unnamed_columns() {
         let pool = open(Kind::Mssql, &t, &t.database).await;
         let r = query(&pool, "SELECT 1, 2 AS two, COUNT(*) FROM sys.databases WHERE 1 = 0", true).await;
         assert_eq!(r.columns, ["(No column name)", "two", "(No column name)"]);
+        // geometry reads as SQL Server's own STAsText() writes it.
+        for wkt in [
+            "POINT (1.5 -2)",
+            "POINT (1 2 3)",
+            "LINESTRING (0 0, 1 1)",
+            "LINESTRING (0 0, 1 1, 2 0)",
+            "POLYGON ((0 0, 4 0, 4 4, 0 0), (1 1, 2 1, 2 2, 1 1))",
+            "MULTIPOINT ((1 2), (3 4))",
+            "MULTILINESTRING ((0 0, 1 1), (2 2, 3 3))",
+            "MULTIPOLYGON (((0 0, 1 0, 1 1, 0 0)), ((5 5, 6 5, 6 6, 5 5)))",
+            "GEOMETRYCOLLECTION (POINT (1 2), LINESTRING (0 0, 1 1))",
+            "POINT EMPTY",
+        ] {
+            let sql = format!("SELECT g, g.STAsText() AS t FROM (SELECT geometry::STGeomFromText('{wkt}', 0) AS g) x");
+            let r = query(&pool, &sql, true).await;
+            assert_eq!(r.rows[0][0], r.rows[0][1], "{wkt}");
+        }
+        // geography and hierarchyid stay as bytes.
+        let r = query(&pool, "SELECT geography::Point(47.6, -122.3, 4326), hierarchyid::Parse('/1/2/')", true).await;
+        assert!(r.rows[0].iter().all(|v| v.as_str().is_some_and(|s| s.starts_with("0x"))), "{:?}", r.rows);
     }
 }
 
@@ -1110,5 +1130,58 @@ async fn quoted_names_work_as_written() {
         check_quoted_names(&pool, Kind::Mssql, Some("Sayql Q")).await;
         drop(pool);
         exec(&admin, "ALTER DATABASE sayql_q SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE sayql_q").await;
+    }
+}
+
+/// Cancels `sql` after a second, and checks it stopped on the server (`running` counts it
+/// there) and that the pool still works afterwards.
+async fn check_cancel(pool: &DbPool, sql: &str, read_only: bool, running: &str) {
+    let cancel = tokio_util::sync::CancellationToken::new();
+    let timer = tokio::spawn({
+        let cancel = cancel.clone();
+        async move {
+            tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+            cancel.cancel();
+        }
+    });
+    let started = std::time::Instant::now();
+    let r = run_query_with(pool, sql, read_only, MAX_ROWS, &cancel).await;
+    timer.await.unwrap();
+    assert_eq!(r.err().map(|e| e.to_string()).as_deref(), Some(CANCELLED), "{sql}");
+    assert!(started.elapsed() < std::time::Duration::from_secs(10), "{sql}: took {:?}", started.elapsed());
+    // The server may take a moment to clear the request.
+    let mut left = json!(-1);
+    for _ in 0..20 {
+        left = query(pool, running, true).await.rows[0][0].clone();
+        if left == json!(0) {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+    }
+    assert_eq!(left, json!(0), "{sql} is still running on the server");
+    assert_eq!(scalar(pool, "SELECT 40 + 2").await, json!(42));
+}
+
+/// A cancelled query stops on the server, read-only or confirmed, instead of running on.
+#[tokio::test]
+async fn cancelled_queries_stop_on_the_server() {
+    if let Some(t) = env_target("SAYQL_TEST_PG_URL") {
+        let db = if t.database.is_empty() { "postgres".to_string() } else { t.database.clone() };
+        let pool = open(Kind::Postgres, &t, &db).await;
+        let running = "SELECT count(*) FROM pg_stat_activity WHERE query = 'SELECT pg_sleep(30)' AND state = 'active'";
+        check_cancel(&pool, "SELECT pg_sleep(30)", true, running).await;
+        check_cancel(&pool, "SELECT pg_sleep(30)", false, running).await;
+    }
+    if let Some(t) = env_target("SAYQL_TEST_MYSQL_URL") {
+        let pool = open(Kind::Mysql, &t, &t.database).await;
+        let running = "SELECT COUNT(*) FROM information_schema.PROCESSLIST WHERE INFO = 'SELECT SLEEP(30)'";
+        check_cancel(&pool, "SELECT SLEEP(30)", true, running).await;
+        check_cancel(&pool, "SELECT SLEEP(30)", false, running).await;
+    }
+    if let Some(t) = env_target("SAYQL_TEST_MSSQL_URL") {
+        let pool = open(Kind::Mssql, &t, &t.database).await;
+        let running = "SELECT COUNT(*) FROM sys.dm_exec_requests WHERE wait_type = 'WAITFOR' AND session_id <> @@SPID";
+        check_cancel(&pool, "SELECT 1 AS a; WAITFOR DELAY '00:00:30'", true, running).await;
+        check_cancel(&pool, "WAITFOR DELAY '00:00:30'", false, running).await;
     }
 }

@@ -5,7 +5,7 @@
 //! dialog, where the person types the password, and SQL or a saved script in a tab, which
 //! they run. `export_csv` writes a read-only query's rows to a new file in Downloads.
 
-use crate::db::{self, Kind};
+use crate::db::{self, DbPool, Kind, QueryResult};
 use crate::handoff::{self, Action, Handoff, ScriptRef};
 use crate::schema::{self, Schema, Table};
 use crate::state::{AppState, Target};
@@ -19,6 +19,8 @@ use serde_json::{Map, Value, json};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use std::time::Duration;
+use tokio_util::sync::CancellationToken;
 
 /// The Tauri app identifier: where the app keeps its config and data.
 const APP_ID: &str = "com.sayql.app";
@@ -26,6 +28,10 @@ const DEFAULT_ROWS: usize = 100;
 const MAX_ROWS: usize = 1000;
 /// Most rows `export_csv` writes.
 const EXPORT_ROWS: usize = 100_000;
+/// How long a query may run before SayQL stops it. An AI app has no way to cancel one, and
+/// a forgotten query would keep the database busy.
+const QUERY_TIMEOUT: Duration = Duration::from_secs(120);
+const EXPORT_TIMEOUT: Duration = Duration::from_secs(600);
 /// A schema bigger than this is listed by table name unless a search narrows it.
 const FULL_SCHEMA_CHARS: usize = 60_000;
 
@@ -188,7 +194,7 @@ impl SayqlServer {
         if !db::is_read_only(&p.sql, pool.kind()) {
             return Err(WRITE_REFUSED.into());
         }
-        let r = db::run_query(&pool, &p.sql, true).await.map_err(|e| e.to_string())?;
+        let r = run_limited(&pool, &p.sql, db::MAX_ROWS, QUERY_TIMEOUT).await?;
         let limit = p.max_rows.unwrap_or(DEFAULT_ROWS).clamp(1, MAX_ROWS);
         let page = page(r.rows, r.truncated, p.offset.unwrap_or(0), limit);
         let mut out = json!({
@@ -217,7 +223,7 @@ impl SayqlServer {
             return Err(WRITE_REFUSED.into());
         }
         let dir = dirs::download_dir().or_else(dirs::home_dir).ok_or("Could not find the Downloads folder.")?;
-        let r = db::run_query_capped(&pool, &p.sql, true, EXPORT_ROWS).await.map_err(|e| e.to_string())?;
+        let r = run_limited(&pool, &p.sql, EXPORT_ROWS, EXPORT_TIMEOUT).await?;
         let (path, mut file) = new_export_file(&dir, p.file_name.as_deref())?;
         file.write_all(to_csv(&r.columns, &r.rows).as_bytes()).map_err(|e| format!("Could not write {}: {e}", path.display()))?;
         Ok(json!({
@@ -291,6 +297,28 @@ impl SayqlServer {
 
 const WRITE_REFUSED: &str = "SayQL's MCP access is read-only, and this statement could change data. \
 Use open_query to put it in a SayQL tab, where the user reviews and runs it.";
+
+/// Runs a read-only query, stopping it on the server if it runs longer than `limit`.
+async fn run_limited(pool: &DbPool, sql: &str, cap: usize, limit: Duration) -> Result<QueryResult, String> {
+    let cancel = CancellationToken::new();
+    let timer = tokio::spawn({
+        let cancel = cancel.clone();
+        async move {
+            tokio::time::sleep(limit).await;
+            cancel.cancel();
+        }
+    });
+    let out = db::run_query_with(pool, sql, true, cap, &cancel).await;
+    timer.abort();
+    out.map_err(|e| match e.to_string() {
+        e if e == db::CANCELLED => format!(
+            "The query was still running after {} seconds, so SayQL stopped it. Narrow it (a WHERE clause, \
+             fewer joins, LIMIT/TOP) and try again, or run it in the SayQL app.",
+            limit.as_secs()
+        ),
+        e => e,
+    })
+}
 
 /// One page of a query's rows.
 struct Page {
@@ -564,13 +592,30 @@ mod tests {
         (SELECT 0 AS d UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) c \
         ORDER BY v";
 
-    /// The tools against real servers (skipped unless the SAYQL_TEST_*_URL variables are
-    /// set; see db/integration_tests.rs). The connection is saved without a password and its
-    /// pool opened directly, so the test never touches the keychain.
+    /// The tools against the demo SQLite store, and against real servers when the
+    /// SAYQL_TEST_*_URL variables are set (see db/integration_tests.rs). The connection is saved
+    /// without a password and its pool opened directly, so the test never touches the keychain.
     #[tokio::test]
     async fn tools_work_against_real_databases() {
-        for (var, kind) in [("SAYQL_TEST_PG_URL", Kind::Postgres), ("SAYQL_TEST_MYSQL_URL", Kind::Mysql), ("SAYQL_TEST_MSSQL_URL", Kind::Mssql)] {
-            let Some((cfg, password)) = db::env_config(var, kind) else { continue };
+        let demo_dir = std::env::temp_dir().join(format!("sayql-mcp-demo-{}", uuid::Uuid::new_v4()));
+        let demo = demo_dir.join("demo.sqlite");
+        db::ensure_demo(&demo).await.unwrap();
+        let sqlite = db::ConnConfig {
+            id: "demo".into(),
+            name: "Demo".into(),
+            kind: Kind::Sqlite,
+            host: String::new(),
+            port: None,
+            database: String::new(),
+            user: String::new(),
+            file: demo.to_string_lossy().into_owned(),
+            ssl: false,
+            trust_cert: false,
+        };
+        let servers = [("SAYQL_TEST_PG_URL", Kind::Postgres), ("SAYQL_TEST_MYSQL_URL", Kind::Mysql), ("SAYQL_TEST_MSSQL_URL", Kind::Mssql)];
+        let targets = std::iter::once(Some((sqlite, None))).chain(servers.map(|(var, kind)| db::env_config(var, kind)));
+        for (cfg, password) in targets.flatten() {
+            let kind = cfg.kind;
             let dir = std::env::temp_dir().join(format!("sayql-mcp-{}", uuid::Uuid::new_v4()));
             let state = AppState::new(dir.clone(), dir.clone()).unwrap();
             state.store.save_connections(&[cfg.clone()]).unwrap();
@@ -581,8 +626,12 @@ mod tests {
 
             let list = json(server.list_connections().await.unwrap());
             assert_eq!(list[0]["dialect"], json!(kind.dialect()), "{kind:?}");
-            let dbs = json(server.list_databases(Parameters(conn())).await.unwrap());
-            assert!(dbs["databases"].is_array(), "{kind:?}: {dbs}");
+            let dbs = server.list_databases(Parameters(conn())).await.unwrap();
+            if kind == Kind::Sqlite {
+                assert!(dbs.contains("single database"), "{dbs}");
+            } else {
+                assert!(json(dbs.clone())["databases"].is_array(), "{kind:?}: {dbs}");
+            }
             let schema = server
                 .describe_schema(Parameters(SchemaParams { connection_id: cfg.id.clone(), database: None, search: None }))
                 .await
@@ -613,12 +662,13 @@ mod tests {
 
             // export_csv writes to Downloads; check what it writes without writing there.
             let pool = server.state.target_pool(&Target::default_of(&cfg.id)).await.unwrap();
-            let r = db::run_query_capped(&pool, THOUSAND, true, EXPORT_ROWS).await.unwrap();
+            let r = db::run_query_with(&pool, THOUSAND, true, EXPORT_ROWS, &CancellationToken::new()).await.unwrap();
             let csv = to_csv(&r.columns, &r.rows);
             assert_eq!(csv.lines().count(), 1001, "{kind:?}");
             assert!(csv.starts_with("v\n0\n1\n") && csv.ends_with("999\n"), "{kind:?}");
             let _ = std::fs::remove_dir_all(dir);
         }
+        let _ = std::fs::remove_dir_all(demo_dir);
     }
 
     #[test]

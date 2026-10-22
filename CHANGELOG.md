@@ -38,6 +38,14 @@ All notable changes to SayQL are listed here. Downloads are on the
   to show as NULL. They now show as MySQL writes them.
 - **MySQL geometry shows as WKT:** `POINT(1.5 -2)`, `POLYGON(...)` and the rest, instead of `<geometry>`.
 - **SQL Server columns without a name** show as "(No column name)", as in SQL Server's own tools.
+- **Cancel a running query:** a **Cancel** button next to **Run** stops a slow query on the database
+  server itself (PostgreSQL, MySQL, MariaDB, SQL Server, SQLite), not just in SayQL. Queries from AI apps
+  over MCP stop on their own after 2 minutes (exports after 10).
+- **Scripts split the way your database reads them:** a `;` inside a MySQL `#` comment or `'it\'s'` string,
+  or a Postgres `$tag1$` string, no longer splits a statement in two.
+- **SQL Server `geometry` shows as WKT,** as `STAsText()` writes it, instead of bytes.
+- **SQLite scripts over MCP** return the first result set, instead of every statement's rows under the
+  first one's columns.
 
 ## 0.2.6 (2026-10-22)
 - **Deleting a connection** also removes its password from the keychain item older versions saved it in.

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { commands, type Target } from "../../api";
+import { QUERY_CANCELLED, commands, type Dialect, type Target } from "../../api";
 import { useLatest } from "../../hooks/useLatest";
 import { splitForRun } from "../../lib/sqlStatements";
 import { targetKey } from "../connections";
@@ -15,7 +15,10 @@ export interface QueryRunner {
   running: boolean;
   /** A data-changing statement waiting for the user's confirmation. */
   pendingWrite: string | null;
-  run: (sql: string) => void;
+  /** Runs `sql`, split into statements the way `dialect` reads it. */
+  run: (sql: string, dialect?: Dialect) => void;
+  /** Stops the running statement on the server; later statements of the run don't start. */
+  cancel: () => void;
   confirmWrite: () => void;
   cancelWrite: () => void;
 }
@@ -34,6 +37,13 @@ export function useQueryRunner(target: Target | null, onFailure?: (sql: string, 
   const answer = useRef<((ok: boolean) => void) | null>(null);
   /** Bumped by each run and database change; a stale run's progress is dropped. */
   const runId = useRef(0);
+  /** The id of the statement running on the server, for `cancelQuery`. */
+  const statementId = useRef<string | null>(null);
+
+  const stopStatement = () => {
+    if (statementId.current) void commands.cancelQuery(statementId.current).catch(() => {});
+    statementId.current = null;
+  };
 
   const settle = (ok: boolean) => {
     answer.current?.(ok);
@@ -44,6 +54,7 @@ export function useQueryRunner(target: Target | null, onFailure?: (sql: string, 
   const key = targetKey(target);
   useEffect(() => {
     runId.current++;
+    stopStatement();
     settle(false);
     setOutcomes([]);
     setTotal(0);
@@ -52,17 +63,28 @@ export function useQueryRunner(target: Target | null, onFailure?: (sql: string, 
   }, [key]);
 
   const run = useCallback(
-    async (sql: string) => {
-      const statements = splitForRun(sql);
+    async (sql: string, dialect?: Dialect) => {
+      const statements = splitForRun(sql, dialect);
       if (!target || statements.length === 0) return;
       const id = ++runId.current;
+      stopStatement();
       settle(false);
       setOutcomes([]);
       setTotal(statements.length);
       setRunning(true);
       const out = await runStatements(
         statements,
-        (s, allowWrite) => commands.runQuery(target, s, allowWrite),
+        async (s, allowWrite) => {
+          // A cancelled run starts no further statements.
+          if (id !== runId.current) throw QUERY_CANCELLED;
+          const sid = crypto.randomUUID();
+          statementId.current = sid;
+          try {
+            return await commands.runQuery(target, s, allowWrite, sid);
+          } finally {
+            if (statementId.current === sid) statementId.current = null;
+          }
+        },
         (s) =>
           new Promise<boolean>((resolve) => {
             if (id !== runId.current) return resolve(false);
@@ -74,7 +96,7 @@ export function useQueryRunner(target: Target | null, onFailure?: (sql: string, 
       if (id !== runId.current) return;
       setRunning(false);
       const last = out[out.length - 1];
-      if (statements.length === 1 && last?.error) failure.current?.(last.sql, last.error);
+      if (statements.length === 1 && last?.error && last.error !== QUERY_CANCELLED) failure.current?.(last.sql, last.error);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [target, failure],
@@ -87,6 +109,11 @@ export function useQueryRunner(target: Target | null, onFailure?: (sql: string, 
     running,
     pendingWrite,
     run,
+    cancel: () => {
+      // Keep the outcomes so far; the stopped statement reports QUERY_CANCELLED.
+      stopStatement();
+      settle(false);
+    },
     confirmWrite: () => settle(true),
     cancelWrite: () => settle(false),
   };

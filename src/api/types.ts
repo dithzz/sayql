@@ -190,6 +190,9 @@ export interface Bootstrap {
 /** Sentinel error from `run_query`: the statement writes data and needs confirmation. */
 export const WRITE_CONFIRM = "WRITE_CONFIRM";
 
+/** The error of a query stopped with `cancel_query`. Must match `CANCELLED` in db/execute.rs. */
+export const QUERY_CANCELLED = "Query cancelled.";
+
 export interface AiDelta {
   reqId: number;
   text: string;

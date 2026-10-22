@@ -18,22 +18,22 @@ pull request (the `integration` job). Last full run: 2026-10-22, against real se
 | Schema: schemas, views, keys, enums, odd names | 🔧 | 🔧 | 🔧 | 🔧 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Schema as a read-only login | 🔧 | 🔧 | 🔧 | 🔧 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | — |
 | Materialized views, partitioned tables | 🔧 | 🔧 | 🔧 | 🔧 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | — |
-| 500-table schema, row estimates | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ³ |
-| Data types in results | ✅ | ✅ | ✅ | ✅ | 🔧 | 🔧 | 🔧 | 🔧 | 🔧 | 🔧 | 🔧 ⚠️ | 🔧 ⚠️ | ✅ |
-| CTEs, window functions, scripts, 5,000-row cap | ✅ | ✅ | ✅ | ✅ | ✅ ² | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Cancel a running query | ⚠️ | ⚠️ | ⚠️ | ⚠️ | ⚠️ | ⚠️ | ⚠️ | ⚠️ | ⚠️ | ⚠️ | ⚠️ | ⚠️ | ⚠️ |
+| 500-table schema, row estimates | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Data types in results | ✅ | ✅ | ✅ | ✅ | 🔧 | 🔧 | 🔧 | 🔧 ⚠️ | 🔧 ⚠️ | 🔧 ⚠️ | 🔧 ⚠️ | 🔧 ⚠️ | ✅ |
+| CTEs, window functions, scripts, 5,000-row cap | ✅ | ✅ | ✅ | ✅ | 🔧 ² | 🔧 | 🔧 | 🔧 | 🔧 | 🔧 | ✅ | ✅ | 🔧 |
+| Cancel a running query (stops on the server) | 🔧 | 🔧 | 🔧 | 🔧 | 🔧 | 🔧 | 🔧 | 🔧 | 🔧 | 🔧 | 🔧 | 🔧 | 🔧 |
 | Read-only: writes refused (app and MCP) | 🔧 | 🔧 | 🔧 | 🔧 | 🔧 | 🔧 | 🔧 | 🔧 | 🔧 | 🔧 | ✅ | ✅ | ✅ |
 | Read-only: the database itself refuses | ✅ | ✅ | ✅ | ✅ | ⚠️ | ⚠️ | ⚠️ | ⚠️ | ⚠️ | ⚠️ | ⚠️ | ⚠️ | ✅ |
 | Confirmed write commits, leaves no session state | 🔧 | 🔧 | 🔧 | 🔧 | 🔧 | 🔧 | 🔧 | 🔧 | 🔧 | 🔧 | 🔧 | 🔧 | ✅ |
 | Schema text for the AI (quoting) | 🔧 | 🔧 | 🔧 | 🔧 | 🔧 | 🔧 | 🔧 | 🔧 | 🔧 | 🔧 | 🔧 | 🔧 | 🔧 |
-| MCP tools, paging, `export_csv` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ³ |
+| MCP tools, paging, `export_csv` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🔧 |
 | Error values masked before the AI | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🔧 | 🔧 | 🔧 | 🔧 | 🔧 | ✅ |
 
 ¹ The Docker images of these versions don't enable TLS, so "Require SSL" correctly fails, with a message
 saying to turn it off. PostgreSQL 16 and 17 were run with TLS on.
-² MySQL 5.7 has no `WITH` or window functions; SayQL passes the server's error through.
-³ Not run against SQLite in this audit. The code path is the same as for the other databases, and the
-demo-store test covers SQLite reads, writes and row estimates.
+² MySQL 5.7 has no `WITH` or window functions; SayQL passes the server's error through. 🔧 here: scripts
+are split the MySQL way (`#` comments, `\'` escapes), and on SQLite a multi-statement call shows only the
+first result set.
 
 **Not tested:** Azure SQL Edge (see below), Azure SQL itself (needs a cloud account; SayQL follows its
 gateway redirects), PostGIS types (the plain `postgres` images don't include it), Windows/Entra sign-in.
@@ -91,14 +91,28 @@ gateway redirects), PostGIS types (the plain `postgres` images don't include it)
    statement now gets its own connection.
 8. **SQL Server showed no rows for confirmed statements** like `INSERT … OUTPUT` or `DECLARE …; SELECT`.
 9. **MySQL zero dates showed as NULL**, geometry as `<geometry>`, and SQL Server's unnamed columns had
-   blank headers.
+   blank headers. SQL Server `geometry` showed as bytes; it now reads as `STAsText()` writes it.
+10. **A running query couldn't be stopped.** It now can, from a **Cancel** button next to **Run**.
+    SayQL asks the server to stop it:
+    - `pg_cancel_backend` on PostgreSQL;
+    - `KILL QUERY` on MySQL and MariaDB;
+    - a protocol attention on SQL Server;
+    - an interrupt on SQLite.
+
+    Tests check the statement is gone from the server, not just abandoned. MCP queries stop on their own
+    after 2 minutes, and exports after 10, since an AI app can't cancel them.
+11. **The editor split MySQL scripts wrongly** at a `;` inside a `#` comment or a `'it\'s'` string, and the
+    Postgres `$tag1$` quote. Scripts are now split the way the connection's database reads them.
+12. **The browser preview's copy of the read-only check had drifted** from the app's. It's now a port of
+    the same rules, with the same test cases.
+13. **On SQLite, a call with several statements returned all their rows under the first one's columns.**
+    It now returns the first result set, as the other databases do.
 
 ## Known limitations
 
-- **No cancel or timeout for a running query.** A long query runs until the server finishes it, and on SQL
-  Server it holds the connection's only slot until then. Run heavy queries with a `LIMIT`/`TOP`, or set a
-  server-side limit for the login, such as `statement_timeout` (PostgreSQL), `max_execution_time` (MySQL) or
-  the Resource Governor (SQL Server).
+- **No automatic timeout in the app.** Queries run until they finish or you click **Cancel**. To cap them
+  for a shared login, set a server-side limit: `statement_timeout` (PostgreSQL), `max_execution_time`
+  (MySQL) or the Resource Governor (SQL Server).
 - **MySQL and MariaDB don't stop DDL in a read-only transaction.** DDL commits the transaction and runs.
   SayQL's own check refuses every DDL statement in read-only mode, and prepared statements prevent smuggling
   a second statement in. But the database isn't a second line of defense here, so use a login with only
@@ -106,18 +120,22 @@ gateway redirects), PostGIS types (the plain `postgres` images don't include it)
 - **SQL Server has no read-only transaction.** Reads run in a transaction that is always rolled back, and
   SayQL refuses anything that could write. A procedure that commits defeats the rollback, so `EXEC` always
   needs confirmation. Use a `db_datareader` login.
-- **MySQL 5.7 with "Require SSL" can't connect,** for the same cipher reason as fix 1. Connect without it, or
-  through an SSH tunnel.
-- **MariaDB `ed25519` accounts can't sign in.** The driver doesn't support that plugin, and the server
-  reports it as "Access denied". Use `mysql_native_password` for SayQL's login.
+These can't be fixed in SayQL; each would need changes in a driver it uses:
+
+- **MySQL 5.7 with "Require SSL" can't connect.** 5.7 offers only cipher suites that rustls, SayQL's TLS
+  library, refuses as insecure. Connect without "Require SSL" (SayQL then falls back as MySQL's own client
+  does), or through an SSH tunnel.
+- **MariaDB `ed25519` accounts can't sign in.** The MySQL driver (sqlx) has no `client_ed25519` plugin, and
+  the server reports the failure as "Access denied". Use a `mysql_native_password` account for SayQL.
 - **Values shown approximately:**
-  - SQL Server `money` above about 900 billion loses its last digits (the driver returns a float);
-  - SQL Server `geometry`, `geography` and `hierarchyid` show as hex, so use `.STAsText()` or `.ToString()`;
-  - MariaDB's JSON shows as text (MariaDB stores it as text).
+  - SQL Server `money` above about 900 billion loses its last digits: the driver (tiberius) hands it over
+    as a float. Cast to `decimal(19,4)` for exact values.
+  - SQL Server `geography` and `hierarchyid` show as hex, so use `.STAsText()` or `.ToString()`. The driver
+    reports them only as "UDT", and geography's axis order can't be told from the bytes. SRID-0
+    `geometry` is decoded.
+  - MariaDB's JSON shows as text: MariaDB stores it as LONGTEXT and doesn't mark it as JSON on the wire.
 - **Privileged logins can read server files** with `pg_read_file` or `LOAD_FILE`. These are reads, so
   read-only mode allows them. Don't connect as a superuser.
-- **SQLite runs every statement in one call,** and their rows come back under the first statement's
-  columns. The editor sends one statement at a time, so this only shows through MCP `run_query`.
 - **Azure SQL Edge** crashes on startup under Docker on Apple silicon, and Microsoft has retired it, so it
   wasn't used as an Azure SQL stand-in. Azure SQL behaves like SQL Server 2022 for everything SayQL does,
   plus the gateway redirect SayQL follows.

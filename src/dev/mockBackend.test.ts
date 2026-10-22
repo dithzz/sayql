@@ -17,7 +17,7 @@ beforeAll(async () => {
 // Every command src/api/commands.ts invokes, so the dev UI never hits the throwing default.
 const COMMANDS = [
   "init", "save_connection", "delete_connection", "test_connection", "open_database", "refresh_schema",
-  "list_databases", "run_query", "generate_sql", "cancel_generation", "list_scripts", "save_script",
+  "list_databases", "run_query", "cancel_query", "generate_sql", "cancel_generation", "list_scripts", "save_script",
   "delete_script", "list_skills", "save_skill", "delete_skill", "mcp_setup", "take_handoffs", "app_info", "check_update",
   "install_update", "save_settings", "finish_onboarding", "list_models", "voice_status", "voice_download",
   "voice_cancel_download", "voice_delete_model", "voice_start", "voice_stop", "voice_cancel",
