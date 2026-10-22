@@ -2,6 +2,7 @@
 //! Secrets never go in these files; see [`secrets`].
 
 pub mod secrets;
+pub mod skills;
 
 use crate::db::ConnConfig;
 use crate::error::AppResult;

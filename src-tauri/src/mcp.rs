@@ -2,7 +2,6 @@
 //! the person's saved SayQL connections. Read-only: anything that could change data is
 //! refused and has to be run in the SayQL app, where the person reviews it first.
 
-use crate::commands::connections::{load_schema, target_pool};
 use crate::db::{self, Kind};
 use crate::schema::{self, Schema, Table};
 use crate::state::{AppState, Target};
@@ -86,7 +85,7 @@ impl SayqlServer {
 
     #[tool(description = "List the databases on a connection's server, and which one it opens by default.")]
     async fn list_databases(&self, Parameters(p): Parameters<ConnectionParams>) -> Result<String, String> {
-        let pool = target_pool(&self.state, &Target::default_of(&p.connection_id)).await.map_err(|e| e.to_string())?;
+        let pool = self.state.target_pool(&Target::default_of(&p.connection_id)).await.map_err(|e| e.to_string())?;
         match db::list_databases(&pool).await.map_err(|e| e.to_string())? {
             Some(list) => Ok(json!(list).to_string()),
             None => Ok("This is a SQLite file: it is a single database; omit `database`.".into()),
@@ -109,7 +108,7 @@ impl SayqlServer {
                 .into());
         }
         let target = Target::new(p.connection_id, p.database);
-        let pool = target_pool(&self.state, &target).await.map_err(|e| e.to_string())?;
+        let pool = self.state.target_pool(&target).await.map_err(|e| e.to_string())?;
         let mut r = db::run_query(&pool, &p.sql, true).await.map_err(|e| e.to_string())?;
         let limit = p.max_rows.unwrap_or(DEFAULT_ROWS).clamp(1, MAX_ROWS);
         let truncated = r.truncated || r.rows.len() > limit;
@@ -130,7 +129,7 @@ impl SayqlServer {
         let target = Target::new(connection_id.to_string(), database);
         match self.state.schema(&target) {
             Ok(loaded) => Ok(loaded.schema.clone()),
-            Err(_) => load_schema(&self.state, &target).await.map_err(|e| e.to_string()),
+            Err(_) => self.state.load_schema(&target).await.map_err(|e| e.to_string()),
         }
     }
 }
