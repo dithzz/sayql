@@ -10,6 +10,9 @@ All notable changes to SayQL are listed here. Downloads are on the
 - **Clearer connection errors:** a wrong port or a stopped server now says "Could not reach host:port:
   Connection refused" right away, instead of "pool timed out" after 10 seconds. SSL problems say so, and how
   to connect without SSL.
+- **PostgreSQL schema:** logins that can only `SELECT` (the setup we recommend) now see primary keys, which
+  were missing for them. Materialized views are listed. Partitioned tables are listed once, with a row
+  estimate that covers all their partitions, instead of once per partition.
 
 ## 0.2.6 (2026-10-22)
 - **Deleting a connection** also removes its password from the keychain item older versions saved it in.

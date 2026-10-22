@@ -4,26 +4,49 @@ use sqlx::PgPool;
 use std::collections::HashMap;
 
 pub(super) async fn introspect(p: &PgPool) -> Result<Vec<Table>, sqlx::Error> {
+    // information_schema has no materialized views, so they come from the catalog. Partitions
+    // are left out: the parent table is what queries use, and listing every partition would
+    // crowd the AI's schema.
     let cols: Vec<(String, String, String, String, bool, String)> = sqlx::query_as(
-        r#"SELECT c.table_schema::text, c.table_name::text, c.column_name::text,
+        r#"SELECT s, t, c, ty, nullable, kind FROM (
+           SELECT c.table_schema::text AS s, c.table_name::text AS t, c.column_name::text AS c,
                   CASE WHEN c.data_type = 'USER-DEFINED' AND c.udt_schema NOT IN ('public', 'pg_catalog')
                        THEN c.udt_schema::text || '.' || c.udt_name::text
                        WHEN c.data_type IN ('USER-DEFINED', 'ARRAY') THEN c.udt_name::text
-                       ELSE c.data_type::text END,
-                  c.is_nullable = 'YES', t.table_type::text
+                       ELSE c.data_type::text END AS ty,
+                  c.is_nullable = 'YES' AS nullable, t.table_type::text AS kind, c.ordinal_position::int AS pos
            FROM information_schema.columns c
            JOIN information_schema.tables t ON t.table_schema = c.table_schema AND t.table_name = c.table_name
            WHERE c.table_schema NOT IN ('pg_catalog', 'information_schema') AND c.table_schema NOT LIKE 'pg_toast%'
-           ORDER BY c.table_schema, c.table_name, c.ordinal_position"#,
+             AND NOT EXISTS (SELECT 1 FROM pg_class pc JOIN pg_namespace pn ON pn.oid = pc.relnamespace
+                             WHERE pn.nspname = c.table_schema AND pc.relname = c.table_name AND pc.relispartition)
+           UNION ALL
+           SELECT n.nspname::text, cl.relname::text, a.attname::text,
+                  CASE WHEN ty.typtype IN ('e', 'c', 'd') AND tn.nspname NOT IN ('public', 'pg_catalog')
+                       THEN tn.nspname::text || '.' || ty.typname::text
+                       WHEN ty.typtype IN ('e', 'c', 'd') OR ty.typcategory = 'A' THEN ty.typname::text
+                       ELSE format_type(a.atttypid, NULL) END,
+                  NOT a.attnotnull, 'MATERIALIZED VIEW', a.attnum::int
+           FROM pg_class cl
+           JOIN pg_namespace n ON n.oid = cl.relnamespace
+           JOIN pg_attribute a ON a.attrelid = cl.oid AND a.attnum > 0 AND NOT a.attisdropped
+           JOIN pg_type ty ON ty.oid = a.atttypid
+           JOIN pg_namespace tn ON tn.oid = ty.typnamespace
+           WHERE cl.relkind = 'm' AND has_table_privilege(cl.oid, 'SELECT')
+           ) cols ORDER BY s, t, pos"#,
     )
     .fetch_all(p)
     .await?;
+    // From the catalog, not information_schema.table_constraints, which hides constraints
+    // from roles that only have SELECT on a table: read-only logins would see no keys.
     let pks: Vec<(String, String, String)> = sqlx::query_as(
-        r#"SELECT kcu.table_schema::text, kcu.table_name::text, kcu.column_name::text
-           FROM information_schema.table_constraints tc
-           JOIN information_schema.key_column_usage kcu
-             ON tc.constraint_name = kcu.constraint_name AND tc.table_schema = kcu.table_schema AND tc.table_name = kcu.table_name
-           WHERE tc.constraint_type = 'PRIMARY KEY'"#,
+        r#"SELECT ns.nspname::text, cl.relname::text, a.attname::text
+           FROM pg_constraint con
+           JOIN pg_class cl ON cl.oid = con.conrelid
+           JOIN pg_namespace ns ON ns.oid = cl.relnamespace
+           CROSS JOIN LATERAL unnest(con.conkey) AS k(col)
+           JOIN pg_attribute a ON a.attrelid = con.conrelid AND a.attnum = k.col
+           WHERE con.contype = 'p'"#,
     )
     .fetch_all(p)
     .await?;
@@ -37,7 +60,7 @@ pub(super) async fn introspect(p: &PgPool) -> Result<Vec<Table>, sqlx::Error> {
            CROSS JOIN LATERAL unnest(con.conkey, con.confkey) AS k(col, fcol)
            JOIN pg_attribute a ON a.attrelid = con.conrelid AND a.attnum = k.col
            JOIN pg_attribute fa ON fa.attrelid = con.confrelid AND fa.attnum = k.fcol
-           WHERE con.contype = 'f'"#,
+           WHERE con.contype = 'f' AND con.conparentid = 0"#,
     )
     .fetch_all(p)
     .await?;
@@ -56,9 +79,15 @@ pub(super) async fn introspect(p: &PgPool) -> Result<Vec<Table>, sqlx::Error> {
     for (t, v) in enum_rows {
         enums.entry(t).or_default().push(v);
     }
+    // A partitioned table's own estimate is 0 or -1 on older servers; add up its partitions.
     let est: Vec<(String, String, i64)> = sqlx::query_as(
-        r#"SELECT n.nspname::text, c.relname::text, c.reltuples::bigint FROM pg_class c
-           JOIN pg_namespace n ON n.oid = c.relnamespace WHERE c.relkind IN ('r', 'p')"#,
+        r#"SELECT n.nspname::text, c.relname::text,
+                  CASE WHEN c.relkind = 'p' THEN
+                       (SELECT COALESCE(sum(GREATEST(l.reltuples, 0)), -1)::bigint FROM pg_partition_tree(c.oid) pt
+                        JOIN pg_class l ON l.oid = pt.relid WHERE pt.isleaf)
+                       ELSE c.reltuples::bigint END
+           FROM pg_class c
+           JOIN pg_namespace n ON n.oid = c.relnamespace WHERE c.relkind IN ('r', 'p', 'm') AND NOT c.relispartition"#,
     )
     .fetch_all(p)
     .await?;

@@ -46,7 +46,13 @@ fn assemble(
             Table {
                 schema: Some(s.clone()),
                 name: t.clone(),
-                kind: if kind.contains("VIEW") { "view".into() } else { "table".into() },
+                kind: if kind.contains("MATERIALIZED") {
+                    "materialized view".into()
+                } else if kind.contains("VIEW") {
+                    "view".into()
+                } else {
+                    "table".into()
+                },
                 columns: vec![],
                 foreign_keys: fk_map.remove(&key).unwrap_or_default(),
                 row_estimate: rows.get(&key).copied(),

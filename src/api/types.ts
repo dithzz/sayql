@@ -37,7 +37,7 @@ export interface ForeignKey {
 export interface Table {
   schema: string | null;
   name: string;
-  kind: "table" | "view";
+  kind: "table" | "view" | "materialized view";
   columns: Column[];
   foreign_keys: ForeignKey[];
   row_estimate: number | null;
