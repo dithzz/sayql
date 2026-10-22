@@ -2,4 +2,4 @@ User-agent: *
 Allow: /
 Disallow: /download/
 
-Sitemap: https://sayql.vercel.app/sitemap.xml
+Sitemap: https://sayql.dev/sitemap.xml

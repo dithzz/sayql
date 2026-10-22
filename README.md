@@ -17,7 +17,7 @@ The right SQL in seconds, and nothing changes unless you say so.
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-1f6feb)](LICENSE)
 [![Platforms](https://img.shields.io/badge/platforms-macOS%20%7C%20Windows%20%7C%20Linux-475569)](https://github.com/dithzz/sayql-releases/releases/latest)
 
-[**Download**](https://github.com/dithzz/sayql-releases/releases/latest) · [Docs](https://sayql.vercel.app/docs/) · [Website](https://sayql.vercel.app) · [Discussions](https://github.com/dithzz/sayql/discussions)
+[**Download**](https://github.com/dithzz/sayql-releases/releases/latest) · [Docs](https://sayql.dev/docs/) · [Website](https://sayql.dev) · [Discussions](https://github.com/dithzz/sayql/discussions)
 
 <br>
 
@@ -120,8 +120,8 @@ built in, so you can try everything without connecting anything.
 3. **Follow the setup guide:** pick your AI, use the demo database or connect your own, and ask your first
    question.
 
-The [docs](https://sayql.vercel.app/docs/) cover every step, each AI provider and database, and
-[troubleshooting](https://sayql.vercel.app/docs/troubleshooting/). SayQL updates itself: when a new version is
+The [docs](https://sayql.dev/docs/) cover every step, each AI provider and database, and
+[troubleshooting](https://sayql.dev/docs/troubleshooting/). SayQL updates itself: when a new version is
 out, **Update to x.y.z** appears in the status bar, and every update is signature-checked.
 
 ## Your data
@@ -234,5 +234,5 @@ along with the license, notices and [privacy notice](PRIVACY.md).
 
 <div align="center">
 <br>
-<sub>Built with Tauri, Rust and React · <a href="https://sayql.vercel.app">sayql.vercel.app</a></sub>
+<sub>Built with Tauri, Rust and React · <a href="https://sayql.dev">sayql.dev</a></sub>
 </div>

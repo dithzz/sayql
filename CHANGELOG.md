@@ -36,7 +36,7 @@ All notable changes to SayQL are listed here. Downloads are on the
 - **Send feedback** from the status bar: a pre-filled public GitHub issue. Only the SayQL
   version and operating system are added.
 - **Open source** under the Apache License 2.0, with contributor docs, a security policy and CI on pull requests.
-- **Docs** at [sayql.vercel.app/docs](https://sayql.vercel.app/docs/): install, AI providers, databases, MCP,
+- **Docs** at [sayql.dev/docs](https://sayql.dev/docs/): install, AI providers, databases, MCP,
   shortcuts and troubleshooting.
 
 ## 0.1.0 (2026-10-21)
