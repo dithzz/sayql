@@ -131,7 +131,7 @@ database, and sends data only to services you configure:
 
 | When | What's sent | Where |
 | --- | --- | --- |
-| You ask in plain English | Your question and the schema (table and column names, types, keys) | Your AI provider |
+| You ask in plain English | Your question, the schema (table and column names, types, keys), and the current SQL for follow-ups | Your AI provider |
 | A query fails and SayQL fixes it | The query and the database's error message | Your AI provider |
 | You run a query | Your SQL | Your database |
 | SayQL starts | The app version and your operating system, to check for updates | GitHub (dithzz/sayql-releases) |
