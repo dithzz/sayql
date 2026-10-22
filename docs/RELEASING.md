@@ -354,7 +354,7 @@ and add it as a Tauri sidecar: copy `target/<triple>/release/sayql-mcp` to `src-
 ## Landing page
 
 `site/index.html` is the whole site. It is hosted on Vercel as the project
-`sayql` in the `adith-l-ss-projects` team, at <https://sayql.dev> (the old sayql.vercel.app address redirects there; see site/vercel.json).
+`sayql` in the `adith-l-ss-projects` team, at <https://sayql.dev> (sayql.vercel.app and www.sayql.dev redirect there with a 308, set per domain in the project's Domains settings on Vercel).
 `site/.vercel` (git-ignored) links the folder to that project, and
 `site/.vercelignore` limits the upload to the page itself. To publish changes:
 
