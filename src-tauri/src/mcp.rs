@@ -70,18 +70,19 @@ impl SayqlServer {
     }
 
     #[tool(description = "List the database connections saved in SayQL (no passwords).")]
-    async fn list_connections(&self) -> String {
+    async fn list_connections(&self) -> Result<String, String> {
         let list: Vec<_> = self
             .state
             .store
             .connections()
+            .map_err(|e| e.to_string())?
             .into_iter()
             .map(|c| {
                 let place = if c.kind == Kind::Sqlite { c.file.clone() } else { c.host.clone() };
                 json!({ "id": c.id, "name": c.name, "kind": c.kind, "dialect": c.kind.dialect(), "location": place, "default_database": c.database })
             })
             .collect();
-        json!(list).to_string()
+        Ok(json!(list).to_string())
     }
 
     #[tool(description = "List the databases on a connection's server, and which one it opens by default.")]

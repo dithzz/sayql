@@ -152,7 +152,7 @@ pub fn save_settings(
     if let Some(key) = api_key.filter(|_| p.key != KeyNeed::None) {
         secrets::set_api_key(p.id, &key)?;
     }
-    let mut s = state.store.settings();
+    let mut s = state.store.settings()?;
     s.provider = p.id.to_string();
     s.workspace_id = workspace_id;
     // Claude's address is fixed; a base URL equal to the default is stored as "use the default".
@@ -176,13 +176,13 @@ pub async fn list_models(
         // Claude's models are fixed; this checks the key so a typo is caught before it's saved.
         let key = api_key.map(|k| k.trim().to_string()).filter(|k| !k.is_empty()).or_else(|| secrets::api_key(p.id));
         let key = key.ok_or_else(|| AppError::User("Paste your Claude API key first.".into()))?;
-        let workspace = valid_workspace_id(&state.store.settings().workspace_id)?;
+        let workspace = valid_workspace_id(&state.store.settings()?.workspace_id)?;
         let http = state.http.clone();
         ai::check_claude_key(&http, &key, Some(workspace.as_str()).filter(|w| !w.is_empty())).await?;
         return Ok(ai::MODELS.iter().map(|(id, _)| id.to_string()).collect());
     }
     let typed = ai::clean_base_url(&base_url).map_err(AppError::User)?;
-    let saved = state.store.settings().provider_settings(p.id);
+    let saved = state.store.settings()?.provider_settings(p.id);
     let url = if typed.is_empty() { address(p, &saved) } else { typed };
     if url.is_empty() {
         return Err(AppError::User(format!("Add the base URL of your {} server first.", p.label)));
@@ -201,7 +201,7 @@ pub async fn list_models(
 /// Records that the first-run setup was finished or dismissed, so it isn't shown again.
 #[tauri::command]
 pub fn finish_onboarding(state: State<'_, AppState>) -> AppResult<SettingsView> {
-    let mut s = state.store.settings();
+    let mut s = state.store.settings()?;
     s.onboarded = true;
     state.store.save_settings(&s)?;
     Ok(settings_view(&s))

@@ -26,12 +26,12 @@ pub fn generate_sql(
     let skill = match skill {
         None => None,
         Some(slug) => Some(
-            state.store.skills().into_iter().find(|s| s.slug == slug).map(|s| s.instruction).ok_or_else(|| {
+            state.store.skills()?.into_iter().find(|s| s.slug == slug).map(|s| s.instruction).ok_or_else(|| {
                 AppError::User(format!("There's no skill called /{slug}. Create it in Settings."))
             })?,
         ),
     };
-    let settings = state.store.settings();
+    let settings = state.store.settings()?;
     let request = GenRequest {
         req_id,
         endpoint: endpoint(&settings)?,

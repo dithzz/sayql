@@ -121,7 +121,7 @@ fn task_message(question: &str, task: &Task) -> String {
              the corrected query for the request. Keep everything that was not part of the problem.",
             tagged("request", request),
             tagged("failed_query", sql),
-            tagged("database_error", error)
+            tagged("database_error", &super::redact::database_error(error))
         ),
         Task::Improve { sql } => format!(
             "{}\n\n{}\n\nReview this query against the request and the schema: joins, filters, date logic, grouping, \
@@ -178,6 +178,9 @@ mod tests {
         let m = user_message("list clients", &t, None);
         assert!(m.contains("<failed_query>\nSELECT nme FROM clients\n</failed_query>"), "{m}");
         assert!(m.contains("<database_error>\nInvalid column name 'nme'.\n</database_error>"), "{m}");
+        let t = Task::Fix { sql: "INSERT INTO users VALUES (1)".into(), error: "Duplicate entry 'ann@example.com' for key 'users.email'".into() };
+        let m = user_message("add a user", &t, None);
+        assert!(m.contains("Duplicate entry '…' for key 'users.email'") && !m.contains("ann@"), "{m}");
         assert!(t.needs_expert());
         assert_eq!(t.effort(), "medium");
         assert!(!draft(None).needs_expert());

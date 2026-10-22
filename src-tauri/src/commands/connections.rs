@@ -36,16 +36,20 @@ fn demo_connection(path: &Path) -> ConnConfig {
 #[tauri::command]
 pub async fn init(state: State<'_, AppState>) -> AppResult<InitView> {
     let _guard = state.init_lock.lock().await;
-    let mut settings = state.store.settings();
+    // Read every saved file now, so an unreadable one is reported on the startup screen
+    // (with where it was moved) instead of quietly showing an empty list later.
+    state.store.scripts()?;
+    state.store.skills()?;
+    let mut settings = state.store.settings()?;
     if !settings.demo_added {
         db::ensure_demo(&state.demo_path).await?;
-        let mut list = state.store.connections();
+        let mut list = state.store.connections()?;
         list.insert(0, demo_connection(&state.demo_path));
         state.store.save_connections(&list)?;
         settings.demo_added = true;
         state.store.save_settings(&settings)?;
     }
-    Ok(InitView { connections: state.store.connections(), settings: settings_view(&settings) })
+    Ok(InitView { connections: state.store.connections()?, settings: settings_view(&settings) })
 }
 
 /// Creates (empty id) or updates a connection. `password: None` keeps the saved password.
@@ -57,7 +61,7 @@ pub fn save_connection(state: State<'_, AppState>, mut config: ConnConfig, passw
     if let Some(pw) = password {
         secrets::set_password(&config.id, &pw)?;
     }
-    let mut list = state.store.connections();
+    let mut list = state.store.connections()?;
     match list.iter_mut().find(|c| c.id == config.id) {
         Some(existing) => *existing = config.clone(),
         None => list.push(config.clone()),
@@ -71,7 +75,7 @@ pub fn save_connection(state: State<'_, AppState>, mut config: ConnConfig, passw
 /// Removes the saved connection and its password. The database itself is not touched.
 #[tauri::command]
 pub fn delete_connection(state: State<'_, AppState>, id: String) -> AppResult<()> {
-    let list: Vec<ConnConfig> = state.store.connections().into_iter().filter(|c| c.id != id).collect();
+    let list: Vec<ConnConfig> = state.store.connections()?.into_iter().filter(|c| c.id != id).collect();
     state.store.save_connections(&list)?;
     let _ = secrets::set_password(&id, "");
     state.close(&id);
