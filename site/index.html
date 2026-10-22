@@ -364,6 +364,21 @@ p { text-wrap: pretty; }
 .field { margin-top: 4px; height: 28px; display: flex; align-items: center; padding: 0 8px; border: 1px solid var(--color-border); border-radius: var(--radius-md); font: 400 12px/1 var(--font-mono); color: var(--color-text-subtle); white-space: nowrap; overflow: hidden; }
 .fieldset small { display: block; margin-top: 4px; font-size: 11.5px; color: var(--color-text-subtle); }
 
+/* "/" menu, command chips and the /explain answer: same look as the app's SlashMenu and AskBar */
+.slash-menu { position: absolute; left: 10px; right: 10px; top: 52px; z-index: 2; padding: 4px; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg); box-shadow: var(--shadow-popover); }
+.slash-menu[hidden], .explain[hidden], .cmd-chip[hidden] { display: none; }
+.slash-item { display: flex; align-items: center; gap: 8px; height: 24px; padding: 0 8px; border-radius: var(--radius-sm); white-space: nowrap; overflow: hidden; }
+.slash-item.on { background: var(--color-surface-selected); }
+.slash-item .i { color: var(--color-text-muted); }
+.slash-item .slug { flex: none; min-width: 10ch; font: 400 12px/1 var(--font-mono); }
+.slash-item .desc { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--color-text-muted); }
+.slash-sep { height: 1px; margin: 4px; background: var(--color-border-subtle); }
+.cmd-chip { display: inline-flex; flex: none; align-items: center; height: 20px; padding: 0 6px; border-radius: var(--radius-sm); background: var(--color-ai-soft); color: var(--color-ai); font: 400 12px/1 var(--font-mono); }
+.cmd-chip.skill { background: var(--color-surface-selected); color: var(--color-app-accent); }
+.explain { margin: 8px 10px 0; display: flex; align-items: flex-start; gap: 8px; padding: 8px; border-radius: var(--radius-md); background: var(--color-ai-soft); font-size: 12.5px; line-height: 1.5; }
+.explain .i { margin-top: 2px; color: var(--color-ai); }
+.card-text h3 .tag { margin-left: 6px; vertical-align: 2px; }
+
 /* supported */
 .support { padding: 40px 0 8px; }
 .support dl { margin: 0; display: grid; grid-template-columns: max-content 1fr; gap: 10px 24px; font-size: 14px; }
@@ -379,16 +394,15 @@ section.block { padding: 96px 0 0; }
 
 .cards { margin-top: 40px; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .card { background: var(--color-card); border: 1px solid var(--color-border); border-radius: var(--radius-card); overflow: hidden; display: flex; flex-direction: column; }
-.card-text { padding: 24px 24px 0; }
+.card-text { padding: 24px 24px 20px; }
 .card-text h3 { font-size: 17px; }
 .card-text p { margin-top: 6px; color: var(--color-text-muted); font-size: 15px; }
 .card .mini { margin-top: auto; }
 @media (max-width: 760px) {
   .cards { grid-template-columns: 1fr; }
-  .card-text { padding: 20px 18px 0; }
+  .card-text { padding: 20px 18px 18px; }
   .mini { margin-left: 12px; margin-right: 12px; }
 }
-.card-text + .mini { margin-top: 20px; }
 
 .facts { margin-top: 16px; display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid var(--color-border); border-radius: var(--radius-card); background: var(--color-surface); overflow: hidden; }
 .fact { padding: 24px; border-right: 1px solid var(--color-border-subtle); border-bottom: 1px solid var(--color-border-subtle); }
@@ -473,6 +487,10 @@ section.block { padding: 96px 0 0; }
   <symbol id="i-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></symbol>
   <symbol id="i-corner" viewBox="0 0 24 24"><path d="m15 10 5 5-5 5"/><path d="M4 4v7a4 4 0 0 0 4 4h12"/></symbol>
   <symbol id="i-alert" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4M12 17h.01"/></symbol>
+  <symbol id="i-rotate" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></symbol>
+  <symbol id="i-book" viewBox="0 0 24 24"><path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/></symbol>
+  <symbol id="i-wrench" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></symbol>
+  <symbol id="i-scroll" viewBox="0 0 24 24"><path d="M15 12h-5M15 8h-5"/><path d="M19 17V5a2 2 0 0 0-2-2H4"/><path d="M8 21h12a2 2 0 0 0 2-2v-1a1 1 0 0 0-1-1H11a1 1 0 0 0-1 1v1a2 2 0 1 1-4 0V5a2 2 0 1 0-4 0v2a1 1 0 0 0 1 1h3"/></symbol>
   <symbol id="i-circle-x" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></symbol>
 </svg>
 
@@ -577,6 +595,32 @@ section.block { padding: 96px 0 0; }
     </div>
 
     <div class="cards">
+      <!-- Slash commands and skills ship after v0.1.0: drop the "Next update" tags once they're in the downloads. -->
+      <article class="card">
+        <div class="card-text">
+          <h3>Type / for commands <span class="tag">Next update</span></h3>
+          <p>/explain, /fix, /improve, /new and /followup, right in the Ask box.</p>
+        </div>
+        <div class="app mini" id="demo-slash" role="img" aria-label="Demo: typing / opens the command menu, and /explain explains the current query">
+          <div class="askbox" data-ask><div class="q-line" style="margin-top:0"><svg class="i spark"><use href="#i-sparkles"/></svg><span class="cmd-chip" data-chip hidden></span><span class="q" data-q></span></div></div>
+          <div class="slash-menu" data-menu hidden></div>
+          <div class="explain" data-explain hidden><svg class="i"><use href="#i-book"/></svg><span data-explain-text></span></div>
+          <div class="code" data-code></div>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="card-text">
+          <h3>Skills <span class="tag">Next update</span></h3>
+          <p>Save an instruction once, like “never select email, phone or address columns”, and add it to any question.</p>
+        </div>
+        <div class="app mini" id="demo-skill" role="img" aria-label="Demo: the /pii-safe skill keeps personal columns out of the query">
+          <div class="askbox" data-ask><div class="q-line" style="margin-top:0"><svg class="i spark"><use href="#i-sparkles"/></svg><span class="cmd-chip skill" data-chip hidden></span><span class="q" data-q></span></div></div>
+          <div class="slash-menu" data-menu hidden></div>
+          <div class="code" data-code></div>
+        </div>
+      </article>
+
       <article class="card">
         <div class="card-text">
           <h3>Follow-ups edit your query</h3>
@@ -921,6 +965,79 @@ section.block { padding: 96px 0 0; }
       later(function () { fixed(); err.hidden = fixing.hidden = true; ok.hidden = false; }, 3600);
       later(loop, 7600);
     }, function () { fixed(); ok.hidden = false; });
+  })();
+
+  /* ---------- "/" menu: the built-ins and skills from src/features/ask/slashCommands.ts ---------- */
+  var COMMANDS = [
+    ["followup", "Change the current query", "i-corner"],
+    ["new", "Start fresh, ignore the last query", "i-rotate"],
+    ["explain", "Explain the current query", "i-book"],
+    ["fix", "Fix the current query or its error", "i-wrench"],
+    ["improve", "Review and improve the current query", "i-wand"],
+    ["pii-safe", "Leave out personal data", "i-scroll"]
+  ];
+  // Items whose slug starts with `query`, then "Create skill…", like the app's menu.
+  function renderMenu(menu, query, active) {
+    var items = COMMANDS.filter(function (c) { return c[0].indexOf(query) === 0; });
+    menu.innerHTML = items.map(function (c, i) {
+      return '<div class="slash-item' + (i === active ? " on" : "") + '"><svg class="i"><use href="#' + c[2] + '"/></svg><span class="slug">/' + c[0] + '</span><span class="desc">' + c[1] + "</span></div>";
+    }).join("") + '<div class="slash-sep"></div><div class="slash-item"><svg class="i"><use href="#i-plus"/></svg><span class="desc" style="color:inherit">Create skill…</span></div>';
+  }
+
+  /* ---------- slash commands: /explain ---------- */
+  (function () {
+    var el = document.getElementById("demo-slash");
+    var $ = function (s) { return el.querySelector(s); };
+    var ask = $("[data-ask]"), q = $("[data-q]"), chip = $("[data-chip]"), menu = $("[data-menu]"), code = $("[data-code]"),
+        explain = $("[data-explain]"), explainText = $("[data-explain-text]");
+    var SQL = "SELECT country, COUNT(*) AS customers\nFROM customers\nGROUP BY country\nORDER BY customers DESC\nLIMIT 5;";
+    var ANSWER = "Counts the customers in each country and shows the five countries with the most, largest first.";
+    function still() {
+      code.innerHTML = lines(SQL);
+      menu.hidden = true; chip.hidden = false; chip.textContent = "/explain"; q.textContent = "";
+      explain.hidden = false; explainText.textContent = ANSWER;
+    }
+    demo(el, function (later, loop) {
+      code.innerHTML = lines(SQL);
+      menu.hidden = true; chip.hidden = true; explain.hidden = true;
+      q.innerHTML = '<span class="caret"></span>';
+      ask.classList.add("live");
+      later(function () { q.innerHTML = '/<span class="caret"></span>'; renderMenu(menu, "", 0); menu.hidden = false; }, 700);
+      // ↓ ↓ to /explain, then ↵.
+      later(function () { renderMenu(menu, "", 1); }, 1400);
+      later(function () { renderMenu(menu, "", 2); }, 1900);
+      later(function () { menu.hidden = true; chip.hidden = false; chip.textContent = "/explain"; q.innerHTML = '<span class="caret"></span>'; }, 2600);
+      later(function () { ask.classList.remove("live"); q.textContent = ""; explain.hidden = false; explainText.textContent = "…"; }, 3200);
+      var words = ANSWER.split(" ");
+      words.forEach(function (_, k) { later(function () { explainText.textContent = words.slice(0, k + 1).join(" "); }, 3500 + k * 70); });
+      later(loop, 3500 + words.length * 70 + 4200);
+    }, still);
+  })();
+
+  /* ---------- skills: /pii-safe ---------- */
+  (function () {
+    var el = document.getElementById("demo-skill");
+    var $ = function (s) { return el.querySelector(s); };
+    var ask = $("[data-ask]"), q = $("[data-q]"), chip = $("[data-chip]"), menu = $("[data-menu]"), code = $("[data-code]");
+    var QUESTION = "new customers this month";
+    var SQL = "SELECT first_name, last_name, country,\n       signed_up_at\nFROM customers\nWHERE signed_up_at >= date('now', 'start of month')\nORDER BY signed_up_at DESC;";
+    function setSql(sql) { code.innerHTML = highlight(sql); }
+    function still() { menu.hidden = true; chip.hidden = false; chip.textContent = "/pii-safe"; q.textContent = QUESTION; setSql(SQL); }
+    demo(el, function (later, loop) {
+      menu.hidden = true; chip.hidden = true; setSql("");
+      q.innerHTML = '<span class="caret"></span>';
+      ask.classList.add("live");
+      ["/", "/p", "/pi"].forEach(function (typed, k) {
+        later(function () { q.innerHTML = esc(typed) + '<span class="caret"></span>'; renderMenu(menu, typed.slice(1), 0); menu.hidden = false; }, 700 + k * 260);
+      });
+      later(function () { menu.hidden = true; chip.hidden = false; chip.textContent = "/pii-safe"; q.innerHTML = '<span class="caret"></span>'; }, 1900);
+      var t = typeInto(q, QUESTION, 2100, later);
+      var tokens = SQL.match(/\s+|[^\s]+/g), shown = "", start = t - 500;
+      tokens.forEach(function (tok, k) { later(function () { shown += tok; setSql(shown); }, start + k * 30); });
+      var end = Math.max(t, start + tokens.length * 30) + 250;
+      later(function () { ask.classList.remove("live"); q.textContent = QUESTION; }, end);
+      later(loop, end + 4500);
+    }, still);
   })();
 
   /* ---------- pick your AI ---------- */
