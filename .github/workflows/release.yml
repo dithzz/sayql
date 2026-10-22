@@ -75,6 +75,29 @@ jobs:
           jq '.bundle.createUpdaterArtifacts = true' src-tauri/tauri.conf.json > tauri.conf.tmp
           mv tauri.conf.tmp src-tauri/tauri.conf.json
 
+      # The MCP server (src/bin/sayql-mcp.rs) ships inside the app, next to its executable,
+      # where Settings → AI apps finds it. Tauri bundles it as a sidecar, which it expects as
+      # binaries/sayql-mcp-<target triple>. Only release builds bundle it, so `tauri dev` and
+      # `cargo test` don't need it built first.
+      - name: Build the MCP server and bundle it with the app
+        shell: bash
+        run: |
+          target="${{ matrix.rust_targets }}"
+          ext=""
+          [ "$RUNNER_OS" = "Windows" ] && ext=".exe"
+          if [ -n "$target" ]; then
+            cargo build --release --manifest-path src-tauri/Cargo.toml --bin sayql-mcp --target "$target"
+            built="src-tauri/target/$target/release/sayql-mcp$ext"
+          else
+            target=$(rustc -vV | sed -n 's/^host: //p')
+            cargo build --release --manifest-path src-tauri/Cargo.toml --bin sayql-mcp
+            built="src-tauri/target/release/sayql-mcp$ext"
+          fi
+          mkdir -p src-tauri/binaries
+          cp "$built" "src-tauri/binaries/sayql-mcp-$target$ext"
+          jq '.bundle.externalBin = ["binaries/sayql-mcp"]' src-tauri/tauri.conf.json > tauri.conf.tmp
+          mv tauri.conf.tmp src-tauri/tauri.conf.json
+
       - uses: tauri-apps/tauri-action@v0
         env:
           # Creates the release in the separate releases repo, which hosts the downloads and update feed.
@@ -95,7 +118,7 @@ jobs:
             **Early access:** these builds aren't code-signed yet, so your computer asks you to confirm the first launch.
             - **macOS:** open the app once, then go to System Settings → Privacy & Security and click **Open Anyway**.
             - **Windows:** on "Windows protected your PC", click **More info → Run anyway**.
-            - **Linux:** use the `.AppImage` (make it executable) or install the `.deb`.
+            - **Linux:** use the `.AppImage` (make it executable), or install the `.deb` or `.rpm`.
           releaseDraft: true
           prerelease: false
           includeUpdaterJson: true

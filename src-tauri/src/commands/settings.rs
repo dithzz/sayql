@@ -214,15 +214,22 @@ pub struct McpSetup {
     path: String,
     /// False when the binary hasn't been built or bundled next to the app.
     exists: bool,
+    /// True when running from an AppImage, which mounts at a new path on every launch,
+    /// so a path given to an MCP app would stop working after a restart.
+    appimage: bool,
 }
 
-/// The MCP server ships next to the app's own executable.
+/// The MCP server ships next to the app's own executable (release builds bundle it).
 #[tauri::command]
 pub fn mcp_setup() -> AppResult<McpSetup> {
     let exe = std::env::current_exe()?;
     let name = if cfg!(windows) { "sayql-mcp.exe" } else { "sayql-mcp" };
     let path = exe.with_file_name(name);
-    Ok(McpSetup { exists: path.exists(), path: path.to_string_lossy().into_owned() })
+    Ok(McpSetup {
+        exists: path.exists(),
+        path: path.to_string_lossy().into_owned(),
+        appimage: std::env::var_os("APPIMAGE").is_some(),
+    })
 }
 
 /// Workspace IDs are short codes (no spaces or punctuation beyond `_`/`-`), not display names.

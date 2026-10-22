@@ -3,6 +3,11 @@
 All notable changes to SayQL are listed here. Downloads are on the
 [releases page](https://github.com/dithzz/sayql-releases/releases).
 
+## 0.2.3 (2026-10-22)
+
+- **MCP server included:** Claude, Cursor and other AI apps can query your saved connections through
+  SayQL, read-only. Set it up in Settings → AI apps (MCP).
+
 ## 0.2.2 (2026-10-22)
 
 - **One-line Ask box:** the tables you picked sit at the right end of the question, and the box stays one line
