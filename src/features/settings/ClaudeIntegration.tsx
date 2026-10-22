@@ -41,8 +41,13 @@ export function ClaudeIntegration() {
       </p>
       {!setup.exists && (
         <Alert tone="warning">
-          The MCP server isn&apos;t included in this version yet. It&apos;s coming in an upcoming update. Building from
-          source? Run `cargo build --bin sayql-mcp` in src-tauri.
+          The MCP server isn&apos;t next to SayQL. Building from source? Run `cargo build --bin sayql-mcp` in src-tauri.
+        </Alert>
+      )}
+      {setup.exists && setup.appimage && (
+        <Alert tone="warning">
+          The AppImage opens from a new folder each time, so this path stops working after SayQL restarts. Install the
+          .deb or .rpm to use MCP.
         </Alert>
       )}
       <CopyBlock label="Claude Code — run in a terminal" text={`claude mcp add --scope user sayql -- "${setup.path}"`} />

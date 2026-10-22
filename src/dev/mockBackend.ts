@@ -249,7 +249,7 @@ export function installMockBackend() {
         case "check_update":
           return null;
         case "mcp_setup":
-          return { path: "/Applications/SayQL.app/Contents/MacOS/sayql-mcp", exists: true };
+          return { path: "/Applications/SayQL.app/Contents/MacOS/sayql-mcp", exists: true, appimage: false };
         case "test_connection":
           return "Connected. Found 6 tables and views.";
         case "save_connection":

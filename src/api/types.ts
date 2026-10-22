@@ -159,6 +159,8 @@ export interface UpdateInfo {
 export interface McpSetup {
   path: string;
   exists: boolean;
+  /** Running from an AppImage, whose path changes on every launch. */
+  appimage: boolean;
 }
 
 /** A query saved from a tab; mirrors `store::Script` in src-tauri/src/store/mod.rs. */
