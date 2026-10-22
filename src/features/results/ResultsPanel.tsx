@@ -14,9 +14,11 @@ export interface ResultsPanelProps {
   errorHint?: string;
   /** Shown next to a database error, e.g. a Fix with AI button. */
   errorAction?: ReactNode;
+  /** A short note on what ran, e.g. that a selection was widened to whole statements. */
+  note?: string;
 }
 
-export function ResultsPanel({ result, error, running, errorHint, errorAction }: ResultsPanelProps) {
+export function ResultsPanel({ result, error, running, errorHint, errorAction, note }: ResultsPanelProps) {
   const [copied, setCopied] = useState(false);
   const hasGrid = !!result && result.columns.length > 0;
 
@@ -32,21 +34,28 @@ export function ResultsPanel({ result, error, running, errorHint, errorAction }:
       title="Results"
       icon={Table2}
       subtitle={
-        running ? (
-          <span className={styles.meta}>
-            <Spinner size={12} /> Running…
-          </span>
-        ) : (
-          result &&
-          !error && (
+        <>
+          {running ? (
             <span className={styles.meta}>
-              {hasGrid ? plural(result.rows.length, "row") : plural(result.rowsAffected ?? 0, "row") + " affected"}
-              {" · "}
-              {result.elapsedMs} ms
-              {result.truncated && <Badge tone="warning">first 5,000 rows</Badge>}
+              <Spinner size={12} /> Running…
             </span>
-          )
-        )
+          ) : (
+            result &&
+            !error && (
+              <span className={styles.meta}>
+                {hasGrid ? plural(result.rows.length, "row") : plural(result.rowsAffected ?? 0, "row") + " affected"}
+                {" · "}
+                {result.elapsedMs} ms
+                {result.truncated && <Badge tone="warning">first 5,000 rows</Badge>}
+              </span>
+            )
+          )}
+          {note && (
+            <Badge tone="accent" title="Part of a statement was selected, so the whole statement ran. It's highlighted in the editor.">
+              {note}
+            </Badge>
+          )}
+        </>
       }
       actions={
         hasGrid && (

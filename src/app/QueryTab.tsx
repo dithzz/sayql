@@ -3,6 +3,7 @@ import { Wand2 } from "lucide-react";
 import type { Schema, Settings } from "../api";
 import { Button, SplitPane } from "../components/ui";
 import { useSqlGeneration, type TaskKind } from "../features/ask";
+import { resolveSelection, statementRanges, type TextRange } from "../features/editor";
 import { ConfirmWriteDialog, useQueryRunner } from "../features/query";
 import { ResultsPanel } from "../features/results";
 import type { ModelNames } from "../features/settings";
@@ -31,8 +32,10 @@ export function QueryTab({ tab, active, label, schema, settings, modelNames, onC
   const focusEnabled = tab.focusEnabled ?? true;
   /** A failed AI query is fixed automatically once; if the fix fails too, the person decides. */
   const autoFixUsed = useRef(false);
-  /** Text selected in the editor; Run runs just that. */
-  const [selection, setSelection] = useState("");
+  /** Where the selection is in the editor; Run runs just that. */
+  const [selection, setSelection] = useState<TextRange | null>(null);
+  /** A selection that cut a statement ran as whole statements: these, selected to show it. */
+  const [widened, setWidened] = useState<{ range: TextRange; count: number } | null>(null);
   /** The last run was a selection: the AI fixes whole queries, so it stays out of it. */
   const ranSelection = useRef(false);
 
@@ -46,6 +49,7 @@ export function QueryTab({ tab, active, label, schema, settings, modelNames, onC
   const runAndRemember = (sql: string, question: string, task: TaskKind | "manual" = "manual") => {
     if (task !== "fix") autoFixUsed.current = false;
     ranSelection.current = false;
+    setWidened(null);
     onChange({ lastRun: sql.trim() ? { question, sql } : null });
     query.run(sql);
   };
@@ -70,13 +74,16 @@ export function QueryTab({ tab, active, label, schema, settings, modelNames, onC
   };
 
   /**
-   * Runs just the selected SQL, if any. Follow-ups keep building on the whole query, since
-   * the AI rewrites the whole editor.
+   * Runs just the selected SQL, if any. A selection that cuts a statement (a DELETE without
+   * its WHERE) runs the whole statements it touches instead, selected in the editor to show
+   * it. Follow-ups keep building on the whole query, since the AI rewrites the whole editor.
    */
   const runSelectionOrAll = () => {
-    if (!selection.trim()) return run();
+    const r = selection && resolveSelection(tab.sql, selection);
+    if (!r) return run();
     ranSelection.current = true;
-    query.run(selection);
+    setWidened(r.expanded ? { range: r.range, count: statementRanges(r.sql).length } : null);
+    query.run(r.sql);
   };
 
   // From the first-run setup: ask the tab's question as soon as it shows, then run the answer.
@@ -140,6 +147,7 @@ export function QueryTab({ tab, active, label, schema, settings, modelNames, onC
             onAskRun={run}
             selection={selection}
             onSelectionChange={setSelection}
+            select={widened?.range ?? null}
             running={query.running}
             onImprove={() => generation.improve(tab.sql)}
             canImprove={canUseAi && !busy && !!tab.sql.trim()}
@@ -158,6 +166,7 @@ export function QueryTab({ tab, active, label, schema, settings, modelNames, onC
             result={query.result}
             error={query.error}
             running={query.running}
+            note={widened ? `Ran the full statement${widened.count > 1 ? "s" : ""}` : undefined}
             errorHint={
               autoFixFailed
                 ? `${modelNames.expert} couldn't fix it automatically. Try rephrasing your question, or edit the SQL above.`

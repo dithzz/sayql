@@ -3,7 +3,7 @@ import { Eraser, FileCode2, Play, Save, Wand2 } from "lucide-react";
 import type { Schema } from "../api";
 import { Button, IconButton, Panel } from "../components/ui";
 import { AskBar, type GenerationStatus } from "../features/ask";
-import { SqlEditor } from "../features/editor";
+import { SqlEditor, type TextRange } from "../features/editor";
 import type { ModelNames } from "../features/settings";
 import styles from "./Workbench.module.css";
 
@@ -28,9 +28,11 @@ export interface SqlWorkspaceProps {
   onRun: () => void;
   /** ↵ in the Ask box: always the whole query. */
   onAskRun: () => void;
-  /** Text selected in the editor; Run runs just that. */
-  selection: string;
-  onSelectionChange: (selected: string) => void;
+  /** Where the selection is in the editor; Run runs just that (snapped to whole statements). */
+  selection: TextRange | null;
+  onSelectionChange: (selection: TextRange | null) => void;
+  /** Shows what ran when a selection was widened. */
+  select: TextRange | null;
   running: boolean;
   onOpenSettings: () => void;
   onRetry: () => void;
@@ -44,7 +46,7 @@ export interface SqlWorkspaceProps {
 /** The SQL editor view: the plain-English Ask bar above an editable SQL editor. */
 export function SqlWorkspace(p: SqlWorkspaceProps) {
   const writing = p.status.kind === "writing";
-  const hasSelection = !!p.selection.trim();
+  const hasSelection = !!p.selection && !!p.sql.slice(p.selection.start, p.selection.end).trim();
   return (
     <Panel
       title="SQL Editor"
@@ -72,7 +74,7 @@ export function SqlWorkspace(p: SqlWorkspaceProps) {
             onClick={p.onRun}
             loading={p.running}
             disabled={!p.schema || (!p.sql.trim() && !writing)}
-            title={hasSelection ? "Run only the selected SQL" : undefined}
+            title={hasSelection ? "Run only the selected statements" : undefined}
           >
             {hasSelection ? "Run selection" : writing ? "Run when ready" : "Run"}
           </Button>
@@ -101,6 +103,7 @@ export function SqlWorkspace(p: SqlWorkspaceProps) {
           onChange={p.onSqlChange}
           onRun={p.onRun}
           onSelectionChange={p.onSelectionChange}
+          select={p.select}
           schema={p.schema}
           active={p.active}
         />
