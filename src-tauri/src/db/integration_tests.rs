@@ -81,8 +81,8 @@ async fn mssql_batch(pool: &MssqlPool, sql: &str) -> Result<(), String> {
 /// Runs a multi-statement setup script outside read-only mode.
 async fn exec(pool: &DbPool, sql: &str) {
     let r = match pool {
-        DbPool::Pg(p) => sqlx::raw_sql(sql).execute(p).await.map(|_| ()).map_err(|e| e.to_string()),
-        DbPool::My(p) => sqlx::raw_sql(sql).execute(p).await.map(|_| ()).map_err(|e| e.to_string()),
+        DbPool::Pg(p) => sqlx::raw_sql(sqlx::AssertSqlSafe(sql)).execute(p).await.map(|_| ()).map_err(|e| e.to_string()),
+        DbPool::My(p) => sqlx::raw_sql(sqlx::AssertSqlSafe(sql)).execute(p).await.map(|_| ()).map_err(|e| e.to_string()),
         DbPool::Ms(p) => mssql_batch(p, sql).await,
         DbPool::Lite(_) => unreachable!("SQLite is covered by the unit tests"),
     };
@@ -681,4 +681,23 @@ async fn mssql_integration() {
 
     drop(pool);
     exec(&admin, "ALTER DATABASE sayql_it SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE sayql_it").await;
+}
+
+#[tokio::test]
+async fn mssql_connection_errors() {
+    let Some(t) = env_target("SAYQL_TEST_MSSQL_URL") else { return };
+
+    // ---- TLS: the login is always encrypted, so an untrusted certificate fails with the hint
+    let untrusted = ConnConfig { trust_cert: false, ..config(Kind::Mssql, &t, &t.database) };
+    let err = connect(&untrusted, t.password.clone()).await.err().expect("untrusted certificate accepted").to_string();
+    assert!(err.contains("Trust server certificate"), "{err}");
+
+    // ---- an encrypted connection works end to end once the certificate is trusted
+    let encrypted = ConnConfig { ssl: true, ..config(Kind::Mssql, &t, &t.database) };
+    let pool = connect(&encrypted, t.password.clone()).await.expect("connect with encryption");
+    assert_eq!(scalar(&pool, "SELECT 40 + 2").await, json!(42));
+
+    // ---- a wrong password gets the credentials hint
+    let err = connect(&config(Kind::Mssql, &t, &t.database), Some("wrong".into())).await.err().expect("wrong password accepted");
+    assert!(err.to_string().contains("didn't accept this user and password"), "{err}");
 }
