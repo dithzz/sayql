@@ -3,28 +3,35 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>SayQL — Query production databases safely, in plain English</title>
-<meta name="description" content="The safe way to query production databases without being a SQL expert. Say what you need: SayQL knows your schema and writes the right SQL in seconds, read-only unless you say so. Open source, any AI.">
+<title>SayQL — Free AI SQL client: plain English to safe SQL</title>
+<meta name="description" content="Ask your database in plain English: SayQL writes the SQL and runs it read-only. Free, open-source text-to-SQL for PostgreSQL, MySQL, SQLite and SQL Server.">
+<link rel="canonical" href="https://sayql.vercel.app/">
+<meta name="robots" content="index, follow, max-image-preview:large">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="SayQL">
-<meta property="og:title" content="SayQL: query production databases safely, in plain English">
-<meta property="og:description" content="The safe way to query production databases without being a SQL expert. Say what you need: SayQL knows your schema and writes the right SQL in seconds, read-only unless you say so. Open source, any AI.">
+<meta property="og:title" content="SayQL — Free AI SQL client: plain English to safe SQL">
+<meta property="og:description" content="Ask your database in plain English: SayQL writes the SQL and runs it read-only. Free, open-source text-to-SQL for PostgreSQL, MySQL, SQLite and SQL Server.">
 <meta property="og:url" content="https://sayql.vercel.app/">
 <meta property="og:image" content="https://sayql.vercel.app/og.png">
 <meta property="og:image:width" content="1280">
 <meta property="og:image:height" content="640">
 <meta property="og:image:alt" content="SayQL: Say what you need. It knows your schema.">
 <meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="SayQL — Free AI SQL client: plain English to safe SQL">
+<meta name="twitter:description" content="Ask your database in plain English: SayQL writes the SQL and runs it read-only. Free, open-source text-to-SQL for PostgreSQL, MySQL, SQLite and SQL Server.">
+<meta name="twitter:image" content="https://sayql.vercel.app/og.png">
 <meta name="theme-color" content="#f6f7f9" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#17191d" media="(prefers-color-scheme: dark)">
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='100 100 824 824'%3E%3Crect x='100' y='100' width='824' height='824' rx='185' fill='%231f6feb'/%3E%3Cpath fill='%23fff' d='M431.23 768.15 382.82 688.25Q381.40999999999997 688.25 380.0 688.25Q347.1 688.25 322.66 675.56Q298.22 662.87 284.59000000000003 639.8399999999999Q270.96 616.81 270.96 585.79V438.21Q270.96 407.19 284.355 384.15999999999997Q297.75 361.13 322.425 348.44Q347.1 335.75 380.0 335.75Q412.9 335.75 437.34 348.44Q461.78 361.13 475.40999999999997 384.15999999999997Q489.03999999999996 407.19 489.03999999999996 438.21V585.79Q489.03999999999996 616.81 475.645 640.0749999999999Q462.25 663.3399999999999 437.81 675.56L494.67999999999995 768.15ZM380.0 636.55Q404.44 636.55 417.365 623.155Q430.28999999999996 609.76 430.28999999999996 585.79V438.21Q430.28999999999996 414.23999999999995 416.895 400.60999999999996Q403.5 386.97999999999996 380.0 386.97999999999996Q356.5 386.97999999999996 343.105 400.60999999999996Q329.71 414.23999999999995 329.71 438.21V585.79Q329.71 609.76 342.635 623.155Q355.56 636.55 380.0 636.55ZM559.87 683.55V340.45H618.62V630.4399999999999H764.3199999999999V683.55Z'/%3E%3C/svg%3E">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="icon" type="image/png" sizes="48x48" href="/favicon-48.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <script>
   // Apply a saved theme before first paint; otherwise follow the system.
   try { var t = localStorage.getItem("sayql-site-theme"); if (t === "light" || t === "dark") document.documentElement.setAttribute("data-theme", t); } catch (e) {}
 </script>
 <style>
 /* Colors, type and radii mirror src/styles/tokens.css and the Monaco themes, so the demos look like the app.
- * The page accent is the logo's indigo (app-icon.svg); inside the demos the app's own blue is kept. */
+ * The page accent is the logo's blue, the same as the app's. */
 :root {
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", Roboto, sans-serif;
   --font-mono: "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
@@ -463,6 +470,9 @@ section.block { padding: 96px 0 0; }
 </style>
 <!-- Vercel Web Analytics: page views only, no cookies, no personal data. -->
 <script defer src="/_vercel/insights/script.js"></script>
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "SoftwareApplication", "name": "SayQL", "alternateName": "SayQL Community Edition", "description": "Ask your database in plain English: SayQL writes the SQL and runs it read-only. Free, open-source text-to-SQL for PostgreSQL, MySQL, SQLite and SQL Server.", "url": "https://sayql.vercel.app/", "image": "https://sayql.vercel.app/og.png", "applicationCategory": "DeveloperApplication", "operatingSystem": "macOS, Windows, Linux", "downloadUrl": "https://github.com/dithzz/sayql-releases/releases/latest", "license": "https://www.apache.org/licenses/LICENSE-2.0", "isAccessibleForFree": true, "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}, "author": {"@type": "Person", "name": "Adith L S", "url": "https://github.com/dithzz"}, "sameAs": ["https://github.com/dithzz/sayql"]}</script>
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "WebSite", "name": "SayQL", "url": "https://sayql.vercel.app/"}</script>
+<!-- faq-jsonld --><script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "What is SayQL?", "acceptedAnswer": {"@type": "Answer", "text": "A free, open-source desktop app that turns plain English into SQL (text-to-SQL) for PostgreSQL, MySQL, SQLite and SQL Server. It knows your schema and runs queries read-only."}}, {"@type": "Question", "name": "Do I need to know SQL?", "acceptedAnswer": {"@type": "Answer", "text": "No. The SQL is always in front of you, so you’ll pick it up along the way."}}, {"@type": "Question", "name": "What does the AI see?", "acceptedAnswer": {"@type": "Answer", "text": "Your question and your table and column names. When a query fails, the SQL and the error too. Never the rows in your tables. With Ollama or LM Studio, nothing leaves your computer."}}, {"@type": "Question", "name": "Can it break my database?", "acceptedAnswer": {"@type": "Answer", "text": "Queries run read-only, and the database enforces it too. An UPDATE or DELETE always stops for your confirmation first."}}, {"@type": "Question", "name": "What does it cost?", "acceptedAnswer": {"@type": "Answer", "text": "SayQL is free. You pay your AI provider for what you use, with your own key, or nothing with a local model."}}, {"@type": "Question", "name": "Why does my computer warn me on first launch?", "acceptedAnswer": {"@type": "Answer", "text": "Early-access builds aren’t code-signed with Apple or Microsoft yet. Confirm the first launch once and it opens normally after that. Updates are signed with SayQL’s own key."}}]}</script><!-- /faq-jsonld -->
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -753,6 +763,10 @@ section.block { padding: 96px 0 0; }
   <div class="wrap">
     <div class="head"><h2>Questions</h2></div>
     <div class="faq">
+      <details>
+        <summary>What is SayQL?<svg class="icon"><use href="#i-plus"/></svg></summary>
+        <p>A free, open-source desktop app that turns plain English into SQL (text-to-SQL) for PostgreSQL, MySQL, SQLite and SQL Server. It knows your schema and runs queries read-only.</p>
+      </details>
       <details>
         <summary>Do I need to know SQL?<svg class="icon"><use href="#i-plus"/></svg></summary>
         <p>No. The SQL is always in front of you, so you’ll pick it up along the way.</p>
