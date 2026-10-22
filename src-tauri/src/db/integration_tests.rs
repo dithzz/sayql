@@ -682,3 +682,22 @@ async fn mssql_integration() {
     drop(pool);
     exec(&admin, "ALTER DATABASE sayql_it SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE sayql_it").await;
 }
+
+#[tokio::test]
+async fn mssql_connection_errors() {
+    let Some(t) = env_target("SAYQL_TEST_MSSQL_URL") else { return };
+
+    // ---- TLS: the login is always encrypted, so an untrusted certificate fails with the hint
+    let untrusted = ConnConfig { trust_cert: false, ..config(Kind::Mssql, &t, &t.database) };
+    let err = connect(&untrusted, t.password.clone()).await.err().expect("untrusted certificate accepted").to_string();
+    assert!(err.contains("Trust server certificate"), "{err}");
+
+    // ---- an encrypted connection works end to end once the certificate is trusted
+    let encrypted = ConnConfig { ssl: true, ..config(Kind::Mssql, &t, &t.database) };
+    let pool = connect(&encrypted, t.password.clone()).await.expect("connect with encryption");
+    assert_eq!(scalar(&pool, "SELECT 40 + 2").await, json!(42));
+
+    // ---- a wrong password gets the credentials hint
+    let err = connect(&config(Kind::Mssql, &t, &t.database), Some("wrong".into())).await.err().expect("wrong password accepted");
+    assert!(err.to_string().contains("didn't accept this user and password"), "{err}");
+}
