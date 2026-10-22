@@ -421,7 +421,7 @@ fn describe(schema: &Schema, search: Option<&str>) -> String {
     };
     let header = format!("Dialect: {}. {} tables and views.", schema.dialect, schema.tables.len());
     if !words.is_empty() {
-        let found: Vec<String> = schema.tables.iter().filter(|t| matches(t)).map(schema::render_table).collect();
+        let found: Vec<String> = schema.tables.iter().filter(|t| matches(t)).map(|t| schema::render_table(t, &schema.dialect)).collect();
         return if found.is_empty() {
             format!("{header}\nNo table or column matches {:?}. Try other words, or omit `search` for the table list.", words.join(" "))
         } else {
@@ -436,8 +436,8 @@ fn describe(schema: &Schema, search: Option<&str>) -> String {
         .tables
         .iter()
         .map(|t| match t.row_estimate {
-            Some(n) => format!("{} (~{n} rows)", t.qualified_name()),
-            None => t.qualified_name(),
+            Some(n) => format!("{} (~{n} rows)", schema::render_name(t, &schema.dialect)),
+            None => schema::render_name(t, &schema.dialect),
         })
         .collect();
     format!("{header} Too large to describe in full; call again with `search` words for columns.\n{}", names.join("\n"))

@@ -846,3 +846,55 @@ async fn mssql_connection_errors() {
     let err = connect(&config(Kind::Mssql, &t, &t.database), Some("wrong".into())).await.err().expect("wrong password accepted");
     assert!(err.to_string().contains("didn't accept this user and password"), "{err}");
 }
+
+/// The names in the schema text the AI sees must work when copied into a query: mixed case,
+/// spaces and reserved words are quoted the way each database needs.
+async fn check_quoted_names(pool: &DbPool, kind: Kind, schema: Option<&str>) {
+    let s = introspect(pool, kind).await.expect("introspect");
+    let t = table(&s.tables, schema, "Order Lines");
+    let dialect = kind.dialect();
+    let line = crate::schema::render_table(t, dialect);
+    let q = |n: &str| crate::schema::quote_ident(n, dialect);
+    for name in ["Id", "first name", "order"] {
+        assert!(line.contains(&format!("{} ", q(name))), "{name} in {line}");
+    }
+    let cols: Vec<String> = t.columns.iter().map(|c| q(&c.name)).collect();
+    let sql = format!("SELECT {} FROM {}", cols.join(", "), crate::schema::render_name(t, dialect));
+    let r = query(pool, &sql, true).await;
+    assert_eq!(r.columns, ["Id", "first name", "order"], "{sql}");
+    assert_eq!(r.rows, [[json!(1), json!("Ann"), json!(2)]], "{sql}");
+}
+
+#[tokio::test]
+async fn quoted_names_work_as_written() {
+    if let Some(t) = env_target("SAYQL_TEST_PG_URL") {
+        let db = if t.database.is_empty() { "postgres".to_string() } else { t.database.clone() };
+        let pool = open(Kind::Postgres, &t, &db).await;
+        exec(&pool, "DROP SCHEMA IF EXISTS \"Sayql Q\" CASCADE; CREATE SCHEMA \"Sayql Q\";
+            CREATE TABLE \"Sayql Q\".\"Order Lines\" (\"Id\" int PRIMARY KEY, \"first name\" text, \"order\" int);
+            INSERT INTO \"Sayql Q\".\"Order Lines\" VALUES (1, 'Ann', 2);").await;
+        check_quoted_names(&pool, Kind::Postgres, Some("Sayql Q")).await;
+        exec(&pool, "DROP SCHEMA \"Sayql Q\" CASCADE").await;
+    }
+    if let Some(t) = env_target("SAYQL_TEST_MYSQL_URL") {
+        let admin = open(Kind::Mysql, &t, &t.database).await;
+        exec(&admin, "DROP DATABASE IF EXISTS sayql_q; CREATE DATABASE sayql_q;
+            CREATE TABLE sayql_q.`Order Lines` (`Id` int PRIMARY KEY, `first name` text, `order` int);
+            INSERT INTO sayql_q.`Order Lines` VALUES (1, 'Ann', 2);").await;
+        let pool = open(Kind::Mysql, &t, "sayql_q").await;
+        check_quoted_names(&pool, Kind::Mysql, None).await;
+        exec(&admin, "DROP DATABASE sayql_q").await;
+    }
+    if let Some(t) = env_target("SAYQL_TEST_MSSQL_URL") {
+        let admin = open(Kind::Mssql, &t, &t.database).await;
+        exec(&admin, "IF DB_ID('sayql_q') IS NOT NULL BEGIN ALTER DATABASE sayql_q SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE sayql_q; END").await;
+        exec(&admin, "CREATE DATABASE sayql_q").await;
+        let pool = open(Kind::Mssql, &t, "sayql_q").await;
+        exec(&pool, "EXEC('CREATE SCHEMA [Sayql Q]')").await;
+        exec(&pool, "CREATE TABLE [Sayql Q].[Order Lines] ([Id] int PRIMARY KEY, [first name] nvarchar(20), [order] int);
+            INSERT INTO [Sayql Q].[Order Lines] VALUES (1, N'Ann', 2);").await;
+        check_quoted_names(&pool, Kind::Mssql, Some("Sayql Q")).await;
+        drop(pool);
+        exec(&admin, "ALTER DATABASE sayql_q SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE sayql_q").await;
+    }
+}

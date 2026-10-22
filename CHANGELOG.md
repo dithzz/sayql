@@ -13,6 +13,10 @@ All notable changes to SayQL are listed here. Downloads are on the
 - **PostgreSQL schema:** logins that can only `SELECT` (the setup we recommend) now see primary keys, which
   were missing for them. Materialized views are listed. Partitioned tables are listed once, with a row
   estimate that covers all their partitions, instead of once per partition.
+- **AI and names that need quotes:** the schema SayQL sends to the AI (and MCP's `describe_schema`) now
+  writes table and column names the way your database needs them: `"FirstName"` in PostgreSQL,
+  `` `first name` `` in MySQL, `[Order Lines]` in SQL Server. Before, the AI copied such names unquoted and the
+  query failed.
 
 ## 0.2.6 (2026-10-22)
 - **Deleting a connection** also removes its password from the keychain item older versions saved it in.
