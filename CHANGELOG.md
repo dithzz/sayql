@@ -28,6 +28,12 @@ All notable changes to SayQL are listed here. Downloads are on the
   allows but that outlast it now ask for confirmation, like any other write: creating or dropping
   replication slots, resetting statistics, and session advisory locks. So does MySQL's `GET_LOCK`.
 - **`SHOW CREATE TABLE` runs in read-only mode** on MySQL and MariaDB; it no longer asks for confirmation.
+- **Confirmed statements don't leave settings behind:** a `SET`, `USE`, lock or temporary table from a
+  statement you confirmed no longer sticks to one of SayQL's pooled connections, where it changed the
+  results of later queries at random (one query in four would run in the other database after a `USE`).
+  Each confirmed statement now runs on a connection of its own.
+- **SQL Server shows the rows a confirmed statement returns,** such as `INSERT ... OUTPUT inserted.*` or
+  `DECLARE ...; SELECT ...`. Before, only "0 rows affected" was shown.
 
 ## 0.2.6 (2026-10-22)
 - **Deleting a connection** also removes its password from the keychain item older versions saved it in.
