@@ -4,7 +4,7 @@
 pub mod secrets;
 
 use crate::db::ConnConfig;
-use crate::error::AppResult;
+use crate::error::{AppError, AppResult};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::path::PathBuf;
@@ -162,32 +162,83 @@ impl Store {
         Store { dir }
     }
 
-    /// A missing or unreadable file reads as the default, so a corrupt file never blocks startup.
-    fn read<T: for<'de> Deserialize<'de> + Default>(&self, name: &str) -> T {
-        std::fs::read_to_string(self.dir.join(name))
-            .ok()
-            .and_then(|s| serde_json::from_str(&s).ok())
-            .unwrap_or_default()
+    /// A missing file reads as the default. A file that doesn't parse is moved aside (see
+    /// [`Self::set_aside`]) and is an error: reading it as empty would let the next save
+    /// erase everything in it.
+    fn read<T: for<'de> Deserialize<'de> + Default>(&self, name: &str) -> AppResult<T> {
+        let text = match std::fs::read_to_string(self.dir.join(name)) {
+            Ok(text) => text,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(T::default()),
+            Err(e) => return Err(e.into()),
+        };
+        serde_json::from_str(&text).map_err(|_| self.set_aside(name))
     }
 
+    /// Renames an unreadable file to `<name>.corrupt-<timestamp>` so nothing overwrites it,
+    /// and returns the error that tells the person where it went.
+    fn set_aside(&self, name: &str) -> AppError {
+        let path = self.dir.join(name);
+        let stamp = chrono::Local::now().format("%Y%m%d-%H%M%S");
+        let mut backup = self.dir.join(format!("{name}.corrupt-{stamp}"));
+        let mut n = 1;
+        while backup.exists() {
+            n += 1;
+            backup = self.dir.join(format!("{name}.corrupt-{stamp}-{n}"));
+        }
+        match std::fs::rename(&path, &backup) {
+            Ok(()) => AppError::User(format!(
+                "SayQL's saved file {name} was unreadable, so it was moved to {} and left untouched. Restart SayQL to continue without it, or fix the file and move it back.",
+                backup.display()
+            )),
+            Err(e) => AppError::User(format!(
+                "SayQL's saved file {} is unreadable and couldn't be moved aside ({e}). SayQL won't save over it; fix or move the file, then restart SayQL.",
+                path.display()
+            )),
+        }
+    }
+
+    /// Writes to a temporary file in the same folder, flushes it to disk, then renames it
+    /// over the old file, so a crash leaves either the old file or the new one. Never
+    /// replaces a file that doesn't parse.
     fn write<T: Serialize>(&self, name: &str, value: &T) -> AppResult<()> {
-        std::fs::write(self.dir.join(name), serde_json::to_string_pretty(value)?)?;
-        Ok(())
+        let path = self.dir.join(name);
+        if let Ok(text) = std::fs::read_to_string(&path) {
+            if serde_json::from_str::<serde_json::Value>(&text).is_err() {
+                return Err(self.set_aside(name));
+            }
+        }
+        let tmp = self.dir.join(format!(".{name}.{}.tmp", uuid::Uuid::new_v4()));
+        let result = (|| -> AppResult<()> {
+            use std::io::Write;
+            let mut file = std::fs::File::create(&tmp)?;
+            file.write_all(serde_json::to_string_pretty(value)?.as_bytes())?;
+            file.sync_all()?;
+            std::fs::rename(&tmp, &path)?;
+            #[cfg(unix)]
+            if let Ok(dir) = std::fs::File::open(&self.dir) {
+                let _ = dir.sync_all();
+            }
+            Ok(())
+        })();
+        if result.is_err() {
+            let _ = std::fs::remove_file(&tmp);
+        }
+        result
     }
 
-    pub fn connections(&self) -> Vec<ConnConfig> {
+    pub fn connections(&self) -> AppResult<Vec<ConnConfig>> {
         self.read(CONNECTIONS_FILE)
     }
 
     pub fn connection(&self, id: &str) -> AppResult<ConnConfig> {
-        self.connections().into_iter().find(|c| c.id == id).ok_or_else(|| "Connection not found.".into())
+        self.connections()?.into_iter().find(|c| c.id == id).ok_or_else(|| "Connection not found.".into())
     }
 
     pub fn save_connections(&self, list: &[ConnConfig]) -> AppResult<()> {
         self.write(CONNECTIONS_FILE, &list)
     }
 
-    pub fn settings(&self) -> Settings {
+    pub fn settings(&self) -> AppResult<Settings> {
         self.read(SETTINGS_FILE)
     }
 
@@ -195,7 +246,7 @@ impl Store {
         self.write(SETTINGS_FILE, s)
     }
 
-    pub fn scripts(&self) -> Vec<Script> {
+    pub fn scripts(&self) -> AppResult<Vec<Script>> {
         self.read(SCRIPTS_FILE)
     }
 
@@ -203,7 +254,7 @@ impl Store {
         self.write(SCRIPTS_FILE, &list)
     }
 
-    pub fn skills(&self) -> Vec<Skill> {
+    pub fn skills(&self) -> AppResult<Vec<Skill>> {
         self.read(SKILLS_FILE)
     }
 
@@ -242,13 +293,76 @@ mod tests {
         std::fs::write(legacy.join(SCRIPTS_FILE), "[]").unwrap();
 
         let store = Store::new(base.join("com.sayql.app"));
-        assert_eq!(store.connections()[0].name, "Sales");
+        assert_eq!(store.connections().unwrap()[0].name, "Sales");
         assert!(legacy.join(CONNECTIONS_FILE).exists(), "the old file stays");
 
         // Later starts never overwrite the new folder.
         std::fs::write(legacy.join(CONNECTIONS_FILE), "[]").unwrap();
         let again = Store::new(base.join("com.sayql.app"));
-        assert_eq!(again.connections().len(), 1);
+        assert_eq!(again.connections().unwrap().len(), 1);
         let _ = std::fs::remove_dir_all(base);
+    }
+
+    fn temp_store() -> (PathBuf, Store) {
+        let dir = std::env::temp_dir().join(format!("sayql-store-{}", uuid::Uuid::new_v4())).join("com.sayql.app");
+        (dir.clone(), Store::new(dir))
+    }
+
+    fn files_in(dir: &std::path::Path) -> Vec<String> {
+        let mut names: Vec<String> = std::fs::read_dir(dir).unwrap().map(|e| e.unwrap().file_name().to_string_lossy().into_owned()).collect();
+        names.sort();
+        names
+    }
+
+    #[test]
+    fn a_missing_file_reads_as_the_default() {
+        let (dir, store) = temp_store();
+        assert!(store.connections().unwrap().is_empty());
+        assert!(!store.settings().unwrap().demo_added);
+        let _ = std::fs::remove_dir_all(dir.parent().unwrap());
+    }
+
+    #[test]
+    fn a_corrupt_file_is_moved_aside_never_overwritten() {
+        let (dir, store) = temp_store();
+        let bad = r#"[{"id":"x","name":"Sales","kind":"mssql"#;
+        std::fs::write(dir.join(CONNECTIONS_FILE), bad).unwrap();
+
+        let err = store.connections().unwrap_err().to_string();
+        let backups: Vec<String> = files_in(&dir).into_iter().filter(|n| n.starts_with("connections.json.corrupt-")).collect();
+        assert_eq!(backups.len(), 1);
+        assert!(err.contains(&backups[0]), "the error says where the backup is: {err}");
+        assert_eq!(std::fs::read_to_string(dir.join(&backups[0])).unwrap(), bad, "the backup is the original bytes");
+        assert!(!dir.join(CONNECTIONS_FILE).exists());
+
+        // Saving now starts a fresh file; the backup is untouched.
+        store.save_connections(&[]).unwrap();
+        assert_eq!(std::fs::read_to_string(dir.join(&backups[0])).unwrap(), bad);
+        let _ = std::fs::remove_dir_all(dir.parent().unwrap());
+    }
+
+    #[test]
+    fn saving_refuses_to_replace_a_corrupt_file() {
+        let (dir, store) = temp_store();
+        std::fs::write(dir.join(SETTINGS_FILE), "{not json").unwrap();
+
+        let err = store.save_settings(&Settings::default()).unwrap_err().to_string();
+        assert!(err.contains("settings.json.corrupt-"), "{err}");
+        let backup = files_in(&dir).into_iter().find(|n| n.starts_with("settings.json.corrupt-")).unwrap();
+        assert_eq!(std::fs::read_to_string(dir.join(backup)).unwrap(), "{not json");
+        assert!(!dir.join(SETTINGS_FILE).exists(), "nothing was written over it");
+        let _ = std::fs::remove_dir_all(dir.parent().unwrap());
+    }
+
+    #[test]
+    fn writes_replace_the_file_whole_and_leave_no_temp_files() {
+        let (dir, store) = temp_store();
+        let skill = |slug: &str| Skill { slug: slug.into(), description: String::new(), instruction: "x".into() };
+        store.save_skills(&[skill("a"), skill("b")]).unwrap();
+        store.save_skills(&[skill("c")]).unwrap();
+
+        assert_eq!(store.skills().unwrap(), vec![skill("c")]);
+        assert_eq!(files_in(&dir), vec![SKILLS_FILE.to_string()]);
+        let _ = std::fs::remove_dir_all(dir.parent().unwrap());
     }
 }

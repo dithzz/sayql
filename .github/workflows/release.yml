@@ -103,8 +103,39 @@ jobs:
           # so re-running a published tag stops instead of changing it.
           releaseDraft: true
           prerelease: false
-          # latest.json links to each archive by its GitHub API asset URL
-          # (api.github.com/repos/dithzz/sayql-releases/releases/assets/<id>). The updater
-          # downloads it with "Accept: application/octet-stream", which that URL needs.
+          # latest.json links to each archive by its GitHub API asset URL; the
+          # updater-links job below swaps those for public download URLs.
           uploadUpdaterJson: true
           args: ${{ matrix.args }}
+
+  # tauri-action v1 writes API asset URLs (api.github.com/.../releases/assets/<id>) into
+  # latest.json. The updater can fetch those (it sends Accept: application/octet-stream), but
+  # anonymous GitHub API calls are limited to 60 an hour per IP, so a team behind one office
+  # address could see failed updates. Public download URLs have no such limit and also work
+  # in a browser. The tag name is used, so the URLs are right once the draft is published.
+  updater-links:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Point latest.json at public download URLs
+        env:
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+          REPO: dithzz/sayql-releases
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          id=$(gh api "repos/$REPO/releases?per_page=30" -q ".[] | select(.tag_name==\"$TAG\") | .id" | head -1)
+          gh api "repos/$REPO/releases/$id/assets?per_page=100" -q '.[] | "\(.id) \(.name)"' > ids.txt
+          gh release download "$TAG" -R "$REPO" -p latest.json -D .
+          python3 - <<'EOF'
+          import json, os
+          tag, repo = os.environ["TAG"], os.environ["REPO"]
+          ids = dict(line.split(" ", 1) for line in open("ids.txt").read().splitlines())
+          d = json.load(open("latest.json"))
+          for key, p in d["platforms"].items():
+              if "/releases/assets/" in p["url"]:
+                  p["url"] = f"https://github.com/{repo}/releases/download/{tag}/{ids[p['url'].rsplit('/', 1)[-1]]}"
+              print(key, p["url"])
+          json.dump(d, open("latest.json", "w"), indent=2)
+          EOF
+          gh release upload "$TAG" latest.json -R "$REPO" --clobber
