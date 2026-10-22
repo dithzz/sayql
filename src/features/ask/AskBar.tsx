@@ -4,6 +4,8 @@ import type { Skill } from "../../api";
 import { Button, IconButton, Kbd, Spinner } from "../../components/ui";
 import { cx } from "../../lib/cx";
 import type { ModelNames } from "../settings";
+import { cancelVoiceDownload } from "../voice/voiceModel";
+import { useVoice, VoiceButton, VoicePanel, VoiceStrip, voiceTakesEscape, withTranscript } from "../voice";
 import type { GenerationStatus } from "./useSqlGeneration";
 import { ContextPill } from "./ContextPill";
 import { SlashMenu, itemId } from "./SlashMenu";
@@ -34,6 +36,10 @@ export interface AskBarProps {
   /** The /explain answer, while there is one. */
   explanation: string | null;
   onDismissExplanation: () => void;
+  /** Whether this is the visible tab (voice input's shortcut only works there). */
+  active: boolean;
+  /** Table and column names that help voice input spell them. */
+  voicePrompt: string;
 }
 
 /** The plain-English input. SQL appears in the editor below as the person types. */
@@ -48,6 +54,18 @@ export const AskBar = forwardRef<HTMLTextAreaElement, AskBarProps>(function AskB
   const { command, rest } = parseCommand(p.question, p.skills);
   const slug = command && commandSlug(command);
   const setRest = (text: string) => p.onQuestionChange(slug ? withCommand(slug, text) : text);
+
+  // Voice input: the transcript becomes the question (after any typed text), keeping the chip.
+  // It isn't run: SQL appears as usual and ↵ runs it.
+  const voice = useVoice({
+    active: p.active,
+    prompt: p.voicePrompt,
+    onTranscript: (text) => {
+      setRest(withTranscript(rest, text));
+      requestAnimationFrame(() => input.current?.focus());
+    },
+  });
+  const listening = ["starting", "recording", "transcribing"].includes(voice.phase.kind);
 
   // The "/" menu: open while the question is "/" plus a partial name, until picked or esc
   // (which keeps it closed until the next keystroke).
@@ -100,8 +118,10 @@ export const AskBar = forwardRef<HTMLTextAreaElement, AskBarProps>(function AskB
             </button>
           </span>
         )}
+        <VoiceStrip phase={voice.phase} />
         <textarea
           ref={input}
+          hidden={listening}
           className={styles.input}
           rows={1}
           value={rest}
@@ -118,6 +138,11 @@ export const AskBar = forwardRef<HTMLTextAreaElement, AskBarProps>(function AskB
             setRest(e.target.value);
           }}
           onKeyDown={(e) => {
+            if (e.key === "Escape" && voiceTakesEscape(voice.phase)) {
+              e.preventDefault();
+              voice.cancel();
+              return;
+            }
             if (menuOpen) {
               const handled = ["ArrowDown", "ArrowUp", "Enter", "Tab", "Escape"].includes(e.key) && !e.shiftKey;
               if (e.key === "ArrowDown") setActive((active + 1) % items.length);
@@ -142,6 +167,7 @@ export const AskBar = forwardRef<HTMLTextAreaElement, AskBarProps>(function AskB
             }
           }}
         />
+        <VoiceButton phase={voice.phase} disabled={p.disabled} onToggle={voice.toggle} />
         {p.focusTables.length > 0 && (
           <div className={styles.context}>
             <ContextPill
@@ -154,6 +180,13 @@ export const AskBar = forwardRef<HTMLTextAreaElement, AskBarProps>(function AskB
         )}
         </div>
       </div>
+      <VoicePanel
+        phase={voice.phase}
+        model={voice.model}
+        onDownload={voice.download}
+        onCancelDownload={cancelVoiceDownload}
+        onClose={voice.cancel}
+      />
       {menuOpen && <SlashMenu id={menuId} items={items} active={active} anchor={box} onActiveChange={setActive} onPick={pick} />}
       {p.explanation !== null && (
         <div className={styles.explanation} role="status">

@@ -1,0 +1,116 @@
+/* The mic on the question line, sized to sit on the 20px text line. */
+.mic {
+  flex-shrink: 0;
+  margin: -2px 0;
+}
+.micOn,
+.micOn:hover {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+
+/* Recording and transcribing, in place of the question. */
+.strip {
+  display: inline-flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  height: 20px;
+  font-size: var(--font-size-md);
+  color: var(--color-text-muted);
+}
+.stripHint {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-left: auto;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-subtle);
+  white-space: nowrap;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--color-danger);
+  animation: pulse 1.2s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 var(--color-danger-soft);
+  }
+  50% {
+    opacity: 0.55;
+    box-shadow: 0 0 0 4px var(--color-danger-soft);
+  }
+}
+
+.meter {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 14px;
+}
+.bar {
+  width: 3px;
+  height: 14px;
+  border-radius: 2px;
+  background: var(--color-danger);
+  transform-origin: center;
+  transition: transform 80ms linear;
+}
+
+/* The first-use prompt, download progress and short messages, below the question. */
+.panel {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 32px;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-muted);
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+}
+.error {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+.icon {
+  flex-shrink: 0;
+  color: var(--color-ai);
+}
+.text {
+  flex: 1;
+  min-width: 0;
+}
+.progress {
+  position: relative;
+  width: 120px;
+  height: 4px;
+  flex-shrink: 0;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--color-border);
+}
+.progressFill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--color-ai);
+  transition: width 120ms linear;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dot {
+    animation: none;
+  }
+  .bar,
+  .progressFill {
+    transition: none;
+  }
+}

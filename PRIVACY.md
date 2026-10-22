@@ -7,6 +7,8 @@ SayQL is a desktop app. It has no SayQL account, no SayQL server and no telemetr
 - **Connections, settings and saved scripts** are kept in files in SayQL's folder in your user's application data.
 - **Database passwords and AI API keys** are stored in your operating system's keychain (macOS Keychain, Windows Credential Manager or the Linux Secret Service), never in files.
 - **Query results** are shown in the app and are not saved unless you copy them yourself.
+- **Voice input** is turned into text on your computer by a speech model (Whisper) that runs locally. Audio is
+  kept in memory only while you talk, is never saved, and is never sent anywhere.
 
 ## What SayQL sends, and where
 
@@ -18,6 +20,7 @@ SayQL sends data only to services you configure, and only when you use them:
 | You ask in plain English | Your question; the database's table and column names, types, keys, enum values and row estimates; the current SQL for follow-ups, Explain, Fix and Improve; any skill you add | The AI provider you chose in Settings |
 | A query fails and SayQL fixes it | The query and the database's error message, with values from your rows masked | The AI provider you chose |
 | An AI app uses SayQL through MCP | The schemas and query results it asks for | That AI app (for example Claude or Cursor) |
+| You turn on voice input, once | A download request for the speech model (about 82 MB), checked against a fixed SHA-256 before use. No audio is sent | Hugging Face (huggingface.co/ggerganov/whisper.cpp) |
 | SayQL checks for updates, each time it starts | The app version and your operating system | GitHub (github.com/dithzz/sayql-releases) |
 
 The rows in your tables are never sent to an AI provider by the Ask box. With a local provider (Ollama or LM Studio), AI requests don't leave your computer.

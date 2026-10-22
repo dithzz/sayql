@@ -1,6 +1,9 @@
 /**
  * The SayQL app icon: the "QL" chip from the wordmark. Same artwork as
  * src-tauri/icons/app-icon.svg, cropped to the tile (no macOS safe-area margin).
+ *
+ * The hex fills in this file are fixed on purpose: brand colors match the app icon
+ * and logo everywhere, so they don't follow the light/dark theme tokens.
  */
 export function BrandMark({ size = 18, className }: { size?: number; className?: string }) {
   return (

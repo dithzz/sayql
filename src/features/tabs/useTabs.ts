@@ -23,6 +23,8 @@ export interface EditorTab {
   scriptId?: string;
   /** The SQL as last saved (or as generated for a table preview); differs from `sql` when there are unsaved changes. */
   savedSql?: string;
+  /** Opened by an AI app, e.g. "From Claude (MCP)". */
+  origin?: string;
 }
 
 /** True when closing the tab would lose SQL. */
@@ -35,7 +37,7 @@ interface TabsState {
   activeId: string | null;
 }
 
-export type NewTab = Partial<Pick<EditorTab, "title" | "question" | "sql" | "autoRun" | "autoAsk" | "scriptId" | "savedSql">>;
+export type NewTab = Partial<Pick<EditorTab, "title" | "question" | "sql" | "autoRun" | "autoAsk" | "scriptId" | "savedSql" | "origin">>;
 
 /** Open editor tabs and which one is active. Remembered across launches. */
 export function useTabs() {

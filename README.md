@@ -43,6 +43,8 @@ Asking an engineer takes time; general chatbots don't know your schema and can't
   "sort by date"), and failed queries fix themselves once.
 - **Your AI, your data.** Use Claude, OpenAI, Gemini or any OpenAI-compatible API with your own key, or a local
   model so nothing leaves your computer. Table rows are never sent to the AI.
+- **Say it instead.** Click the mic and say your question. Speech is turned into text on your computer, and
+  the audio never leaves it.
 - **Everything in one place.** Browse your tables, keep tabs open and save the queries you reuse. You see every
   query, so you learn SQL as you go.
 
@@ -135,10 +137,12 @@ database, and sends data only to services you configure:
 | A query fails and SayQL fixes it | The query and the database's error message | Your AI provider |
 | You run a query | Your SQL | Your database |
 | SayQL starts | The app version and your operating system, to check for updates | GitHub (dithzz/sayql-releases) |
+| You first use voice input | A one-time download of the speech model (no audio) | Hugging Face |
 
 **Rows in your tables are never sent to an AI provider by the Ask box.** Database passwords and API keys are
 kept in your OS keychain (macOS Keychain, Windows Credential Manager or Secret Service), never in files. With
-Ollama or LM Studio, nothing leaves your computer. Details: [PRIVACY.md](PRIVACY.md).
+Ollama or LM Studio, nothing leaves your computer. Voice input is transcribed on your computer and audio is
+never sent anywhere. Details: [PRIVACY.md](PRIVACY.md).
 
 ## How it works
 
@@ -169,8 +173,22 @@ Ollama or LM Studio, nothing leaves your computer. Details: [PRIVACY.md](PRIVACY
 
 SayQL includes an MCP server, `sayql-mcp`, that lets Claude Code, Claude Desktop, Cursor and other MCP apps
 use the connections you saved in SayQL: `list_connections`, `list_databases`, `describe_schema` and
-`run_query`. It's read-only, with the same checks as the app. Results are capped (100 rows by default, 1,000
-at most) and are sent to that app. Passwords never are.
+`run_query`. It's read-only, with the same checks as the app. Results come in pages (100 rows by default,
+1,000 at most) and are sent to that app. Passwords never are.
+
+- `list_scripts` lists your saved scripts, with their SQL.
+- `export_csv` saves a read-only query's rows (up to 100,000) to a new CSV in your Downloads folder. The rows
+  aren't sent to the app, only the file path.
+
+Three more tools hand work to you in SayQL instead of doing it:
+
+- `add_connection` opens SayQL's New connection dialog with the details filled in. You type the password in
+  SayQL, test and save. The tool refuses passwords and other secrets.
+- `open_query` opens SQL in a new SayQL tab without running it. You review it and click Run; SayQL asks before
+  anything that changes data, and the results stay in SayQL.
+- `open_script` opens one of your saved scripts, unrun.
+
+Passwords and writes never go through MCP.
 
 > **Note:** on Linux, use the `.deb` or `.rpm` for MCP:
 > the AppImage opens from a new folder each time, so the path would change.
@@ -196,7 +214,9 @@ serves demo data, so you need no database or AI key.
 **Stack:** [Tauri 2](https://tauri.app) (Rust) with React, TypeScript and the
 [Monaco](https://microsoft.github.io/monaco-editor/) editor. Database drivers are
 [`sqlx`](https://github.com/launchbadge/sqlx) and [`tiberius`](https://github.com/prisma/tiberius) (SQL
-Server). [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) explains the structure and conventions, and
+Server). Voice input uses [whisper.cpp](https://github.com/ggml-org/whisper.cpp) through
+[`whisper-rs`](https://crates.io/crates/whisper-rs), and [`cpal`](https://crates.io/crates/cpal) for the
+microphone (on Linux, install `libasound2-dev` to build). [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) explains the structure and conventions, and
 [docs/RELEASING.md](docs/RELEASING.md) covers signing, updates and publishing.
 
 ## Roadmap

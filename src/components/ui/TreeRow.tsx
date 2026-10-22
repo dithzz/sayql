@@ -29,7 +29,7 @@ export function TreeRow({ depth, label, icon, expanded, selected, meta, actions,
   return (
     <div
       className={cx(styles.row, selected && styles.selected)}
-      style={{ paddingLeft: 4 + depth * 14 }}
+      style={{ paddingLeft: `calc(4px + ${depth} * var(--tree-indent))` }}
       role="treeitem"
       aria-expanded={expanded}
       aria-selected={selected}

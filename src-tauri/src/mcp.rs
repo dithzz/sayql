@@ -1,33 +1,44 @@
 //! An MCP server over stdio (`sayql-mcp`), so Claude (Claude Code, Claude Desktop) can use
 //! the person's saved SayQL connections. Read-only: anything that could change data is
 //! refused and has to be run in the SayQL app, where the person reviews it first.
+//! Three tools hand work to the app instead (see handoff.rs): a prefilled New connection
+//! dialog, where the person types the password, and SQL or a saved script in a tab, which
+//! they run. `export_csv` writes a read-only query's rows to a new file in Downloads.
 
-use crate::commands::connections::{load_schema, target_pool};
 use crate::db::{self, Kind};
+use crate::handoff::{self, Action, Handoff, ScriptRef};
 use crate::schema::{self, Schema, Table};
 use crate::state::{AppState, Target};
 use rmcp::handler::server::{router::tool::ToolRouter, wrapper::Parameters};
 use rmcp::model::{Implementation, ServerCapabilities, ServerConfig};
-use rmcp::{ServerHandler, ServiceExt, tool, tool_handler, tool_router};
+use rmcp::service::RequestContext;
+use rmcp::{RoleServer, ServerHandler, ServiceExt, tool, tool_handler, tool_router};
 use schemars::JsonSchema;
 use serde::Deserialize;
-use serde_json::json;
-use std::path::PathBuf;
+use serde_json::{Map, Value, json};
+use std::io::Write;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 /// The Tauri app identifier: where the app keeps its config and data.
 const APP_ID: &str = "com.sayql.app";
 const DEFAULT_ROWS: usize = 100;
 const MAX_ROWS: usize = 1000;
+/// Most rows `export_csv` writes.
+const EXPORT_ROWS: usize = 100_000;
 /// A schema bigger than this is listed by table name unless a search narrows it.
 const FULL_SCHEMA_CHARS: usize = 60_000;
 
 const INSTRUCTIONS: &str = "SayQL gives read-only access to the user's saved database connections \
 (PostgreSQL, MySQL, SQLite, SQL Server). Typical flow: list_connections, then list_databases for a \
-server connection, then describe_schema (pass `search` terms for large databases), then run_query. \
+server connection, then describe_schema (pass `search` terms for large databases), then run_query (page with `offset`). \
 Queries run read-only and the database itself enforces it where it can; statements that could change \
 data are refused, and the user must run those in the SayQL app. Keep results small (TOP/LIMIT) and \
-select only the columns you need.";
+select only the columns you need. To hand work to the user in the SayQL app: add_connection opens a \
+prefilled New connection dialog (never pass a password; the user types it in SayQL), and open_query \
+opens SQL in a new SayQL tab for the user to review and run (use it for statements that change data). \
+list_scripts shows the user's saved scripts; open_script opens one in SayQL. export_csv saves a read-only \
+query's rows (up to 100,000) to a CSV file in the user's Downloads folder without returning them.";
 
 #[derive(Debug, Deserialize, JsonSchema)]
 struct ConnectionParams {
@@ -55,6 +66,73 @@ struct QueryParams {
     sql: String,
     /// Most rows to return (default 100, at most 1000).
     max_rows: Option<usize>,
+    /// Rows to skip, for the next page: pass `next_offset` from the previous result.
+    offset: Option<usize>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+struct ExportParams {
+    /// A connection id from list_connections.
+    connection_id: String,
+    /// Database on the server (from list_databases). Omit to use the connection's default.
+    database: Option<String>,
+    /// One read-only statement (SELECT, WITH, ...), in the connection's SQL dialect.
+    sql: String,
+    /// File name without folder, e.g. "orders-2026". Saved as .csv in Downloads; never overwrites.
+    file_name: Option<String>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+struct ScriptsParams {
+    /// Only scripts on this connection (an id from list_connections). Omit for all.
+    connection_id: Option<String>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+struct ScriptParams {
+    /// A script id from list_scripts.
+    script_id: String,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+struct AddConnectionParams {
+    /// Database type: postgres, mysql, sqlite or sqlserver (SQL Server and Azure SQL).
+    #[serde(rename = "type")]
+    kind: String,
+    /// Name shown in SayQL. Optional.
+    name: Option<String>,
+    /// Server host name or IP (not for sqlite). For SQL Server, `host,port` also works.
+    host: Option<String>,
+    /// Server port (not for sqlite). Omit for the default.
+    port: Option<i64>,
+    /// Database to open by default (not for sqlite).
+    database: Option<String>,
+    /// User name (not for sqlite).
+    user: Option<String>,
+    /// sqlite only: path to the database file.
+    file: Option<String>,
+    /// Require SSL (postgres, mysql) or encrypt the connection (sqlserver).
+    ssl: Option<bool>,
+    /// sqlserver only: trust a self-signed server certificate.
+    trust_server_certificate: Option<bool>,
+    /// Anything else. Checked so a password is refused with a clear message.
+    #[serde(flatten)]
+    #[schemars(skip)]
+    extra: Map<String, Value>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+struct OpenQueryParams {
+    /// A connection id from list_connections.
+    connection_id: String,
+    /// Database on the server (from list_databases). Omit to use the connection's default.
+    database: Option<String>,
+    /// The SQL to put in the editor, in the connection's dialect. At most 10,000 characters.
+    sql: String,
+    /// Short tab title. Optional.
+    title: Option<String>,
+    /// The user's question this SQL answers, shown above the editor. Optional.
+    question: Option<String>,
 }
 
 #[derive(Clone)]
@@ -87,7 +165,7 @@ impl SayqlServer {
 
     #[tool(description = "List the databases on a connection's server, and which one it opens by default.")]
     async fn list_databases(&self, Parameters(p): Parameters<ConnectionParams>) -> Result<String, String> {
-        let pool = target_pool(&self.state, &Target::default_of(&p.connection_id)).await.map_err(|e| e.to_string())?;
+        let pool = self.state.target_pool(&Target::default_of(&p.connection_id)).await.map_err(|e| e.to_string())?;
         match db::list_databases(&pool).await.map_err(|e| e.to_string())? {
             Some(list) => Ok(json!(list).to_string()),
             None => Ok("This is a SQLite file: it is a single database; omit `database`.".into()),
@@ -102,36 +180,223 @@ impl SayqlServer {
     }
 
     #[tool(description = "Run one read-only SQL statement and return the rows as JSON. \
-                          Statements that could change data are refused.")]
+                          Statements that could change data are refused. Results are paged: when \
+                          `next_offset` is set, call again with it as `offset` for more rows.")]
     async fn run_query(&self, Parameters(p): Parameters<QueryParams>) -> Result<String, String> {
         let target = Target::new(p.connection_id, p.database);
-        let pool = target_pool(&self.state, &target).await.map_err(|e| e.to_string())?;
+        let pool = self.state.target_pool(&target).await.map_err(|e| e.to_string())?;
         if !db::is_read_only(&p.sql, pool.kind()) {
-            return Err("SayQL's MCP access is read-only, and this statement could change data. \
-                        Show it to the user to run in the SayQL app, where they can review it."
-                .into());
+            return Err(WRITE_REFUSED.into());
         }
-        let mut r = db::run_query(&pool, &p.sql, true).await.map_err(|e| e.to_string())?;
+        let r = db::run_query(&pool, &p.sql, true).await.map_err(|e| e.to_string())?;
         let limit = p.max_rows.unwrap_or(DEFAULT_ROWS).clamp(1, MAX_ROWS);
-        let truncated = r.truncated || r.rows.len() > limit;
-        r.rows.truncate(limit);
-        Ok(json!({
+        let page = page(r.rows, r.truncated, p.offset.unwrap_or(0), limit);
+        let mut out = json!({
             "columns": r.columns,
-            "rows": r.rows,
-            "row_count": r.rows.len(),
-            "truncated": truncated,
+            "rows": page.rows,
+            "row_count": page.rows.len(),
+            "offset": page.offset,
+            "next_offset": page.next_offset,
+            "truncated": page.more,
             "elapsed_ms": r.elapsed_ms,
+        });
+        if page.past_cap {
+            out["note"] = json!("SayQL reads at most 5,000 rows per query. For later rows, add a WHERE or \
+                                LIMIT/OFFSET to the SQL; to save them all, use export_csv.");
+        }
+        Ok(out.to_string())
+    }
+
+    #[tool(description = "Run one read-only SQL statement and save all its rows (up to 100,000) to a new CSV \
+                          file in the user's Downloads folder. Returns the file path, columns and row count, \
+                          not the rows. Statements that could change data are refused.")]
+    async fn export_csv(&self, Parameters(p): Parameters<ExportParams>) -> Result<String, String> {
+        let target = Target::new(p.connection_id, p.database);
+        let pool = self.state.target_pool(&target).await.map_err(|e| e.to_string())?;
+        if !db::is_read_only(&p.sql, pool.kind()) {
+            return Err(WRITE_REFUSED.into());
+        }
+        let dir = dirs::download_dir().or_else(dirs::home_dir).ok_or("Could not find the Downloads folder.")?;
+        let r = db::run_query_capped(&pool, &p.sql, true, EXPORT_ROWS).await.map_err(|e| e.to_string())?;
+        let (path, mut file) = new_export_file(&dir, p.file_name.as_deref())?;
+        file.write_all(to_csv(&r.columns, &r.rows).as_bytes()).map_err(|e| format!("Could not write {}: {e}", path.display()))?;
+        Ok(json!({
+            "path": path,
+            "columns": r.columns,
+            "row_count": r.rows.len(),
+            "truncated": r.truncated,
+            "note": if r.truncated { "Stopped at 100,000 rows; narrow the query for the rest." } else { "All rows saved." },
         })
         .to_string())
     }
+
+    #[tool(description = "List the SQL scripts the user saved in SayQL, with their SQL. Read-only ones can be run \
+                          with run_query; open_script opens one in SayQL for the user.")]
+    async fn list_scripts(&self, Parameters(p): Parameters<ScriptsParams>) -> Result<String, String> {
+        let connections = self.state.store.connections().map_err(|e| e.to_string())?;
+        let list: Vec<_> = self
+            .state
+            .store
+            .scripts()
+            .map_err(|e| e.to_string())?
+            .into_iter()
+            .filter(|s| p.connection_id.as_ref().is_none_or(|id| &s.connection_id == id))
+            .map(|s| {
+                let connection = connections.iter().find(|c| c.id == s.connection_id).map(|c| c.name.clone());
+                json!({ "id": s.id, "name": s.name, "connection_id": s.connection_id, "connection": connection,
+                        "database": s.database, "question": s.question, "sql": s.sql })
+            })
+            .collect();
+        Ok(json!(list).to_string())
+    }
+
+    #[tool(description = "Open one of the user's saved scripts (from list_scripts) in SayQL, without running it. \
+                          The user reviews it and clicks Run.")]
+    async fn open_script(&self, Parameters(p): Parameters<ScriptParams>, ctx: RequestContext<RoleServer>) -> Result<String, String> {
+        let script_id = handoff::script_id(&p.script_id)?;
+        let script = self.state.store.scripts().map_err(|e| e.to_string())?.into_iter().find(|s| s.id == script_id).ok_or_else(|| {
+            format!("No saved script has id {script_id:?}; use one from list_scripts.")
+        })?;
+        self.hand_off(Action::OpenScript(ScriptRef { script_id }), &ctx)?;
+        Ok(format!("Opened the script {:?} in SayQL. Nothing ran: the user reviews it and clicks Run.", script.name))
+    }
+
+    #[tool(description = "Open SayQL's New connection dialog with these details filled in, for the user to finish. \
+                          Never pass a password or any other secret: it is refused. The user types the password \
+                          in SayQL, tests the connection and saves it. Returns right away; call list_connections \
+                          later to use the new connection.")]
+    async fn add_connection(&self, Parameters(p): Parameters<AddConnectionParams>, ctx: RequestContext<RoleServer>) -> Result<String, String> {
+        let draft = connection_draft(p)?;
+        self.hand_off(Action::NewConnection(draft), &ctx)?;
+        Ok("Opened SayQL's New connection dialog with these details. The user enters the password there, \
+            tests the connection and saves it."
+            .into())
+    }
+
+    #[tool(description = "Open SQL in a new SayQL tab on a saved connection, without running it. The user reviews it \
+                          and clicks Run; SayQL asks before anything that changes data. Use this for statements \
+                          run_query refuses. The results stay in SayQL and are not returned.")]
+    async fn open_query(&self, Parameters(p): Parameters<OpenQueryParams>, ctx: RequestContext<RoleServer>) -> Result<String, String> {
+        let draft = handoff::query_draft(&p.connection_id, p.database.as_deref(), &p.sql, p.title.as_deref(), p.question.as_deref())?;
+        let conn = self.state.store.connection(&draft.connection_id).map_err(|_| {
+            format!("No saved connection has id {:?}; use one from list_connections.", draft.connection_id)
+        })?;
+        self.hand_off(Action::OpenQuery(draft), &ctx)?;
+        Ok(format!(
+            "Opened a new SayQL tab on {:?} with the SQL. Nothing ran: the user reviews it and clicks Run.",
+            conn.name
+        ))
+    }
+}
+
+const WRITE_REFUSED: &str = "SayQL's MCP access is read-only, and this statement could change data. \
+Use open_query to put it in a SayQL tab, where the user reviews and runs it.";
+
+/// One page of a query's rows.
+struct Page {
+    rows: Vec<Vec<Value>>,
+    offset: usize,
+    /// Where the next page starts, when there are more rows SayQL read.
+    next_offset: Option<usize>,
+    /// More rows exist, read or not.
+    more: bool,
+    /// The page reached the end of what SayQL reads, and the query has more.
+    past_cap: bool,
+}
+
+/// `limit` rows from `offset` of the rows SayQL read (`cut_off`: the query had more).
+fn page(rows: Vec<Vec<Value>>, cut_off: bool, offset: usize, limit: usize) -> Page {
+    let total = rows.len();
+    let rows: Vec<_> = rows.into_iter().skip(offset).take(limit).collect();
+    let end = offset.min(total) + rows.len();
+    Page { offset, next_offset: (end < total).then_some(end), more: end < total || cut_off, past_cap: end >= total && cut_off, rows }
+}
+
+/// RFC 4180 CSV, like "Copy as CSV" in the app. NULL becomes an empty field.
+fn to_csv(columns: &[String], rows: &[Vec<Value>]) -> String {
+    fn field(s: &str) -> String {
+        if s.contains(['"', ',', '\n', '\r']) { format!("\"{}\"", s.replace('"', "\"\"")) } else { s.to_string() }
+    }
+    let cell = |v: &Value| match v {
+        Value::Null => String::new(),
+        Value::String(s) => field(s),
+        other => field(&other.to_string()),
+    };
+    let mut out = columns.iter().map(|c| field(c)).collect::<Vec<_>>().join(",");
+    for row in rows {
+        out.push('\n');
+        out.push_str(&row.iter().map(cell).collect::<Vec<_>>().join(","));
+    }
+    out.push('\n');
+    out
+}
+
+/// A new file in `dir` named after `name` (letters, digits, spaces, `-`, `_`, `.`), never an existing one.
+fn new_export_file(dir: &Path, name: Option<&str>) -> Result<(PathBuf, std::fs::File), String> {
+    let clean: String = name.unwrap_or("").chars().filter(|c| c.is_alphanumeric() || " -_.".contains(*c)).take(80).collect();
+    let stem = clean.trim().trim_end_matches(".csv").trim_matches('.').trim();
+    let stem = if stem.is_empty() { "sayql-export" } else { stem };
+    for n in 1..1000 {
+        let path = dir.join(if n == 1 { format!("{stem}.csv") } else { format!("{stem} ({n}).csv") });
+        match std::fs::OpenOptions::new().write(true).create_new(true).open(&path) {
+            Ok(file) => return Ok((path, file)),
+            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(e) => return Err(format!("Could not create {}: {e}", path.display())),
+        }
+    }
+    Err(format!("Too many files named {stem} in {}.", dir.display()))
+}
+
+/// The New connection fields from `add_connection`'s arguments; refuses passwords.
+fn connection_draft(p: AddConnectionParams) -> Result<handoff::ConnectionDraft, String> {
+    if p.extra.keys().any(|k| handoff::is_secret_field(k)) {
+        return Err(handoff::secret_refused());
+    }
+    if let Some(k) = p.extra.keys().next() {
+        return Err(format!("Unknown field `{k}`."));
+    }
+    let get = |k: &str| match k {
+        "type" => Some(p.kind.clone()),
+        "name" => p.name.clone(),
+        "host" => p.host.clone(),
+        "database" => p.database.clone(),
+        "user" => p.user.clone(),
+        "file" => p.file.clone(),
+        _ => None,
+    };
+    let flag = |k: &str| Ok(if k == "ssl" { p.ssl } else { p.trust_server_certificate });
+    handoff::connection_draft(get, p.port, flag)
+}
+
+/// The AI app's name for "From Claude (MCP)", from what it sent when it connected.
+fn client_label(info: &Implementation) -> Option<String> {
+    let name = info.name.to_ascii_lowercase();
+    let known = if name.contains("claude-code") {
+        Some("Claude Code")
+    } else if name.starts_with("claude") {
+        Some("Claude")
+    } else if name.contains("cursor") {
+        Some("Cursor")
+    } else {
+        None
+    };
+    handoff::source(known.or(info.title.as_deref()).or(Some(&info.name)))
 }
 
 impl SayqlServer {
+    /// Opens `action` in the SayQL app through a one-time `sayql://` link.
+    fn hand_off(&self, action: Action, ctx: &RequestContext<RoleServer>) -> Result<(), String> {
+        let source = ctx.peer.peer_info().and_then(|i| client_label(&i.client_info));
+        let token = handoff::issue_token(self.state.store.dir())?;
+        let link = handoff::to_url(&Handoff { source, action }, &token)?;
+        handoff::open_in_app(&link)
+    }
+
     async fn schema(&self, connection_id: &str, database: Option<String>) -> Result<Schema, String> {
         let target = Target::new(connection_id.to_string(), database);
         match self.state.schema(&target) {
             Ok(loaded) => Ok(loaded.schema.clone()),
-            Err(_) => load_schema(&self.state, &target).await.map_err(|e| e.to_string()),
+            Err(_) => self.state.load_schema(&target).await.map_err(|e| e.to_string()),
         }
     }
 }
@@ -214,6 +479,72 @@ mod tests {
             foreign_keys: vec![],
             row_estimate: Some(10),
         }
+    }
+
+    fn add_params(args: Value) -> Result<AddConnectionParams, serde_json::Error> {
+        serde_json::from_value(args)
+    }
+
+    #[test]
+    fn add_connection_refuses_passwords() {
+        let p = add_params(json!({ "type": "postgres", "host": "db", "password": "hunter2" })).unwrap();
+        assert_eq!(connection_draft(p).unwrap_err(), handoff::secret_refused());
+        let p = add_params(json!({ "type": "mysql", "apiKey": "x" })).unwrap();
+        assert_eq!(connection_draft(p).unwrap_err(), handoff::secret_refused());
+        let p = add_params(json!({ "type": "mysql", "colour": "red" })).unwrap();
+        assert!(connection_draft(p).unwrap_err().contains("colour"));
+    }
+
+    #[test]
+    fn add_connection_validates_fields() {
+        let p = add_params(json!({ "type": "sqlserver", "host": "sql.local", "port": 1433, "ssl": true, "trust_server_certificate": true })).unwrap();
+        let d = connection_draft(p).unwrap();
+        assert_eq!((d.kind, d.port, d.ssl, d.trust_cert), (Kind::Mssql, Some(1433), Some(true), Some(true)));
+        assert!(connection_draft(add_params(json!({ "type": "postgres", "port": 0 })).unwrap()).is_err());
+        assert!(connection_draft(add_params(json!({ "type": "sqlite" })).unwrap()).is_err());
+        assert!(add_params(json!({ "host": "db" })).is_err(), "type is required");
+        assert!(add_params(json!({ "type": "postgres", "port": "5432" })).is_err());
+    }
+
+    #[test]
+    fn pages_through_rows() {
+        let rows = |n: usize| (0..n).map(|i| vec![json!(i)]).collect::<Vec<_>>();
+        let p = page(rows(250), false, 0, 100);
+        assert_eq!((p.rows.len(), p.next_offset, p.more, p.past_cap), (100, Some(100), true, false));
+        let p = page(rows(250), false, 200, 100);
+        assert_eq!((p.rows[0][0].clone(), p.rows.len(), p.next_offset, p.more), (json!(200), 50, None, false));
+        let p = page(rows(250), false, 900, 100);
+        assert_eq!((p.rows.len(), p.next_offset, p.more), (0, None, false));
+        let p = page(rows(5000), true, 4950, 100);
+        assert_eq!((p.rows.len(), p.next_offset, p.more, p.past_cap), (50, None, true, true));
+    }
+
+    #[test]
+    fn writes_csv_like_the_app() {
+        let csv = to_csv(&["id".into(), "note".into()], &[vec![json!(1), json!("a, \"b\"")], vec![json!(2), Value::Null]]);
+        assert_eq!(csv, "id,note\n1,\"a, \"\"b\"\"\"\n2,\n");
+    }
+
+    #[test]
+    fn export_files_never_overwrite() {
+        let dir = std::env::temp_dir().join(format!("sayql-export-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let (a, _) = new_export_file(&dir, Some("../../etc/orders.csv")).unwrap();
+        let (b, _) = new_export_file(&dir, Some("....etcorders")).unwrap();
+        let (c, _) = new_export_file(&dir, None).unwrap();
+        assert_eq!(a, dir.join("etcorders.csv"));
+        assert_eq!(b, dir.join("etcorders (2).csv"));
+        assert_eq!(c, dir.join("sayql-export.csv"));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn labels_known_clients() {
+        let info = |name: &str| Implementation::new(name, "1");
+        assert_eq!(client_label(&info("claude-ai")).as_deref(), Some("Claude"));
+        assert_eq!(client_label(&info("claude-code")).as_deref(), Some("Claude Code"));
+        assert_eq!(client_label(&info("cursor-vscode")).as_deref(), Some("Cursor"));
+        assert_eq!(client_label(&info("Zed")).as_deref(), Some("Zed"));
     }
 
     #[test]

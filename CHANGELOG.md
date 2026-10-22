@@ -4,11 +4,27 @@ All notable changes to SayQL are listed here. Downloads are on the
 [releases page](https://github.com/dithzz/sayql-releases/releases).
 
 ## Unreleased
+- **Deleting a connection** also removes its password from the keychain item older versions saved it in.
+- **API keys:** release builds no longer fall back to the `ANTHROPIC_API_KEY` environment variable; save the
+  key in Settings.
+- **Deleting a connection shows why when it fails** (e.g. keychain access denied); the connection and its tabs stay.
 
+## 0.2.5 (2026-10-22)
+
+- **Voice input:** click the mic in the Ask box, or press ⌘⇧M (Ctrl+Shift+M), and say your question. It
+  becomes the question as if you'd typed it, keeping any `/command`; press ↵ to run. Speech is turned into
+  text on your computer by Whisper, and audio is never saved or sent anywhere. The first time, the speech
+  model (82 MB) downloads once from Hugging Face; remove or redownload it in Settings → Voice.
 - **Safer saved connections:** if a saved file (connections, settings, scripts or skills) is damaged,
   SayQL no longer treats it as empty and erases it on the next save. It moves the file aside as
   `<name>.corrupt-<time>` and says where. Saves are now written in one step, so a crash mid-save can't
   leave a half-written file.
+- **MCP: hand work to SayQL.** Two new tools for AI apps. `add_connection` opens the New connection dialog
+  filled in; you type the password in SayQL. `open_query` opens SQL in a new tab for you to review and run.
+  Passwords and writes never go through MCP, and nothing runs or saves on its own.
+- **MCP: saved scripts.** `list_scripts` lists them with their SQL; `open_script` opens one in SayQL, unrun.
+- **MCP: more rows.** `run_query` pages with `offset`, and `export_csv` saves up to 100,000 rows of a
+  read-only query to a new CSV in Downloads without sending them to the AI app.
 - **Privacy:** when SayQL fixes a failed query, values from your rows that the database quotes in its error
   (a duplicate email, a value that failed to convert) are masked before the error goes to your AI provider.
 - **Stricter read-only check:** SayQL now reads each statement the way your database does (MySQL `#` comments,
@@ -19,7 +35,6 @@ All notable changes to SayQL are listed here. Downloads are on the
   own backend, so injected content can't load remote code or send data elsewhere.
 
 ## 0.2.5 (2026-10-22)
-
 - **Security:** updated the SQL Server driver, which fixes a high-severity issue in a TLS library it used.
 - **Under the hood:** newer database drivers (sqlx 0.9, tiberius 0.13), editor (Monaco 0.57) and icons.
 - **Editor:** suggests your tables and columns as you type, plus find and replace (⌘F, ⌥⌘F) and comment

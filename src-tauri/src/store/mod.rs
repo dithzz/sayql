@@ -2,12 +2,13 @@
 //! Secrets never go in these files; see [`secrets`].
 
 pub mod secrets;
+pub mod skills;
 
 use crate::db::ConnConfig;
 use crate::error::{AppError, AppResult};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 const CONNECTIONS_FILE: &str = "connections.json";
 const SETTINGS_FILE: &str = "settings.json";
@@ -224,6 +225,11 @@ impl Store {
             let _ = std::fs::remove_file(&tmp);
         }
         result
+    }
+
+    /// The app's config folder.
+    pub fn dir(&self) -> &Path {
+        &self.dir
     }
 
     pub fn connections(&self) -> AppResult<Vec<ConnConfig>> {

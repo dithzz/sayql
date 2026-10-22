@@ -1,4 +1,4 @@
-# Runs the type check and all tests on every pull request and push to main.
+# Runs the type check, all tests and the lint checks on every pull request and push to main.
 # It uses no secrets, so it is safe for pull requests from forks.
 name: CI
 
@@ -23,7 +23,7 @@ jobs:
       - name: Install Linux build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libssl-dev libdbus-1-dev
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libssl-dev libdbus-1-dev libasound2-dev
 
       - uses: pnpm/action-setup@v6
         with:
@@ -51,3 +51,100 @@ jobs:
       - name: Backend tests
         working-directory: src-tauri
         run: cargo test --lib
+
+      # The MCP server is a second binary in the crate; `cargo test --lib` doesn't build it.
+      - name: Build the MCP server
+        working-directory: src-tauri
+        run: cargo build --bin sayql-mcp
+
+      # build_docs.py uses f-string syntax from Python 3.12; ubuntu-22.04 ships 3.10.
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      # site/docs, the sitemap, robots.txt and the landing page's FAQ data are generated from
+      # docs-site/ and committed. Rebuild them and fail if the committed copy is stale.
+      - name: Generated docs are up to date
+        run: |
+          python3 scripts/build_docs.py
+          git diff --exit-code -- site/docs site/sitemap.xml site/robots.txt site/index.html
+
+  # Non-blocking for now: main isn't rustfmt-clean (about 270 hunks in 36 of 45 files), and
+  # reformatting while many PRs are open would conflict with all of them. Once they land, run
+  # `cargo fmt` once in src-tauri, then remove `continue-on-error` and make this a required check.
+  fmt:
+    runs-on: ubuntu-22.04
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - name: rustfmt
+        working-directory: src-tauri
+        run: cargo fmt --check
+
+  # Non-blocking for now, for the same reason: main has about 10 clippy warnings in files that
+  # open PRs are changing. Once they land, fix the warnings, then remove `continue-on-error` and
+  # make this a required check.
+  clippy:
+    runs-on: ubuntu-22.04
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libssl-dev libdbus-1-dev libasound2-dev
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+
+      - name: clippy
+        working-directory: src-tauri
+        run: cargo clippy --all-targets -- -D warnings
+
+  # The backend builds C++ (whisper.cpp, for voice input), so check that it still compiles
+  # on every platform the release builds for, not only Linux.
+  native:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-latest
+            target: aarch64-apple-darwin
+          - platform: macos-latest
+            target: x86_64-apple-darwin
+          - platform: windows-latest
+            target: x86_64-pc-windows-msvc
+    name: build (${{ matrix.target }})
+    runs-on: ${{ matrix.platform }}
+    env:
+      GGML_NATIVE: "OFF"
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+          key: ${{ matrix.target }}
+
+      # tauri::generate_context! needs the built UI folder to exist.
+      - run: mkdir -p dist
+        shell: bash
+
+      - name: Build the backend
+        working-directory: src-tauri
+        run: cargo build --lib --target ${{ matrix.target }}

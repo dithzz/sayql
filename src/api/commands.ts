@@ -4,6 +4,7 @@ import type {
   ConnectionConfig,
   DatabaseList,
   GenerationTask,
+  Handoff,
   McpSetup,
   QueryResult,
   Script,
@@ -14,6 +15,7 @@ import type {
   UpdateInfo,
   AppInfo,
   Target,
+  VoiceStatus,
 } from "./types";
 
 /** Typed wrappers for the Tauri commands registered in src-tauri/src/lib.rs. */
@@ -33,9 +35,12 @@ export const commands = {
   runQuery: (t: Target, sql: string, allowWrite: boolean) =>
     invoke<QueryResult>("run_query", { id: t.connectionId, database: t.database, sql, allowWrite }),
 
-  /** `slot` scopes cancellation: a new request replaces the previous one in the same slot (editor tab). */
-  /** `focusTables`: qualified table names the person picked; drafts see only those and their neighbours. */
-  /** `skill`: the slug of a saved skill whose instruction goes with the request. */
+  /**
+   * Asks the AI for SQL; the answer streams back as `ai://` events (see `subscribeToAi`).
+   * - `slot` scopes cancellation: a new request replaces the previous one in the same slot (editor tab).
+   * - `focusTables`: qualified table names the person picked; drafts see only those and their neighbours.
+   * - `skill`: the slug of a saved skill whose instruction goes with the request.
+   */
   generateSql: (t: Target, question: string, reqId: number, slot: string, task: GenerationTask, focusTables: string[], skill: string | null) =>
     invoke<void>("generate_sql", { id: t.connectionId, database: t.database, question, reqId, slot, task, focusTables, skill }),
   cancelGeneration: (slot: string) => invoke<void>("cancel_generation", { slot }),
@@ -51,6 +56,8 @@ export const commands = {
   deleteSkill: (slug: string) => invoke<void>("delete_skill", { slug }),
 
   mcpSetup: () => invoke<McpSetup>("mcp_setup"),
+  /** Handoffs from AI apps waiting to be shown (see the `handoff://new` event). */
+  takeHandoffs: () => invoke<Handoff[]>("take_handoffs"),
 
   /** Version, OS and chip, for pre-filling feedback. */
   appInfo: () => invoke<AppInfo>("app_info"),
@@ -67,4 +74,17 @@ export const commands = {
   /** Model ids an AI provider offers; also checks the key and base URL. */
   listModels: (provider: string, baseUrl: string, apiKey: string | null) =>
     invoke<string[]>("list_models", { provider, baseUrl, apiKey }),
+
+  /** Voice input: whether the on-device speech model is downloaded. */
+  voiceStatus: () => invoke<VoiceStatus>("voice_status"),
+  /** Downloads the speech model once; progress arrives as `voice://progress` events. */
+  voiceDownload: () => invoke<void>("voice_download"),
+  voiceCancelDownload: () => invoke<void>("voice_cancel_download"),
+  voiceDeleteModel: () => invoke<void>("voice_delete_model"),
+  /** Starts recording from the default microphone. */
+  voiceStart: () => invoke<void>("voice_start"),
+  /** Stops recording and returns the transcript. `prompt`: table and column names to help spelling. */
+  voiceStop: (prompt: string) => invoke<string>("voice_stop", { prompt }),
+  /** Stops recording and discards the audio. */
+  voiceCancel: () => invoke<void>("voice_cancel"),
 };

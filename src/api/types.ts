@@ -203,3 +203,45 @@ export interface AiDone {
   totalMs: number;
   cacheReadTokens: number | null;
 }
+
+/** New connection fields from an AI app, minus the password; mirrors `handoff::ConnectionDraft`. */
+export interface ConnectionDraft {
+  name: string;
+  kind: DatabaseKind;
+  host: string;
+  port: number | null;
+  database: string;
+  user: string;
+  file: string;
+  /** null keeps the form's default for the kind. */
+  ssl: boolean | null;
+  trustCert: boolean | null;
+}
+
+/** SQL from an AI app, to open unrun in a new tab; mirrors `handoff::QueryDraft`. */
+export interface QueryDraft {
+  connectionId: string;
+  database: string | null;
+  sql: string;
+  title: string | null;
+  question: string | null;
+}
+
+/** Work handed over from an AI app through `sayql-mcp`; mirrors `handoff::Handoff`. */
+export type Handoff = { source: string | null } & (
+  | ({ type: "newConnection" } & ConnectionDraft)
+  | ({ type: "openQuery" } & QueryDraft)
+  | { type: "openScript"; scriptId: string }
+);
+
+/** Voice input's on-device speech model. */
+export interface VoiceStatus {
+  ready: boolean;
+  downloading: boolean;
+  modelBytes: number;
+}
+
+export interface VoiceProgress {
+  received: number;
+  total: number;
+}

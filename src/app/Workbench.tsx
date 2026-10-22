@@ -11,15 +11,19 @@ import { useSkills } from "../features/skills";
 import { hasUnsavedChanges, useTabs, type EditorTab } from "../features/tabs";
 import { useUpdate } from "../features/updates";
 import { FeedbackDialog } from "../features/feedback";
+import { useHandoffs } from "../features/handoff";
 import { exampleQuestions, OnboardingDialog, type OnboardingStep } from "../features/onboarding";
 import { QueryTab } from "./QueryTab";
 import { StatusBar } from "./StatusBar";
 import { TopBar } from "./TopBar";
+import { useConnectionActions } from "./useConnectionActions";
+import { useScriptActions } from "./useScriptActions";
 import styles from "./Workbench.module.css";
 
 type OpenDialog =
   /** `fromSetup`: opened from the first-run setup, which resumes when it closes. */
-  | { kind: "connection"; config: ConnectionConfig; fromSetup?: boolean }
+  /** `note`: where the details came from, for a handoff from an AI app. */
+  | { kind: "connection"; config: ConnectionConfig; fromSetup?: boolean; note?: string; key?: string }
   /** `createSkill`: opened from "Create skill…" in the Ask box. */
   | { kind: "settings"; section?: SettingsSection; createSkill?: boolean }
   | { kind: "saveScript"; tabId: string; closeAfter: boolean }
@@ -34,10 +38,13 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
   const conn = useConnections(boot.connections);
   const tabs = useTabs();
   const scripts = useScripts();
+  const { scriptOf, saveTab, openScript, deleteScript } = useScriptActions(scripts, tabs);
+  const connActions = useConnectionActions(conn, tabs);
   const skills = useSkills();
   const { settings, setSettings, modelNames } = useSettings(boot.settings);
   const updates = useUpdate();
   const [dialog, setDialog] = useState<OpenDialog>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   // First launch: the setup shows until it's finished or dismissed. People who already
   // have an AI provider working (from before the setup existed) never see it.
   const [setupStep, setSetupStep] = useState<OnboardingStep | null>(() =>
@@ -86,22 +93,6 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
   };
 
   const tabById = (id: string) => tabs.tabs.find((t) => t.id === id) ?? null;
-  const scriptOf = (t: EditorTab) => (t.scriptId ? (scripts.scripts.find((s) => s.id === t.scriptId) ?? null) : null);
-
-  /** Saves the tab as a script (named `name`, or keeping its script's name) and marks it saved. */
-  const saveTab = async (t: EditorTab, name?: string) => {
-    const existing = scriptOf(t);
-    const saved = await scripts.save({
-      id: existing?.id ?? "",
-      name: name ?? existing?.name ?? t.title,
-      connectionId: t.target.connectionId,
-      database: t.target.database,
-      question: t.question,
-      sql: t.sql,
-      updatedAt: 0,
-    });
-    tabs.update(t.id, { scriptId: saved.id, title: saved.name, savedSql: t.sql });
-  };
 
   /** Saves straight away when the tab already is a script; otherwise asks for a name first. */
   const requestSave = (t: EditorTab, closeAfter = false) => {
@@ -116,23 +107,6 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
     const t = tabById(id);
     if (t && hasUnsavedChanges(t)) setDialog({ kind: "closeTab", tabId: id });
     else tabs.close(id);
-  };
-
-  const openScript = (id: string) => {
-    const s = scripts.scripts.find((x) => x.id === id);
-    if (!s) return;
-    const open = tabs.tabs.find((t) => t.scriptId === id);
-    if (open) return tabs.activate(open.id);
-    tabs.open(
-      { connectionId: s.connectionId, database: s.database },
-      { scriptId: s.id, title: s.name, sql: s.sql, question: s.question, savedSql: s.sql },
-    );
-  };
-
-  const deleteScript = async (s: Script) => {
-    await scripts.remove(s.id);
-    // Open tabs keep their SQL, now unsaved, so nothing is lost by accident.
-    tabs.tabs.filter((t) => t.scriptId === s.id).forEach((t) => tabs.update(t.id, { scriptId: undefined, savedSql: undefined }));
   };
 
   // ⌘T / Ctrl+T opens a new tab on the current database; ⌘S / Ctrl+S saves the active tab.
@@ -163,11 +137,6 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
     if (target) tabs.open(target, { title, sql, savedSql: sql, autoRun: run });
   };
 
-  const forgetConnection = (id: string) => {
-    conn.remove(id);
-    tabs.closeWhere((t) => t.target.connectionId === id);
-  };
-
   const tabLabel = (t: EditorTab) => {
     const c = conn.connection(t.target.connectionId);
     const db = c?.kind === "sqlite" ? null : conn.databaseName(t.target);
@@ -177,8 +146,8 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
   const tabItems: TabItem[] = tabs.tabs.map((t) => {
     const { name, db } = tabLabel(t);
     const c = conn.connection(t.target.connectionId);
-    // Named tabs are table previews, unless they are saved scripts.
-    const Icon = t.title && !t.scriptId ? Table2 : FileCode2;
+    // Named tabs are table previews, unless they are saved scripts or SQL from an AI app.
+    const Icon = t.title && !t.scriptId && !t.origin ? Table2 : FileCode2;
     return {
       id: t.id,
       label: t.title || db || name,
@@ -216,6 +185,15 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
   };
   const openNewConnection = () => setDialog({ kind: "connection", config: newConnection() });
 
+  // AI apps hand over a connection to finish or SQL to review; nothing runs or saves on its own.
+  useHandoffs({
+    connection: conn.connection,
+    openConnectionDialog: (config, note) => setDialog({ kind: "connection", config, note, key: crypto.randomUUID() }),
+    openTab: (t, init) => tabs.open(t, init),
+    openScript,
+    notify: setNotice,
+  });
+
   return (
     <div className={styles.workbench}>
       <TopBar
@@ -225,6 +203,21 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
         onNewConnection={openNewConnection}
         onOpenSettings={openSettings}
       />
+
+      {notice && (
+        <div className={styles.banner}>
+          <Alert
+            tone="warning"
+            actions={
+              <Button size="sm" variant="ghost" onClick={() => setNotice(null)}>
+                Dismiss
+              </Button>
+            }
+          >
+            {notice}
+          </Alert>
+        </div>
+      )}
 
       {error && target && (
         <div className={styles.banner}>
@@ -237,6 +230,20 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
             }
           >
             {error}
+          </Alert>
+        </div>
+      )}
+      {connActions.error && (
+        <div className={styles.banner}>
+          <Alert
+            tone="danger"
+            actions={
+              <Button size="sm" variant="ghost" onClick={connActions.dismissError}>
+                Dismiss
+              </Button>
+            }
+          >
+            {connActions.error}
           </Alert>
         </div>
       )}
@@ -353,7 +360,10 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
 
       {dialog?.kind === "connection" && (
         <ConnectionDialog
+          // A new handoff replaces the form rather than keeping the old one's edits.
+          key={dialog.key}
           initial={dialog.config}
+          note={dialog.note}
           onClose={() => {
             setDialog(null);
             if (dialog.fromSetup) setSetupStep("database");
@@ -366,7 +376,7 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
           }}
           onDeleted={(id) => {
             setDialog(null);
-            forgetConnection(id);
+            connActions.forget(id);
           }}
         />
       )}
@@ -428,11 +438,9 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
               <Button onClick={() => setDialog(null)}>Cancel</Button>
               <Button
                 variant="danger"
-                onClick={async () => {
-                  const { id } = dialog.connection;
+                onClick={() => {
                   setDialog(null);
-                  await commands.deleteConnection(id);
-                  forgetConnection(id);
+                  void connActions.remove(dialog.connection.id);
                 }}
               >
                 Delete
