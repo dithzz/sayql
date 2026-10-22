@@ -1,17 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url><loc>https://sayql.vercel.app/</loc></url>
-  <url><loc>https://sayql.vercel.app/docs/</loc></url>
-  <url><loc>https://sayql.vercel.app/docs/install/</loc></url>
-  <url><loc>https://sayql.vercel.app/docs/asking/</loc></url>
-  <url><loc>https://sayql.vercel.app/docs/running-queries/</loc></url>
-  <url><loc>https://sayql.vercel.app/docs/navigator/</loc></url>
-  <url><loc>https://sayql.vercel.app/docs/ai-providers/</loc></url>
-  <url><loc>https://sayql.vercel.app/docs/databases/</loc></url>
-  <url><loc>https://sayql.vercel.app/docs/mcp/</loc></url>
-  <url><loc>https://sayql.vercel.app/docs/shortcuts/</loc></url>
-  <url><loc>https://sayql.vercel.app/docs/troubleshooting/</loc></url>
-  <url><loc>https://sayql.vercel.app/docs/updates/</loc></url>
-  <url><loc>https://sayql.vercel.app/docs/privacy/</loc></url>
-  <url><loc>https://sayql.vercel.app/docs/license/</loc></url>
+  <url><loc>https://sayql.dev/</loc></url>
+  <url><loc>https://sayql.dev/docs/</loc></url>
+  <url><loc>https://sayql.dev/docs/install/</loc></url>
+  <url><loc>https://sayql.dev/docs/asking/</loc></url>
+  <url><loc>https://sayql.dev/docs/running-queries/</loc></url>
+  <url><loc>https://sayql.dev/docs/navigator/</loc></url>
+  <url><loc>https://sayql.dev/docs/ai-providers/</loc></url>
+  <url><loc>https://sayql.dev/docs/databases/</loc></url>
+  <url><loc>https://sayql.dev/docs/mcp/</loc></url>
+  <url><loc>https://sayql.dev/docs/shortcuts/</loc></url>
+  <url><loc>https://sayql.dev/docs/troubleshooting/</loc></url>
+  <url><loc>https://sayql.dev/docs/updates/</loc></url>
+  <url><loc>https://sayql.dev/docs/privacy/</loc></url>
+  <url><loc>https://sayql.dev/docs/license/</loc></url>
 </urlset>

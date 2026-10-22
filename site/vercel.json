@@ -1,0 +1,26 @@
+{
+  "redirects": [
+    {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "sayql.vercel.app"
+        }
+      ],
+      "destination": "https://sayql.dev/:path*",
+      "permanent": true
+    },
+    {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.sayql.dev"
+        }
+      ],
+      "destination": "https://sayql.dev/:path*",
+      "permanent": true
+    }
+  ]
+}

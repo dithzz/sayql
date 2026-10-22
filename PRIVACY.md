@@ -24,7 +24,7 @@ The rows in your tables are never sent to an AI provider by the Ask box. With a 
 
 ## The website
 
-The SayQL website (sayql.vercel.app) uses Vercel Web Analytics to count page views and where visitors come
+The SayQL website (sayql.dev) uses Vercel Web Analytics to count page views and where visitors come
 from. It uses no cookies, doesn't track you across sites, and stores no personal data. The app itself sends
 nothing to it.
 
