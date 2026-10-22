@@ -3,7 +3,10 @@
 import { emit } from "@tauri-apps/api/event";
 import { mockIPC } from "@tauri-apps/api/mocks";
 import type { AiProvider, Bootstrap, QueryResult, Schema, Settings, Skill, Table } from "../api";
-import { skillError } from "../features/ask/slashCommands";
+import { EXAMPLE_SKILLS, skillError } from "../features/ask/slashCommands";
+
+/** `?video`: answers and a saved skill for the explainer video (scripts/video), with slower streaming. */
+const VIDEO = new URLSearchParams(window.location.search).has("video");
 
 const col = (name: string, data_type: string, primary_key = false) => ({
   name,
@@ -152,6 +155,55 @@ const orders: QueryResult = {
   elapsedMs: 7,
 };
 
+const europe: QueryResult = {
+  ...topCustomers,
+  rows: [
+    [342, "Noah Garcia", "Spain", 26, 15210.75],
+    [401, "Arjun Müller", "Germany", 21, 12950.0],
+    [63, "Priya Rossi", "Italy", 20, 12118.65],
+    [77, "Oliver Brown", "UK", 18, 10870.4],
+    [209, "Chloe Dubois", "France", 17, 10233.9],
+    [455, "Lars Johansson", "Sweden", 16, 9874.15],
+    [12, "Hannah Schmidt", "Germany", 16, 9520.0],
+    [388, "Isabella Conti", "Italy", 15, 9105.6],
+    [146, "Jakub Nowak", "Poland", 14, 8790.25],
+    [261, "Lucas Bernard", "France", 14, 8512.8],
+  ],
+};
+
+/** New customers, without personal data: what /pii-safe asks for. */
+const newCustomers: QueryResult = {
+  columns: ["id", "first_name", "last_name", "country", "signed_up_at"],
+  rows: [
+    [500, "Mia", "Tanaka", "Japan", "2026-10-21"],
+    [499, "Leo", "Fischer", "Germany", "2026-10-20"],
+    [498, "Zara", "Ahmed", "UK", "2026-10-18"],
+    [497, "Diego", "Ramos", "Mexico", "2026-10-17"],
+    [496, "Nora", "Lindqvist", "Sweden", "2026-10-15"],
+    [495, "Ethan", "Clarke", "USA", "2026-10-12"],
+    [494, "Aisha", "Okafor", "Nigeria", "2026-10-09"],
+    [493, "Ravi", "Iyer", "India", "2026-10-06"],
+    [492, "Camille", "Moreau", "France", "2026-10-03"],
+  ],
+  rowsAffected: null,
+  truncated: false,
+  elapsedMs: 6,
+};
+
+const japan: QueryResult = {
+  columns: ["first_name", "last_name", "signed_up_at"],
+  rows: [
+    ["Mia", "Tanaka", "2026-10-21"],
+    ["Kenji", "Watanabe", "2026-09-28"],
+    ["Yui", "Sato", "2026-09-14"],
+    ["Haruto", "Kobayashi", "2026-08-30"],
+    ["Aoi", "Yamamoto", "2026-08-02"],
+  ],
+  rowsAffected: null,
+  truncated: false,
+  elapsedMs: 5,
+};
+
 const SAMPLE_SQL = `SELECT c.id AS customer_id,
        c.first_name || ' ' || c.last_name AS customer,
        c.country,
@@ -165,6 +217,23 @@ GROUP BY c.id
 ORDER BY total_spend DESC
 LIMIT 10;`;
 
+const EUROPE_SQL = SAMPLE_SQL.replace(
+  "WHERE o.status NOT IN ('cancelled', 'refunded')",
+  "WHERE o.status NOT IN ('cancelled', 'refunded')\n  AND c.country IN ('UK', 'France', 'Germany', 'Spain', 'Italy', 'Sweden', 'Poland')",
+);
+
+const NEW_CUSTOMERS_SQL = `SELECT id, first_name, last_name, country, signed_up_at
+FROM customers
+WHERE signed_up_at >= date('now', 'start of month')
+ORDER BY signed_up_at DESC;`;
+
+const JAPAN_BROKEN_SQL = `SELECT first_nme, last_name, signed_up_at
+FROM customers
+WHERE country = 'Japan'
+ORDER BY signed_up_at DESC;`;
+
+const MARK_SHIPPED_SQL = "UPDATE orders\nSET status = 'shipped'\nWHERE id = 1042;";
+
 // Questions containing "broken" get a query the mock database rejects, to exercise Fix.
 const BROKEN_SQL = "SELECT first_nme, last_name\nFROM customers\nLIMIT 10;";
 const FIXED_SQL = "SELECT first_name, last_name\nFROM customers\nLIMIT 10;";
@@ -174,11 +243,17 @@ const EXPLANATION =
   "leaves out cancelled and refunded orders, and shows each customer's name, country, order count and total spend.";
 
 /** Skills saved in this preview session; lost on reload. */
-let skills: Skill[] = [];
+let skills: Skill[] = VIDEO ? EXAMPLE_SKILLS.slice(0, 1) : [];
 
-function mockAnswer(question: string, task: { kind: string }, skill: string | null): string {
+function mockAnswer(question: string, task: { kind: string; previous?: unknown; sql?: string }, skill: string | null): string {
   if (task.kind === "explain") return EXPLANATION;
-  if (task.kind === "fix") return FIXED_SQL;
+  if (task.kind === "fix") return task.sql?.includes("first_nme") ? task.sql.replace(/first_nme/g, "first_name") : FIXED_SQL;
+  if (VIDEO) {
+    if (skill === "pii-safe") return NEW_CUSTOMERS_SQL;
+    if (task.previous && /europe/i.test(question)) return EUROPE_SQL;
+    if (/japan/i.test(question)) return JAPAN_BROKEN_SQL;
+    if (/shipped/i.test(question)) return MARK_SHIPPED_SQL;
+  }
   if (task.kind === "improve") return `-- reviewed: added ordering\n${SAMPLE_SQL}`;
   const instruction = skills.find((s) => s.slug === skill)?.instruction;
   if (instruction) return `-- following /${skill}: ${instruction}\n${SAMPLE_SQL}`;
@@ -187,9 +262,11 @@ function mockAnswer(question: string, task: { kind: string }, skill: string | nu
 
 async function streamSql(reqId: number, sql: string) {
   const started = performance.now();
-  const chunks = sql.match(/[\s\S]{1,18}/g) ?? [];
+  // The video streams token-sized pieces at a readable pace, after a short wait for the first one.
+  const chunks = (VIDEO ? sql.match(/\s*[^\s]{1,6}/g) : sql.match(/[\s\S]{1,18}/g)) ?? [];
+  if (VIDEO) await new Promise((r) => setTimeout(r, 380));
   for (const [i, text] of chunks.entries()) {
-    await new Promise((r) => setTimeout(r, 25));
+    await new Promise((r) => setTimeout(r, VIDEO ? 12 + Math.random() * 16 : 25));
     await emit("ai://delta", { reqId, text, firstTokenMs: i === 0 ? Math.round(performance.now() - started) : null });
   }
   await emit("ai://done", { reqId, error: null, totalMs: Math.round(performance.now() - started), cacheReadTokens: 1800 });
@@ -209,10 +286,13 @@ export function installMockBackend() {
         case "list_databases":
           return a.id === "demo" ? null : { databases: ["analytics", "master", "sales", "staging"], current: "master" };
         case "run_query":
-          if (String(a.sql).includes("first_nme")) return Promise.reject("Invalid column name 'first_nme'.");
+          if (String(a.sql).includes("first_nme")) return Promise.reject(VIDEO ? "no such column: first_nme" : "Invalid column name 'first_nme'.");
           if (/^\s*(update|delete|insert|drop)/i.test(String(a.sql)) && !a.allowWrite) return Promise.reject("WRITE_CONFIRM");
           if (/^\s*(update|delete|insert)/i.test(String(a.sql))) return { columns: [], rows: [], rowsAffected: 1, truncated: false, elapsedMs: 3 };
           if (/from\s+orders\s*;?\s*$/i.test(String(a.sql))) return orders;
+          if (String(a.sql).includes("c.country IN")) return europe;
+          if (String(a.sql).includes("start of month")) return newCustomers;
+          if (String(a.sql).includes("'Japan'")) return japan;
           return String(a.sql).includes("ORDER BY total_spend DESC") ? topCustomers : result;
         case "generate_sql":
           if (a.skill && !skills.some((s) => s.slug === a.skill)) return Promise.reject(`There's no skill called /${a.skill}. Create it in Settings.`);
