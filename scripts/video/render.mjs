@@ -4,7 +4,8 @@
 //   node scripts/video/render.mjs [dark|light] [full|short|poster] [audio]
 //
 // Frames are drawn by compositor.html in headless Chrome and piped to ffmpeg (H.264, 30 fps).
-// The soundtrack is music.py's original track (MUSIC_FILE=path for your own, MUSIC=0 for none) plus, with VOICE set to a
+// The music is the track in music.json (downloaded to its `file`), else music.py's original
+// one; MUSIC_FILE=path picks another, MUSIC=0 none. Plus, with VOICE set to a
 // macOS voice or recordings in media/voiceover/<id>.wav, the lines in voiceover.json; that
 // version goes to <name>-voiceover.mp4. "audio" redoes only the soundtrack. Cut points and the
 // voiceover script go to media/*-cuts.md.
@@ -246,8 +247,8 @@ function soundtrack(video, music, voice, out) {
   const args = ["-y", "-loglevel", "error", "-i", video];
   args.push(...(music ? ["-i", music] : ["-f", "lavfi", "-t", String(total), "-i", "anullsrc=r=48000:cl=stereo"]));
   voice.forEach((l) => args.push("-i", l.file));
-  // A track of your own (MUSIC_FILE) is cut to length with a fade; music.py's already ends.
-  const fade = process.env.MUSIC_FILE ? `,afade=t=out:st=${(total - 2.5).toFixed(2)}:d=2.5` : "";
+  // A downloaded track is cut to length with a fade; music.py's already ends.
+  const fade = music && !music.endsWith("music.wav") ? `,afade=t=out:st=${(total - 2.5).toFixed(2)}:d=2.5` : "";
   const f = [`[1:a]aresample=48000,volume=${voice.length ? 0.4 : 1}${fade}[m]`];
   if (voice.length) {
     voice.forEach((l, i) => f.push(`[${i + 2}:a]aresample=48000,pan=stereo|c0=c0|c1=c0,adelay=${Math.round(l.t * 1000)}:all=1[v${i}]`));
@@ -297,8 +298,16 @@ if (cut === "poster") {
   const titleCard = items.find((it) => it.card === "title");
   const endCard = items.find((it) => it.card === "end");
   let music = null;
-  if (process.env.MUSIC_FILE) music = process.env.MUSIC_FILE;
-  else if (process.env.MUSIC !== "0") {
+  const picked = JSON.parse(readFileSync(join(import.meta.dirname, "music.json"), "utf8"));
+  let credit = "scripts/video/music.py's original track (no samples or licensed music)";
+  if (process.env.MUSIC_FILE) {
+    music = process.env.MUSIC_FILE;
+    credit = music;
+  } else if (process.env.MUSIC !== "0" && existsSync(join(root, picked.file))) {
+    music = join(root, picked.file);
+    credit = `${picked.title} (${picked.page}), ${picked.license}`;
+  } else if (process.env.MUSIC !== "0") {
+    console.warn(`${picked.file} is missing, so music.py's track is used. Download it from:\n  ${picked.download}`);
     music = join(work, "music.wav");
     run("python3", [join(import.meta.dirname, "music.py"), music, total.toFixed(3), "--intro", String(titleCard?.dur ?? 0), "--outro", String(total - endCard.start)]);
   }
@@ -320,6 +329,6 @@ if (cut === "poster") {
   writeFileSync(
     join(root, "media", `${name}-cuts.md`),
     `# ${name}.mp4 — cut points\n\n${total.toFixed(1)} s, ${FPS} fps, 1920×1080. Cross-fades are ${XFADE} s and start at the time shown.\n` +
-      `The soundtrack is scripts/video/music.py's original track (no samples or licensed music).\n\n${rows.join("\n")}\n${script}`,
+      `Music: ${music ? credit : "none"}.\n\n${rows.join("\n")}\n${script}`,
   );
 }
