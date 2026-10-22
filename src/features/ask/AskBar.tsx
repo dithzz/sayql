@@ -88,16 +88,6 @@ export const AskBar = forwardRef<HTMLTextAreaElement, AskBarProps>(function AskB
   return (
     <div className={styles.ask}>
       <div ref={box} className={styles.inputWrap}>
-        {p.focusTables.length > 0 && (
-          <div className={styles.context}>
-            <ContextPill
-              tables={p.focusTables}
-              enabled={p.focusEnabled}
-              onEnabledChange={p.onFocusEnabledChange}
-              onClear={() => p.onFocusTablesChange([])}
-            />
-          </div>
-        )}
         <div className={styles.inputRow}>
         <span className={styles.sparkle}>
           <Sparkles size={14} />
@@ -152,6 +142,16 @@ export const AskBar = forwardRef<HTMLTextAreaElement, AskBarProps>(function AskB
             }
           }}
         />
+        {p.focusTables.length > 0 && (
+          <div className={styles.context}>
+            <ContextPill
+              tables={p.focusTables}
+              enabled={p.focusEnabled}
+              onEnabledChange={p.onFocusEnabledChange}
+              onClear={() => p.onFocusTablesChange([])}
+            />
+          </div>
+        )}
         </div>
       </div>
       {menuOpen && <SlashMenu id={menuId} items={items} active={active} anchor={box} onActiveChange={setActive} onPick={pick} />}

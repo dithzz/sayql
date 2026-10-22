@@ -47,8 +47,8 @@
   --color-text: #1d2125;
   --color-text-muted: #56606b;
   --color-text-subtle: #8a939d;
-  --color-accent: #4f46e5;
-  --color-accent-hover: #4338ca;
+  --color-accent: #1f6feb;
+  --color-accent-hover: #1a5fd0;
   --color-app-accent: #1f6feb;
   --color-app-accent-soft: #e5efff;
   --color-ai: #7048e8;
@@ -90,8 +90,8 @@
     --color-text: #e2e5e9;
     --color-text-muted: #a3aab4;
     --color-text-subtle: #727a85;
-    --color-accent: #6366f1;
-    --color-accent-hover: #7577f3;
+    --color-accent: #4a8dff;
+    --color-accent-hover: #6aa2ff;
     --color-app-accent: #4a8dff;
     --color-app-accent-soft: #1e2d48;
     --color-ai: #a78bfa;
@@ -133,8 +133,8 @@
   --color-text: #e2e5e9;
   --color-text-muted: #a3aab4;
   --color-text-subtle: #727a85;
-  --color-accent: #6366f1;
-  --color-accent-hover: #7577f3;
+  --color-accent: #4a8dff;
+  --color-accent-hover: #6aa2ff;
   --color-app-accent: #4a8dff;
   --color-app-accent-soft: #1e2d48;
   --color-ai: #a78bfa;
@@ -285,6 +285,8 @@ p { text-wrap: pretty; }
 .pill { display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 7px; border: 1px solid var(--color-border); border-radius: var(--radius-md); font: 400 11.5px/1 var(--font-mono); color: var(--color-text-muted); }
 .q-line { display: flex; align-items: center; gap: 7px; margin-top: 5px; min-height: 20px; }
 .q-line .spark { color: var(--color-ai); }
+.q-line .pill.end { margin-left: auto; flex-shrink: 0; }
+.q-line .q { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .q { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 13.5px; }
 .q .ph { color: var(--color-text-subtle); }
 .caret { display: inline-block; width: 1.5px; height: 15px; background: var(--color-text); vertical-align: -3px; margin-left: 1px; animation: blink 1s steps(1) infinite; }
@@ -532,7 +534,7 @@ section.block { padding: 96px 0 0; }
     </div>
     <p class="meta">macOS, Windows and Linux · Open source, Apache 2.0<span data-downloads hidden> · <span data-downloads-count></span> downloads</span></p>
 
-    <div class="app window" id="hero-demo" role="img" aria-label="Demo: SayQL turns a plain-English question into SQL as you type, then runs it read-only">
+    <div class="app window" id="hero-demo" role="img" aria-label="Demo: SayQL turns a plain-English question and the /pii-safe skill into SQL as you type, then runs it read-only">
       <div class="titlebar"><div class="lights"><i></i><i></i><i></i></div>SayQL</div>
       <div class="topbar">
         <span class="logo"><svg class="wordmark" width="38" height="17" aria-hidden="true"><use href="#i-wordmark"/></svg></span>
@@ -564,8 +566,7 @@ section.block { padding: 96px 0 0; }
             <span class="end"><svg class="i tool"><use href="#i-save"/></svg><span class="tool"><svg class="i"><use href="#i-wand"/></svg>Improve</span><span class="run-btn" data-run><svg class="i"><use href="#i-play"/></svg>Run <span class="kbd">⌘↵</span></span></span>
           </div>
           <div class="askbox" data-ask>
-            <span class="pill"><svg class="i"><use href="#i-table"/></svg><span data-pill>customers, orders</span><svg class="i"><use href="#i-eye"/></svg><svg class="i"><use href="#i-x"/></svg></span>
-            <div class="q-line"><svg class="i spark"><use href="#i-sparkles"/></svg><span class="q" data-q><span class="ph">Ask in plain English…</span></span></div>
+            <div class="q-line" style="margin-top:0"><svg class="i spark"><use href="#i-sparkles"/></svg><span class="cmd-chip skill" data-chip hidden>/pii-safe</span><span class="q" data-q><span class="ph">Ask in plain English…</span></span><span class="pill end"><svg class="i"><use href="#i-table"/></svg><span data-pill>customers, orders</span><svg class="i"><use href="#i-eye"/></svg><svg class="i"><use href="#i-x"/></svg></span></div>
           </div>
           <div class="hintbar">
             <span class="building" data-building hidden><svg class="i"><use href="#i-corner"/></svg>Building on your last query</span>
@@ -854,13 +855,15 @@ section.block { padding: 96px 0 0; }
     var $ = function (s) { return el.querySelector(s); };
     var ask = $("[data-ask]"), q = $("[data-q]"), code = $("[data-code]"), gutter = $("[data-gutter]"), grid = $("[data-grid]"),
         meta = $("[data-meta]"), state = $("[data-state]"), building = $("[data-building]"), newq = $("[data-newq]"),
-        pill = $("[data-pill]"), run = $("[data-run]");
+        pill = $("[data-pill]"), run = $("[data-run]"), chip = $("[data-chip]");
 
     var TOP = "SELECT c.id AS customer_id,\n       c.first_name || ' ' || c.last_name AS customer,\n       c.country,\n       COUNT(DISTINCT o.id) AS orders,\n       ROUND(SUM(oi.quantity * oi.unit_price), 2) AS total_spend\nFROM customers c\nJOIN orders o ON o.customer_id = c.id\nJOIN order_items oi ON oi.order_id = o.id\nWHERE o.status NOT IN ('cancelled', 'refunded')\nGROUP BY c.id\nORDER BY total_spend DESC\nLIMIT 10;";
     var PEOPLE = [[214, "Ava Smith", "USA", 31, 18420.5], [87, "Liam Patel", "India", 27, 16935], [342, "Noah Garcia", "Spain", 26, 15210.75], [19, "Emma Kim", "South Korea", 24, 14388.2], [156, "Olivia Nguyen", "Australia", 22, 13702.4], [401, "Arjun Müller", "Germany", 21, 12950], [63, "Priya Rossi", "Italy", 20, 12118.65], [278, "Mateo Silva", "Brazil", 19, 11640.3], [125, "Sofia Haddad", "Canada", 18, 10987.1], [330, "Kenji Watanabe", "Japan", 17, 10402.85]];
+    // /pii-safe is the app's example skill: "Never select email, phone or address columns." So contact
+    // details come back as names and country only.
     var COLS = ["customer_id", "customer", "country", "orders", "total_spend"];
     var SCENES = [
-      { tables: ["customers", "orders"], question: "Top 10 customers by total spend", sql: TOP, cols: COLS, rows: PEOPLE, meta: "10 rows · 9 ms" },
+      { tables: ["customers", "orders"], skill: true, question: "Top 10 customers by spend, with contact details", sql: TOP, cols: COLS, rows: PEOPLE, meta: "10 rows · 9 ms" },
       { tables: ["customers", "orders"], followup: true, question: "only Europe",
         sql: TOP.replace("\nGROUP BY", "\n  AND c.country IN ('Spain', 'Germany', 'Italy')\nGROUP BY"),
         cols: COLS, rows: PEOPLE.filter(function (r) { return /Spain|Germany|Italy/.test(r[2]); }), meta: "3 rows · 6 ms" },
@@ -893,6 +896,7 @@ section.block { padding: 96px 0 0; }
       el.querySelectorAll(".row[data-t]").forEach(function (r) { r.classList.toggle("sel", s.tables.indexOf(r.getAttribute("data-t")) >= 0); });
       pill.textContent = s.tables.join(", ");
       building.hidden = !s.followup;
+      chip.hidden = !s.skill;
       newq.hidden = !!s.followup;
     }
     function done(s) {
@@ -909,7 +913,16 @@ section.block { padding: 96px 0 0; }
       ask.classList.add("live");
       q.innerHTML = '<span class="caret"></span>';
       state.className = "state"; state.textContent = "";
-      var t = typeInto(q, s.question, 500, later, function (k) {
+      var first = 500;
+      if (s.skill) {
+        chip.hidden = true;
+        ["/", "/pi", "/pii-safe"].forEach(function (typed, k) {
+          later(function () { q.innerHTML = esc(typed) + '<span class="caret"></span>'; }, 500 + k * 280);
+        });
+        later(function () { chip.hidden = false; q.innerHTML = '<span class="caret"></span>'; }, 1450);
+        first = 1650;
+      }
+      var t = typeInto(q, s.question, first, later, function (k) {
         if (k === 3) { state.className = "state ai"; state.innerHTML = "<i></i>Drafting with Haiku 5.5…"; if (s.followup) clearRows(); }
       });
       // The SQL streams in while the question is still being typed, like in the app.

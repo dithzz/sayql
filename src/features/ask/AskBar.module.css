@@ -27,10 +27,13 @@
   align-items: flex-start;
   gap: var(--space-2);
 }
+/* The tables picked as context, at the right end of the question line. */
 .context {
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-1);
+  flex-shrink: 0;
+  max-width: 40%;
+  margin-left: auto;
+  margin-top: -1px;
 }
 
 .sparkle {
