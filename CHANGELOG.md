@@ -4,6 +4,8 @@ All notable changes to SayQL are listed here. Downloads are on the
 [releases page](https://github.com/dithzz/sayql-releases/releases).
 
 ## Unreleased
+- **MCP sees schema changes:** `describe_schema` reads the schema each time, so tables and columns added
+  while your AI app is open show up without restarting it.
 - **MySQL 5.7 connects:** with "Require SSL" off, SayQL now falls back to an unencrypted connection when
   the server's encryption can't be used, as MySQL's own clients and psql do. Before, MySQL 5.7 servers (and
   others offering only older TLS ciphers) couldn't be reached at all.

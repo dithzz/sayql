@@ -420,12 +420,11 @@ impl SayqlServer {
         handoff::open_in_app(&link)
     }
 
+    /// Read fresh on every call: the server lives as long as the AI app's session, and a schema
+    /// cached at the first call would miss tables and columns added since.
     async fn schema(&self, connection_id: &str, database: Option<String>) -> Result<Schema, String> {
         let target = Target::new(connection_id.to_string(), database);
-        match self.state.schema(&target) {
-            Ok(loaded) => Ok(loaded.schema.clone()),
-            Err(_) => self.state.load_schema(&target).await.map_err(|e| e.to_string()),
-        }
+        self.state.load_schema(&target).await.map_err(|e| e.to_string())
     }
 }
 
@@ -637,6 +636,16 @@ mod tests {
                 .await
                 .unwrap();
             assert!(schema.starts_with(&format!("Dialect: {}.", kind.dialect())), "{schema}");
+            if kind == Kind::Sqlite {
+                // A table added while the server runs shows up in the next describe_schema.
+                let pool = server.state.target_pool(&Target::default_of(&cfg.id)).await.unwrap();
+                db::run_query(&pool, "CREATE TABLE added_later (id INTEGER PRIMARY KEY)", false).await.unwrap();
+                let again = server
+                    .describe_schema(Parameters(SchemaParams { connection_id: cfg.id.clone(), database: None, search: None }))
+                    .await
+                    .unwrap();
+                assert!(!schema.contains("added_later") && again.contains("added_later"), "{again}");
+            }
 
             let run = |sql: &str, offset: Option<usize>| {
                 server.run_query(Parameters(QueryParams {
