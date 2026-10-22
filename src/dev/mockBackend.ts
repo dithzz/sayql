@@ -137,6 +137,20 @@ const topCustomers: QueryResult = {
   elapsedMs: 9,
 };
 
+/** What "… FROM orders" returns, so a script's result tabs differ. */
+const orders: QueryResult = {
+  columns: ["id", "customer_id", "status", "ordered_at"],
+  rows: Array.from({ length: 60 }, (_, i) => [
+    3000 - i,
+    1 + ((i * 37) % 500),
+    ["shipped", "pending", "cancelled", "refunded"][i % 4],
+    `2026-10-${String(20 - (i % 20)).padStart(2, "0")} 09:${String(i % 60).padStart(2, "0")}:00`,
+  ]),
+  rowsAffected: null,
+  truncated: false,
+  elapsedMs: 7,
+};
+
 const SAMPLE_SQL = `SELECT c.id AS customer_id,
        c.first_name || ' ' || c.last_name AS customer,
        c.country,
@@ -186,6 +200,8 @@ export function installMockBackend() {
         case "run_query":
           if (String(a.sql).includes("first_nme")) return Promise.reject("Invalid column name 'first_nme'.");
           if (/^\s*(update|delete|insert|drop)/i.test(String(a.sql)) && !a.allowWrite) return Promise.reject("WRITE_CONFIRM");
+          if (/^\s*(update|delete|insert)/i.test(String(a.sql))) return { columns: [], rows: [], rowsAffected: 1, truncated: false, elapsedMs: 3 };
+          if (/from\s+orders\s*;?\s*$/i.test(String(a.sql))) return orders;
           return String(a.sql).includes("ORDER BY total_spend DESC") ? topCustomers : result;
         case "generate_sql":
           void streamSql(Number(a.reqId), mockAnswer(String(a.question), a.task as { kind: string }));

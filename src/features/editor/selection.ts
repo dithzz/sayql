@@ -1,67 +1,8 @@
 // What "Run selection" runs. A selection that cuts a statement in half would fail or, worse,
 // run something else than meant (a DELETE without its WHERE), so it snaps to whole statements.
+import { statementRanges, stripLeading, type Range } from "../../lib/sqlStatements";
 
-export interface Range {
-  start: number;
-  end: number;
-}
-
-/**
- * The statements in `sql`, as ranges split at `;` outside strings, quoted names and
- * comments. Each range ends after its `;` (or at the end of the text) and starts at its first
- * SQL (after blank space and comments). A part that is only comments isn't a statement.
- */
-export function statementRanges(sql: string): Range[] {
-  const out: Range[] = [];
-  let start = 0;
-  let i = 0;
-  const push = (end: number) => {
-    const text = sql.slice(start, end);
-    const lead = text.length - stripLeading(text).length;
-    if (stripLeading(text).replace(/^;$/, "")) out.push({ start: start + lead, end });
-    start = end;
-  };
-  while (i < sql.length) {
-    const c = sql[i];
-    const next = sql[i + 1];
-    if (c === "-" && next === "-") {
-      const nl = sql.indexOf("\n", i);
-      i = nl < 0 ? sql.length : nl + 1;
-    } else if (c === "/" && next === "*") {
-      const close = sql.indexOf("*/", i + 2);
-      i = close < 0 ? sql.length : close + 2;
-    } else if (c === "'" || c === '"' || c === "`") {
-      // A doubled quote inside is an escaped quote; the loop just reopens the string.
-      const close = sql.indexOf(c, i + 1);
-      i = close < 0 ? sql.length : close + 1;
-    } else if (c === "[") {
-      const close = sql.indexOf("]", i + 1);
-      i = close < 0 ? sql.length : close + 1;
-    } else if (c === "$") {
-      // PostgreSQL dollar quoting: $$…$$ or $tag$…$tag$.
-      const tag = sql.slice(i).match(/^\$[A-Za-z_]*\$/)?.[0];
-      if (tag) {
-        const close = sql.indexOf(tag, i + tag.length);
-        i = close < 0 ? sql.length : close + tag.length;
-      } else i++;
-    } else if (c === ";") {
-      i++;
-      push(i);
-    } else i++;
-  }
-  push(sql.length);
-  return out;
-}
-
-/** `sql` without the blank space and comments it starts with. */
-function stripLeading(sql: string): string {
-  let s = sql.trimStart();
-  for (let prev = ""; prev !== s; ) {
-    prev = s;
-    s = s.replace(/^--[^\n]*(\n|$)/, "").replace(/^\/\*[\s\S]*?\*\//, "").trimStart();
-  }
-  return s;
-}
+export type { Range };
 
 /** Strips comments and blank space from the start, and a closing `;` from the end. */
 function core(sql: string): string {

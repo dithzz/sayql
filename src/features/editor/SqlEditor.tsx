@@ -48,7 +48,14 @@ export function SqlEditor({ value, onChange, onRun, onSelectionChange, select, s
       onChange={(v) => onChange(v ?? "")}
       onMount={(editor) => {
         editorRef.current = editor;
-        editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => runRef.current());
+        // An action, not addCommand: Monaco binds commands to the last editor created, so with
+        // several tabs open ⌘↵ would run another tab's query.
+        editor.addAction({
+          id: "sayql.run",
+          label: "Run",
+          keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter],
+          run: () => runRef.current(),
+        });
         editor.onDidChangeCursorSelection((e) => {
           const model = editor.getModel();
           if (!model || e.selection.isEmpty()) return selectionRef.current?.(null);

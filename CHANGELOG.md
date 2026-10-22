@@ -5,6 +5,8 @@ All notable changes to SayQL are listed here. Downloads are on the
 
 ## Unreleased
 
+- **Run scripts:** several statements run one after another, each with its own results tab. Writes still ask
+  first, and the run stops at the first error.
 - **Run selection:** select part of the SQL and press Run or ⌘↵ to run only that. A selection that cuts a
   statement in half runs the whole statement instead, so a `DELETE` never runs without its `WHERE`.
 - **Setup guide** on first launch: pick your AI (the key is checked before saving), pick the demo or your own

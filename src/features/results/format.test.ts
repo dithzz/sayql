@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { QueryResult } from "../../api";
-import { columnWidths, formatCell, plural, toCsv } from "./format";
+import { columnWidths, formatCell, plural, statementLabel, toCsv } from "./format";
 
 const result = (columns: string[], rows: QueryResult["rows"]): QueryResult => ({
   columns,
@@ -38,5 +38,19 @@ describe("plural", () => {
   it("pluralises by count", () => {
     expect(plural(1, "row")).toBe("1 row");
     expect(plural(1200, "row")).toBe("1,200 rows");
+  });
+});
+
+describe("statementLabel", () => {
+  it("names the table a statement reads or changes", () => {
+    expect(statementLabel("SELECT * FROM customers;")).toBe("customers");
+    expect(statementLabel('SELECT id FROM "sales"."orders" o JOIN x ON 1=1')).toBe("orders");
+    expect(statementLabel("UPDATE [dbo].[clients] SET a = 1")).toBe("clients");
+    expect(statementLabel("INSERT INTO logs VALUES (1)")).toBe("logs");
+  });
+
+  it("falls back to the first word", () => {
+    expect(statementLabel("-- a note\nSELECT 1;")).toBe("select");
+    expect(statementLabel("PRAGMA table_info")).toBe("pragma");
   });
 });

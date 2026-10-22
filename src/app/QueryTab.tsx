@@ -3,7 +3,8 @@ import { Wand2 } from "lucide-react";
 import type { Schema, Settings } from "../api";
 import { Button, SplitPane } from "../components/ui";
 import { useSqlGeneration, type TaskKind } from "../features/ask";
-import { resolveSelection, statementRanges, type TextRange } from "../features/editor";
+import { resolveSelection, type TextRange } from "../features/editor";
+import { statementRanges } from "../lib/sqlStatements";
 import { ConfirmWriteDialog, useQueryRunner } from "../features/query";
 import { ResultsPanel } from "../features/results";
 import type { ModelNames } from "../features/settings";
@@ -163,8 +164,8 @@ export function QueryTab({ tab, active, label, schema, settings, modelNames, onC
         }
         second={
           <ResultsPanel
-            result={query.result}
-            error={query.error}
+            outcomes={query.outcomes}
+            total={query.total}
             running={query.running}
             note={widened ? `Ran the full statement${widened.count > 1 ? "s" : ""}` : undefined}
             errorHint={
@@ -173,7 +174,8 @@ export function QueryTab({ tab, active, label, schema, settings, modelNames, onC
                 : undefined
             }
             errorAction={
-              canUseAi && !ranSelection.current && (
+              // The AI rewrites one whole query, so a selection or a script is left to the person.
+              canUseAi && !ranSelection.current && query.total === 1 && (
                 <Button
                   size="sm"
                   variant="ghost"

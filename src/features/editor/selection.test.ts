@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveSelection, statementRanges } from "./selection";
+import { resolveSelection } from "./selection";
 
 /** Selects `part` (its first occurrence) in `sql`. */
 const pick = (sql: string, part: string) => {
@@ -7,22 +7,6 @@ const pick = (sql: string, part: string) => {
   if (start < 0) throw new Error(`"${part}" not in sql`);
   return resolveSelection(sql, { start, end: start + part.length });
 };
-const texts = (sql: string) => statementRanges(sql).map((r) => sql.slice(r.start, r.end));
-
-describe("statementRanges", () => {
-  it("splits at semicolons", () => {
-    expect(texts("SELECT 1;\n\nSELECT 2;\nSELECT 3")).toEqual(["SELECT 1;", "SELECT 2;", "SELECT 3"]);
-  });
-
-  it("ignores semicolons in strings, quoted names and comments", () => {
-    const sql = "SELECT ';' AS \"a;b\", [c;d] -- x;y\nFROM t /* ; */;\nSELECT $$;$$;";
-    expect(texts(sql)).toEqual(["SELECT ';' AS \"a;b\", [c;d] -- x;y\nFROM t /* ; */;", "SELECT $$;$$;"]);
-  });
-
-  it("returns nothing for blank text", () => {
-    expect(texts("  \n ")).toEqual([]);
-  });
-});
 
 describe("resolveSelection", () => {
   const two = "-- top customers\nSELECT id, name\nFROM customers\nWHERE country = 'UK';\n\nDELETE FROM orders\nWHERE id = 7;";
