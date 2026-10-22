@@ -23,7 +23,8 @@
   try { var t = localStorage.getItem("sayql-site-theme"); if (t === "light" || t === "dark") document.documentElement.setAttribute("data-theme", t); } catch (e) {}
 </script>
 <style>
-/* Colors, type and radii mirror src/styles/tokens.css, so the page looks like the app. */
+/* Colors, type and radii mirror src/styles/tokens.css, so the page looks like the app.
+ * The accent is the logo's indigo (app-icon.svg) so the brand reads as one colour. */
 :root {
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", Roboto, sans-serif;
   --font-mono: "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
@@ -42,8 +43,8 @@
   --color-text: #1d2125;
   --color-text-muted: #56606b;
   --color-text-subtle: #8a939d;
-  --color-accent: #1f6feb;
-  --color-accent-hover: #1a5fd0;
+  --color-accent: #4f46e5;
+  --color-accent-hover: #4338ca;
   --color-ai: #7048e8;
   --color-ai-soft: #f1ecff;
   --shadow-raised: 0 1px 2px rgba(15, 23, 42, 0.12);
@@ -60,8 +61,8 @@
     --color-text: #e2e5e9;
     --color-text-muted: #a3aab4;
     --color-text-subtle: #727a85;
-    --color-accent: #4a8dff;
-    --color-accent-hover: #6aa2ff;
+    --color-accent: #6366f1;
+    --color-accent-hover: #7577f3;
     --color-ai: #a78bfa;
     --color-ai-soft: #2a2341;
     --shadow-raised: 0 1px 2px rgba(0, 0, 0, 0.4);
@@ -78,8 +79,8 @@
   --color-text: #e2e5e9;
   --color-text-muted: #a3aab4;
   --color-text-subtle: #727a85;
-  --color-accent: #4a8dff;
-  --color-accent-hover: #6aa2ff;
+  --color-accent: #6366f1;
+  --color-accent-hover: #7577f3;
   --color-ai: #a78bfa;
   --color-ai-soft: #2a2341;
   --shadow-raised: 0 1px 2px rgba(0, 0, 0, 0.4);
