@@ -3,6 +3,11 @@
 All notable changes to SayQL are listed here. Downloads are on the
 [releases page](https://github.com/dithzz/sayql-releases/releases).
 
+## 0.2.2 (2026-10-22)
+
+- **One-line Ask box:** the tables you picked sit at the right end of the question, and the box stays one line
+  until you type more.
+
 ## 0.2.1 (2026-10-22)
 
 - **New logo and app icon:** "Say" with "QL" in a blue chip.
