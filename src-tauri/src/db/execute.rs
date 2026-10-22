@@ -4,7 +4,7 @@ use super::{DbPool, MAX_ROWS, MssqlPool, QueryResult};
 use crate::error::AppResult;
 use futures_util::TryStreamExt;
 use serde_json::Value;
-use sqlx::{Column as _, Either, Executor, Row, Statement};
+use sqlx::{AssertSqlSafe, Column as _, Either, Executor, Row, SqlSafeStr, Statement};
 use std::time::Instant;
 
 pub async fn run_query(pool: &DbPool, sql: &str, read_only: bool) -> AppResult<QueryResult> {
@@ -56,13 +56,15 @@ pub async fn run_query(pool: &DbPool, sql: &str, read_only: bool) -> AppResult<Q
 macro_rules! collect_fn {
     ($name:ident, $conn:ty, $cell:ident) => {
         async fn $name(conn: &mut $conn, sql: &str) -> AppResult<QueryResult> {
+            // Running the user's own SQL is the point; read-only mode is enforced around this call.
+            let sql = AssertSqlSafe(sql).into_sql_str();
             let mut columns: Vec<String> = Vec::new();
             let mut rows: Vec<Vec<Value>> = Vec::new();
             let mut affected: Option<u64> = None;
             let mut truncated = false;
             {
                 #[allow(deprecated)]
-                let mut stream = sqlx::query(sql).fetch_many(&mut *conn);
+                let mut stream = sqlx::query(sql.clone()).fetch_many(&mut *conn);
                 while let Some(item) = stream.try_next().await? {
                     match item {
                         Either::Left(r) => {

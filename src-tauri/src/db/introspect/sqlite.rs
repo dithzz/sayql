@@ -21,7 +21,7 @@ pub(super) async fn introspect(p: &SqlitePool) -> Result<Vec<Table>, sqlx::Error
                 .await?;
         let row_estimate = if kind == "table" {
             let q = format!("SELECT COUNT(*) FROM \"{}\"", name.replace('"', "\"\""));
-            sqlx::query_scalar::<_, i64>(&q).fetch_one(p).await.ok()
+            sqlx::query_scalar::<_, i64>(sqlx::AssertSqlSafe(q)).fetch_one(p).await.ok()
         } else {
             None
         };

@@ -81,8 +81,8 @@ async fn mssql_batch(pool: &MssqlPool, sql: &str) -> Result<(), String> {
 /// Runs a multi-statement setup script outside read-only mode.
 async fn exec(pool: &DbPool, sql: &str) {
     let r = match pool {
-        DbPool::Pg(p) => sqlx::raw_sql(sql).execute(p).await.map(|_| ()).map_err(|e| e.to_string()),
-        DbPool::My(p) => sqlx::raw_sql(sql).execute(p).await.map(|_| ()).map_err(|e| e.to_string()),
+        DbPool::Pg(p) => sqlx::raw_sql(sqlx::AssertSqlSafe(sql)).execute(p).await.map(|_| ()).map_err(|e| e.to_string()),
+        DbPool::My(p) => sqlx::raw_sql(sqlx::AssertSqlSafe(sql)).execute(p).await.map(|_| ()).map_err(|e| e.to_string()),
         DbPool::Ms(p) => mssql_batch(p, sql).await,
         DbPool::Lite(_) => unreachable!("SQLite is covered by the unit tests"),
     };
