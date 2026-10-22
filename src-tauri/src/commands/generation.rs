@@ -1,7 +1,6 @@
-use super::settings::endpoint;
-use crate::ai::{self, GenRequest, Task};
+use crate::ai::endpoint::endpoint;
+use crate::ai::{self, GenRequest, Task, context::schema_text};
 use crate::error::{AppError, AppResult};
-use crate::schema::{self, Schema};
 use crate::state::{AppState, Target};
 use tauri::{AppHandle, State};
 
@@ -50,18 +49,4 @@ pub fn generate_sql(
 #[tauri::command]
 pub fn cancel_generation(state: State<'_, AppState>, slot: String) {
     state.cancel_generation(&slot);
-}
-
-/// What schema the model sees. Drafts with picked tables see just those and their neighbours
-/// (smaller and faster); fixes and improvements always see the usual schema, so a narrow
-/// pick can't make the right query impossible.
-fn schema_text(schema: &Schema, full: &str, question: &str, task: &Task, focus: &[String]) -> String {
-    if !task.needs_expert() {
-        if let Some(text) = schema::schema_with_focus(schema, focus) {
-            return text;
-        }
-    }
-    // A follow-up like "remove the middle name" names no table; the SQL that comes with it does.
-    let relevance = format!("{question} {} {}", task.context_sql(), focus.join(" "));
-    schema::schema_for_prompt(schema, full, &relevance)
 }

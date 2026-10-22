@@ -5,7 +5,6 @@
 //! dialog, where the person types the password, and SQL or a saved script in a tab, which
 //! they run. `export_csv` writes a read-only query's rows to a new file in Downloads.
 
-use crate::commands::connections::{load_schema, target_pool};
 use crate::db::{self, Kind};
 use crate::handoff::{self, Action, Handoff, ScriptRef};
 use crate::schema::{self, Schema, Table};
@@ -166,7 +165,7 @@ impl SayqlServer {
 
     #[tool(description = "List the databases on a connection's server, and which one it opens by default.")]
     async fn list_databases(&self, Parameters(p): Parameters<ConnectionParams>) -> Result<String, String> {
-        let pool = target_pool(&self.state, &Target::default_of(&p.connection_id)).await.map_err(|e| e.to_string())?;
+        let pool = self.state.target_pool(&Target::default_of(&p.connection_id)).await.map_err(|e| e.to_string())?;
         match db::list_databases(&pool).await.map_err(|e| e.to_string())? {
             Some(list) => Ok(json!(list).to_string()),
             None => Ok("This is a SQLite file: it is a single database; omit `database`.".into()),
@@ -185,7 +184,7 @@ impl SayqlServer {
                           `next_offset` is set, call again with it as `offset` for more rows.")]
     async fn run_query(&self, Parameters(p): Parameters<QueryParams>) -> Result<String, String> {
         let target = Target::new(p.connection_id, p.database);
-        let pool = target_pool(&self.state, &target).await.map_err(|e| e.to_string())?;
+        let pool = self.state.target_pool(&target).await.map_err(|e| e.to_string())?;
         if !db::is_read_only(&p.sql, pool.kind()) {
             return Err(WRITE_REFUSED.into());
         }
@@ -213,7 +212,7 @@ impl SayqlServer {
                           not the rows. Statements that could change data are refused.")]
     async fn export_csv(&self, Parameters(p): Parameters<ExportParams>) -> Result<String, String> {
         let target = Target::new(p.connection_id, p.database);
-        let pool = target_pool(&self.state, &target).await.map_err(|e| e.to_string())?;
+        let pool = self.state.target_pool(&target).await.map_err(|e| e.to_string())?;
         if !db::is_read_only(&p.sql, pool.kind()) {
             return Err(WRITE_REFUSED.into());
         }
@@ -397,7 +396,7 @@ impl SayqlServer {
         let target = Target::new(connection_id.to_string(), database);
         match self.state.schema(&target) {
             Ok(loaded) => Ok(loaded.schema.clone()),
-            Err(_) => load_schema(&self.state, &target).await.map_err(|e| e.to_string()),
+            Err(_) => self.state.load_schema(&target).await.map_err(|e| e.to_string()),
         }
     }
 }

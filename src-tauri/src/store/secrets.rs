@@ -6,9 +6,11 @@
 //! not one per saved password.
 //!
 //! Secrets saved by earlier versions, one keychain item each, are copied into the shared
-//! item the first time they're needed. The old items are left in place.
+//! item the first time they're needed. The old items are left in place until the secret
+//! is removed (say, when its connection is deleted).
 
 use crate::error::{AppError, AppResult};
+use crate::state::lock;
 use std::collections::BTreeMap;
 use std::sync::{LazyLock, Mutex};
 
@@ -23,6 +25,8 @@ const API_KEY_ACCOUNT: &str = "anthropic-api-key";
 trait Backend {
     fn read(&self, service: &str, account: &str) -> AppResult<Option<String>>;
     fn write(&self, service: &str, account: &str, value: &str) -> AppResult<()>;
+    /// Removes an item; a missing item is not an error.
+    fn delete(&self, service: &str, account: &str) -> AppResult<()>;
 }
 
 struct Keychain;
@@ -38,6 +42,13 @@ impl Backend for Keychain {
 
     fn write(&self, service: &str, account: &str, value: &str) -> AppResult<()> {
         Ok(keyring::Entry::new(service, account)?.set_password(value)?)
+    }
+
+    fn delete(&self, service: &str, account: &str) -> AppResult<()> {
+        match keyring::Entry::new(service, account)?.delete_credential() {
+            Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
+            Err(e) => Err(e.into()),
+        }
     }
 }
 
@@ -117,16 +128,26 @@ impl<B: Backend> Vault<B> {
         };
         if changed { self.save() } else { Ok(()) }
     }
+
+    /// Removes the secret everywhere, including the item an earlier version saved it in.
+    /// Each location is tried even when another fails; the first error is returned.
+    fn remove(&mut self, account: &str) -> AppResult<()> {
+        let shared = self.set(account, "");
+        self.not_found.insert(account.to_string());
+        let current = self.backend.delete(SERVICE, account);
+        let legacy = self.backend.delete(LEGACY_SERVICE, account);
+        shared.and(current).and(legacy)
+    }
 }
 
 static VAULT: LazyLock<Mutex<Vault<Keychain>>> = LazyLock::new(|| Mutex::new(Vault::new(Keychain)));
 
 fn get(account: &str) -> Option<String> {
-    VAULT.lock().unwrap_or_else(|e| e.into_inner()).get(account).ok().flatten()
+    lock(&VAULT).get(account).ok().flatten()
 }
 
 fn set(account: &str, value: &str) -> AppResult<()> {
-    VAULT.lock().unwrap_or_else(|e| e.into_inner()).set(account, value)
+    lock(&VAULT).set(account, value)
 }
 
 fn connection_account(conn_id: &str) -> String {
@@ -141,15 +162,22 @@ pub fn set_password(conn_id: &str, password: &str) -> AppResult<()> {
     set(&connection_account(conn_id), password)
 }
 
+/// Removes a connection's password, including any copy an earlier version left in its own
+/// keychain item. A connection without a saved password is not an error.
+pub fn delete_password(conn_id: &str) -> AppResult<()> {
+    lock(&VAULT).remove(&connection_account(conn_id))
+}
+
 /// Claude's key keeps the account name it had before other providers were added.
 fn api_key_account(provider: &str) -> String {
     if provider == crate::ai::ANTHROPIC { API_KEY_ACCOUNT.to_string() } else { format!("api-key:{provider}") }
 }
 
-/// The AI provider's API key. For Claude, `ANTHROPIC_API_KEY` is a fallback for development.
+/// The AI provider's API key. In debug builds, `ANTHROPIC_API_KEY` is a fallback for Claude;
+/// release builds only use the key saved in Settings.
 pub fn api_key(provider: &str) -> Option<String> {
     let saved = get(&api_key_account(provider));
-    if provider != crate::ai::ANTHROPIC {
+    if provider != crate::ai::ANTHROPIC || !cfg!(debug_assertions) {
         return saved;
     }
     saved.or_else(|| std::env::var("ANTHROPIC_API_KEY").ok().filter(|s| !s.is_empty()))
@@ -185,6 +213,13 @@ mod tests {
         fn write(&self, service: &str, account: &str, value: &str) -> AppResult<()> {
             *self.writes.borrow_mut() += 1;
             self.items.borrow_mut().insert((service.into(), account.into()), value.into());
+            Ok(())
+        }
+        fn delete(&self, service: &str, account: &str) -> AppResult<()> {
+            if self.deny {
+                return Err("User canceled the operation.".into());
+            }
+            self.items.borrow_mut().remove(&(service.to_string(), account.to_string()));
             Ok(())
         }
     }
@@ -270,5 +305,32 @@ mod tests {
         let mut v = vault(&fake);
         assert!(v.set("conn:a", "pw").is_err());
         assert_eq!(fake.items.borrow()[&(SERVICE.to_string(), VAULT_ACCOUNT.to_string())], "not json");
+    }
+
+    #[test]
+    fn removing_a_secret_also_removes_the_old_items() {
+        let fake = Fake::default();
+        fake.items.borrow_mut().insert((SERVICE.into(), "conn:a".into()), "old-a".into());
+        fake.items.borrow_mut().insert((LEGACY_SERVICE.into(), "conn:a".into()), "older-a".into());
+
+        let mut v = vault(&fake);
+        assert_eq!(v.get("conn:a").unwrap().as_deref(), Some("old-a"));
+        v.remove("conn:a").unwrap();
+        assert_eq!(v.get("conn:a").unwrap(), None);
+        // Only the shared item is left, and a new launch doesn't copy the secret back.
+        assert_eq!(fake.items.borrow().len(), 1);
+        assert_eq!(vault(&fake).get("conn:a").unwrap(), None);
+    }
+
+    #[test]
+    fn removing_a_secret_that_was_never_saved_is_fine() {
+        let fake = Fake::default();
+        vault(&fake).remove("conn:none").unwrap();
+    }
+
+    #[test]
+    fn removing_reports_keychain_errors() {
+        let fake = Fake { deny: true, ..Default::default() };
+        assert!(vault(&fake).remove("conn:a").is_err());
     }
 }

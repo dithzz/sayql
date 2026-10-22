@@ -4,6 +4,9 @@ All notable changes to SayQL are listed here. Downloads are on the
 [releases page](https://github.com/dithzz/sayql-releases/releases).
 
 ## Unreleased
+- **Deleting a connection** also removes its password from the keychain item older versions saved it in.
+- **API keys:** release builds no longer fall back to the `ANTHROPIC_API_KEY` environment variable; save the
+  key in Settings.
 - **Deleting a connection shows why when it fails** (e.g. keychain access denied); the connection and its tabs stay.
 
 ## 0.2.5 (2026-10-22)
