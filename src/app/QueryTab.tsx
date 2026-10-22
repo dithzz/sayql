@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Wand2 } from "lucide-react";
 import type { Schema, Settings } from "../api";
 import { Button, SplitPane } from "../components/ui";
@@ -31,9 +31,13 @@ export function QueryTab({ tab, active, label, schema, settings, modelNames, onC
   const focusEnabled = tab.focusEnabled ?? true;
   /** A failed AI query is fixed automatically once; if the fix fails too, the person decides. */
   const autoFixUsed = useRef(false);
+  /** Text selected in the editor; Run runs just that. */
+  const [selection, setSelection] = useState("");
+  /** The last run was a selection: the AI fixes whole queries, so it stays out of it. */
+  const ranSelection = useRef(false);
 
   const query = useQueryRunner(tab.target, (sql, error) => {
-    if (autoFixUsed.current || !settings.aiReady || !generation.question.trim()) return;
+    if (ranSelection.current || autoFixUsed.current || !settings.aiReady || !generation.question.trim()) return;
     autoFixUsed.current = true;
     generation.fix(sql, error);
   });
@@ -41,6 +45,7 @@ export function QueryTab({ tab, active, label, schema, settings, modelNames, onC
   /** Runs `sql` and remembers it as the query follow-ups build on. */
   const runAndRemember = (sql: string, question: string, task: TaskKind | "manual" = "manual") => {
     if (task !== "fix") autoFixUsed.current = false;
+    ranSelection.current = false;
     onChange({ lastRun: sql.trim() ? { question, sql } : null });
     query.run(sql);
   };
@@ -62,6 +67,16 @@ export function QueryTab({ tab, active, label, schema, settings, modelNames, onC
 
   const run = () => {
     if (!generation.requestRun()) runAndRemember(tab.sql, generation.question);
+  };
+
+  /**
+   * Runs just the selected SQL, if any. Follow-ups keep building on the whole query, since
+   * the AI rewrites the whole editor.
+   */
+  const runSelectionOrAll = () => {
+    if (!selection.trim()) return run();
+    ranSelection.current = true;
+    query.run(selection);
   };
 
   // From the first-run setup: ask the tab's question as soon as it shows, then run the answer.
@@ -121,7 +136,10 @@ export function QueryTab({ tab, active, label, schema, settings, modelNames, onC
             modelNames={modelNames}
             sql={tab.sql}
             onSqlChange={setSql}
-            onRun={run}
+            onRun={runSelectionOrAll}
+            onAskRun={run}
+            selection={selection}
+            onSelectionChange={setSelection}
             running={query.running}
             onImprove={() => generation.improve(tab.sql)}
             canImprove={canUseAi && !busy && !!tab.sql.trim()}
@@ -146,7 +164,7 @@ export function QueryTab({ tab, active, label, schema, settings, modelNames, onC
                 : undefined
             }
             errorAction={
-              canUseAi && (
+              canUseAi && !ranSelection.current && (
                 <Button
                   size="sm"
                   variant="ghost"

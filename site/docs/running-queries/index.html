@@ -367,6 +367,7 @@ footer a { color: var(--color-text-muted); }
       <p class="lead">SayQL is built so that pointing it at a production database isn't scary.</p>
 <div class="callout safe"><svg><use href="#i-shield"/></svg><p><b>Read-only by default.</b> SayQL checks every statement before it runs. Anything that could change data or structure (<code>INSERT</code>, <code>UPDATE</code>, <code>DELETE</code>, DDL and so on) stops and shows a confirmation first.</p></div>
 <ul>
+  <li><b>Run part of a query:</b> select some SQL in the editor and click <b>Run selection</b> (or press <kbd>⌘↵</kbd>) to run only that. The same read-only checks apply. <kbd>↵</kbd> in the Ask box always runs the whole query.</li>
   <li>Reads also run inside a read-only transaction (PostgreSQL and MySQL) or on a read-only connection (SQLite), so the database itself refuses writes. SQL Server has no read-only mode, so reads run in a transaction that's always rolled back. For production SQL Servers, use a login that can only read (<code>db_datareader</code>).</li>
   <li>Results show up to 5,000 rows. Use <code>LIMIT</code> / <code>TOP</code> or filters for more focused results. <b>Copy as CSV</b> copies the rows shown.</li>
 </ul>

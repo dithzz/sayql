@@ -5,6 +5,7 @@ All notable changes to SayQL are listed here. Downloads are on the
 
 ## Unreleased
 
+- **Run selection:** select part of the SQL and press Run or ⌘↵ to run only that.
 - **Setup guide** on first launch: pick your AI (the key is checked before saving), pick the demo or your own
   database, and run a first question. Reopen it from Settings.
 - **Claude API keys are checked** in the setup guide before they're saved, so a typo shows up straight away.

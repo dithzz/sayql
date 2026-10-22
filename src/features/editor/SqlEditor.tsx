@@ -10,14 +10,17 @@ export interface SqlEditorProps {
   onChange: (sql: string) => void;
   /** ⌘↵ / Ctrl+↵ inside the editor. */
   onRun: () => void;
+  /** The selected text, or "" when nothing is selected. */
+  onSelectionChange?: (selected: string) => void;
   schema: Schema | null;
   /** Only the visible editor's schema feeds autocomplete. */
   active: boolean;
 }
 
-export function SqlEditor({ value, onChange, onRun, schema, active }: SqlEditorProps) {
+export function SqlEditor({ value, onChange, onRun, onSelectionChange, schema, active }: SqlEditorProps) {
   const { resolved } = useTheme();
   const runRef = useLatest(onRun);
+  const selectionRef = useLatest(onSelectionChange);
 
   useEffect(() => {
     if (active) setCompletionSchema(schema);
@@ -31,6 +34,10 @@ export function SqlEditor({ value, onChange, onRun, schema, active }: SqlEditorP
       onChange={(v) => onChange(v ?? "")}
       onMount={(editor) => {
         editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => runRef.current());
+        editor.onDidChangeCursorSelection((e) => {
+          const model = editor.getModel();
+          selectionRef.current?.(model && !e.selection.isEmpty() ? model.getValueInRange(e.selection) : "");
+        });
       }}
       options={{
         minimap: { enabled: false },

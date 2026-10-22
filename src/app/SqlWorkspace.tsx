@@ -24,7 +24,13 @@ export interface SqlWorkspaceProps {
   onSave: () => void;
   sql: string;
   onSqlChange: (sql: string) => void;
+  /** Runs the selected SQL if there is any, else all of it (Run button, ⌘↵ in the editor). */
   onRun: () => void;
+  /** ↵ in the Ask box: always the whole query. */
+  onAskRun: () => void;
+  /** Text selected in the editor; Run runs just that. */
+  selection: string;
+  onSelectionChange: (selected: string) => void;
   running: boolean;
   onOpenSettings: () => void;
   onRetry: () => void;
@@ -38,6 +44,7 @@ export interface SqlWorkspaceProps {
 /** The SQL editor view: the plain-English Ask bar above an editable SQL editor. */
 export function SqlWorkspace(p: SqlWorkspaceProps) {
   const writing = p.status.kind === "writing";
+  const hasSelection = !!p.selection.trim();
   return (
     <Panel
       title="SQL Editor"
@@ -65,8 +72,9 @@ export function SqlWorkspace(p: SqlWorkspaceProps) {
             onClick={p.onRun}
             loading={p.running}
             disabled={!p.schema || (!p.sql.trim() && !writing)}
+            title={hasSelection ? "Run only the selected SQL" : undefined}
           >
-            {writing ? "Run when ready" : "Run"}
+            {hasSelection ? "Run selection" : writing ? "Run when ready" : "Run"}
           </Button>
         </>
       }
@@ -75,7 +83,7 @@ export function SqlWorkspace(p: SqlWorkspaceProps) {
         ref={p.askRef}
         question={p.question}
         onQuestionChange={p.onQuestionChange}
-        onSubmit={p.onRun}
+        onSubmit={p.onAskRun}
         status={p.status}
         modelNames={p.modelNames}
         disabled={!p.schema}
@@ -88,7 +96,14 @@ export function SqlWorkspace(p: SqlWorkspaceProps) {
         onFocusTablesChange={p.onFocusTablesChange}
       />
       <div className={styles.editor}>
-        <SqlEditor value={p.sql} onChange={p.onSqlChange} onRun={p.onRun} schema={p.schema} active={p.active} />
+        <SqlEditor
+          value={p.sql}
+          onChange={p.onSqlChange}
+          onRun={p.onRun}
+          onSelectionChange={p.onSelectionChange}
+          schema={p.schema}
+          active={p.active}
+        />
       </div>
     </Panel>
   );
