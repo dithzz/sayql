@@ -16,7 +16,7 @@
 <meta property="og:image:alt" content="SayQL: Say what you need. It knows your schema.">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="theme-color" content="#4F46E5">
-<link rel="icon" type="image/svg+xml" href="{{FAVICON}}">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='100 100 824 824'%3E%3Cdefs%3E%3ClinearGradient id='b' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%234F46E5'/%3E%3Cstop offset='1' stop-color='%237C3AED'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect x='100' y='100' width='824' height='824' rx='185' fill='url%28%23b%29'/%3E%3Ccircle cx='496' cy='478' r='196' fill='none' stroke='%23fff' stroke-width='96'/%3E%3Cpath d='M676 590 C 700 670 742 728 800 772 C 716 770 646 740 594 690 Z' fill='%23fff'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap">
@@ -24,7 +24,154 @@
   try { var t = localStorage.getItem("sayql-site-theme"); if (t === "light" || t === "dark") document.documentElement.setAttribute("data-theme", t); } catch (e) {}
 </script>
 <style>
-{{TOKENS}}
+:root {
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+  --radius-sm: 3px;
+  --radius-md: 4px;
+  --radius-lg: 6px;
+  --radius-xl: 12px;
+  --page-w: 1180px;
+  --gutter: max(16px, env(safe-area-inset-left, 0px));
+
+  color-scheme: light;
+  --color-bg: #eceef1;
+  --color-page: #f7f8fa;
+  --color-surface: #ffffff;
+  --color-surface-muted: #f6f7f9;
+  --color-surface-sunken: #f0f2f5;
+  --color-surface-hover: #eef1f5;
+  --color-surface-selected: #dde8fb;
+  --color-border: #d6dae0;
+  --color-border-subtle: #e6e9ed;
+  --color-border-strong: #b9c0ca;
+  --color-text: #1d2125;
+  --color-text-muted: #56606b;
+  --color-text-subtle: #8a939d;
+  --color-accent: #1f6feb;
+  --color-accent-hover: #1a5fd0;
+  --color-accent-soft: #e5efff;
+  --color-focus-ring: rgba(31, 111, 235, 0.35);
+  --color-ai: #7048e8;
+  --color-ai-soft: #f1ecff;
+  --color-success: #1a7f37;
+  --color-success-soft: #e6f4ea;
+  --color-warning: #9a6700;
+  --color-warning-soft: #fff4d6;
+  --color-danger: #c62f37;
+  --color-danger-soft: #fdecec;
+  --color-kind-postgres: #336791;
+  --color-kind-mysql: #c47a00;
+  --color-kind-sqlite: #2f8f5b;
+  --color-kind-mssql: #b8312f;
+  --color-grid-header: #f3f5f8;
+  --color-grid-row-alt: #fafbfc;
+  --color-grid-number: #0b5cad;
+  --syn-keyword: #0b4fc4;
+  --syn-string: #1a7f37;
+  --syn-number: #b35900;
+  --syn-comment: #8a939d;
+  --syn-operator: #56606b;
+  --shadow-raised: 0 1px 2px rgba(15, 23, 42, 0.12);
+  --shadow-window: 0 30px 80px -20px rgba(15, 23, 42, 0.28), 0 8px 24px -8px rgba(15, 23, 42, 0.16);
+  --glow-a: rgba(31, 111, 235, 0.16);
+  --glow-b: rgba(112, 72, 232, 0.14);
+  --grid-line: rgba(15, 23, 42, 0.05);
+}
+
+/* Dark: same values as :root[data-theme="dark"] in tokens.css. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --color-bg: #17191d;
+    --color-page: #131518;
+    --color-surface: #1f2227;
+    --color-surface-muted: #24272d;
+    --color-surface-sunken: #1a1c20;
+    --color-surface-hover: #2a2e35;
+    --color-surface-selected: #253552;
+    --color-border: #33373e;
+    --color-border-subtle: #2a2d33;
+    --color-border-strong: #474c55;
+    --color-text: #e2e5e9;
+    --color-text-muted: #a3aab4;
+    --color-text-subtle: #727a85;
+    --color-accent: #4a8dff;
+    --color-accent-hover: #6aa2ff;
+    --color-accent-soft: #1e2d48;
+    --color-focus-ring: rgba(74, 141, 255, 0.4);
+    --color-ai: #a78bfa;
+    --color-ai-soft: #2a2341;
+    --color-success: #56c26f;
+    --color-success-soft: #1d3324;
+    --color-warning: #e3b341;
+    --color-warning-soft: #3a3016;
+    --color-danger: #f26b72;
+    --color-danger-soft: #3b1f23;
+    --color-kind-postgres: #6fa3d6;
+    --color-kind-mysql: #f0a833;
+    --color-kind-sqlite: #5ccb8d;
+    --color-kind-mssql: #f07a6e;
+    --color-grid-header: #262a30;
+    --color-grid-row-alt: #22252a;
+    --color-grid-number: #7fb4ff;
+    --syn-keyword: #6aa2ff;
+    --syn-string: #8fd19e;
+    --syn-number: #f0a868;
+    --syn-comment: #727a85;
+    --syn-operator: #a3aab4;
+    --shadow-raised: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-window: 0 30px 90px -20px rgba(0, 0, 0, 0.7), 0 8px 24px -8px rgba(0, 0, 0, 0.5);
+    --glow-a: rgba(74, 141, 255, 0.16);
+    --glow-b: rgba(167, 139, 250, 0.14);
+    --grid-line: rgba(255, 255, 255, 0.035);
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --color-bg: #17191d;
+  --color-page: #131518;
+  --color-surface: #1f2227;
+  --color-surface-muted: #24272d;
+  --color-surface-sunken: #1a1c20;
+  --color-surface-hover: #2a2e35;
+  --color-surface-selected: #253552;
+  --color-border: #33373e;
+  --color-border-subtle: #2a2d33;
+  --color-border-strong: #474c55;
+  --color-text: #e2e5e9;
+  --color-text-muted: #a3aab4;
+  --color-text-subtle: #727a85;
+  --color-accent: #4a8dff;
+  --color-accent-hover: #6aa2ff;
+  --color-accent-soft: #1e2d48;
+  --color-focus-ring: rgba(74, 141, 255, 0.4);
+  --color-ai: #a78bfa;
+  --color-ai-soft: #2a2341;
+  --color-success: #56c26f;
+  --color-success-soft: #1d3324;
+  --color-warning: #e3b341;
+  --color-warning-soft: #3a3016;
+  --color-danger: #f26b72;
+  --color-danger-soft: #3b1f23;
+  --color-kind-postgres: #6fa3d6;
+  --color-kind-mysql: #f0a833;
+  --color-kind-sqlite: #5ccb8d;
+  --color-kind-mssql: #f07a6e;
+  --color-grid-header: #262a30;
+  --color-grid-row-alt: #22252a;
+  --color-grid-number: #7fb4ff;
+  --syn-keyword: #6aa2ff;
+  --syn-string: #8fd19e;
+  --syn-number: #f0a868;
+  --syn-comment: #727a85;
+  --syn-operator: #a3aab4;
+  --shadow-raised: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-window: 0 30px 90px -20px rgba(0, 0, 0, 0.7), 0 8px 24px -8px rgba(0, 0, 0, 0.5);
+  --glow-a: rgba(74, 141, 255, 0.16);
+  --glow-b: rgba(167, 139, 250, 0.14);
+  --grid-line: rgba(255, 255, 255, 0.035);
+}
 
 * { box-sizing: border-box; }
 html { scroll-padding-top: 84px; }
@@ -160,7 +307,10 @@ footer a { color: var(--color-text-muted); }
 
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
   <defs>
-    {{LOGO}}
+    <linearGradient id="logo-bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4F46E5"/><stop offset="1" stop-color="#7C3AED"/></linearGradient>
+    <symbol id="logo" viewBox="100 100 824 824">
+      <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#logo-bg)"/><circle cx="496" cy="478" r="196" fill="none" stroke="#fff" stroke-width="96"/><path d="M676 590 C 700 670 742 728 800 772 C 716 770 646 740 594 690 Z" fill="#fff"/>
+    </symbol>
     <symbol id="i-sun" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></g></symbol>
     <symbol id="i-moon" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5z"/></symbol>
     <symbol id="i-github" viewBox="0 0 24 24"><path fill="currentColor" d="M12 .3a12 12 0 0 0-3.8 23.38c.6.11.82-.26.82-.58 0-.29-.01-1.04-.02-2.04-3.34.73-4.04-1.61-4.04-1.61-.55-1.39-1.33-1.76-1.33-1.76-1.09-.74.08-.73.08-.73 1.2.09 1.84 1.24 1.84 1.24 1.07 1.83 2.81 1.3 3.49 1 .11-.78.42-1.3.76-1.6-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.14-.3-.54-1.52.1-3.18 0 0 1.01-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.28-1.55 3.29-1.23 3.29-1.23.64 1.66.24 2.88.12 3.18.77.84 1.23 1.91 1.23 3.22 0 4.61-2.8 5.62-5.48 5.92.43.37.82 1.1.82 2.22 0 1.6-.02 2.9-.02 3.29 0 .32.22.7.83.58A12 12 0 0 0 12 .3"/></symbol>
@@ -179,8 +329,8 @@ footer a { color: var(--color-text-muted); }
     <a class="brand" href="/" aria-label="SayQL home"><svg><use href="#logo"/></svg>SayQL<span class="docs-tag">Docs</span></a>
     <nav class="nav-links" aria-label="Main">
       <a href="/#features">Features</a>
-      <a href="/#security">Security</a>
-      <a href="/#pricing">Pricing</a>
+      <a href="/#download">Download</a>
+      <a href="/#faq">FAQ</a>
       <a href="/docs/" aria-current="page">Docs</a>
       <a href="https://github.com/dithzz/sayql-releases/releases">Changelog</a>
     </nav>

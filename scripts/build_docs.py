@@ -21,7 +21,6 @@ import re
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 PAGES = ROOT / "docs-site" / "pages"
 TEMPLATE = ROOT / "docs-site" / "template.html"
-LANDING = ROOT / "site" / "index.html"
 OUT = ROOT / "site" / "docs"
 META = re.compile(r"<!--\s*(.*?)\s*-->\s*", re.S)
 HEADING = re.compile(r"<(h[23])>(.*?)</\1>", re.S)
@@ -69,17 +68,6 @@ def add_heading_ids(body: str) -> tuple[str, list[tuple[str, str, str]]]:
     return HEADING.sub(repl, body), found
 
 
-def from_landing() -> dict[str, str]:
-    landing = LANDING.read_text()
-    start = landing.index(":root {")
-    dark = landing.index(':root[data-theme="dark"] {', start)
-    end = landing.index("}", landing.index("--grid-line", dark)) + 1
-    gradient = re.search(r'<linearGradient id="logo-bg".*?</linearGradient>', landing, re.S).group(0)
-    symbol = re.search(r'<symbol id="logo".*?</symbol>', landing, re.S).group(0)
-    favicon = re.search(r'<link rel="icon" type="image/svg\+xml" href="([^"]*)">', landing).group(1)
-    return {"TOKENS": landing[start:end], "LOGO": f"{gradient}\n    {symbol}", "FAVICON": favicon}
-
-
 def nav_html(pages: list[dict], current: dict) -> str:
     groups: dict[str, list[dict]] = {}
     for p in pages:
@@ -113,7 +101,6 @@ def pager_html(prev: dict | None, nxt: dict | None) -> str:
 def main() -> None:
     pages = load_pages()
     template = TEMPLATE.read_text()
-    shared = from_landing()
     for p in pages:
         p["body"], p["headings"] = add_heading_ids(p["body"])
     index = [
@@ -123,7 +110,6 @@ def main() -> None:
     ]
     for i, p in enumerate(pages):
         values = {
-            **shared,
             "TITLE": html.escape(p["title"]),
             "DESCRIPTION": html.escape(p["description"]),
             "GROUP": html.escape(p["group"]),
