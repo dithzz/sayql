@@ -1,0 +1,27 @@
+<!-- order: 21 | slug: mysql-text-to-sql | title: Text-to-SQL for MySQL and MariaDB | group: Guides | description: Free text-to-SQL for MySQL and MariaDB. Type a question in plain English, get SQL that fits your schema, and run it read-only by default. -->
+<p class="lead">SayQL is free text-to-SQL for MySQL and MariaDB. Type a question in plain English and the SQL appears as you type, written for your tables.</p>
+
+<h2>Get started</h2>
+<ol class="steps">
+  <li><div><a href="/download/">Download SayQL</a> for macOS, Windows or Linux.</div></li>
+  <li><div>Click <b>New connection</b>, pick <b>MySQL / MariaDB</b> (port 3306), click <b>Test</b>, then <b>Save</b>.</div></li>
+  <li><div>Pick an AI in <b>Settings → AI provider</b>.</div></li>
+  <li><div>Ask in the Ask box and press <kbd>↵</kbd>.</div></li>
+</ol>
+
+<h2>Example questions</h2>
+<ul>
+  <li>"How many orders per day this week"</li>
+  <li>"Users who never logged in"</li>
+  <li>"Average order value by country"</li>
+</ul>
+<p>"How many orders per day this week" might come back as:</p>
+<pre><code>SELECT DATE(created_at) AS day, COUNT(*) AS orders
+FROM orders
+WHERE YEARWEEK(created_at, 1) = YEARWEEK(CURDATE(), 1)
+GROUP BY DATE(created_at)
+ORDER BY day;</code></pre>
+
+<h2>What keeps it safe</h2>
+<div class="callout safe"><svg><use href="#i-shield"/></svg><p><b>Read-only by default.</b> Reads run inside a read-only transaction, so the server itself refuses writes. Anything that could change data asks you first.</p></div>
+<p>The AI sees your schema (table and column names, types, keys, enum values and row estimates), never your rows. See <a href="/docs/asking/">Ask in plain English</a> and <a href="/docs/running-queries/">Run queries safely</a>.</p>

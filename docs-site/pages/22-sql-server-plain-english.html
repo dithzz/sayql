@@ -1,0 +1,27 @@
+<!-- order: 22 | slug: sql-server-plain-english | title: Query SQL Server and Azure SQL in plain English | group: Guides | description: Query SQL Server and Azure SQL in plain English. SayQL writes T-SQL for your schema as you type and checks every statement before it runs. -->
+<p class="lead">SayQL lets you query SQL Server and Azure SQL in plain English. Ask a question and it writes T-SQL for your schema as you type.</p>
+
+<h2>Get started</h2>
+<ol class="steps">
+  <li><div><a href="/download/">Download SayQL</a> for macOS, Windows or Linux.</div></li>
+  <li><div>Click <b>New connection</b>, pick <b>SQL Server / Azure SQL</b> (port 1433), click <b>Test</b>, then <b>Save</b>. Azure SQL needs <b>Encrypt connection</b>, which is on by default.</div></li>
+  <li><div>Pick an AI in <b>Settings → AI provider</b>.</div></li>
+  <li><div>Ask in the Ask box and press <kbd>↵</kbd>.</div></li>
+</ol>
+
+<h2>Example questions</h2>
+<ul>
+  <li>"Top 20 customers by total spend"</li>
+  <li>"Invoices overdue by more than 30 days"</li>
+  <li>"Tickets opened yesterday, by priority"</li>
+</ul>
+<p>"Top 20 customers by total spend" might come back as:</p>
+<pre><code>SELECT TOP 20 c.name, SUM(o.total) AS total_spend
+FROM dbo.customers c
+JOIN dbo.orders o ON o.customer_id = c.id
+GROUP BY c.name
+ORDER BY total_spend DESC;</code></pre>
+
+<h2>What keeps it safe</h2>
+<div class="callout safe"><svg><use href="#i-shield"/></svg><p><b>Read-only by default.</b> SayQL checks every statement, and anything that could change data asks you first. SQL Server has no read-only mode, so reads run in a transaction that's always rolled back.</p></div>
+<p>For production servers, use a login that can only read (<code>db_datareader</code>). Certificate or login trouble? See the <a href="/docs/databases/">SQL Server tips</a>. More in <a href="/docs/running-queries/">Run queries safely</a>.</p>

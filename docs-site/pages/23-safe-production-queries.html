@@ -1,0 +1,19 @@
+<!-- order: 23 | slug: safe-production-queries | title: Let your team query production safely | group: Guides | description: Let your team query production safely in plain English. Support, ops, PMs and analysts get answers while SayQL runs read-only by default. -->
+<p class="lead">SayQL lets your team query production safely. Support, ops, PMs and analysts ask in plain English, without being SQL experts.</p>
+
+<h2>Get started</h2>
+<ol class="steps">
+  <li><div>Each person <a href="/download/">downloads SayQL</a> and connects with their own login. SayQL connects straight from their computer; there's no SayQL server in between.</div></li>
+  <li><div>Each picks an AI in <b>Settings → AI provider</b>, with their own API key or a local model.</div></li>
+  <li><div>They ask: "orders for customer 4512 this month", "failed payments in the last hour", "signups per week since January".</div></li>
+</ol>
+
+<h2>Four layers of safety</h2>
+<ul>
+  <li><b>Read-only by default.</b> SayQL checks every statement before it runs.</li>
+  <li><b>Confirmation before any change.</b> <code>INSERT</code>, <code>UPDATE</code>, <code>DELETE</code>, DDL and anything else that could change data stops and asks first.</li>
+  <li><b>The database enforces it.</b> Reads run in a read-only transaction on PostgreSQL and MySQL, and on a read-only connection on SQLite, so the database itself refuses writes.</li>
+  <li><b>SQL Server</b> has no read-only mode, so reads run in a transaction that's always rolled back. For production, give people a login that can only read (<code>db_datareader</code>).</li>
+</ul>
+<div class="callout tip"><svg><use href="#i-info"/></svg><p>The AI sees table and column names, types, keys, enum values and row estimates, never your table rows. Results show up to 5,000 rows.</p></div>
+<p>More in <a href="/docs/running-queries/">Run queries safely</a> and <a href="/docs/privacy/">Privacy and data</a>.</p>

@@ -14,4 +14,9 @@
   <url><loc>https://sayql.dev/docs/updates/</loc></url>
   <url><loc>https://sayql.dev/docs/privacy/</loc></url>
   <url><loc>https://sayql.dev/docs/license/</loc></url>
+  <url><loc>https://sayql.dev/docs/postgresql-plain-english/</loc></url>
+  <url><loc>https://sayql.dev/docs/mysql-text-to-sql/</loc></url>
+  <url><loc>https://sayql.dev/docs/sql-server-plain-english/</loc></url>
+  <url><loc>https://sayql.dev/docs/safe-production-queries/</loc></url>
+  <url><loc>https://sayql.dev/docs/local-ai-sql-ollama/</loc></url>
 </urlset>

@@ -1,0 +1,26 @@
+<!-- order: 24 | slug: local-ai-sql-ollama | title: Write SQL with a local AI (Ollama or LM Studio) | group: Guides | description: Write SQL with a local AI using Ollama or LM Studio. Your questions and schema stay on your computer, and no API key is needed. -->
+<p class="lead">SayQL can write SQL with a local AI running in Ollama or LM Studio. Nothing leaves your computer, and you don't need an API key.</p>
+
+<h2>Get started</h2>
+<ol class="steps">
+  <li><div><a href="/download/">Download SayQL</a> for macOS, Windows or Linux.</div></li>
+  <li><div>Install <a href="https://ollama.com/">Ollama</a>, pull a model (for example <code>ollama pull llama3.2</code>) and keep it running. Or start the local server in <a href="https://lmstudio.ai/">LM Studio</a>.</div></li>
+  <li><div>In <b>Settings → AI provider</b>, pick <b>Ollama</b> or <b>LM Studio</b>, click <b>Load models</b>, pick a model and <b>Save</b>.</div></li>
+  <li><div>Connect your database and ask in the Ask box.</div></li>
+</ol>
+<p>SayQL connects to Ollama at <code>http://localhost:11434/v1</code> and LM Studio at <code>http://localhost:1234/v1</code>. Change the base URL in Settings if yours runs elsewhere.</p>
+
+<h2>Example questions</h2>
+<ul>
+  <li>"Products low on stock"</li>
+  <li>"Revenue by month this year"</li>
+</ul>
+<p>"Products low on stock" might come back as:</p>
+<pre><code>SELECT name, stock
+FROM products
+WHERE stock &lt; 10
+ORDER BY stock;</code></pre>
+
+<h2>What keeps it safe</h2>
+<div class="callout safe"><svg><use href="#i-shield"/></svg><p><b>Nothing leaves your computer.</b> Your questions and schema go only to the model on your machine. Queries still run read-only by default, and anything that could change data asks first.</p></div>
+<p>See <a href="/docs/ai-providers/">AI providers</a> and <a href="/docs/privacy/">Privacy and data</a>.</p>
