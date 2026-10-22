@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Ban, Check, CheckCircle2, Copy, Table2 } from "lucide-react";
+import { QUERY_CANCELLED } from "../../api";
 import { Alert, Badge, Button, EmptyState, Panel, Spinner } from "../../components/ui";
 import { cx } from "../../lib/cx";
 import type { Outcome } from "../query";
@@ -100,7 +101,11 @@ export function ResultsPanel({ outcomes, total, running, errorHint, errorAction,
           ))}
         </div>
       )}
-      {shown?.error ? (
+      {shown?.error === QUERY_CANCELLED ? (
+        <EmptyState icon={Ban} title="Query cancelled">
+          SayQL stopped it on the server{index + 1 < total ? ", and the statements after it didn't run" : ""}.
+        </EmptyState>
+      ) : shown?.error ? (
         <div className={styles.error}>
           <Alert tone="danger" actions={errorAction}>
             <strong>{many ? `Statement ${index + 1} returned an error` : "The database returned an error"}</strong>
