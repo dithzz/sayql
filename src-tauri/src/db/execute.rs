@@ -12,7 +12,7 @@ pub async fn run_query(pool: &DbPool, sql: &str, read_only: bool) -> AppResult<Q
     if sql.is_empty() {
         return Err("Nothing to run.".into());
     }
-    if read_only && !super::is_read_only(sql) {
+    if read_only && !super::is_read_only(sql, pool.kind()) {
         return Err("This statement can change data, so it can't run in read-only mode.".into());
     }
     let start = Instant::now();

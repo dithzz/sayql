@@ -11,6 +11,10 @@ All notable changes to SayQL are listed here. Downloads are on the
   leave a half-written file.
 - **Privacy:** when SayQL fixes a failed query, values from your rows that the database quotes in its error
   (a duplicate email, a value that failed to convert) are masked before the error goes to your AI provider.
+- **Stricter read-only check:** SayQL now reads each statement the way your database does (MySQL `#` comments,
+  `/*! */` and backslash escapes; Postgres `E'...'` and `$$` strings), so a write can't hide inside them.
+  `INTO OUTFILE`, `INTO DUMPFILE`, `NEXT VALUE FOR` and side-effect functions such as `nextval`, `dblink` and
+  `pg_terminate_backend` now ask before running, and MCP refuses them.
 
 ## 0.2.5 (2026-10-22)
 
