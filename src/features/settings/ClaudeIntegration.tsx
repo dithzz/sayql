@@ -36,7 +36,7 @@ export function ClaudeIntegration() {
   return (
     <div className={styles.section}>
       <p className={styles.intro}>
-        Let Claude, Cursor or any other MCP app list your connections, read schemas and run <strong>read-only</strong>
+        Let Claude, Cursor or any other MCP app list your connections, read schemas and run <strong>read-only</strong>{" "}
         queries. Anything that could change data is refused. Query results are sent to that app.
       </p>
       {!setup.exists && (

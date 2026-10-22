@@ -12,6 +12,7 @@ use std::path::PathBuf;
 const CONNECTIONS_FILE: &str = "connections.json";
 const SETTINGS_FILE: &str = "settings.json";
 const SCRIPTS_FILE: &str = "scripts.json";
+const SKILLS_FILE: &str = "skills.json";
 /// The config folder name used before the app was renamed from AskDB.
 const LEGACY_DIR_NAME: &str = "com.askdb.app";
 
@@ -139,6 +140,17 @@ pub struct Script {
     pub updated_at: u64,
 }
 
+/// Saved instructions the person adds to a question with `/slug`. Text only: a skill
+/// holds no SQL and runs nothing; it is added to the AI request for that question.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Skill {
+    pub slug: String,
+    #[serde(default)]
+    pub description: String,
+    pub instruction: String,
+}
+
 pub struct Store {
     dir: PathBuf,
 }
@@ -189,6 +201,14 @@ impl Store {
 
     pub fn save_scripts(&self, list: &[Script]) -> AppResult<()> {
         self.write(SCRIPTS_FILE, &list)
+    }
+
+    pub fn skills(&self) -> Vec<Skill> {
+        self.read(SKILLS_FILE)
+    }
+
+    pub fn save_skills(&self, list: &[Skill]) -> AppResult<()> {
+        self.write(SKILLS_FILE, &list)
     }
 }
 

@@ -41,7 +41,7 @@ fn request_body(r: &GenRequest) -> Value {
         "stream": true,
         "messages": [
             { "role": "system", "content": system },
-            { "role": "user", "content": prompt::user_message(&r.question, &r.task) },
+            { "role": "user", "content": prompt::user_message(&r.question, &r.task, r.skill.as_deref()) },
         ],
     })
 }
@@ -278,7 +278,8 @@ mod tests {
             dialect: "SQLite".into(),
             schema_text: "TABLE customers (id INTEGER, name TEXT)".into(),
             question: "all customers".into(),
-            task: super::super::Task::Draft { previous: None },
+            task: super::super::Task::Draft { previous: None, force_follow_up: false },
+            skill: None,
         }
     }
 

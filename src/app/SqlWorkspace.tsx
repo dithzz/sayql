@@ -1,6 +1,6 @@
 import type { RefObject } from "react";
 import { Eraser, FileCode2, Play, Save, Wand2 } from "lucide-react";
-import type { Schema } from "../api";
+import type { Schema, Skill } from "../api";
 import { Button, IconButton, Panel } from "../components/ui";
 import { AskBar, type GenerationStatus } from "../features/ask";
 import { SqlEditor } from "../features/editor";
@@ -29,6 +29,12 @@ export interface SqlWorkspaceProps {
   onOpenSettings: () => void;
   onRetry: () => void;
   followUp?: { onStartFresh: () => void };
+  /** ↵ in the Ask box: run, or the picked /explain, /fix or /improve. */
+  onSubmit: () => void;
+  skills: Skill[];
+  onCreateSkill: () => void;
+  explanation: string | null;
+  onDismissExplanation: () => void;
   focusTables: string[];
   focusEnabled: boolean;
   onFocusEnabledChange: (enabled: boolean) => void;
@@ -75,13 +81,17 @@ export function SqlWorkspace(p: SqlWorkspaceProps) {
         ref={p.askRef}
         question={p.question}
         onQuestionChange={p.onQuestionChange}
-        onSubmit={p.onRun}
+        onSubmit={p.onSubmit}
         status={p.status}
         modelNames={p.modelNames}
         disabled={!p.schema}
         onOpenSettings={p.onOpenSettings}
         onRetry={p.onRetry}
         followUp={p.followUp}
+        skills={p.skills}
+        onCreateSkill={p.onCreateSkill}
+        explanation={p.explanation}
+        onDismissExplanation={p.onDismissExplanation}
         focusTables={p.focusTables}
         focusEnabled={p.focusEnabled}
         onFocusEnabledChange={p.onFocusEnabledChange}
