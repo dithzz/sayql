@@ -1,6 +1,12 @@
 // Monaco is loaded from the local package (not a CDN) so the editor works offline.
 import * as monaco from "monaco-editor/esm/vs/editor/editor.api";
 import "monaco-editor/esm/vs/basic-languages/sql/sql.contribution";
+// editor.api is the bare editor; each feature beyond typing is a contribution loaded on its own.
+// Monaco's context menu stays out so the editor keeps the native cut/copy/paste menu.
+import "monaco-editor/esm/vs/editor/contrib/suggest/browser/suggestController";
+import "monaco-editor/esm/vs/editor/contrib/find/browser/findController";
+import "monaco-editor/esm/vs/editor/contrib/comment/browser/comment";
+import "monaco-editor/esm/vs/editor/contrib/bracketMatching/browser/bracketMatching";
 import EditorWorker from "monaco-editor/esm/vs/editor/editor.worker?worker";
 import { loader } from "@monaco-editor/react";
 import type { Schema } from "../../api";
