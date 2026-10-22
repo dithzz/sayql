@@ -43,6 +43,8 @@ Asking an engineer takes time; general chatbots don't know your schema and can't
   "sort by date"), and failed queries fix themselves once.
 - **Your AI, your data.** Use Claude, OpenAI, Gemini or any OpenAI-compatible API with your own key, or a local
   model so nothing leaves your computer. Table rows are never sent to the AI.
+- **Say it instead.** Click the mic and say your question. Speech is turned into text on your computer, and
+  the audio never leaves it.
 - **Everything in one place.** Browse your tables, keep tabs open and save the queries you reuse. You see every
   query, so you learn SQL as you go.
 
@@ -135,10 +137,12 @@ database, and sends data only to services you configure:
 | A query fails and SayQL fixes it | The query and the database's error message | Your AI provider |
 | You run a query | Your SQL | Your database |
 | SayQL starts | The app version and your operating system, to check for updates | GitHub (dithzz/sayql-releases) |
+| You first use voice input | A one-time download of the speech model (no audio) | Hugging Face |
 
 **Rows in your tables are never sent to an AI provider by the Ask box.** Database passwords and API keys are
 kept in your OS keychain (macOS Keychain, Windows Credential Manager or Secret Service), never in files. With
-Ollama or LM Studio, nothing leaves your computer. Details: [PRIVACY.md](PRIVACY.md).
+Ollama or LM Studio, nothing leaves your computer. Voice input is transcribed on your computer and audio is
+never sent anywhere. Details: [PRIVACY.md](PRIVACY.md).
 
 ## How it works
 
@@ -196,7 +200,9 @@ serves demo data, so you need no database or AI key.
 **Stack:** [Tauri 2](https://tauri.app) (Rust) with React, TypeScript and the
 [Monaco](https://microsoft.github.io/monaco-editor/) editor. Database drivers are
 [`sqlx`](https://github.com/launchbadge/sqlx) and [`tiberius`](https://github.com/prisma/tiberius) (SQL
-Server). [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) explains the structure and conventions, and
+Server). Voice input uses [whisper.cpp](https://github.com/ggml-org/whisper.cpp) through
+[`whisper-rs`](https://crates.io/crates/whisper-rs), and [`cpal`](https://crates.io/crates/cpal) for the
+microphone (on Linux, install `libasound2-dev` to build). [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) explains the structure and conventions, and
 [docs/RELEASING.md](docs/RELEASING.md) covers signing, updates and publishing.
 
 ## Roadmap

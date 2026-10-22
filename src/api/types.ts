@@ -203,3 +203,15 @@ export interface AiDone {
   totalMs: number;
   cacheReadTokens: number | null;
 }
+
+/** Voice input's on-device speech model. */
+export interface VoiceStatus {
+  ready: boolean;
+  downloading: boolean;
+  modelBytes: number;
+}
+
+export interface VoiceProgress {
+  received: number;
+  total: number;
+}

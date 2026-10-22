@@ -242,6 +242,39 @@ const EXPLANATION =
   "Lists the 10 customers who spent the most. It adds up the price of every item in their orders, " +
   "leaves out cancelled and refunded orders, and shows each customer's name, country, order count and total spend.";
 
+/**
+ * Voice input: a fake download and a fake microphone. `?voice=ready` starts with the model
+ * downloaded, `?voice=nomic` and `?voice=denied` show those errors.
+ */
+const VOICE = new URLSearchParams(window.location.search).get("voice");
+const VOICE_BYTES = 81_781_811;
+const voice = { ready: VOICE === "ready" || VOICE === "nomic" || VOICE === "denied", downloading: false, cancel: false, meter: 0 };
+
+async function fakeDownload() {
+  voice.downloading = true;
+  voice.cancel = false;
+  for (let received = 0; received < VOICE_BYTES; received += 4_000_000) {
+    await new Promise((r) => setTimeout(r, 120));
+    if (voice.cancel) {
+      voice.downloading = false;
+      throw "Download canceled.";
+    }
+    await emit("voice://progress", { received, total: VOICE_BYTES });
+  }
+  await emit("voice://progress", { received: VOICE_BYTES, total: VOICE_BYTES });
+  voice.downloading = false;
+  voice.ready = true;
+}
+
+function fakeMic() {
+  let t = 0;
+  voice.meter = window.setInterval(() => {
+    t += 1;
+    void emit("voice://level", 0.03 + 0.12 * Math.abs(Math.sin(t / 3)) * Math.random());
+  }, 50);
+  if (VOICE === "denied") setTimeout(() => void emit("voice://blocked", "SayQL can't use the microphone. Allow it in System Settings → Privacy & Security → Microphone."), 1000);
+}
+
 /** Skills saved in this preview session; lost on reload. */
 let skills: Skill[] = VIDEO ? EXAMPLE_SKILLS.slice(0, 1) : [];
 
@@ -351,6 +384,27 @@ export function installMockBackend() {
         case "finish_onboarding":
           settings.onboarded = true;
           return { ...settings };
+        case "voice_status":
+          return { ready: voice.ready, downloading: voice.downloading, modelBytes: VOICE_BYTES };
+        case "voice_download":
+          return fakeDownload();
+        case "voice_cancel_download":
+          voice.cancel = true;
+          return null;
+        case "voice_delete_model":
+          voice.ready = false;
+          return null;
+        case "voice_start":
+          if (VOICE === "nomic") return Promise.reject("No microphone found.");
+          fakeMic();
+          return null;
+        case "voice_stop":
+          clearInterval(voice.meter);
+          await new Promise((r) => setTimeout(r, 600));
+          return "top ten customers by total spend";
+        case "voice_cancel":
+          clearInterval(voice.meter);
+          return null;
         case "list_models":
           if (a.provider === "anthropic") return settings.models.map((m) => m.id);
           return a.provider === "ollama" ? ["llama3.3:70b", "qwen3:32b", "sqlcoder:15b"] : ["model-small", "model-large"];

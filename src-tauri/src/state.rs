@@ -4,6 +4,7 @@ use crate::db::DbPool;
 use crate::error::AppResult;
 use crate::schema::Schema;
 use crate::store::Store;
+use crate::voice::Voice;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -45,6 +46,7 @@ pub struct AppState {
     schemas: Mutex<HashMap<Target, Arc<LoadedSchema>>>,
     /// The running AI generation per slot (one slot per editor tab).
     generations: Mutex<HashMap<String, JoinHandle<()>>>,
+    pub voice: Voice,
 }
 
 impl AppState {
@@ -58,6 +60,7 @@ impl AppState {
         Ok(AppState {
             store: Store::new(config_dir),
             demo_path: data_dir.join("demo.sqlite"),
+            voice: Voice::new(&data_dir),
             http,
             init_lock: tokio::sync::Mutex::new(()),
             pools: Mutex::new(HashMap::new()),

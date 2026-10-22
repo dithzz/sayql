@@ -3,6 +3,7 @@ import { Eraser, FileCode2, Play, Save, Wand2 } from "lucide-react";
 import type { Schema, Skill } from "../api";
 import { Button, IconButton, Panel } from "../components/ui";
 import { AskBar, type GenerationStatus } from "../features/ask";
+import { voicePrompt } from "../features/voice";
 import { SqlEditor, type TextRange } from "../features/editor";
 import type { ModelNames } from "../features/settings";
 import styles from "./Workbench.module.css";
@@ -104,6 +105,8 @@ export function SqlWorkspace(p: SqlWorkspaceProps) {
         focusEnabled={p.focusEnabled}
         onFocusEnabledChange={p.onFocusEnabledChange}
         onFocusTablesChange={p.onFocusTablesChange}
+        active={p.active}
+        voicePrompt={voicePrompt(p.schema, p.focusTables)}
       />
       <div className={styles.editor}>
         <SqlEditor

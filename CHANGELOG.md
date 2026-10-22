@@ -3,6 +3,13 @@
 All notable changes to SayQL are listed here. Downloads are on the
 [releases page](https://github.com/dithzz/sayql-releases/releases).
 
+## Unreleased
+
+- **Voice input:** click the mic in the Ask box, or press ⌘⇧M (Ctrl+Shift+M), and say your question. It
+  becomes the question as if you'd typed it, keeping any `/command`; press ↵ to run. Speech is turned into
+  text on your computer by Whisper, and audio is never saved or sent anywhere. The first time, the speech
+  model (82 MB) downloads once from Hugging Face; remove or redownload it in Settings → Voice.
+
 ## 0.2.4 (2026-10-22)
 
 - **MCP server:** it has come with SayQL since 0.1.0 (the docs and website said "coming soon" by mistake).

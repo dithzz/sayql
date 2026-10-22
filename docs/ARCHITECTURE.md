@@ -61,6 +61,7 @@ src-tauri/src/
     query.rs            run_query (write confirmation gate)
     generation.rs       generate_sql, cancel_generation
     settings.rs         save_settings, the settings view sent to the UI
+    voice.rs            voice_start/stop/cancel, model download and removal (events: voice://level, voice://progress)
   db/                   database access, no Tauri types
     mod.rs              Kind, ConnConfig, DbPool, QueryResult, public API
     connect.rs          pools per database kind
@@ -82,11 +83,15 @@ src-tauri/src/
     sse.rs              server-sent-event parser
   schema/               schema model (mod.rs) and compact prompt rendering (render.rs)
   store/                settings/connections JSON (mod.rs) and keychain secrets (secrets.rs)
+  voice/                voice input, all on this computer, no Tauri types
+    model.rs            the Whisper model: pinned URL and SHA-256, download, path in app data
+    audio.rs            microphone capture with cpal, mono 16 kHz resampling
+    transcribe.rs       whisper.cpp (whisper-rs) speech to text
 ```
 
 ### Rules
 
-- **Commands are thin.** Business logic lives in `db/`, `ai/`, `schema/` and `store/`, which never import Tauri command types; only `commands/` and `state.rs` know about Tauri state.
+- **Commands are thin.** Business logic lives in `db/`, `ai/`, `schema/`, `store/` and `voice/`, which never import Tauri command types; only `commands/` and `state.rs` know about Tauri state.
 - **Errors:** functions return `AppResult<T>`. Use `?` on sqlx/io/keychain/JSON errors (converted by `From`), and `"message".into()` for messages written for the user. A message that mentions "Settings" makes the UI offer an Open Settings button.
 - **Secrets** only go through `store::secrets`; they are never written to JSON or sent to the UI.
 - **Tests** sit next to the code (`#[cfg(test)] mod tests`).

@@ -14,6 +14,7 @@ import type {
   UpdateInfo,
   AppInfo,
   Target,
+  VoiceStatus,
 } from "./types";
 
 /** Typed wrappers for the Tauri commands registered in src-tauri/src/lib.rs. */
@@ -67,4 +68,17 @@ export const commands = {
   /** Model ids an AI provider offers; also checks the key and base URL. */
   listModels: (provider: string, baseUrl: string, apiKey: string | null) =>
     invoke<string[]>("list_models", { provider, baseUrl, apiKey }),
+
+  /** Voice input: whether the on-device speech model is downloaded. */
+  voiceStatus: () => invoke<VoiceStatus>("voice_status"),
+  /** Downloads the speech model once; progress arrives as `voice://progress` events. */
+  voiceDownload: () => invoke<void>("voice_download"),
+  voiceCancelDownload: () => invoke<void>("voice_cancel_download"),
+  voiceDeleteModel: () => invoke<void>("voice_delete_model"),
+  /** Starts recording from the default microphone. */
+  voiceStart: () => invoke<void>("voice_start"),
+  /** Stops recording and returns the transcript. `prompt`: table and column names to help spelling. */
+  voiceStop: (prompt: string) => invoke<string>("voice_stop", { prompt }),
+  /** Stops recording and discards the audio. */
+  voiceCancel: () => invoke<void>("voice_cancel"),
 };

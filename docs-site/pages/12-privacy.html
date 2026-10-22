@@ -7,10 +7,14 @@
     <tr><td>You ask in plain English</td><td>Your question; table and column names, types, keys, enum values and row estimates; the current SQL for follow-ups, Explain, Fix and Improve; any skill you add</td><td>Your AI provider</td></tr>
     <tr><td>A query fails and SayQL fixes it</td><td>The query and the database's error</td><td>Your AI provider</td></tr>
     <tr><td>An AI app uses SayQL over MCP</td><td>The schemas and query results it asks for</td><td>That AI app</td></tr>
+    <tr><td>You first use voice input</td><td>A one-time download of the speech model (about 82 MB), checked against a fixed SHA-256. No audio</td><td>Hugging Face</td></tr>
     <tr><td>SayQL starts</td><td>The app version and your operating system, to check for updates</td><td>GitHub (dithzz/sayql-releases)</td></tr>
   </tbody>
 </table></div>
 <p>The rows in your tables are never sent to an AI provider by the Ask box. With a local model, nothing leaves your computer. Read the full <a href="https://github.com/dithzz/sayql-releases/blob/main/PRIVACY.md">privacy notice</a>.</p>
+
+<h2>Voice input</h2>
+<p>When you say your question, the speech model (Whisper) turns it into text on your computer. Audio stays in memory only while you talk, is never saved, and is never sent anywhere, not even to your AI provider. Only the text goes on, like a typed question. Remove the model in <b>Settings → Voice</b>.</p>
 
 <h2>Feedback and the website</h2>
 <p><b>Feedback</b> in the status bar opens a short form, then a pre-filled public GitHub issue in your browser. Your text is filled in, plus your SayQL version and operating system for feedback and bug reports. Nothing is sent until you post it.</p>
