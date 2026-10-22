@@ -22,6 +22,7 @@ src/
     ask/                plain-English input, instant fast path, AI generation hook
     connections/        connection dialog, kinds metadata, useConnections
     editor/             Monaco setup (offline, themed) and SqlEditor
+    feedback/           feedback dialog: GitHub issue and private form links pre-filled with version and OS
     navigator/          Database Navigator tree and its right-click menus
     onboarding/         first-run setup guide and starter questions
     query/              useQueryRunner, write confirmation
@@ -29,11 +30,13 @@ src/
     schema/             dialect-aware SQL helpers (quoting, qualified names, SQL templates)
     scripts/            saved scripts, save and close-tab dialogs
     settings/           settings dialog (AI provider, models, MCP) and state
+    skills/             saved Ask-box skills (a /slug that adds an instruction to the prompt): list and editor
     tabs/               open editor tabs (persisted), each bound to a (connection, database) target
     theme/              ThemeProvider (system/light/dark) and toggle
     updates/            update check and install from the status bar
   hooks/                generic hooks (useLatest, usePersistentState)
-  lib/                  generic utilities (cx, storage, errors)
+  lib/                  generic utilities (cx, storage, errors) and sqlStatements.ts (splits SQL text into
+                        statements outside strings and comments, for running a selection or a script)
   styles/               tokens.css (design tokens, light + dark) and base.css
   dev/                  development-only code (mock backend for browser preview)
 ```
@@ -57,13 +60,18 @@ src-tauri/src/
   error.rs              AppError / AppResult: the single error type; serializes to a message for the UI
   state.rs              AppState: store, open connections, the running AI generation
   commands/             Tauri commands, one file per UI area (thin: validate, call modules, map results)
+    app.rs              app_info: version, OS and architecture, for pre-filling feedback
     connections.rs      init, save/delete/test/open connection, refresh schema
     query.rs            run_query (write confirmation gate)
     generation.rs       generate_sql, cancel_generation
+    scripts.rs          list/save/delete saved scripts
     settings.rs         save_settings, the settings view sent to the UI
+    skills.rs           list/save/delete skills; validate (name rules, no clash with built-in commands)
+    updates.rs          check_update, install_update (tauri-plugin-updater; never in development builds)
   db/                   database access, no Tauri types
     mod.rs              Kind, ConnConfig, DbPool, QueryResult, public API
     connect.rs          pools per database kind
+    databases.rs        the databases on a server, and connecting to one of them
     mssql_pool.rs       SQL Server connection (tiberius), Azure redirects, host,port parsing
     classify.rs         is_read_only: reading first keyword and no write keyword anywhere
     execute.rs          run_query: read-only transactions, row cap, column headers
@@ -71,7 +79,7 @@ src-tauri/src/
     introspect/         schema reading per database kind, shared assembly in mod.rs
     demo.rs, demo.sql   the bundled demo database
     tests.rs            SQLite end-to-end tests
-    integration_tests.rs  PostgreSQL/MySQL/SQL Server tests (opt-in via env vars, see README)
+    integration_tests.rs  PostgreSQL/MySQL/SQL Server tests (opt-in via env vars, see CONTRIBUTING.md)
   ai/                   English → SQL over any AI provider, no knowledge of Tauri commands
     mod.rs              stream_sql (picks the client per Endpoint) + event payloads
     providers.rs        the provider catalog: Claude plus OpenAI-compatible presets
@@ -90,10 +98,17 @@ src-tauri/src/
 - **Errors:** functions return `AppResult<T>`. Use `?` on sqlx/io/keychain/JSON errors (converted by `From`), and `"message".into()` for messages written for the user. A message that mentions "Settings" makes the UI offer an Open Settings button.
 - **Secrets** only go through `store::secrets`; they are never written to JSON or sent to the UI.
 - **Tests** sit next to the code (`#[cfg(test)] mod tests`).
+- **JSON field names are camelCase** (`#[serde(rename_all = "camelCase")]`), with one exception: the schema model
+  (`schema::{Schema, Table, Column, ForeignKey}`) keeps its Rust snake_case names (`foreign_keys`, `data_type`,
+  `primary_key`, `ref_table`, …). It is only serialized, never read back or written to disk; MCP clients and the
+  AI get it as rendered text (`schema::render`), not JSON, so the UI is its only JSON consumer. Its TypeScript
+  mirror in `src/api/types.ts` and the code reading it (navigator, editor completions, SQL templates, fast path,
+  starter questions, mock backend) all use the snake_case names, so renaming is a coordinated change across
+  both sides with no benefit beyond consistency.
 
 ## Testing
 
-`pnpm test` runs the Vitest suite (pure frontend logic) and `cargo test --lib` (SQL classification, SSE parsing, API error messages, settings validation, and an end-to-end run against a generated SQLite demo database). The PostgreSQL/MySQL integration tests run when their env vars are set (see README).
+`pnpm test` runs the Vitest suite (pure frontend logic) and `cargo test --lib` (SQL classification, SSE parsing, API error messages, settings validation, and an end-to-end run against a generated SQLite demo database). The PostgreSQL/MySQL/SQL Server integration tests run when their env vars are set (see CONTRIBUTING.md).
 
 ## Previewing the UI without the backend
 
@@ -105,5 +120,7 @@ src-tauri/src/
 site/                 the website (landing page, built docs), deployed to Vercel
 docs-site/            docs source: pages/*.html and the template the docs build uses
 scripts/              build_docs.py (docs) and third_party_notices.py (credits shipped with the app)
+  video/              records the browser preview and renders the explainer videos (see its README)
+media/                the rendered explainer videos and poster, their cut lists and voiceover
 .github/              CI, the release workflow, issue and PR templates, README images
 ```

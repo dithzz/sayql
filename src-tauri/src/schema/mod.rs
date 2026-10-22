@@ -1,4 +1,9 @@
 //! The schema model sent to the UI and, rendered compactly, to the AI.
+//!
+//! Unlike the rest of the app's JSON, these structs serialize with their snake_case field names
+//! (`foreign_keys`, `data_type`, `primary_key`, `ref_table`, …). The UI is the only JSON consumer
+//! (MCP clients and the AI get rendered text), nothing is persisted, and `src/api/types.ts` plus the
+//! code reading it use these names, so they stay as they are. See docs/ARCHITECTURE.md.
 
 mod render;
 

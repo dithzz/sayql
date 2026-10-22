@@ -69,7 +69,7 @@ pnpm tauri build
 Output, for the machine's own architecture:
 
 - `src-tauri/target/release/bundle/macos/SayQL.app`
-- `src-tauri/target/release/bundle/dmg/Sayql_<version>_<arch>.dmg`
+- `src-tauri/target/release/bundle/dmg/SayQL_<version>_<arch>.dmg`
 
 Other targets:
 
@@ -259,9 +259,9 @@ the user opens it. To also notarize and staple the `.dmg` itself (so the
 disk image passes checks offline before it's mounted):
 
 ```bash
-xcrun notarytool submit Sayql_0.1.0_aarch64.dmg --key "$APPLE_API_KEY_PATH" \
+xcrun notarytool submit SayQL_0.1.0_aarch64.dmg --key "$APPLE_API_KEY_PATH" \
   --key-id "$APPLE_API_KEY" --issuer "$APPLE_API_ISSUER" --wait
-xcrun stapler staple Sayql_0.1.0_aarch64.dmg
+xcrun stapler staple SayQL_0.1.0_aarch64.dmg
 ```
 
 ## 4. Windows code signing
@@ -349,17 +349,20 @@ To rename the app again:
 
 ## Shipping the MCP server (`sayql-mcp`)
 
-The Settings dialog points Claude at `sayql-mcp` next to the app's executable. To ship it, build it for each target
-and add it as a Tauri sidecar: copy `target/<triple>/release/sayql-mcp` to `src-tauri/binaries/sayql-mcp-<triple>`
-(e.g. `sayql-mcp-aarch64-apple-darwin`) and add `"externalBin": ["binaries/sayql-mcp"]` under `bundle` in
-`tauri.conf.json`. Tauri strips the triple and places it in `SayQL.app/Contents/MacOS/`. Sign it like the app.
+Settings → AI apps (MCP) points Claude at `sayql-mcp` next to the app's executable. Shipping it needs no extra
+step: `sayql-mcp` is a binary of the same crate (`src-tauri/src/bin/sayql-mcp.rs`), and `pnpm tauri build`
+bundles every binary in the crate next to the app (`SayQL.app/Contents/MacOS/` on macOS, `/usr/bin` in the Linux
+packages, the install folder on Windows) and signs it with the app. Don't also add it as an `externalBin` sidecar;
+that ships a second copy. See the comment above the build step in `.github/workflows/release.yml`.
 
-## Landing page
+## Website: landing page and docs
 
-`site/index.html` is the whole site. It is hosted on Vercel as the project
+The site in `site/` is the landing page (`site/index.html`) plus the docs under `site/docs/`, which are
+generated from `docs-site/` by `scripts/build_docs.py` (see [Docs pages](#docs-pages) below; CI fails if the
+committed `site/docs` is stale). It is hosted on Vercel as the project
 `sayql` in the `adith-l-ss-projects` team, at <https://sayql.dev> (sayql.vercel.app and www.sayql.dev redirect there with a 308, set per domain in the project's Domains settings on Vercel).
 `site/.vercel` (git-ignored) links the folder to that project, and
-`site/.vercelignore` limits the upload to the page itself. To publish changes:
+`site/.vercelignore` keeps local files (`.env*`, the ignore files) out of the upload. To publish changes:
 
 ```bash
 cd site
