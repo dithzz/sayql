@@ -8,9 +8,12 @@ Each page file starts with a comment giving its place in the docs:
 
     <!-- order: 2 | slug: install | title: Install | group: Getting started | description: ... -->
 
-Pages are written to site/docs/<slug>/index.html (the empty slug is the docs home). Colours,
-the logo and the favicon are copied from site/index.html, so the docs always match the
-landing page. Headings get ids for linking, the "On this page" list and search.
+Pages are written to site/docs/<slug>/index.html (the empty slug is the docs home). Headings
+get ids for linking, the "On this page" list and search.
+
+It also writes what search engines read: site/sitemap.xml, site/robots.txt, structured data on
+every docs page, and the landing page's FAQ structured data (from its FAQ, between the
+<!-- faq-jsonld --> markers), so they never drift from the pages.
 """
 
 import html
@@ -22,6 +25,8 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 PAGES = ROOT / "docs-site" / "pages"
 TEMPLATE = ROOT / "docs-site" / "template.html"
 OUT = ROOT / "site" / "docs"
+SITE = "https://sayql.vercel.app"
+LANDING = ROOT / "site" / "index.html"
 META = re.compile(r"<!--\s*(.*?)\s*-->\s*", re.S)
 HEADING = re.compile(r"<(h[23])>(.*?)</\1>", re.S)
 
@@ -98,6 +103,45 @@ def pager_html(prev: dict | None, nxt: dict | None) -> str:
     return f'<nav class="pager" aria-label="Previous and next page">{"".join(parts)}</nav>'
 
 
+def ld(data: dict) -> str:
+    return '<script type="application/ld+json">' + json.dumps(data, ensure_ascii=False).replace("</", "<\\/") + "</script>"
+
+
+def page_jsonld(p: dict) -> str:
+    """A TechArticle and its breadcrumb (SayQL › Docs › page) for search results."""
+    crumbs = [("SayQL", "/"), ("Docs", "/docs/")] + ([(p["title"], p["url"])] if p["slug"] else [])
+    return "\n".join([
+        ld({"@context": "https://schema.org", "@type": "TechArticle", "headline": p["title"],
+            "description": p["description"], "url": SITE + p["url"], "image": SITE + "/og.png",
+            "about": {"@type": "SoftwareApplication", "name": "SayQL", "url": SITE + "/"},
+            "publisher": {"@type": "Organization", "name": "SayQL", "logo": {"@type": "ImageObject", "url": SITE + "/icon-512.png"}}}),
+        ld({"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [
+            {"@type": "ListItem", "position": i + 1, "name": name, "item": SITE + url} for i, (name, url) in enumerate(crumbs)]}),
+    ])
+
+
+def write_seo(pages: list[dict]) -> None:
+    """sitemap.xml, robots.txt, and the landing page's FAQ structured data."""
+    urls = ["/"] + [p["url"] for p in pages]
+    (ROOT / "site" / "sitemap.xml").write_text(
+        '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+        + "".join(f"  <url><loc>{SITE}{u}</loc></url>\n" for u in urls) + "</urlset>\n")
+    (ROOT / "site" / "robots.txt").write_text(f"User-agent: *\nAllow: /\nDisallow: /download/\n\nSitemap: {SITE}/sitemap.xml\n")
+
+    landing = LANDING.read_text()
+    faq = re.search(r'<div class="faq">(.*?)</div>\s*</div>\s*</section>', landing, re.S)
+    if not faq:
+        raise SystemExit("site/index.html: FAQ not found")
+    qa = re.findall(r"<summary>(.*?)<svg.*?</summary>\s*<p>(.*?)</p>", faq.group(1), re.S)
+    data = {"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [
+        {"@type": "Question", "name": text_of(q), "acceptedAnswer": {"@type": "Answer", "text": text_of(a)}} for q, a in qa]}
+    marked = re.sub(r"<!-- faq-jsonld -->.*?<!-- /faq-jsonld -->",
+                    lambda _: "<!-- faq-jsonld -->" + ld(data) + "<!-- /faq-jsonld -->", landing, count=1, flags=re.S)
+    if marked == landing and "<!-- faq-jsonld -->" not in landing:
+        raise SystemExit("site/index.html: missing the <!-- faq-jsonld --> markers")
+    LANDING.write_text(marked)
+
+
 def main() -> None:
     pages = load_pages()
     template = TEMPLATE.read_text()
@@ -110,6 +154,7 @@ def main() -> None:
     ]
     for i, p in enumerate(pages):
         values = {
+            "JSONLD": page_jsonld(p),
             "TITLE": html.escape(p["title"]),
             "DESCRIPTION": html.escape(p["description"]),
             "GROUP": html.escape(p["group"]),
@@ -129,7 +174,8 @@ def main() -> None:
         target = OUT / p["slug"] / "index.html" if p["slug"] else OUT / "index.html"
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(page)
-    print(f"Built {len(pages)} docs pages into {OUT.relative_to(ROOT)}/")
+    write_seo(pages)
+    print(f"Built {len(pages)} docs pages into {OUT.relative_to(ROOT)}/, plus the sitemap and robots.txt")
 
 
 if __name__ == "__main__":
