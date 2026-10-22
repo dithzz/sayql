@@ -433,13 +433,30 @@ section.block { padding: 96px 0 0; }
 }
 
 .cards { margin-top: 40px; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+/* Bento: six columns; the read-only card is the tall feature, the rest mix halves and thirds. */
+.cards.bento { grid-template-columns: repeat(6, minmax(0, 1fr)); grid-auto-flow: dense; }
+.bento .b-2 { grid-column: span 2; }
+.bento .b-3 { grid-column: span 3; }
+.bento .b-tall { grid-row: span 2; }
+/* Narrow cards: drop the editor subtitle so the Run button fits. */
+.bento .b-2 .ed-h .sub { display: none; }
+.bento .b-tall .card-text h3 { font-size: 22px; }
+.bento .b-tall .card-text p { font-size: 16px; }
+.bento .b-tall .mini { height: auto; flex: 1; min-height: 264px; }
+@media (max-width: 1000px) {
+  .cards.bento { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .bento .b-2, .bento .b-3 { grid-column: span 1; }
+  .bento .b-tall { grid-column: span 2; grid-row: auto; }
+  .bento .b-tall .mini { height: 264px; flex: none; }
+}
 .card { background: var(--color-card); border: 1px solid var(--color-border); border-radius: var(--radius-card); overflow: hidden; display: flex; flex-direction: column; }
 .card-text { padding: 24px 24px 20px; }
 .card-text h3 { font-size: 17px; }
 .card-text p { margin-top: 6px; color: var(--color-text-muted); font-size: 15px; }
 .card .mini { margin-top: auto; }
 @media (max-width: 760px) {
-  .cards { grid-template-columns: 1fr; }
+  .cards, .cards.bento { grid-template-columns: 1fr; }
+  .bento .b-2, .bento .b-3, .bento .b-tall { grid-column: auto; }
   .card-text { padding: 20px 18px 18px; }
   .mini { margin-left: 12px; margin-right: 12px; }
 }
@@ -660,72 +677,8 @@ section.block { padding: 96px 0 0; }
       <p>SayQL writes the query. You see it before anything runs.</p>
     </div>
 
-    <div class="cards">
-      <article class="card">
-        <div class="card-text">
-          <h3>Type / for commands</h3>
-          <p>/explain, /fix, /improve, /new and /followup, right in the Ask box.</p>
-        </div>
-        <div class="app mini" id="demo-slash" role="img" aria-label="Demo: typing / opens the command menu, and /explain explains the current query">
-          <div class="askbox" data-ask><div class="q-line" style="margin-top:0"><svg class="i spark"><use href="#i-sparkles"/></svg><span class="cmd-chip" data-chip hidden></span><span class="q" data-q></span></div></div>
-          <div class="slash-menu" data-menu hidden></div>
-          <div class="explain" data-explain hidden><svg class="i"><use href="#i-book"/></svg><span data-explain-text></span></div>
-          <div class="code" data-code></div>
-        </div>
-      </article>
-
-      <article class="card">
-        <div class="card-text">
-          <h3>Skills</h3>
-          <p>Save an instruction once, like “never select email, phone or address columns”, and add it to any question.</p>
-        </div>
-        <div class="app mini" id="demo-skill" role="img" aria-label="Demo: the /pii-safe skill keeps personal columns out of the query">
-          <div class="askbox" data-ask><div class="q-line" style="margin-top:0"><svg class="i spark"><use href="#i-sparkles"/></svg><span class="cmd-chip skill" data-chip hidden></span><span class="q" data-q></span></div></div>
-          <div class="slash-menu" data-menu hidden></div>
-          <div class="code" data-code></div>
-        </div>
-      </article>
-
-      <article class="card">
-        <div class="card-text">
-          <h3>Just say it</h3>
-          <p>Click the mic and ask out loud. Speech turns into text on your computer; the audio never leaves it.</p>
-        </div>
-        <div class="app mini" id="demo-voice" role="img" aria-label="Demo: a question is spoken, transcribed on the computer, and the SQL is written">
-          <div class="askbox" data-ask><div class="q-line" style="margin-top:0"><svg class="i spark"><use href="#i-sparkles"/></svg><span class="q" data-q></span><svg class="i mic end" data-mic aria-hidden="true"><use href="#i-mic"/></svg></div></div>
-          <div class="voice-strip" data-strip hidden><span class="rec" data-rec></span><span data-label>Listening…</span><span class="meter" data-meter><i></i><i></i><i></i><i></i><i></i></span><span class="esc"><span class="kbd">esc</span> cancel</span></div>
-          <div class="code" data-code></div>
-        </div>
-      </article>
-
-      <article class="card">
-        <div class="card-text">
-          <h3>Works with Claude and Cursor</h3>
-          <p>AI apps can query through SayQL, read-only, or hand you a query to review. You click Run.</p>
-        </div>
-        <div class="app mini" id="demo-mcp" role="img" aria-label="Demo: Claude hands a query to SayQL, which opens it in a new tab without running it">
-          <div class="ed-h"><svg class="i"><use href="#i-file"/></svg><b>SQL Editor</b><span class="sub">Demo store (SQLite)</span><span class="origin-badge" data-origin hidden>From Claude (MCP)</span><span class="end"><span class="run-btn" data-run><svg class="i"><use href="#i-play"/></svg>Run</span></span></div>
-          <div class="code" data-code></div>
-          <div class="bar ok" data-note hidden><svg class="i"><use href="#i-check"/></svg><span>Opened from Claude. Nothing has run.</span></div>
-        </div>
-      </article>
-
-      <article class="card">
-        <div class="card-text">
-          <h3>Half a statement never runs</h3>
-          <p>Run a selection that cuts a statement short and SayQL runs the whole statement. A DELETE never loses its WHERE.</p>
-        </div>
-        <div class="app mini" id="demo-select" role="img" aria-label="Demo: a half-selected query is widened to the full statement before it runs">
-          <div class="ed-h"><svg class="i"><use href="#i-file"/></svg><b>SQL Editor</b><span class="sub">Demo store (SQLite)</span><span class="end"><span class="run-btn" data-run><svg class="i"><use href="#i-play"/></svg><span data-run-label>Run</span></span></span></div>
-          <div class="code" data-code></div>
-          <div class="results mini-results">
-            <div class="pane-h"><svg class="i"><use href="#i-table"/></svg>Results <span class="note-badge" data-note hidden>Ran the full statement</span></div>
-            <div class="grid" data-grid></div>
-          </div>
-        </div>
-      </article>
-
-      <article class="card">
+    <div class="cards bento">
+      <article class="card b-3 b-tall">
         <div class="card-text">
           <h3>Read-only unless you say so</h3>
           <p>Anything that may change data stops and asks first.</p>
@@ -742,22 +695,41 @@ section.block { padding: 96px 0 0; }
           </div>
         </div>
       </article>
-
-      <article class="card">
+      <article class="card b-3">
         <div class="card-text">
-          <h3>Errors fix themselves</h3>
-          <p>If the database rejects a query, SayQL corrects it and runs it again, in plain sight.</p>
+          <h3>Just say it</h3>
+          <p>Click the mic and ask out loud. Speech turns into text on your computer; the audio never leaves it.</p>
         </div>
-        <div class="app mini" id="demo-fix" role="img" aria-label="Demo: a failing query is corrected and run again">
-          <div class="ed-h"><svg class="i"><use href="#i-file"/></svg><b>SQL Editor</b><span class="sub">Demo store (SQLite)</span><span class="end"><span class="run-btn" data-run><svg class="i"><use href="#i-play"/></svg>Run</span></span></div>
+        <div class="app mini" id="demo-voice" role="img" aria-label="Demo: a question is spoken, transcribed on the computer, and the SQL is written">
+          <div class="askbox" data-ask><div class="q-line" style="margin-top:0"><svg class="i spark"><use href="#i-sparkles"/></svg><span class="q" data-q></span><svg class="i mic end" data-mic aria-hidden="true"><use href="#i-mic"/></svg></div></div>
+          <div class="voice-strip" data-strip hidden><span class="rec" data-rec></span><span data-label>Listening…</span><span class="meter" data-meter><i></i><i></i><i></i><i></i><i></i></span><span class="esc"><span class="kbd">esc</span> cancel</span></div>
           <div class="code" data-code></div>
-          <div class="bar err" data-err hidden><svg class="i"><use href="#i-circle-x"/></svg><span>no such column: signup_date</span></div>
-          <div class="bar fix" data-fixing hidden><svg class="i"><use href="#i-sparkles"/></svg><span>Fixing the query with Opus 5.5…</span></div>
-          <div class="bar ok" data-ok hidden><svg class="i"><use href="#i-check"/></svg><span>Fixed: used <b class="mono">signed_up_at</b> and ran it again</span></div>
         </div>
       </article>
-
-      <article class="card">
+      <article class="card b-3">
+        <div class="card-text">
+          <h3>Type / for commands</h3>
+          <p>/explain, /fix, /improve, /new and /followup, right in the Ask box.</p>
+        </div>
+        <div class="app mini" id="demo-slash" role="img" aria-label="Demo: typing / opens the command menu, and /explain explains the current query">
+          <div class="askbox" data-ask><div class="q-line" style="margin-top:0"><svg class="i spark"><use href="#i-sparkles"/></svg><span class="cmd-chip" data-chip hidden></span><span class="q" data-q></span></div></div>
+          <div class="slash-menu" data-menu hidden></div>
+          <div class="explain" data-explain hidden><svg class="i"><use href="#i-book"/></svg><span data-explain-text></span></div>
+          <div class="code" data-code></div>
+        </div>
+      </article>
+      <article class="card b-2">
+        <div class="card-text">
+          <h3>Skills</h3>
+          <p>Save an instruction once, like “never select email, phone or address columns”, and add it to any question.</p>
+        </div>
+        <div class="app mini" id="demo-skill" role="img" aria-label="Demo: the /pii-safe skill keeps personal columns out of the query">
+          <div class="askbox" data-ask><div class="q-line" style="margin-top:0"><svg class="i spark"><use href="#i-sparkles"/></svg><span class="cmd-chip skill" data-chip hidden></span><span class="q" data-q></span></div></div>
+          <div class="slash-menu" data-menu hidden></div>
+          <div class="code" data-code></div>
+        </div>
+      </article>
+      <article class="card b-2">
         <div class="card-text">
           <h3>Any AI, or a local one</h3>
           <p>Bring your own key, or run a model with Ollama or LM Studio.</p>
@@ -774,6 +746,44 @@ section.block { padding: 96px 0 0; }
             <div class="field" data-field></div>
             <small data-help></small>
           </div>
+        </div>
+      </article>
+      <article class="card b-2">
+        <div class="card-text">
+          <h3>Half a statement never runs</h3>
+          <p>Run a selection that cuts a statement short and SayQL runs the whole statement. A DELETE never loses its WHERE.</p>
+        </div>
+        <div class="app mini" id="demo-select" role="img" aria-label="Demo: a half-selected query is widened to the full statement before it runs">
+          <div class="ed-h"><svg class="i"><use href="#i-file"/></svg><b>SQL Editor</b><span class="sub">Demo store (SQLite)</span><span class="end"><span class="run-btn" data-run><svg class="i"><use href="#i-play"/></svg><span data-run-label>Run</span></span></span></div>
+          <div class="code" data-code></div>
+          <div class="results mini-results">
+            <div class="pane-h"><svg class="i"><use href="#i-table"/></svg>Results <span class="note-badge" data-note hidden>Ran the full statement</span></div>
+            <div class="grid" data-grid></div>
+          </div>
+        </div>
+      </article>
+      <article class="card b-3">
+        <div class="card-text">
+          <h3>Errors fix themselves</h3>
+          <p>If the database rejects a query, SayQL corrects it and runs it again, in plain sight.</p>
+        </div>
+        <div class="app mini" id="demo-fix" role="img" aria-label="Demo: a failing query is corrected and run again">
+          <div class="ed-h"><svg class="i"><use href="#i-file"/></svg><b>SQL Editor</b><span class="sub">Demo store (SQLite)</span><span class="end"><span class="run-btn" data-run><svg class="i"><use href="#i-play"/></svg>Run</span></span></div>
+          <div class="code" data-code></div>
+          <div class="bar err" data-err hidden><svg class="i"><use href="#i-circle-x"/></svg><span>no such column: signup_date</span></div>
+          <div class="bar fix" data-fixing hidden><svg class="i"><use href="#i-sparkles"/></svg><span>Fixing the query with Opus 5.5…</span></div>
+          <div class="bar ok" data-ok hidden><svg class="i"><use href="#i-check"/></svg><span>Fixed: used <b class="mono">signed_up_at</b> and ran it again</span></div>
+        </div>
+      </article>
+      <article class="card b-3">
+        <div class="card-text">
+          <h3>Works with Claude and Cursor</h3>
+          <p>AI apps can query through SayQL, read-only, or hand you a query to review. You click Run.</p>
+        </div>
+        <div class="app mini" id="demo-mcp" role="img" aria-label="Demo: Claude hands a query to SayQL, which opens it in a new tab without running it">
+          <div class="ed-h"><svg class="i"><use href="#i-file"/></svg><b>SQL Editor</b><span class="sub">Demo store (SQLite)</span><span class="origin-badge" data-origin hidden>From Claude (MCP)</span><span class="end"><span class="run-btn" data-run><svg class="i"><use href="#i-play"/></svg>Run</span></span></div>
+          <div class="code" data-code></div>
+          <div class="bar ok" data-note hidden><svg class="i"><use href="#i-check"/></svg><span>Opened from Claude. Nothing has run.</span></div>
         </div>
       </article>
     </div>
