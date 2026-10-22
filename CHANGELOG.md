@@ -3,7 +3,7 @@
 All notable changes to SayQL are listed here. Downloads are on the
 [releases page](https://github.com/dithzz/sayql-releases/releases).
 
-## Unreleased
+## 0.2.7 (2026-10-22)
 - **MCP: opening a saved script launches SayQL and opens it.** Before, if SayQL was closed, it opened but said
   the script "isn't saved here".
 - **SQL Server `geography`, `geometry`, `hierarchyid` and `xml` columns** are described without a length (the AI
