@@ -15,6 +15,8 @@ All notable changes to SayQL are listed here. Downloads are on the
   `/*! */` and backslash escapes; Postgres `E'...'` and `$$` strings), so a write can't hide inside them.
   `INTO OUTFILE`, `INTO DUMPFILE`, `NEXT VALUE FOR` and side-effect functions such as `nextval`, `dblink` and
   `pg_terminate_backend` now ask before running, and MCP refuses them.
+- **Content Security Policy:** the app window now loads scripts only from SayQL itself and talks only to SayQL's
+  own backend, so injected content can't load remote code or send data elsewhere.
 
 ## 0.2.5 (2026-10-22)
 
