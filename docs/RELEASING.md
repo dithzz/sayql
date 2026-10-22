@@ -141,9 +141,10 @@ it stops a release that installed copies could never verify.
 
 The release workflow uploads `latest.json` and the signed update archives
 (`SayQL_<version>_aarch64.app.tar.gz` and `.sig` on macOS) to the GitHub Release.
-`latest.json` points at each archive through the GitHub API
-(`api.github.com/.../releases/assets/<id>`), which allows 60 unauthenticated
-requests an hour per IP address. Installed apps
+tauri-action writes each archive's GitHub API URL (`api.github.com/.../releases/assets/<id>`)
+into `latest.json`; the workflow's `updater-links` job then swaps those for public download URLs
+(`github.com/.../releases/download/<tag>/<file>`), because anonymous API calls are limited to 60
+an hour per IP address. Check the published `latest.json` links to `releases/download/`. Installed apps
 fetch `releases/latest/download/latest.json`, which only resolves to a release
 that is **published** (not a draft) and **not marked pre-release**.
 
