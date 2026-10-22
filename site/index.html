@@ -379,6 +379,14 @@ p { text-wrap: pretty; }
 .explain .i { margin-top: 2px; color: var(--color-ai); }
 .card-text h3 .tag { margin-left: 6px; vertical-align: 2px; }
 
+/* run selection: the picked text, then the whole statement it snapped to */
+.line.sel { background: color-mix(in srgb, var(--color-app-accent) 24%, transparent); }
+.line.snap { background: var(--color-app-accent-soft); }
+.mini-results { margin-top: auto; border-top: 1px solid var(--color-border); grid-template-rows: 30px auto; }
+.mini-results .grid { min-height: 78px; }
+.note-badge { font-size: 11px; font-weight: 500; padding: 2px 7px; border-radius: 999px; background: var(--color-app-accent-soft); color: var(--color-app-accent); }
+.note-badge[hidden] { display: none; }
+
 /* supported */
 .support { padding: 40px 0 8px; }
 .support dl { margin: 0; display: grid; grid-template-columns: max-content 1fr; gap: 10px 24px; font-size: 14px; }
@@ -595,7 +603,7 @@ section.block { padding: 96px 0 0; }
     </div>
 
     <div class="cards">
-      <!-- Slash commands and skills ship after v0.1.0: drop the "Next update" tags once they're in the downloads. -->
+      <!-- Slash commands, skills (#24), run selection and scripts (#25) ship after v0.1.0: drop the "Next update" tags once they're in the downloads. -->
       <article class="card">
         <div class="card-text">
           <h3>Type / for commands <span class="tag">Next update</span></h3>
@@ -623,13 +631,16 @@ section.block { padding: 96px 0 0; }
 
       <article class="card">
         <div class="card-text">
-          <h3>Follow-ups edit your query</h3>
-          <p>Say “remove the middle name” and it changes the query you have.</p>
+          <h3>Half a statement never runs <span class="tag">Next update</span></h3>
+          <p>Run a selection that cuts a statement short and SayQL runs the whole statement. A DELETE never loses its WHERE.</p>
         </div>
-        <div class="app mini" id="demo-follow" role="img" aria-label="Demo: a follow-up removes a column from the current query">
-          <div class="askbox" data-ask><div class="q-line" style="margin-top:0"><svg class="i spark"><use href="#i-sparkles"/></svg><span class="q" data-q></span></div></div>
-          <div class="hintbar"><span class="building"><svg class="i"><use href="#i-corner"/></svg>Building on your last query</span></div>
+        <div class="app mini" id="demo-select" role="img" aria-label="Demo: a half-selected query is widened to the full statement before it runs">
+          <div class="ed-h"><svg class="i"><use href="#i-file"/></svg><b>SQL Editor</b><span class="sub">Demo store (SQLite)</span><span class="end"><span class="run-btn" data-run><svg class="i"><use href="#i-play"/></svg><span data-run-label>Run</span></span></span></div>
           <div class="code" data-code></div>
+          <div class="results mini-results">
+            <div class="pane-h"><svg class="i"><use href="#i-table"/></svg>Results <span class="note-badge" data-note hidden>Ran the full statement</span></div>
+            <div class="grid" data-grid></div>
+          </div>
         </div>
       </article>
 
@@ -700,8 +711,8 @@ section.block { padding: 96px 0 0; }
         <p>A desktop app that connects straight to your database.</p>
       </div>
       <div class="fact">
-        <h3><svg class="icon"><use href="#i-wand"/></svg>Improve on request</h3>
-        <p>One click asks a stronger model for a clearer or faster version.</p>
+        <h3><svg class="icon"><use href="#i-table"/></svg>Scripts, step by step <span class="tag">Next update</span></h3>
+        <p>Each statement gets its own results tab, and the run stops at the first error.</p>
       </div>
       <div class="fact">
         <h3><svg class="icon"><use href="#i-save"/></svg>Tabs and saved scripts</h3>
@@ -915,23 +926,32 @@ section.block { padding: 96px 0 0; }
     });
   })();
 
-  /* ---------- follow-ups ---------- */
+  /* ---------- run selection: a cut statement snaps to the whole statement ---------- */
   (function () {
-    var el = document.getElementById("demo-follow");
-    var q = el.querySelector("[data-q]"), code = el.querySelector("[data-code]"), ask = el.querySelector("[data-ask]");
-    var SQL = "SELECT first_name,\n       middle_name,\n       last_name,\n       email\nFROM clients\nWHERE status = 'active';";
-    var QUESTION = "remove the middle name";
+    var el = document.getElementById("demo-select");
+    var $ = function (s) { return el.querySelector(s); };
+    var code = $("[data-code]"), run = $("[data-run]"), label = $("[data-run-label]"), note = $("[data-note]"), grid = $("[data-grid]");
+    var SQL = "SELECT first_name, last_name\nFROM customers\nWHERE country = 'Canada'\nORDER BY last_name;";
+    var ROWS = [["Sofia", "Haddad"], ["Liam", "Tremblay"]];
+    function mark(cls, upTo) { Array.prototype.forEach.call(code.children, function (l, i) { l.className = "line" + (i <= upTo ? " " + cls : ""); }); }
+    function showRows() {
+      grid.innerHTML = '<table><thead><tr><th></th><th>first_name</th><th>last_name</th></tr></thead><tbody>' +
+        ROWS.map(function (r, i) { return '<tr class="in"><td class="idx">' + (i + 1) + "</td><td>" + r[0] + "</td><td>" + r[1] + "</td></tr>"; }).join("") + "</tbody></table>";
+      note.hidden = false;
+    }
+    function still() { code.innerHTML = lines(SQL); mark("snap", 3); label.textContent = "Run"; showRows(); }
     demo(el, function (later, loop) {
       code.innerHTML = lines(SQL);
-      q.innerHTML = '<span class="caret"></span>';
-      ask.classList.add("live");
-      var t = typeInto(q, QUESTION, 700, later);
-      later(function () { code.children[1].classList.add("del"); }, t + 300);
-      later(function () { code.children[1].classList.add("gone"); ask.classList.remove("live"); q.textContent = QUESTION; }, t + 1300);
-      later(loop, t + 4800);
-    }, function () {
-      code.innerHTML = lines(SQL); q.textContent = QUESTION; code.children[1].classList.add("del", "gone");
-    });
+      label.textContent = "Run"; note.hidden = true;
+      grid.innerHTML = '<div class="empty">Run a query to see rows here</div>';
+      // Select the first two lines only, which cuts the statement before its WHERE.
+      later(function () { mark("sel", 0); label.textContent = "Run selection"; }, 700);
+      later(function () { mark("sel", 1); }, 1000);
+      later(function () { pressRun(run); }, 1900);
+      later(function () { mark("snap", 3); label.textContent = "Run"; }, 2200);
+      later(showRows, 2500);
+      later(loop, 6800);
+    }, still);
   })();
 
   /* ---------- confirm before anything that may change data ---------- */
