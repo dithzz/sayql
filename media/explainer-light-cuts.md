@@ -45,4 +45,4 @@ recordings, save them as media/voiceover/<id>.wav and re-run `node scripts/video
 | 0:48.6 | 7.6 s | privacy | Your rows never go to the AI. It only sees your question and your schema. |
 | 0:56.3 | 7.2 s | ai | Use Claude, OpenAI or Gemini, or stay fully local with Ollama. |
 | 1:03.4 | 5.1 s | mcp | Claude can even query your databases through SayQL, read-only. |
-| 1:08.5 | 4.2 s | end | Free and open source. Early access at sayql.app. |
+| 1:08.5 | 4.2 s | end | Free and open source. Early access at sayql.dev. |

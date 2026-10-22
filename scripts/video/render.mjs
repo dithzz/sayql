@@ -20,8 +20,8 @@ const FFMPEG = process.env.FFMPEG ?? "/opt/homebrew/bin/ffmpeg";
 const FPS = 30;
 const XFADE = 0.45;
 /** The sites on the end card: SITE large, SITE_NOW under it (null hides it). */
-const SITE = "sayql.app";
-const SITE_NOW = "sayql.dev";
+const SITE = "sayql.dev";
+const SITE_NOW = null;
 /** Where the app window sits in the 1920×1080 frame at zoom 1. */
 const WIN = { x: 160, y: 46, w: 1600, h: 900 };
 

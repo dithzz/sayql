@@ -9,5 +9,5 @@
   { "id": "privacy", "scene": "privacy", "at": 0.3, "text": "Your rows never go to the AI. It only sees your question and your schema." },
   { "id": "ai", "scene": "ai", "at": 0.3, "text": "Use Claude, OpenAI or Gemini, or stay fully local with Ollama." },
   { "id": "mcp", "scene": "mcp", "at": 0.3, "text": "Claude can even query your databases through SayQL, read-only." },
-  { "id": "end", "card": "end", "at": 0.4, "text": "Free and open source. Early access at sayql.app." }
+  { "id": "end", "card": "end", "at": 0.4, "text": "Free and open source. Early access at sayql.dev." }
 ]
