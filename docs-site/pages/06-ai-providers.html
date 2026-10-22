@@ -1,5 +1,5 @@
 <!-- order: 6 | slug: ai-providers | title: AI providers | group: Configure | description: Use Claude, OpenAI, Gemini, a local model or any OpenAI-compatible API. -->
-<p class="lead">SayQL writes SQL with the AI provider you pick, using your own API key. Change it any time in <b>Settings</b> (the gear, top right).</p>
+<p class="lead">SayQL writes SQL with the AI provider you pick, using your own API key. Change it any time in <b>Settings</b> (the gear, top right). <b>Back</b> or <kbd>esc</kbd> returns to your work.</p>
 <div class="table-wrap"><table>
   <thead><tr><th>Provider</th><th>What you need</th></tr></thead>
   <tbody>
@@ -16,11 +16,12 @@
 
 <h2>Set it up</h2>
 <ol class="steps">
-  <li><div>Open <b>Settings</b> and choose the <b>AI provider</b>.</div></li>
+  <li><div>Open <b>Settings → AI provider</b> and pick a <b>Provider</b>.</div></li>
   <li><div>Paste the API key. It's stored in your system keychain, never in a file.</div></li>
   <li><div>For providers other than Claude, click <b>Load models</b>. This also checks the key and address. Pick a model, then <b>Save</b>.</div></li>
 </ol>
-<p>SayQL uses two models: a fast one that drafts SQL as you type, and a stronger one for fixing a rejected query and for <a href="/docs/asking/">Improve</a>. With Claude these default to Haiku and Opus. With other providers, leave the second empty to use the same model for both.</p>
+<p>SayQL uses two models: <b>Model while typing</b>, a fast one that drafts SQL as you type, and <b>Model for fixes and improvements</b>, a stronger one for fixing a rejected query and for <a href="/docs/asking/">Improve</a>. With Claude these default to Haiku and Opus. With other providers, leave the second empty to use the same model for both.</p>
+<p>The status bar shows the models in use, or <b>AI off — set up an AI provider in Settings</b> when none is set up.</p>
 
 <h2>Local models</h2>
 <p>With Ollama or LM Studio, your questions and schema never leave your computer. For Ollama, install it, pull a model (for example <code>ollama pull llama3.2</code>) and keep it running. SayQL connects to <code>http://localhost:11434/v1</code> by default. LM Studio's local server is at <code>http://localhost:1234/v1</code>. Change the base URL in Settings if yours runs elsewhere.</p>

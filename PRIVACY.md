@@ -15,7 +15,7 @@ SayQL sends data only to services you configure, and only when you use them:
 | When | What is sent | Sent to |
 | --- | --- | --- |
 | You connect or run a query | Your login and your SQL | Your database server |
-| You ask in plain English | Your question, the database's table and column names, types and keys, and (for follow-ups) the previous query | The AI provider you chose in Settings |
+| You ask in plain English | Your question; the database's table and column names, types, keys, enum values and row estimates; the current SQL for follow-ups, Explain, Fix and Improve; any skill you add | The AI provider you chose in Settings |
 | A query fails and SayQL fixes it | The query and the database's error message | The AI provider you chose |
 | An AI app uses SayQL through MCP | The schemas and query results it asks for | That AI app (for example Claude or Cursor) |
 | SayQL checks for updates, each time it starts | The app version and your operating system | GitHub (github.com/dithzz/sayql-releases) |
@@ -30,8 +30,9 @@ nothing to it.
 
 ## Feedback
 
-**Send feedback** in the app opens a pre-filled public GitHub issue in your browser. Only your
-SayQL version and operating system are filled in. Nothing else is sent unless you type it.
+**Feedback** in the status bar opens a short form, then a pre-filled public GitHub issue in your browser.
+Your text is filled in, plus your SayQL version and operating system for feedback and bug reports.
+Nothing is sent until you post it.
 
 ## AI providers
 
