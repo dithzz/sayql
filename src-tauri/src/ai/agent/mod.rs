@@ -4,3 +4,5 @@
 // Nothing outside the tests calls these until the agent loop exists.
 #[cfg_attr(not(test), allow(dead_code))]
 pub mod mask;
+#[cfg(test)]
+mod eval;

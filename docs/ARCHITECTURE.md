@@ -98,6 +98,8 @@ src-tauri/src/
     agent/              agent mode (phase 1: groundwork; the loop, tools and commands come in phase 2)
       mask.rs           masks likely personal data in results as per-run tokens (‹email-3›), puts real values back
                         into SQL as dialect literals, and builds the "counts and summaries only" view
+      eval/             tests only: the evaluation question set (questions.json, demo store and tenant fixture) and
+                        its runner; `Reference` answers with each question's SQL today, the agent plugs in in phase 2
   schema/               schema model (mod.rs) and compact prompt rendering (render.rs)
   store/                settings/connections JSON (mod.rs) and keychain secrets (secrets.rs)
   voice/                voice input, all on this computer, no Tauri types
