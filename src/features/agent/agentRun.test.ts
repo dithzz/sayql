@@ -54,6 +54,7 @@ describe("agentReducer", () => {
           assumptions: [],
           notes: [],
           proposedSql: null,
+          proposedChangesData: false,
           cannotAnswer: false,
           unverified: [],
           model: "m",

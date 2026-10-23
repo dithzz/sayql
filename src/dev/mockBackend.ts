@@ -370,6 +370,7 @@ async function mockAgentRun(runId: string, question: string, access: AgentAccess
       assumptions: ["A week runs Monday to Sunday."],
       notes: ["orders.status 'paid' = paid but not yet shipped"],
       proposedSql: null,
+      proposedChangesData: false,
       cannotAnswer: false,
       unverified: [],
       model: "claude-opus-5-5",

@@ -47,6 +47,7 @@ describe("AgentPanel", () => {
         assumptions: [],
         notes: [],
         proposedSql: "DELETE FROM customers WHERE email LIKE '%test%'",
+        proposedChangesData: true,
         cannotAnswer: false,
         unverified: ["12"],
         model: "m",
@@ -56,6 +57,7 @@ describe("AgentPanel", () => {
     render(<AgentPanel run={run} selected={null} {...h} />);
     expect(screen.getByTitle(/Not verified/).textContent).toBe("12");
     expect(screen.getByText("not run")).toBeTruthy();
+    expect(screen.getByText(/This changes data/)).toBeTruthy();
     fireEvent.click(screen.getByText("Open in editor"));
     expect(h.onOpenQuery).toHaveBeenCalledWith("DELETE FROM customers WHERE email LIKE '%test%'");
     fireEvent.click(screen.getByTitle("Show step 1"));

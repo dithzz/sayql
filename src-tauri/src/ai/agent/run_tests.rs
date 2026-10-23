@@ -179,7 +179,9 @@ async fn writes_never_run_and_come_back_as_proposals() {
     assert!(steps[1].error.is_some(), "{steps:?}");
     let after = db::run_query(&f.pool, "SELECT COUNT(*) FROM appointments", true).await.unwrap().rows;
     assert_eq!(before, after);
-    assert_eq!(ran.done().0.as_ref().unwrap().proposed_sql.as_deref(), Some("DELETE FROM appointments WHERE status_id = 3"));
+    let answer = ran.done().0.clone().unwrap();
+    assert_eq!(answer.proposed_sql.as_deref(), Some("DELETE FROM appointments WHERE status_id = 3"));
+    assert!(answer.proposed_changes_data);
 }
 
 #[tokio::test]

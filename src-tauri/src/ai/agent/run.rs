@@ -122,8 +122,10 @@ pub struct Answer {
     pub assumptions: Vec<String>,
     /// Suggested database notes, already checked to hold no values.
     pub notes: Vec<String>,
-    /// A statement that changes data, shown and never run.
+    /// A statement for the person to review and run themselves; SayQL never runs it.
     pub proposed_sql: Option<String>,
+    /// The proposed statement could change data (else it is a query to run with another login, say).
+    pub proposed_changes_data: bool,
     pub cannot_answer: bool,
     /// Numbers in the answer that no step's result contains.
     pub unverified: Vec<String>,
@@ -883,7 +885,9 @@ impl Run<'_> {
             Some(c @ ("high" | "medium" | "low")) => c.to_string(),
             _ => "medium".into(),
         };
+        let proposed_changes_data = proposed_sql.as_deref().is_some_and(|s| !db::is_read_only(s, self.input.kind));
         Answer {
+            proposed_changes_data,
             unverified: check(&text),
             text,
             sentences,

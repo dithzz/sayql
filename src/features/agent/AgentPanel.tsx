@@ -366,7 +366,8 @@ function AnswerCard({
       {answer.proposedSql && (
         <div className={styles.proposed}>
           <span>
-            <Badge tone="warning">not run</Badge> This changes data. Review it before you run it.
+            <Badge tone="warning">not run</Badge>{" "}
+            {answer.proposedChangesData ? "This changes data. Review it before you run it." : "A query for you to review and run yourself."}
           </span>
           <pre className={styles.sql}>{answer.proposedSql}</pre>
           <Button size="sm" icon={FileCode2} onClick={() => onOpenQuery(answer.proposedSql!)}>

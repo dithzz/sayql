@@ -174,6 +174,8 @@ export interface AgentAnswer {
   assumptions: string[];
   notes: string[];
   proposedSql: string | null;
+  /** The proposed statement could change data; otherwise it is a query to run yourself. */
+  proposedChangesData: boolean;
   cannotAnswer: boolean;
   unverified: string[];
   model: string;
