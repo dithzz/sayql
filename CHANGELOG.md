@@ -3,7 +3,7 @@
 All notable changes to SayQL are listed here. Downloads are on the
 [releases page](https://github.com/dithzz/sayql-releases/releases).
 
-## Unreleased
+## 0.2.8 (2026-10-23)
 
 - **Paste a connection string** into the New connection dialog to fill in every field, including the password.
   Reads URLs, JDBC and key=value strings for PostgreSQL, MySQL, SQL Server/Azure SQL and SQLite. The string isn't
