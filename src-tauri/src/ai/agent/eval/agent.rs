@@ -73,7 +73,7 @@ impl Answerer for Agent {
             run_id: q.id.clone(),
             question: q.question.clone(),
             kind: pool.kind(),
-            schema_text: crate::schema::schema_for_prompt(&schema, &full, &q.question),
+            schema_text: crate::ai::agent::prompt::agent_schema(&schema, &full, &q.question),
             schema,
             notes: Vec::new(),
             focus: Vec::new(),

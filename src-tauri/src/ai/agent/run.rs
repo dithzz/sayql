@@ -457,6 +457,7 @@ impl Run<'_> {
             tools::PROFILE => self.profile(&s("table"), &s("column"), &s("purpose")).await?,
             tools::QUERY => self.query(&s("sql"), &s("purpose")).await?,
             tools::EXPLAIN => self.explain(&s("sql")).await,
+            tools::SHOW if !s("sql").is_empty() => self.show_sql(&s("sql")).await?,
             tools::SHOW => self.show(&s("table"), &s("column"), &s("key_column"), &input["key"]).await?,
             tools::ASK => {
                 let question = self.masker.unmask_text(&s("question"));
@@ -626,6 +627,33 @@ impl Run<'_> {
         self.results.push(stats_r);
         self.results.push(top_r);
         Ok(self.end_step(i, Ok(payload), &summary))
+    }
+
+    /// Runs a query whose first column holds what to show; the model gets tokens, never values.
+    async fn show_sql(&mut self, sql: &str) -> Result<(String, bool), Stop> {
+        let text = "Looking up a value to show you".to_string();
+        let real = self.real_sql(sql);
+        let i = self.new_step(tools::SHOW, text, Some(real.clone().unwrap_or_else(|_| self.masker.unmask_text(sql))));
+        let real = match real {
+            Ok(r) => r,
+            Err(e) => return Ok(self.end_step(i, Err(e), "sent the refusal")),
+        };
+        let r = match self.run_sql(&real).await {
+            Ok(r) => r,
+            Err(e) if e == readonly::STOPPED => return Err(Stop),
+            Err(e) => return Ok(self.end_step(i, Err(e), "sent the error")),
+        };
+        self.fill_step(i, &r, Vec::new());
+        let column = r.columns.first().cloned().unwrap_or_default();
+        let tokens: Vec<String> =
+            r.rows.iter().take(5).filter_map(|row| row.first()).filter(|v| !v.is_null()).map(|v| self.masker.token_for(&column, v)).collect();
+        let out = match tokens.len() {
+            0 => "The query returned no value.".to_string(),
+            1 => format!("{} (shown to the person, hidden from you). Use this token in your answer.", tokens[0]),
+            n => format!("{n} values: {} (hidden from you). Use these tokens in your answer.", tokens.join(", ")),
+        };
+        self.results.push(r);
+        Ok(self.end_step(i, Ok(out), "sent a token only"))
     }
 
     /// Looks up one value for the answer. The model gets a token for it, never the value.

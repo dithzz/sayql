@@ -3,7 +3,6 @@ use crate::ai::agent::run::{self, Event, Io, Reply, RunInput};
 use crate::ai::endpoint::endpoint;
 use crate::ai::{Api, Endpoint};
 use crate::error::{AppError, AppResult};
-use crate::schema;
 use crate::state::{AgentRun, AppState, Target};
 use crate::store::agent::{AgentAccess, Note};
 use std::sync::Arc;
@@ -69,7 +68,7 @@ pub async fn start_agent(
         run_id: run_id.clone(),
         question,
         kind: pool.kind(),
-        schema_text: schema::schema_for_prompt(&live.schema, &live.schema_text, &relevance),
+        schema_text: crate::ai::agent::prompt::agent_schema(&live.schema, &live.schema_text, &relevance),
         schema: live.schema.clone(),
         notes,
         focus,

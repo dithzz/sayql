@@ -524,3 +524,20 @@ async fn show_value_names_things_without_sending_them() {
     assert!(!ran.seen.join("\n").contains("Priya"), "the name never reached the model");
     assert_eq!(ran.steps()[0].sent_summary.as_deref(), Some("sent a token only"));
 }
+
+/// show_value with a query: the name of whoever the query picks, without the model seeing it.
+#[tokio::test]
+async fn show_value_takes_a_query() {
+    let f = fixture().await;
+    let sql = "SELECT u.full_name FROM users u WHERE u.id = (SELECT user_id FROM memberships GROUP BY user_id ORDER BY COUNT(*) DESC, user_id LIMIT 1)";
+    let turns = vec![
+        MockTurn::Tools(vec![("show_value", json!({ "sql": sql }))]),
+        MockTurn::Dynamic(Box::new(|last| {
+            let token = &last[last.find('‹').unwrap()..last.find('›').unwrap() + '›'.len_utf8()];
+            vec![("finish", json!({ "answer": format!("{token} is in the most tenants.") }))]
+        })),
+    ];
+    let ran = go(&f.pool, turns, access(Results::Off, false), AgentSettings::default(), vec![]).await;
+    assert_eq!(ran.done().0.as_ref().unwrap().text, "Dana Reyes is in the most tenants.");
+    assert!(!ran.seen.join("\n").contains("Dana"), "the name never reached the model");
+}

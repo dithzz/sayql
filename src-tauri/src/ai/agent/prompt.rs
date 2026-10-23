@@ -1,6 +1,12 @@
 //! The agent's instructions, the "why" playbook, and the first message of a run.
 
+use crate::schema::{self, Schema};
 use crate::store::agent::Results;
+
+/// Most schema text the agent's prompt carries. It is sent again on every turn (from cache
+/// on Claude), so a big schema is cut down to the relevant tables plus a list of every table;
+/// the agent looks up the rest with search_schema and describe_table.
+pub const SCHEMA_CHARS: usize = 40_000;
 
 const INSTRUCTIONS: &str = "You are SayQL's data agent. You answer one question about a {DIALECT} database by \
 investigating it in a few read-only steps, then you finish with a short answer that cites the steps it rests on.
@@ -56,6 +62,47 @@ pub fn instructions(dialect: &str, results: Results) -> String {
     INSTRUCTIONS.replace("{DIALECT}", dialect).replace("{LIMIT}", limit).replace("{RESULTS}", results)
 }
 
+/// The schema the agent starts with: all of it when it is small, else every table's name and
+/// row estimate, with the columns of the tables most relevant to the question.
+pub fn agent_schema(schema: &Schema, full: &str, question: &str) -> String {
+    if full.len() <= SCHEMA_CHARS {
+        return full.to_string();
+    }
+    let mut names: Vec<String> = schema
+        .tables
+        .iter()
+        .map(|t| match t.row_estimate {
+            Some(n) if n >= 0 => format!("{} (~{n})", schema::render_name(t, &schema.dialect)),
+            _ => schema::render_name(t, &schema.dialect),
+        })
+        .collect();
+    let mut list = names.join(", ");
+    if list.len() > SCHEMA_CHARS / 2 {
+        let mut kept = 0;
+        let mut len = 0;
+        while kept < names.len() && len + names[kept].len() + 2 < SCHEMA_CHARS / 2 {
+            len += names[kept].len() + 2;
+            kept += 1;
+        }
+        let more = names.len() - kept;
+        names.truncate(kept);
+        list = format!("{}, and {more} more (use search_schema)", names.join(", "));
+    }
+    let mut out = format!(
+        "{} tables. Only some are described below; call describe_table or search_schema for the others.\n\nAll tables (~row estimate): {list}\n\nTables most relevant to the question:\n",
+        schema.tables.len()
+    );
+    for i in schema::relevant_tables(schema, question) {
+        let text = schema::render_table(&schema.tables[i], &schema.dialect);
+        if out.len() + text.len() > SCHEMA_CHARS {
+            break;
+        }
+        out.push_str(&text);
+        out.push('\n');
+    }
+    out
+}
+
 /// The schema block: the database's tables, and the notes saved for it.
 pub fn schema_block(dialect: &str, schema_text: &str, notes: &[String]) -> String {
     let mut out = format!("Database dialect: {dialect}\n\nSchema:\n{schema_text}");
@@ -93,5 +140,30 @@ mod tests {
         let q = question(" who owns it? ", &["tenants".into()], Some("Be brief."));
         assert!(q.starts_with("Question: who owns it?") && q.contains("tenants") && q.ends_with("Be brief."), "{q}");
         assert!(schema_block("SQLite", "t(id)", &["status 3 = cancelled".into()]).contains("- status 3 = cancelled"));
+    }
+
+    #[test]
+    fn big_schemas_are_cut_down() {
+        use crate::schema::{Column, Table};
+        let col = |n: &str| Column { name: n.into(), data_type: "int".into(), nullable: true, primary_key: false, enum_values: None };
+        let tables: Vec<Table> = (0..300)
+            .map(|i| Table {
+                schema: Some("injury".into()),
+                name: if i == 7 { "compensation_payment".into() } else { format!("table_{i}") },
+                kind: "table".into(),
+                columns: (0..40).map(|c| col(&format!("column_{c}"))).collect(),
+                foreign_keys: vec![],
+                row_estimate: Some(i),
+            })
+            .collect();
+        let s = Schema { dialect: "PostgreSQL".into(), tables };
+        let full = schema::render_full(&s);
+        assert!(full.len() > SCHEMA_CHARS);
+        let out = agent_schema(&s, &full, "How much compensation was paid?");
+        assert!(out.len() <= SCHEMA_CHARS + 100, "{}", out.len());
+        assert!(out.contains("injury.table_299 (~299)") && out.contains("injury.compensation_payment ["), "{}", &out[..300]);
+        let small = Schema { dialect: "SQLite".into(), tables: s.tables[..2].to_vec() };
+        let small_full = schema::render_full(&small);
+        assert_eq!(agent_schema(&small, &small_full, "q"), small_full);
     }
 }

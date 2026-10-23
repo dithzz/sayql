@@ -97,6 +97,26 @@ pub fn schema_for_prompt(schema: &Schema, full: &str, question: &str) -> String 
     if full.len() <= FULL_SCHEMA_CHAR_BUDGET {
         return full.to_string();
     }
+    let picked = relevant_tables(schema, question);
+    if picked.is_empty() {
+        // Nothing matched: send the table list without columns so the model can still orient.
+        let names: Vec<String> = schema.tables.iter().map(|t| render_name(t, &schema.dialect)).collect();
+        return format!("(schema too large to include in full; table names only)\n{}", names.join(", "));
+    }
+    let mut out = String::from("(only the tables most relevant to the question are listed)\n");
+    out.push_str(
+        &picked
+            .iter()
+            .map(|&i| render_table(&schema.tables[i], &schema.dialect))
+            .collect::<Vec<_>>()
+            .join("\n"),
+    );
+    out
+}
+
+/// The tables whose names and columns share words with the question, most relevant first,
+/// plus the tables they reference; in schema order.
+pub fn relevant_tables(schema: &Schema, question: &str) -> Vec<usize> {
     let words: HashSet<String> = tokenize(question)
         .into_iter()
         .flat_map(|w| [singular(&w), w])
@@ -143,21 +163,8 @@ pub fn schema_for_prompt(schema: &Schema, full: &str, question: &str) -> String 
             }
         }
     }
-    if picked.is_empty() {
-        // Nothing matched: send the table list without columns so the model can still orient.
-        let names: Vec<String> = schema.tables.iter().map(|t| render_name(t, &schema.dialect)).collect();
-        return format!("(schema too large to include in full; table names only)\n{}", names.join(", "));
-    }
     picked.sort();
-    let mut out = String::from("(only the tables most relevant to the question are listed)\n");
-    out.push_str(
-        &picked
-            .iter()
-            .map(|&i| render_table(&schema.tables[i], &schema.dialect))
-            .collect::<Vec<_>>()
-            .join("\n"),
-    );
-    out
+    picked
 }
 
 /// The schema text when the person picked tables for the request: those tables, the tables

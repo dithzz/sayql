@@ -74,18 +74,20 @@ pub fn all() -> Vec<ToolSpec> {
         },
         ToolSpec {
             name: SHOW,
-            description: "Look up a value to name in your answer, such as the full_name of the user with id 9. You get \
-                          a token (like ‹name-3›), never the value; put the token in the answer and the person sees the \
-                          real value. Use it to name people, places and things you found by id.",
+            description: "Look up values to name in your answer, such as the full_name of the user with id 9, or of \
+                          the user with the most claims. You get tokens (like ‹name-3›), never the values; put them in the \
+                          answer and the person sees the real values. Give either `sql` (one read-only query whose first \
+                          column is what to show, at most 5 rows) or `table`, `column`, `key_column` and `key`.",
             schema: json!({
                 "type": "object",
                 "properties": {
+                    "sql": { "type": "string", "description": "e.g. SELECT full_name FROM users WHERE id = (SELECT user_id FROM access GROUP BY user_id ORDER BY COUNT(*) DESC LIMIT 1)" },
                     "table": { "type": "string" },
                     "column": { "type": "string", "description": "The column to show, e.g. full_name." },
                     "key_column": { "type": "string", "description": "The column that picks the row, e.g. id." },
                     "key": { "description": "Its value, e.g. 9, or a token from an earlier result." }
                 },
-                "required": ["table", "column", "key_column", "key"]
+                "required": []
             }),
         },
         ToolSpec {
