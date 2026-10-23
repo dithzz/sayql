@@ -2,6 +2,7 @@
 //! Messages API; every other provider over the OpenAI-compatible Chat Completions API.
 
 mod anthropic;
+pub mod agent;
 pub mod context;
 pub mod endpoint;
 mod models;
