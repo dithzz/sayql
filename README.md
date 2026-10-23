@@ -23,7 +23,7 @@ The right SQL in seconds, and nothing changes unless you say so.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset=".github/assets/hero-dark.png">
-  <img src=".github/assets/hero-light.png" alt="SayQL: the Ask box with the question 'Top 10 customers by total spend', the SQL it wrote, and the 10 result rows" width="100%">
+  <img src=".github/assets/hero-light.png" alt="SayQL: the Ask box in Quick mode with the question 'Top 10 customers by total spend', the SQL it wrote, and the 10 result rows" width="100%">
 </picture>
 
 </div>
@@ -41,8 +41,12 @@ Asking an engineer takes time; general chatbots don't know your schema and can't
 - **Faster than writing it yourself.** The right SQL in seconds, streaming in while you type. Simple
   requests are answered instantly on your machine, follow-ups edit the query you have ("only Canada",
   "sort by date"), and failed queries fix themselves once.
+- **Answers to the harder questions.** Switch the Ask box from Quick to Agent and ask "why did signups drop?"
+  or "who owns this tenant?": the agent investigates in read-only steps and answers with the queries behind
+  every sentence. Off until you turn it on per connection, with you in control of what the AI may see.
 - **Your AI, your data.** Use Claude, OpenAI, Gemini or any OpenAI-compatible API with your own key, or a local
-  model so nothing leaves your computer. The Ask box never sends table rows to the AI.
+  model so nothing leaves your computer, and switch models right in the Ask box. The Ask box never sends table
+  rows to the AI.
 - **Say it instead.** Click the mic and say your question. Speech is turned into text on your computer, and
   the audio never leaves it.
 - **Everything in one place.** Browse your tables, keep tabs open and save the queries you reuse. You see every
@@ -62,7 +66,7 @@ the database rejects a query, SayQL fixes it automatically.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset=".github/assets/feature-ask-dark.png">
-  <img src=".github/assets/feature-ask-light.png" alt="The Ask box with two tables picked as context, the question, and the SQL being written" width="100%">
+  <img src=".github/assets/feature-ask-light.png" alt="The Ask box with two tables picked as context, the Quick / Agent switch, the model picker, and the SQL it wrote" width="100%">
 </picture>
 
 </td>
@@ -88,10 +92,16 @@ shows you the exact statement first, so nothing changes by accident.
 Switch the Ask box to Agent (or type `/agent`) and ask a question that needs looking around first ("why did signups drop last week?", "who owns this
 tenant?"). The agent shows its plan, works through it in read-only steps, checks its joins, asks you when a
 question has two meanings, and answers with every sentence linked to the query behind it. A number it can't
-find in any result is marked "not verified". It never runs writes: a change comes back as SQL for you to review.
+find in any result is marked "not verified". It never runs writes: a change comes back as SQL for you to review. Auto
+mode lets it run without stopping for the plan or each send.
 It's off on every connection until you turn it on, and you choose what it may see of results: nothing, counts
 and summaries, or up to 20 rows with personal data masked. What it learns can be saved as database notes,
 which help the Ask box, the agent and MCP next time.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/feature-agent-dark.png">
+  <img src=".github/assets/feature-agent-light.png" alt="Agent mode in Auto: two read-only steps that sent only counts and summaries, and an answer citing them" width="100%">
+</picture>
 
 ### Your AI, your data
 
@@ -147,6 +157,7 @@ database, and sends data only to services you configure:
 | You ask in plain English | Your question, the schema (table and column names, types, keys), and the current SQL for follow-ups | Your AI provider |
 | A query fails and SayQL fixes it | The query and the database's error message | Your AI provider |
 | You use agent mode on a connection where you turned it on | The agent's queries and, per your setting, row counts, column summaries, or up to 20 masked rows per query | Your AI provider |
+| An AI app uses SayQL through MCP | The schemas, database notes and query results it asks for (never the values of never-send columns) | That AI app (for example Claude or Cursor) |
 | You run a query | Your SQL | Your database |
 | SayQL starts | The app version and your operating system, to check for updates | GitHub (dithzz/sayql-releases) |
 | You first use voice input | A one-time download of the speech model (no audio) | Hugging Face |
@@ -201,11 +212,17 @@ Three more tools hand work to you in SayQL instead of doing it:
   anything that changes data, and the results stay in SayQL.
 - `open_script` opens one of your saved scripts, unrun.
 
+`describe_schema` includes the database notes you saved, so the app knows what codes mean and how tables
+relate. Columns you marked **never send** in a connection's agent settings stay private over MCP too: queries
+naming them are refused and their values are withheld. The AI app writes the SQL itself, so MCP never uses
+your SayQL AI key; SQL it opens in SayQL isn't fixed automatically by SayQL's AI either.
+
 Passwords and writes never go through MCP.
 
-> **Note:** on Linux, use the `.deb` or `.rpm` for MCP:
-> the AppImage opens from a new folder each time, so the path would change.
-> Until then, build it from source (`cargo build --bin sayql-mcp`); see [CONTRIBUTING.md](CONTRIBUTING.md).
+`sayql-mcp` ships inside the app: **Settings → AI apps (MCP)** shows the path and the setup for each AI app.
+
+> **Note:** on Linux, use the `.deb` or `.rpm` for MCP: the AppImage opens from a new folder each time, so the
+> path would change.
 
 ## Build from source
 
@@ -234,7 +251,6 @@ microphone (on Linux, install `libasound2-dev` to build). [docs/ARCHITECTURE.md]
 
 ## Roadmap
 
-- **MCP server in the downloads**, so AI apps can use SayQL without building it.
 - **Signed builds** for macOS and Windows, removing the first-launch confirmation.
 
 Ideas and votes are welcome in [Discussions](https://github.com/dithzz/sayql/discussions).
