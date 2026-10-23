@@ -3,6 +3,11 @@
 All notable changes to SayQL are listed here. Downloads are on the
 [releases page](https://github.com/dithzz/sayql-releases/releases).
 
+## Unreleased
+
+- **Groundwork for agent mode** (not in the app yet): MCP's read-only helpers move to a module agent mode will
+  share, plus masking of likely personal data, a synthetic tenant test database and an evaluation question set.
+
 ## 0.2.9 (2026-10-23)
 
 - **Supabase and other connection poolers work:** PostgreSQL behind a transaction pooler (Supabase on port 6543,

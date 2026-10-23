@@ -56,6 +56,8 @@ src/
 src-tauri/src/
   lib.rs                plugin + state + command registration only
   mcp.rs                sayql-mcp: MCP server over stdio (read-only tools), reusing state/db/schema
+  readonly.rs           read-only access shared by MCP and agent mode: schema search (describe), queries stopped
+                        on the server after a time limit (run_limited), row caps, the write refusal
   bin/sayql-mcp.rs      its entry point
   handoff.rs            sayql:// links from sayql-mcp to the app (prefilled connection, SQL tab): validation, one-time tokens
   error.rs              AppError / AppResult: the single error type; serializes to a message for the UI

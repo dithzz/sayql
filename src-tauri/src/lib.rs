@@ -6,6 +6,7 @@ mod db;
 mod error;
 pub mod handoff;
 pub mod mcp;
+mod readonly;
 mod schema;
 mod state;
 mod store;
