@@ -406,10 +406,10 @@ fn name_words(name: &str) -> Vec<String> {
             prev = None;
             continue;
         }
-        if let Some(p) = prev {
-            if (p.is_lowercase() && c.is_uppercase()) || (p.is_alphabetic() != c.is_alphabetic()) {
-                words.push(std::mem::take(&mut cur));
-            }
+        if let Some(p) = prev
+            && ((p.is_lowercase() && c.is_uppercase()) || (p.is_alphabetic() != c.is_alphabetic()))
+        {
+            words.push(std::mem::take(&mut cur));
         }
         cur.extend(c.to_lowercase());
         prev = Some(c);
@@ -561,7 +561,7 @@ fn is_card(s: &str) -> bool {
         .enumerate()
         .map(|(i, &d)| if i % 2 == 1 { if d * 2 > 9 { d * 2 - 9 } else { d * 2 } } else { d })
         .sum();
-    sum % 10 == 0
+    sum.is_multiple_of(10)
 }
 
 /// 10 to 15 digits, or 7 or more after a leading `+`, with phone separators. Not dates,

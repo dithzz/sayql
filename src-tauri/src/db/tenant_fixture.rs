@@ -74,7 +74,7 @@ fn user_email(u: usize) -> String {
 }
 
 fn user_phone(u: usize) -> Option<String> {
-    (u % 5 != 0).then(|| format!("+1 (555) 01{u:02}-{:04}", (u * 373) % 10_000))
+    (!u.is_multiple_of(5)).then(|| format!("+1 (555) 01{u:02}-{:04}", (u * 373) % 10_000))
 }
 
 fn patient_name(p: usize) -> (&'static str, &'static str) {
@@ -83,11 +83,11 @@ fn patient_name(p: usize) -> (&'static str, &'static str) {
 
 fn patient_email(p: usize) -> Option<String> {
     let (f, l) = patient_name(p);
-    (p % 7 != 0).then(|| format!("{}.{}{p}@example.org", f.to_lowercase(), l.to_lowercase()))
+    (!p.is_multiple_of(7)).then(|| format!("{}.{}{p}@example.org", f.to_lowercase(), l.to_lowercase()))
 }
 
 fn patient_phone(p: usize) -> Option<String> {
-    (p % 9 != 0).then(|| format!("+1 555-02{p:02}-{:04}", (p * 919) % 10_000))
+    (!p.is_multiple_of(9)).then(|| format!("+1 555-02{p:02}-{:04}", (p * 919) % 10_000))
 }
 
 fn patient_dob(p: usize) -> String {
@@ -386,7 +386,7 @@ fn tables() -> Vec<Table> {
     add(2, 7, "ownership.transfer", "tenant", 2, at(NaiveDate::from_ymd_opt(2026, 3, 2).unwrap(), 10, 15), Some("from user 7 to user 9".into()));
     for w in 0..WEEKS {
         for u in 1..=USERS.len() {
-            if (u + w as usize) % 3 == 0 {
+            if (u + w as usize).is_multiple_of(3) {
                 add(user_tenant(u), u, "login", "user", u as i64, at(week_start(w) + Duration::days((u % 5) as i64), 8, (u * 2) as u32), None);
             }
         }

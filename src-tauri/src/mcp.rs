@@ -21,7 +21,6 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
-use tokio_util::sync::CancellationToken;
 
 /// The Tauri app identifier: where the app keeps its config and data.
 const APP_ID: &str = "com.sayql.app";
@@ -431,6 +430,7 @@ pub async fn serve_stdio() -> Result<(), Box<dyn std::error::Error>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tokio_util::sync::CancellationToken;
 
     fn add_params(args: Value) -> Result<AddConnectionParams, serde_json::Error> {
         serde_json::from_value(args)
