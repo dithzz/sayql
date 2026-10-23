@@ -7,6 +7,11 @@ export interface ModelNames {
   expert: string;
 }
 
+/** A model's short display name, e.g. "Haiku 5.5" or "gpt-5-mini", for `provider` (default: the current one). */
+export function modelLabel(settings: Settings, id: string, provider = settings.provider): string {
+  return shortName({ ...settings, provider }, id);
+}
+
 function shortName(settings: Settings, id: string): string {
   if (settings.provider === "anthropic") {
     const label = settings.models.find((m) => m.id === id)?.label ?? id;

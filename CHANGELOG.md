@@ -15,6 +15,22 @@ All notable changes to SayQL are listed here. Downloads are on the
   screen). Ask before each send shows exactly what would go, with Send and Skip; never-send columns are refused.
 - **Database notes:** facts the agent learns ("owner = memberships.role = 'owner'") can be saved per database.
   The Ask box, the agent and MCP all use them; edit them in the navigator.
+- **Quick or Agent, and the model, right in the Ask box.** A switch under the Ask box (or ⌘⇧A) picks
+  Quick (SQL as you type) or Agent, so nobody has to remember `/agent`; turning on Agent for a connection the
+  first time asks what it may see. Next to it, the model name switches the model, or the provider among the ones
+  already set up, without opening Settings. In agent mode, an empty Ask box suggests a few questions to start with.
+- **Auto mode for the agent:** switch **Ask first** to **Auto** next to the model name (or press "Go, and don't
+  ask again") and runs no longer stop for the plan or before each send. Questions with two meanings still ask,
+  and what the AI may see stays as the connection's setting.
+- **Saved scripts follow the open database,** with **All** one click away.
+- **Right-click a tab** to close it, the others, those to the right or left, the saved ones or all, or duplicate it.
+  Closing several with unsaved SQL asks once, and can keep the unsaved ones open.
+- **MCP and agent mode work together:** MCP apps see your database notes, and never-send columns are refused
+  over MCP too (their values are withheld from `SELECT *`).
+- An agent step opened after SayQL restarts shows its rows again: rows aren't kept with the tab, so the step's
+  read-only query runs again (and says so) instead of showing 0 rows.
+- SQL an AI app opens in SayQL over MCP is no longer fixed automatically by SayQL's AI when it fails, so it
+  never spends your AI credits unasked. **Fix with AI** on the error still does it when you choose.
 - MCP's read-only helpers moved to a module agent mode shares, so both keep the same safety rules.
 
 ## 0.2.9 (2026-10-23)

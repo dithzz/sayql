@@ -28,20 +28,27 @@ pub async fn start_agent(
     focus_tables: Option<Vec<String>>,
     skill: Option<String>,
     follow_up: Option<bool>,
+    auto: Option<bool>,
 ) -> AppResult<()> {
     let question = question.trim().to_string();
     if question.is_empty() {
         return Err("Type a question first.".into());
     }
-    let access = state.store.agent_access(&id)?;
+    let mut access = state.store.agent_access(&id)?;
     if !access.enabled {
         return Err("Agent mode is off for this connection. Turn it on in its agent settings first.".into());
     }
     let target = Target::new(id.clone(), database.clone());
     let live = state.schema(&target)?;
     let pool = state.target_pool(&target).await?;
-    let settings = state.store.settings()?;
+    let mut settings = state.store.settings()?;
     let endpoint = endpoint(&settings)?;
+    // Auto mode: no stop for the plan or before each send. What the AI may see (the results
+    // setting, masking, never-send columns) stays as set; questions with two meanings still ask.
+    if auto == Some(true) {
+        settings.agent.skip_plan = true;
+        access.ask_before_send = false;
+    }
     let model = settings.provider_settings(&settings.provider).agent().to_string();
     let mode_key = format!("{}/{model}", settings.provider);
     let mode = match &endpoint {

@@ -56,8 +56,9 @@ export const commands = {
    * Starts an agent run in `slot` (the tab), stopping the one there; progress arrives as
    * `agent://event`s (see `subscribeToAgent`). `followUp` continues the tab's last run.
    */
-  startAgent: (t: Target, question: string, runId: string, slot: string, focusTables: string[], skill: string | null, followUp: boolean) =>
-    invoke<void>("start_agent", { id: t.connectionId, database: t.database, question, runId, slot, focusTables, skill, followUp }),
+  /** `auto`: Auto mode, which doesn't stop for the plan or before each send. */
+  startAgent: (t: Target, question: string, runId: string, slot: string, focusTables: string[], skill: string | null, followUp: boolean, auto: boolean) =>
+    invoke<void>("start_agent", { id: t.connectionId, database: t.database, question, runId, slot, focusTables, skill, followUp, auto }),
   /** Stops the model and the running query, on the server too. */
   stopAgent: (runId: string) => invoke<void>("stop_agent", { runId }),
   replyAgent: (runId: string, reply: AgentReply) => invoke<void>("reply_agent", { runId, reply }),
@@ -67,6 +68,9 @@ export const commands = {
   /** Creates the note when `id` is empty; refuses notes that hold values from the data. */
   saveNote: (note: DbNote) => invoke<DbNote>("save_note", { note }),
   deleteNote: (id: string) => invoke<void>("delete_note", { id }),
+  /** From the Ask box: switch to a ready provider and use `model` for typing (Quick) or agent mode. */
+  chooseModel: (provider: string, model: string, purpose: "typing" | "agent") =>
+    invoke<Settings>("choose_model", { provider, model, purpose }),
   /** The agent model (empty: the expert model) and the run limits. */
   saveAgentSettings: (agentModel: string, agent: AgentSettings) => invoke<Settings>("save_agent_settings", { agentModel, agent }),
 

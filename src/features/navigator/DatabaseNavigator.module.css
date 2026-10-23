@@ -54,3 +54,26 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* "This database | All" on the Saved scripts row. */
+.scriptFilter {
+  display: inline-flex;
+  gap: 2px;
+}
+.scriptFilterOption {
+  padding: 0 6px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--color-text-subtle);
+  font: inherit;
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+}
+.scriptFilterOption:hover {
+  color: var(--color-text);
+}
+.scriptFilterOn {
+  background: var(--color-surface-selected);
+  color: var(--color-text);
+}

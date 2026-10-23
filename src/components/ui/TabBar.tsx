@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { Plus, X } from "lucide-react";
 import { cx } from "../../lib/cx";
 import { IconButton } from "./Button";
+import { ContextMenu, useContextMenu, type MenuEntry } from "./ContextMenu";
 import styles from "./TabBar.module.css";
 
 export interface TabItem {
@@ -22,10 +23,13 @@ export interface TabBarProps {
   onClose: (id: string) => void;
   onAdd?: () => void;
   addLabel?: string;
+  /** The right-click menu of a tab. */
+  menu?: (id: string) => MenuEntry[];
 }
 
-/** Editor tabs: click to switch, × or middle-click to close. */
-export function TabBar({ items, activeId, onSelect, onClose, onAdd, addLabel = "New tab" }: TabBarProps) {
+/** Editor tabs: click to switch, × or middle-click to close, right-click for more. */
+export function TabBar({ items, activeId, onSelect, onClose, onAdd, addLabel = "New tab", menu }: TabBarProps) {
+  const context = useContextMenu();
   return (
     <div className={styles.bar}>
       <div className={styles.tabs} role="tablist">
@@ -38,6 +42,7 @@ export function TabBar({ items, activeId, onSelect, onClose, onAdd, addLabel = "
             className={cx(styles.tab, t.id === activeId && styles.active)}
             onClick={() => onSelect(t.id)}
             onAuxClick={(e) => e.button === 1 && onClose(t.id)}
+            onContextMenu={menu && ((e) => context.open(e, menu(t.id)))}
           >
             {t.icon && <span className={styles.icon}>{t.icon}</span>}
             <span className={styles.label}>
@@ -59,6 +64,7 @@ export function TabBar({ items, activeId, onSelect, onClose, onAdd, addLabel = "
         ))}
       </div>
       {onAdd && <IconButton icon={Plus} label={addLabel} size="sm" className={styles.add} onClick={onAdd} />}
+      {context.menu && <ContextMenu at={context.menu.at} items={context.menu.items} onClose={context.close} />}
     </div>
   );
 }

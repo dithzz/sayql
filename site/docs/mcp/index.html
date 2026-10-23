@@ -381,6 +381,7 @@ footer a { color: var(--color-text-muted); }
   <li><b>Open query</b> opens SQL in a new SayQL tab, unrun. You review it and click Run; SayQL asks before anything that changes data, and the results stay in SayQL.</li>
   <li><b>Open script</b> opens one of your saved scripts, unrun.</li>
 </ul>
+<p>The schema the assistant gets includes the <a href="/docs/agent-mode/">database notes</a> you saved, so it knows what codes mean and how tables relate. Columns you marked <b>never send</b> in a connection's agent settings stay private over MCP too: a query that names one is refused, and their values are withheld when a query returns them anyway.</p>
 <p>Passwords and writes never go through MCP. SayQL brings its window to the front and marks what came from an AI app, e.g. <i>From Claude (MCP)</i>.</p>
 <h2 id="set-it-up"><a class="anchor" href="#set-it-up" aria-hidden="true">#</a>Set it up</h2>
 <p>Open <b>Settings → AI apps (MCP)</b>. It shows the exact command and config for your install:</p>

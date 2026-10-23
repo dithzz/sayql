@@ -49,7 +49,10 @@ struct ProviderView {
     base_url: String,
     typing_model: String,
     expert_model: String,
+    agent_model: String,
     has_key: bool,
+    /// Everything needed to use it is set (model, key, address), so the Ask box can switch to it.
+    ready: bool,
 }
 
 /// What the UI may know about the settings: never an API key itself.
@@ -81,7 +84,9 @@ pub fn settings_view(s: &Settings) -> SettingsView {
                     base_url: chosen.base_url,
                     typing_model: chosen.typing_model,
                     expert_model: chosen.expert_model,
+                    agent_model: chosen.agent_model,
                     has_key: p.key != KeyNeed::None && secrets::api_key(p.id).is_some(),
+                    ready: endpoint(&Settings { provider: p.id.to_string(), ..s.clone() }).is_ok(),
                 }
             })
             .collect(),
@@ -134,6 +139,47 @@ pub fn save_settings(
     s.set_provider_settings(p.id, ProviderSettings { base_url, typing_model, expert_model, agent_model });
     state.store.save_settings(&s)?;
     Ok(settings_view(&s))
+}
+
+/// Which model slot the Ask box's model picker sets.
+#[derive(serde::Deserialize, Clone, Copy, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum ModelUse {
+    /// Quick mode: writes SQL while the person types.
+    Typing,
+    /// Agent mode.
+    Agent,
+}
+
+/// Switches to `provider` (one that is ready) and uses `model` for typing or for agent mode,
+/// from the Ask box. Other choices for that provider stay as they were.
+#[tauri::command]
+pub fn choose_model(state: State<'_, AppState>, provider: String, model: String, purpose: ModelUse) -> AppResult<SettingsView> {
+    let mut s = state.store.settings()?;
+    s.provider = choose(&s, &provider, model.trim(), purpose)?;
+    let p = ai::endpoint::provider(&s.provider)?;
+    let mut chosen = s.provider_settings(p.id);
+    match purpose {
+        ModelUse::Typing => chosen.typing_model = model.trim().to_string(),
+        ModelUse::Agent => chosen.agent_model = model.trim().to_string(),
+    }
+    s.set_provider_settings(p.id, chosen);
+    state.store.save_settings(&s)?;
+    Ok(settings_view(&s))
+}
+
+/// The provider id to switch to, after checking it's ready and the model makes sense for it.
+fn choose(s: &Settings, provider: &str, model: &str, purpose: ModelUse) -> AppResult<String> {
+    let p = ai::endpoint::provider(provider)?;
+    if model.is_empty() && purpose == ModelUse::Typing {
+        return Err("Choose a model.".into());
+    }
+    if p.api == Api::Anthropic && !model.is_empty() && !ai::is_known(model) {
+        return Err(format!("Unknown model {model}").into());
+    }
+    let candidate = Settings { provider: p.id.to_string(), ..s.clone() };
+    endpoint(&candidate).map_err(|e| AppError::User(format!("{} isn't set up yet: {e}", p.label)))?;
+    Ok(p.id.to_string())
 }
 
 /// Saves the agent model of the current provider (empty: its expert model) and the run limits.
@@ -221,4 +267,22 @@ pub fn mcp_setup() -> AppResult<McpSetup> {
         path: path.to_string_lossy().into_owned(),
         appimage: std::env::var_os("APPIMAGE").is_some(),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_ask_box_switches_only_to_providers_that_are_ready() {
+        let mut s = Settings::default();
+        // Ollama needs no key: once it has a model, it's ready.
+        assert!(choose(&s, "ollama", "qwen3", ModelUse::Typing).unwrap_err().to_string().contains("isn't set up yet"));
+        s.set_provider_settings("ollama", ProviderSettings { typing_model: "qwen3".into(), ..Default::default() });
+        assert_eq!(choose(&s, "ollama", "llama3.3", ModelUse::Typing).unwrap(), "ollama");
+        assert!(choose(&s, "ollama", "", ModelUse::Typing).is_err());
+        assert_eq!(choose(&s, "ollama", "", ModelUse::Agent).unwrap(), "ollama", "empty agent model means the expert model");
+        assert!(choose(&s, "anthropic", "claude-unknown", ModelUse::Typing).unwrap_err().to_string().contains("Unknown model"));
+        assert!(choose(&s, "nope", "x", ModelUse::Typing).is_err());
+    }
 }

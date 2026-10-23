@@ -168,3 +168,81 @@
   white-space: pre-wrap;
   line-height: 1.5;
 }
+
+/* Quick / Agent: a small segmented switch at the start of the footer. */
+.modes {
+  display: inline-flex;
+  flex-shrink: 0;
+  padding: 1px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-sunken);
+}
+.mode {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 18px;
+  padding: 0 var(--space-2);
+  border: none;
+  border-radius: calc(var(--radius-sm) - 1px);
+  background: none;
+  color: var(--color-text-subtle);
+  font: inherit;
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+}
+.mode:hover {
+  color: var(--color-text);
+}
+.modeOn {
+  background: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: 0 0 0 1px var(--color-border);
+}
+
+/* Example questions in agent mode, while the question is empty. */
+.starters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+.starter {
+  padding: 2px var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: none;
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+}
+.starter:hover {
+  border-color: var(--color-ai);
+  color: var(--color-text);
+}
+
+/* Agent mode's Auto switch. */
+.auto {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 4px;
+  height: 20px;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: none;
+  color: var(--color-text-subtle);
+  font: inherit;
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+}
+.auto:hover {
+  color: var(--color-text);
+}
+.autoOn {
+  border-color: var(--color-ai);
+  background: var(--color-ai-soft);
+  color: var(--color-ai);
+}

@@ -8,6 +8,7 @@ const handlers = () => ({
   onSelect: vi.fn(),
   onGo: vi.fn(),
   onSend: vi.fn(),
+    onAuto: vi.fn(),
   onSkip: vi.fn(),
   onAnswer: vi.fn(),
   onStop: vi.fn(),

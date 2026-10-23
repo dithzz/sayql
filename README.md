@@ -85,7 +85,7 @@ shows you the exact statement first, so nothing changes by accident.
 
 ### Investigate with agent mode
 
-Type `/agent` and a question that needs looking around first ("why did signups drop last week?", "who owns this
+Switch the Ask box to Agent (or type `/agent`) and ask a question that needs looking around first ("why did signups drop last week?", "who owns this
 tenant?"). The agent shows its plan, works through it in read-only steps, checks its joins, asks you when a
 question has two meanings, and answers with every sentence linked to the query behind it. A number it can't
 find in any result is marked "not verified". It never runs writes: a change comes back as SQL for you to review.
