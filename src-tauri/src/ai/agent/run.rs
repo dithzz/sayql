@@ -237,7 +237,10 @@ impl Run<'_> {
     async fn go(&mut self) -> End {
         let dialect = self.input.schema.dialect.clone();
         let system = prompt::instructions(&dialect, self.input.access.results);
-        let schema = prompt::schema_block(&dialect, &self.input.schema_text, &self.input.notes);
+        let mut schema = prompt::schema_block(&dialect, &self.input.schema_text, &self.input.notes);
+        if let Some(warning) = self.row_security().await {
+            schema.push_str(&format!("\n\nWarning: {warning} Say so in the answer when results look empty or small."));
+        }
         let mut nudged = false;
         let mut switched = false;
         loop {
@@ -328,6 +331,39 @@ impl Run<'_> {
                 return End::Error("The run reached its step limit without an answer.".into());
             }
         }
+    }
+
+    /// On PostgreSQL, the tables whose row-level security this login can't bypass, as a
+    /// warning for the agent and a step for the person. Supabase turns it on for app tables, so
+    /// a read-only login there can see empty tables that aren't empty.
+    async fn row_security(&mut self) -> Option<String> {
+        // Checked once per conversation, not again for each follow-up.
+        if self.input.kind != Kind::Postgres || self.messages.len() > 1 {
+            return None;
+        }
+        let sql = "SELECT n.nspname || '.' || c.relname FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace \
+                   WHERE c.relkind IN ('r', 'p') AND c.relrowsecurity \
+                   AND n.nspname NOT IN ('pg_catalog', 'information_schema') \
+                   AND (c.relforcerowsecurity OR pg_get_userbyid(c.relowner) <> current_user) \
+                   AND NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = current_user AND (rolsuper OR rolbypassrls)) \
+                   ORDER BY 1";
+        let r = readonly::run_limited_with(self.pool, sql, ROWS_READ, Duration::from_secs(10), &self.io.stop).await.ok()?;
+        let tables: Vec<String> = r.rows.iter().filter_map(|row| row.first()?.as_str().map(String::from)).collect();
+        if tables.is_empty() {
+            return None;
+        }
+        let some: Vec<&str> = tables.iter().take(5).map(String::as_str).collect();
+        let more = if tables.len() > 5 { format!(" and {} more", tables.len() - 5) } else { String::new() };
+        let warning = format!(
+            "Row-level security is on for {} tables ({}{more}), and this login can't bypass it, so queries on them may \
+             return only some rows or none.",
+            tables.len(),
+            some.join(", ")
+        );
+        let i = self.new_step("notice", "Row-level security limits what this login can see".into(), None);
+        self.steps[i].checks = vec![warning.clone()];
+        self.end_step(i, Ok(warning.clone()), "sent the warning");
+        Some(warning)
     }
 
     fn can_fall_back(&self, switched: bool) -> bool {

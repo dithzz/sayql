@@ -108,7 +108,8 @@ impl Masker {
                         if v.is_null() {
                             return Value::Null;
                         }
-                        match by_name.get(i).copied().flatten().or_else(|| value_kind(v)) {
+                        let by_column = by_name.get(i).copied().flatten().filter(|k| !numbers_are_safe(k, v));
+                        match by_column.or_else(|| value_kind(v)) {
                             Some(kind) => {
                                 masked[i] = true;
                                 Value::String(self.token(kind, v))
@@ -134,7 +135,8 @@ impl Masker {
                 let values: Vec<&Value> = r.rows.iter().filter_map(|row| row.get(i)).filter(|v| !v.is_null()).collect();
                 let distinct = values.iter().map(|v| v.to_string()).collect::<HashSet<_>>().len();
                 let kind = column_type(&values);
-                let personal = self.column_rule(name).is_some() || values.iter().any(|v| value_kind(v).is_some());
+                let by_column = self.column_rule(name).filter(|k| !values.iter().all(|v| numbers_are_safe(k, v)));
+                let personal = by_column.is_some() || values.iter().any(|v| value_kind(v).is_some());
                 let (min, max) = match kind {
                     "number" | "date" if !personal => min_max(&values, kind),
                     _ => (None, None),
@@ -243,7 +245,11 @@ impl Masker {
                 } else {
                     continue;
                 };
-                if alias.is_empty() || self.aliases.contains_key(&alias) || expr.first().is_some_and(|f| f == "count") {
+                // A count, sum or average of a personal column is a number about it, not the column's values.
+                let wrappers = ["(", "select", "coalesce", "round", "cast", "abs", "floor", "ceil", "ceiling", "trunc", "nullif"];
+                let lead = expr.iter().find(|t| !wrappers.contains(&t.as_str()));
+                let aggregate = lead.is_some_and(|f| ["count", "sum", "avg"].contains(&f.as_str()));
+                if alias.is_empty() || self.aliases.contains_key(&alias) || aggregate {
                     continue;
                 }
                 let kind = expr.iter().filter(|t| ident(t)).map(|t| bare(t)).find_map(|w| self.column_rule(&w));
@@ -468,6 +474,13 @@ fn token_at(s: &str) -> Option<&str> {
         && !n.is_empty()
         && n.chars().all(|c| c.is_ascii_digit());
     ok.then(|| &s[..OPEN.len_utf8() + end + CLOSE.len_utf8()])
+}
+
+/// A number in a column that is personal only by its name ("name", "notes") is a count or an
+/// id the model computed (`names_per_worker`), never a name or free text. Phone numbers,
+/// card numbers and other identifiers stay masked: their kinds hold numbers.
+fn numbers_are_safe(kind: &str, v: &Value) -> bool {
+    matches!(kind, "name" | "text") && v.is_number()
 }
 
 /// The value as text, as the person would read it.
@@ -1059,6 +1072,18 @@ mod tests {
         }
         m.learn_aliases("SELECT COUNT(email) AS n, COUNT(DISTINCT phone) people, status s FROM users");
         assert!(!m.is_personal_column("n") && !m.is_personal_column("people") && !m.is_personal_column("s"));
+        m.learn_aliases("SELECT COALESCE(SUM(CASE WHEN first_name = 'x' THEN 1 END), 0) AS a1, (SELECT COUNT(*) FROM users WHERE full_name LIKE 'A%') a2, MAX(full_name) AS top FROM users");
+        assert!(!m.is_personal_column("a1") && !m.is_personal_column("a2") && m.is_personal_column("top"));
+        // Numbers under a name-like column name are counts, not names; identifiers stay masked.
+        let r = result(
+            &["max_per_name", "distinct_names", "first_name", "phone"],
+            vec![vec![json!(3), json!(810), json!("Dana"), json!(5550142233_u64)]],
+        );
+        let out = m.mask(&r, 20);
+        assert_eq!(out.rows[0][..2], [json!(3), json!(810)]);
+        assert!(out.rows[0][2].as_str().unwrap().starts_with('‹') && out.rows[0][3].as_str().unwrap().starts_with('‹'), "{:?}", out.rows);
+        let s = m.summarize(&r);
+        assert_eq!((s.columns[0].min.clone(), s.columns[1].max.clone()), (Some(json!(3)), Some(json!(810))));
         // Each query starts fresh.
         m.learn_aliases("SELECT 1 AS who");
         assert!(!m.is_personal_column("who"));

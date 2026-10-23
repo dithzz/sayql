@@ -69,12 +69,12 @@ async fn go(pool: &DbPool, turns: Vec<MockTurn>, access: AgentAccess, limits: Ag
 }
 
 async fn go_with(pool: &DbPool, turns: Vec<MockTurn>, access: AgentAccess, limits: AgentSettings, replies: Vec<Reply>, stop: CancellationToken) -> Ran {
-    let schema = db::introspect(pool, Kind::Sqlite).await.unwrap();
+    let schema = db::introspect(pool, pool.kind()).await.unwrap();
     let schema_text = crate::schema::render_full(&schema);
     let input = RunInput {
         run_id: "r1".into(),
         question: "Who owns Northfield Family Practice?".into(),
-        kind: Kind::Sqlite,
+        kind: pool.kind(),
         schema,
         schema_text,
         notes: vec!["owner = memberships.role = 'owner'".into()],
@@ -571,4 +571,46 @@ async fn claims_about_all_rows_are_checked_once() {
     )
     .await;
     assert_eq!(again.done().0.as_ref().unwrap().text, "All good, checked.");
+}
+
+/// On PostgreSQL, tables whose row-level security the login can't bypass are flagged to the
+/// agent and the person (SAYQL_TEST_PG_URL; see db/integration_tests.rs).
+#[tokio::test]
+async fn row_level_security_is_flagged_on_postgres() {
+    let Some((mut cfg, password)) = db::env_config("SAYQL_TEST_PG_URL", Kind::Postgres) else { return };
+    let mut pools = tenant_fixture::servers().await;
+    let Some(admin) = pools.iter().position(|p| p.kind() == Kind::Postgres).map(|i| pools.remove(i)) else { return };
+    for sql in [
+        "DROP SCHEMA IF EXISTS sayql_rls CASCADE",
+        "DROP ROLE IF EXISTS sayql_rls_reader",
+        "CREATE SCHEMA sayql_rls",
+        "CREATE TABLE sayql_rls.claims (id int PRIMARY KEY)",
+        "INSERT INTO sayql_rls.claims VALUES (1), (2), (3)",
+        "ALTER TABLE sayql_rls.claims ENABLE ROW LEVEL SECURITY",
+        "CREATE ROLE sayql_rls_reader LOGIN PASSWORD 'rls-test-only'",
+        "GRANT USAGE ON SCHEMA sayql_rls TO sayql_rls_reader",
+        "GRANT SELECT ON sayql_rls.claims TO sayql_rls_reader",
+    ] {
+        db::run_query(&admin, sql, false).await.unwrap_or_else(|e| panic!("{sql}: {e}"));
+    }
+    cfg.database = tenant_fixture::DATABASE.into();
+    cfg.user = "sayql_rls_reader".into();
+    let _ = password;
+    let reader = db::connect(&cfg, Some("rls-test-only".into())).await.unwrap();
+    let turns = vec![
+        MockTurn::Tools(vec![("run_query", json!({ "sql": "SELECT COUNT(*) AS n FROM sayql_rls.claims", "purpose": "x" }))]),
+        MockTurn::Tools(vec![("finish", json!({ "answer": "Row-level security may hide rows." }))]),
+    ];
+    let ran = go(&reader, turns, access(Results::Counts, false), AgentSettings::default(), vec![]).await;
+    let steps = ran.steps();
+    assert_eq!(steps[0].tool, "notice", "{steps:?}");
+    assert!(steps[0].sent.as_deref().unwrap().contains("sayql_rls.claims"), "{:?}", steps[0].sent);
+    assert!(ran.seen[0].contains("Row-level security is on for 1 tables (sayql_rls.claims)"), "the agent is told");
+    assert_eq!(steps[1].rows, [[json!(0)]], "the login really sees no rows");
+    // The superuser bypasses it, so nothing is flagged there.
+    let ran = go(&admin, vec![MockTurn::Tools(vec![("finish", json!({ "answer": "x" }))])], access(Results::Counts, false), AgentSettings::default(), vec![]).await;
+    assert!(ran.steps().is_empty());
+    for sql in ["DROP SCHEMA sayql_rls CASCADE", "DROP OWNED BY sayql_rls_reader", "DROP ROLE sayql_rls_reader"] {
+        let _ = db::run_query(&admin, sql, false).await;
+    }
 }
