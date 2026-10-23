@@ -109,7 +109,7 @@ const KEYWORDS: &[&str] = &[
 ];
 
 /// Words, quoted names and single symbols of the SQL, with strings and comments dropped.
-fn tokens(sql: &str) -> Vec<String> {
+pub(super) fn tokens(sql: &str) -> Vec<String> {
     let mut out = Vec::new();
     let mut chars = sql.chars().peekable();
     while let Some(c) = chars.next() {

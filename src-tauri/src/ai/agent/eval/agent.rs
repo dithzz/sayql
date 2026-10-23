@@ -56,6 +56,15 @@ impl Agent {
     }
 }
 
+/// What the model sees of results: SAYQL_EVAL_RESULTS=off, counts or rows (the default).
+fn results_setting() -> Results {
+    match std::env::var("SAYQL_EVAL_RESULTS").as_deref() {
+        Ok("off") => Results::Off,
+        Ok("counts") => Results::Counts,
+        _ => Results::Rows,
+    }
+}
+
 impl Answerer for Agent {
     async fn answer(&self, q: &Question, pool: &DbPool) -> Result<Answer, String> {
         let schema = db::introspect(pool, pool.kind()).await.map_err(|e| e.to_string())?;
@@ -69,7 +78,7 @@ impl Answerer for Agent {
             notes: Vec::new(),
             focus: Vec::new(),
             skill: None,
-            access: AgentAccess { enabled: true, results: Results::Rows, ask_before_send: false, never_send: Vec::new() },
+            access: AgentAccess { enabled: true, results: results_setting(), ask_before_send: false, never_send: Vec::new() },
             limits: AgentSettings { skip_plan: true, ..Default::default() },
             history: None,
         };
@@ -154,30 +163,39 @@ async fn agent_answers_the_question_set() {
     )
     .await
     .unwrap();
-    let tenant = tenant_fixture::sqlite(&dir.join("tenant.sqlite")).await;
+    // The tenant fixture on SQLite and on each server whose SAYQL_TEST_*_URL is set; the demo store is SQLite only.
+    let mut tenant = vec![tenant_fixture::sqlite(&dir.join("tenant.sqlite")).await];
+    tenant.extend(tenant_fixture::servers().await);
+    // SAYQL_EVAL_DIALECTS=postgres,mysql,mssql runs on just those (sqlite, postgres, mysql, mssql).
+    let dialects: Option<Vec<String>> = std::env::var("SAYQL_EVAL_DIALECTS").ok().map(|s| s.split(',').map(|x| x.trim().to_lowercase()).collect());
+    let wanted = |kind: db::Kind| dialects.as_ref().is_none_or(|d| d.contains(&super::dialect_key(kind).to_string()));
     let (mut right, mut total, mut unsafe_runs) = (0, 0, Vec::new());
     // SAYQL_EVAL_ONLY=id1,id2 runs just those questions.
     let only: Option<Vec<String>> = std::env::var("SAYQL_EVAL_ONLY").ok().map(|s| s.split(',').map(|x| x.trim().to_string()).collect());
     for q in questions().into_iter().filter(|q| only.as_ref().is_none_or(|o| o.contains(&q.id))) {
-        let pool = if q.db == Fixture::Demo { &demo } else { &tenant };
-        total += 1;
-        let outcome = match agent.answer(&q, pool).await {
-            Ok(a) => check(&q, pool.kind(), &a),
-            Err(e) => Err(e),
-        };
-        match outcome {
-            Ok(()) => right += 1,
-            Err(e) => {
-                if e.contains("change data") || e.contains("personal data") {
-                    unsafe_runs.push(format!("{}: {e}", q.id));
+        let pools = if q.db == Fixture::Demo { std::slice::from_ref(&demo) } else { &tenant[..] };
+        for pool in pools.iter().filter(|p| wanted(p.kind())) {
+            total += 1;
+            let outcome = match agent.answer(&q, pool).await {
+                Ok(a) => check(&q, pool.kind(), &a),
+                Err(e) => Err(e),
+            };
+            match outcome {
+                Ok(()) => right += 1,
+                Err(e) => {
+                    if e.contains("change data") || e.contains("personal data") {
+                        unsafe_runs.push(format!("{} on {:?}: {e}", q.id, pool.kind()));
+                    }
+                    eprintln!("{} on {:?}: {e}", q.id, pool.kind());
                 }
-                eprintln!("{}: {e}", q.id);
             }
         }
     }
-    let report = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("target").join("agent-eval.json");
+    // SAYQL_EVAL_REPORT names the records file, for runs side by side.
+    let name = std::env::var("SAYQL_EVAL_REPORT").unwrap_or_else(|_| "agent-eval".into());
+    let report = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("target").join(format!("{name}.json"));
     let _ = std::fs::write(&report, serde_json::to_string_pretty(&*agent.records.lock().unwrap()).unwrap());
-    eprintln!("{right} of {total} right with {}; records in {}", agent.model, report.display());
+    eprintln!("{right} of {total} right with {} ({:?}); records in {}", agent.model, results_setting(), report.display());
     let _ = std::fs::remove_dir_all(dir);
     assert!(unsafe_runs.is_empty(), "safety or privacy failures:\n{}", unsafe_runs.join("\n"));
 }

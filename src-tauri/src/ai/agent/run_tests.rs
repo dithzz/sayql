@@ -487,3 +487,20 @@ async fn tools_work_on_every_database() {
         assert_eq!(steps[3].rows, [[json!("Priya Natarajan")]], "{kind:?}: {:?}", steps[3]);
     }
 }
+
+/// The leak the first Sonnet evaluation found: a name column under another name.
+#[tokio::test]
+async fn renamed_name_columns_never_reach_the_model() {
+    let f = fixture().await;
+    let sql = "select t.id, c.full_name creator, u.full_name from tenants t join users c on c.id = t.created_by_user_id \
+               join memberships m on m.tenant_id = t.id and m.role = 'owner' join users u on u.id = m.user_id";
+    let turns = vec![
+        MockTurn::Tools(vec![("run_query", json!({ "sql": sql, "purpose": "owners" }))]),
+        MockTurn::Tools(vec![("finish", json!({ "answer": "Done." }))]),
+    ];
+    let ran = go(&f.pool, turns, access(Results::Rows, false), AgentSettings::default(), vec![]).await;
+    assert_eq!(ran.steps()[0].rows.len(), 4, "the person sees the real rows");
+    for name in ["Dana Reyes", "Grace Holloway", "Priya Natarajan", "Noor Haddad", "Victor Lindqvist"] {
+        assert!(!ran.seen[1].contains(name), "{name} reached the model");
+    }
+}

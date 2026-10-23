@@ -544,6 +544,8 @@ impl Run<'_> {
             Err(e) => return Ok(self.end_step(i, Err(e), "sent the error")),
         };
         let checks = checks::join_fan_out(&real, &self.input.schema);
+        // A personal column under another name ("full_name AS creator") is masked like the column.
+        self.masker.learn_aliases(&real);
         let (payload, summary) = self.payload(&r);
         self.fill_step(i, &r, checks.clone());
         let (payload, summary) = self.maybe_skip(i, &r, payload, summary).await?;

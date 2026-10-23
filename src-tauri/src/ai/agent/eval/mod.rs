@@ -124,7 +124,7 @@ impl Question {
     }
 }
 
-fn dialect_key(kind: Kind) -> &'static str {
+pub(super) fn dialect_key(kind: Kind) -> &'static str {
     match kind {
         Kind::Sqlite => "sqlite",
         Kind::Postgres => "postgres",
@@ -218,7 +218,10 @@ fn states(text: &str, fact: &str) -> bool {
         let part = part.trim();
         let word = part.parse::<usize>().ok().and_then(|n| WORDS.get(n));
         let has_word = |w: &str| text.split(|c: char| !c.is_alphanumeric()).any(|t| t == w);
-        let has_number = text.split(|c: char| !(c.is_ascii_digit() || c == '.')).any(|t| t.trim_end_matches('.') == part);
+        let has_number = match part.parse::<f64>() {
+            Ok(n) => text.split(|c: char| !(c.is_ascii_digit() || c == '.')).any(|t| t.trim_end_matches('.').parse::<f64>() == Ok(n)),
+            Err(_) => false,
+        };
         if part.parse::<f64>().is_ok() { has_number || word.is_some_and(|w| has_word(w)) } else { text.contains(part) }
     })
 }
@@ -293,6 +296,7 @@ mod tests {
         assert!(states("Yes. One of the 8 invites came from a missing user.", "1"));
         assert!(states("Noor Haddad and Isabel Costa are tied, with 24 each.", "Isabel Costa and Noor Haddad (tied)"));
         assert!(states("There were 3,000 orders.", "3000"));
+        assert!(states("The average is 77.50.", "77.5"));
         assert!(states("Their phone number is +1 (555) 0101-0373.", "+1 (555) 0101-0373"));
         assert!(!states("There were 13 orders.", "3"));
         assert!(!states("Only Noor Haddad.", "Isabel Costa and Noor Haddad"));

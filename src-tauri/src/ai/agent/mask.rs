@@ -12,9 +12,10 @@
 //! value. `unmask_sql` puts the real values back into the model's SQL as literals of the
 //! connection's dialect before it runs.
 //!
-//! This is best effort. A name inside free text in a column with an ordinary name, or a
-//! value under an alias the model chose (`SELECT phone AS p`), is caught only when the value
-//! has a recognisable shape. That is why sending rows is off by default and the "counts and
+//! This is best effort. A personal column under a name the model chose (`full_name AS
+//! creator`) is masked by reading the SQL (`learn_aliases`), but a name inside free text in a
+//! column with an ordinary name, or a value the SQL builds in a way the reading misses, is
+//! caught only when the value has a recognisable shape. That is why sending rows is off by default and the "counts and
 //! summaries only" setting (`summarize`) sends no values at all.
 
 use crate::db::{Kind, QueryResult};
@@ -75,6 +76,8 @@ pub struct Masker {
     values: HashMap<String, Value>,
     /// Tokens handed out per kind, for numbering.
     counts: HashMap<&'static str, usize>,
+    /// Result names the current query gives to personal columns (`c.full_name creator`).
+    aliases: HashMap<String, &'static str>,
 }
 
 impl Masker {
@@ -187,6 +190,74 @@ impl Masker {
         out
     }
 
+    /// Reads the SQL about to run for result names it gives to expressions that use a personal
+    /// or never-send column (`c.full_name creator`, `upper(email) AS e`, through CTEs and
+    /// subqueries too), so those result columns are masked like the column itself. Counts of
+    /// a personal column (`COUNT(email) AS n`) aren't personal.
+    pub fn learn_aliases(&mut self, sql: &str) {
+        self.aliases.clear();
+        let toks: Vec<String> = super::checks::tokens(sql).iter().map(|t| t.to_lowercase()).collect();
+        let mut items: Vec<Vec<String>> = Vec::new();
+        let mut i = 0;
+        while i < toks.len() {
+            if toks[i] != "select" {
+                i += 1;
+                continue;
+            }
+            i += 1;
+            let (mut depth, mut cur) = (0, Vec::new());
+            while i < toks.len() {
+                let t = &toks[i];
+                if t == "(" {
+                    depth += 1;
+                } else if t == ")" {
+                    if depth == 0 {
+                        break;
+                    }
+                    depth -= 1;
+                } else if depth == 0 && ["from", "where", "union", "into", "group", "order", "having", "limit"].contains(&t.as_str()) {
+                    break;
+                }
+                if depth == 0 && t == "," {
+                    items.push(std::mem::take(&mut cur));
+                } else {
+                    cur.push(t.clone());
+                }
+                i += 1;
+            }
+            items.push(cur);
+        }
+        let ident = |t: &str| t.starts_with(|c: char| c.is_alphabetic() || c == '_' || "\"`[".contains(c));
+        let bare = |t: &str| -> String {
+            let t: String = t.chars().filter(|c| !"\"`[]".contains(*c)).collect();
+            t.rsplit('.').next().unwrap_or("").to_string()
+        };
+        loop {
+            let mut changed = false;
+            for item in &items {
+                let n = item.len();
+                let (alias, expr) = if n >= 3 && item[n - 2] == "as" {
+                    (bare(&item[n - 1]), &item[..n - 2])
+                } else if n >= 2 && ident(&item[n - 1]) && !["end", "null", "true", "false"].contains(&item[n - 1].as_str()) && (ident(&item[n - 2]) || item[n - 2] == ")") && !["as", "distinct", "case", "else", "then"].contains(&item[n - 2].as_str()) {
+                    (bare(&item[n - 1]), &item[..n - 1])
+                } else {
+                    continue;
+                };
+                if alias.is_empty() || self.aliases.contains_key(&alias) || expr.first().is_some_and(|f| f == "count") {
+                    continue;
+                }
+                let kind = expr.iter().filter(|t| ident(t)).map(|t| bare(t)).find_map(|w| self.column_rule(&w));
+                if let Some(kind) = kind {
+                    self.aliases.insert(alias, kind);
+                    changed = true;
+                }
+            }
+            if !changed {
+                break;
+            }
+        }
+    }
+
     /// Whether values of `column` are always masked (its name, or the never-send list).
     pub fn is_personal_column(&self, column: &str) -> bool {
         self.column_rule(column).is_some()
@@ -225,8 +296,9 @@ impl Masker {
 
     /// The kind to mask a whole column as, from its name or the never-send list.
     fn column_rule(&self, column: &str) -> Option<&'static str> {
-        let kind = column_kind(column);
-        if self.never_send.contains(&column.trim().to_lowercase()) { Some(kind.unwrap_or("value")) } else { kind }
+        let name = column.trim().to_lowercase();
+        let kind = column_kind(column).or_else(|| self.aliases.get(&name).copied());
+        if self.never_send.contains(&name) { Some(kind.unwrap_or("value")) } else { kind }
     }
 
     fn token(&mut self, kind: &'static str, v: &Value) -> String {
@@ -956,6 +1028,34 @@ mod tests {
         // A quoted name with a doubled quote doesn't hide a token after it.
         let q = format!("SELECT \"a\"\"b\" FROM t WHERE x = {}", t[0]);
         assert_eq!(m.unmask_sql(&q, Kind::Postgres).unwrap(), "SELECT \"a\"\"b\" FROM t WHERE x = 'x@example.com'");
+    }
+
+    #[test]
+    fn renamed_personal_columns_stay_masked() {
+        let mut m = Masker::new(["patients.notes"]);
+        // What Sonnet 5.5 wrote in the first evaluation: the creator's name under another name.
+        m.learn_aliases(
+            "select t.id, c.full_name creator, m.role, u.full_name, u.email from tenants t left join users c on c.id = t.created_by_user_id \
+             left join memberships m on m.tenant_id = t.id left join users u on u.id = m.user_id where t.name like '%North%'",
+        );
+        let r = result(&["id", "creator", "role", "full_name", "email"], vec![vec![json!(2), json!("Grace Holloway"), json!("admin"), json!("Ravi Menon"), json!("r@example.com")]]);
+        let out = serde_json::to_string(&m.mask(&r, 20)).unwrap();
+        assert!(!out.contains("Grace Holloway") && !out.contains("Ravi Menon") && out.contains("admin"), "{out}");
+        for (sql, col) in [
+            ("SELECT upper(first_name) || ' ' || last_name AS who FROM patients", "who"),
+            ("SELECT \"u\".\"email\" AS \"Contact\" FROM users u", "contact"),
+            ("WITH x AS (SELECT phone AS p FROM users) SELECT p AS reach FROM x", "reach"),
+            ("SELECT n FROM (SELECT notes n FROM patients) s", "n"),
+            ("SELECT CASE WHEN id > 1 THEN full_name ELSE 'x' END AS label FROM users", "label"),
+        ] {
+            m.learn_aliases(sql);
+            assert!(m.is_personal_column(col), "{sql}: {col} should be masked");
+        }
+        m.learn_aliases("SELECT COUNT(email) AS n, COUNT(DISTINCT phone) people, status s FROM users");
+        assert!(!m.is_personal_column("n") && !m.is_personal_column("people") && !m.is_personal_column("s"));
+        // Each query starts fresh.
+        m.learn_aliases("SELECT 1 AS who");
+        assert!(!m.is_personal_column("who"));
     }
 
     #[test]
