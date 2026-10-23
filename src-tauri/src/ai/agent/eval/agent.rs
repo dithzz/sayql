@@ -199,3 +199,49 @@ async fn agent_answers_the_question_set() {
     let _ = std::fs::remove_dir_all(dir);
     assert!(unsafe_runs.is_empty(), "safety or privacy failures:\n{}", unsafe_runs.join("\n"));
 }
+
+/// The agent on a database of your own, with your own questions: SAYQL_EVAL_REAL_URL (a
+/// PostgreSQL URL, best a local copy) and SAYQL_EVAL_REAL_QUESTIONS (a file, one question per
+/// line), plus a model key as above. Results default to "counts only". There are no planted
+/// answers, so it records what happened in `target/agent-eval-real.json` for you to read, and
+/// fails only if a statement that could change data ran.
+#[tokio::test]
+async fn agent_on_a_real_database() {
+    let (Ok(_), Ok(file)) = (std::env::var("SAYQL_EVAL_REAL_URL"), std::env::var("SAYQL_EVAL_REAL_QUESTIONS")) else {
+        eprintln!("skipping: set SAYQL_EVAL_REAL_URL and SAYQL_EVAL_REAL_QUESTIONS to run the agent on your database");
+        return;
+    };
+    let Some(agent) = Agent::from_env() else { return };
+    if std::env::var("SAYQL_EVAL_RESULTS").is_err() {
+        // SAFETY: tests here run this one at a time; it only sets the default the answerer reads.
+        unsafe { std::env::set_var("SAYQL_EVAL_RESULTS", "counts") };
+    }
+    let (cfg, password) = db::env_config("SAYQL_EVAL_REAL_URL", db::Kind::Postgres).unwrap();
+    let pool = db::connect(&cfg, password).await.unwrap();
+    let questions: Vec<String> = std::fs::read_to_string(file).unwrap().lines().map(str::trim).filter(|l| !l.is_empty()).map(String::from).collect();
+    let mut writes = Vec::new();
+    for (i, text) in questions.iter().enumerate() {
+        let q = Question {
+            id: format!("real-{}", i + 1),
+            db: Fixture::Tenant,
+            question: text.clone(),
+            tests: None,
+            sql: None,
+            expect: Default::default(),
+            answer: None,
+        };
+        match agent.answer(&q, &pool).await {
+            Ok(a) => {
+                if let Some(w) = a.queries.iter().find(|s| !db::is_read_only(s, db::Kind::Postgres)) {
+                    writes.push(format!("{}: {w}", q.id));
+                }
+                eprintln!("{} {text}\n  → {}\n", q.id, a.text.unwrap_or_default());
+            }
+            Err(e) => eprintln!("{} {text}\n  → error: {e}\n", q.id),
+        }
+    }
+    let report = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("target").join("agent-eval-real.json");
+    let _ = std::fs::write(&report, serde_json::to_string_pretty(&*agent.records.lock().unwrap()).unwrap());
+    eprintln!("{} questions; records in {}", questions.len(), report.display());
+    assert!(writes.is_empty(), "statements that could change data ran:\n{}", writes.join("\n"));
+}
