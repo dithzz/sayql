@@ -177,8 +177,9 @@ impl SayqlServer {
     #[tool(description = "Describe tables and columns (types, primary keys, foreign keys, enum values, row estimates). \
                           For large databases pass `search` words, e.g. \"customer order invoice\".")]
     async fn describe_schema(&self, Parameters(p): Parameters<SchemaParams>) -> Result<String, String> {
+        let notes = self.state.store.notes_text(&p.connection_id, p.database.as_deref().filter(|d| !d.trim().is_empty()));
         let schema = self.schema(&p.connection_id, p.database).await?;
-        Ok(describe(&schema, p.search.as_deref()))
+        Ok(describe(&schema, p.search.as_deref()) + &notes)
     }
 
     #[tool(description = "Run one read-only SQL statement and return the rows as JSON. \

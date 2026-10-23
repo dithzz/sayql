@@ -17,9 +17,21 @@ const FULL_SCHEMA_CHARS: usize = 60_000;
 pub const WRITE_REFUSED: &str = "SayQL's MCP access is read-only, and this statement could change data. \
 Use open_query to put it in a SayQL tab, where the user reviews and runs it.";
 
+/// The same refusal for agent mode, which has no tab to hand the statement to.
+pub const AGENT_WRITE_REFUSED: &str = "SayQL's agent is read-only, and this statement could change data, so it was not run. \
+If the answer is a change to the data, put the statement in finish as proposed_sql for the person to review.";
+
+/// What a query stopped by its caller (agent mode's Stop) returns.
+pub const STOPPED: &str = "Stopped.";
+
 /// Runs a read-only query, stopping it on the server if it runs longer than `limit`.
 pub async fn run_limited(pool: &DbPool, sql: &str, cap: usize, limit: Duration) -> Result<QueryResult, String> {
-    let cancel = CancellationToken::new();
+    run_limited_with(pool, sql, cap, limit, &CancellationToken::new()).await
+}
+
+/// `run_limited` that also stops, on the server too, when `stop` fires.
+pub async fn run_limited_with(pool: &DbPool, sql: &str, cap: usize, limit: Duration, stop: &CancellationToken) -> Result<QueryResult, String> {
+    let cancel = stop.child_token();
     let timer = tokio::spawn({
         let cancel = cancel.clone();
         async move {
@@ -30,6 +42,7 @@ pub async fn run_limited(pool: &DbPool, sql: &str, cap: usize, limit: Duration) 
     let out = db::run_query_with(pool, sql, true, cap, &cancel).await;
     timer.abort();
     out.map_err(|e| match e.to_string() {
+        e if e == db::CANCELLED && stop.is_cancelled() => STOPPED.to_string(),
         e if e == db::CANCELLED => format!(
             "The query was still running after {} seconds, so SayQL stopped it. Narrow it (a WHERE clause, \
              fewer joins, LIMIT/TOP) and try again, or run it in the SayQL app.",

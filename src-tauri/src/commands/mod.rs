@@ -1,6 +1,7 @@
 //! Tauri commands, grouped by the part of the UI they serve.
 //! Each has a typed wrapper in src/api/commands.ts.
 
+pub mod agent;
 pub mod app;
 pub mod connections;
 pub mod generation;

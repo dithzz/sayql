@@ -65,7 +65,7 @@ pub struct ColumnSummary {
 }
 
 /// Masking state for one agent run: the tokens handed out so far and the columns never to send.
-#[derive(Debug, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct Masker {
     /// Lowercase column names; an entry `table.column` matches the column name.
     never_send: HashSet<String>,
@@ -185,6 +185,42 @@ impl Masker {
         }
         out.push_str(rest);
         out
+    }
+
+    /// Whether values of `column` are always masked (its name, or the never-send list).
+    pub fn is_personal_column(&self, column: &str) -> bool {
+        self.column_rule(column).is_some()
+    }
+
+    /// Whether `sql` names a never-send column anywhere (select list, WHERE, COUNT, ...).
+    pub fn names_never_send(&self, sql: &str) -> Option<String> {
+        sql.split(|c: char| !(c.is_alphanumeric() || c == '_'))
+            .find(|w| self.never_send.contains(&w.to_lowercase()))
+            .map(str::to_string)
+    }
+
+    /// `text` with every real value this run masked replaced by its token again: for
+    /// database messages and plans that quote values from the SQL.
+    pub fn remask_text(&self, text: &str) -> String {
+        let mut pairs: Vec<(String, &String)> =
+            self.values.iter().map(|(t, v)| (plain(v), t)).filter(|(v, _)| v.chars().count() >= 3).collect();
+        pairs.sort_by_key(|(v, _)| std::cmp::Reverse(v.len()));
+        let mut out = text.to_string();
+        for (v, t) in pairs {
+            out = out.replace(&v, t);
+        }
+        out
+    }
+
+    /// Masks one value as it would be masked in a column called `column`.
+    pub fn mask_value(&mut self, column: &str, v: &Value) -> Value {
+        if v.is_null() {
+            return Value::Null;
+        }
+        match self.column_rule(column).or_else(|| value_kind(v)) {
+            Some(kind) => Value::String(self.token(kind, v)),
+            None => v.clone(),
+        }
     }
 
     /// The kind to mask a whole column as, from its name or the never-send list.
@@ -920,6 +956,18 @@ mod tests {
         // A quoted name with a doubled quote doesn't hide a token after it.
         let q = format!("SELECT \"a\"\"b\" FROM t WHERE x = {}", t[0]);
         assert_eq!(m.unmask_sql(&q, Kind::Postgres).unwrap(), "SELECT \"a\"\"b\" FROM t WHERE x = 'x@example.com'");
+    }
+
+    #[test]
+    fn values_are_masked_again_in_text() {
+        let (mut m, t) = masker_with(&[json!("dana@example.org")]);
+        let msg = "duplicate key: email=(dana@example.org) for ab";
+        assert_eq!(m.remask_text(msg), format!("duplicate key: email=({}) for ab", t[0]));
+        assert_eq!(m.mask_value("phone", &json!("x")), json!("‹phone-1›"));
+        assert_eq!(m.mask_value("total", &json!(3)), json!(3));
+        let never = Masker::new(["patients.email"]);
+        assert_eq!(never.names_never_send("SELECT COUNT(Email) FROM p").as_deref(), Some("Email"));
+        assert!(never.names_never_send("SELECT email_verified FROM p").is_none());
     }
 
     #[test]

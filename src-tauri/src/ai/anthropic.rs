@@ -1,5 +1,6 @@
 //! Claude over the Messages API. Raw HTTP + SSE, since there is no official Anthropic SDK for Rust.
 
+use super::agent::model::{Block, Msg, Role, ToolSpec, Turn, Usage};
 use super::sse::SseParser;
 use super::{GenRequest, Output, models, prompt};
 use crate::error::{AppError, AppResult};
@@ -89,6 +90,104 @@ pub(super) async fn run(
     }
 }
 
+/// One agent turn with tools: the reply's text and tool calls. Thinking blocks come back as
+/// `Block::Opaque`, to be passed back unchanged on the next turn as the API requires. The
+/// instructions, schema and tools are cached, so later turns pay the cache-read rate for them.
+#[allow(clippy::too_many_arguments)]
+pub(crate) async fn turn(
+    http: &reqwest::Client,
+    api_key: &str,
+    workspace_id: Option<&str>,
+    model: &str,
+    system: &str,
+    schema: &str,
+    tools: &[ToolSpec],
+    messages: &[Msg],
+) -> AppResult<Turn> {
+    let mut body = turn_body(model, system, schema, tools, messages);
+    let beta = models::apply_options(model, &mut body);
+    let mut req = http.post(API_URL).header("x-api-key", api_key).header("anthropic-version", API_VERSION).json(&body);
+    if let Some(b) = beta {
+        req = req.header("anthropic-beta", b);
+    }
+    if let Some(ws) = workspace_id {
+        req = req.header("anthropic-workspace-id", ws);
+    }
+    let resp = req.send().await.map_err(|e| format!("Could not reach the Claude API: {e}"))?;
+    let status = resp.status().as_u16();
+    let text = resp.text().await.map_err(|e| format!("The response was interrupted: {e}"))?;
+    if !(200..300).contains(&status) {
+        return Err(api_error(status, &text));
+    }
+    parse_turn(&serde_json::from_str(&text)?)
+}
+
+fn turn_body(model: &str, system: &str, schema: &str, tools: &[ToolSpec], messages: &[Msg]) -> Value {
+    let mut tools: Vec<Value> =
+        tools.iter().map(|t| json!({ "name": t.name, "description": t.description, "input_schema": t.schema })).collect();
+    if let Some(last) = tools.last_mut() {
+        last["cache_control"] = json!({ "type": "ephemeral", "ttl": "1h" });
+    }
+    let messages: Vec<Value> = messages
+        .iter()
+        .map(|m| {
+            let content: Vec<Value> = m
+                .blocks
+                .iter()
+                .map(|b| match b {
+                    Block::Text(t) => json!({ "type": "text", "text": t }),
+                    Block::ToolUse { id, name, input } => json!({ "type": "tool_use", "id": id, "name": name, "input": input }),
+                    Block::ToolResult { id, content, is_error } => {
+                        json!({ "type": "tool_result", "tool_use_id": id, "content": content, "is_error": is_error })
+                    }
+                    Block::Opaque(v) => v.clone(),
+                })
+                .collect();
+            json!({ "role": if m.role == Role::User { "user" } else { "assistant" }, "content": content })
+        })
+        .collect();
+    let mut body = json!({
+        "model": model,
+        "max_tokens": 16000,
+        "system": [
+            { "type": "text", "text": system },
+            { "type": "text", "text": schema, "cache_control": { "type": "ephemeral", "ttl": "1h" } }
+        ],
+        "messages": messages,
+        "output_config": { "effort": "medium" },
+    });
+    if !tools.is_empty() {
+        body["tools"] = Value::Array(tools);
+    }
+    body
+}
+
+fn parse_turn(v: &Value) -> AppResult<Turn> {
+    let mut blocks = Vec::new();
+    for b in v["content"].as_array().into_iter().flatten() {
+        match b["type"].as_str().unwrap_or("") {
+            "text" => blocks.push(Block::Text(b["text"].as_str().unwrap_or("").to_string())),
+            "tool_use" => blocks.push(Block::ToolUse {
+                id: b["id"].as_str().unwrap_or("").to_string(),
+                name: b["name"].as_str().unwrap_or("").to_string(),
+                input: b["input"].clone(),
+            }),
+            "thinking" | "redacted_thinking" => blocks.push(Block::Opaque(b.clone())),
+            _ => {}
+        }
+    }
+    let u = &v["usage"];
+    let usage = Usage {
+        input: u["input_tokens"].as_u64().unwrap_or(0) + u["cache_creation_input_tokens"].as_u64().unwrap_or(0),
+        cached: u["cache_read_input_tokens"].as_u64().unwrap_or(0),
+        output: u["output_tokens"].as_u64().unwrap_or(0),
+    };
+    match v["stop_reason"].as_str() {
+        Some("refusal") => Err("The model declined this request. Try rephrasing it.".into()),
+        stop => Ok(Turn { blocks, usage, truncated: stop == Some("max_tokens") }),
+    }
+}
+
 /// Checks that an API key works, with the cheapest call there is (listing one model).
 pub(super) async fn check_key(http: &reqwest::Client, api_key: &str, workspace_id: Option<&str>) -> AppResult<()> {
     let mut req = http
@@ -139,5 +238,35 @@ mod tests {
         assert!(api_error(400, ws).to_string().contains("Workspace ID in Settings"));
 
         assert_eq!(api_error(500, "oops").to_string(), "Claude API error 500: oops");
+    }
+
+    #[test]
+    fn tool_turns_round_trip() {
+        let tools = [ToolSpec { name: "run_query", description: "Run SQL", schema: json!({ "type": "object" }) }];
+        let thinking = json!({ "type": "thinking", "thinking": "hmm", "signature": "sig" });
+        let msgs = vec![
+            Msg::user("Who owns it?"),
+            Msg {
+                role: Role::Assistant,
+                blocks: vec![Block::Opaque(thinking.clone()), Block::ToolUse { id: "tu1".into(), name: "run_query".into(), input: json!({ "sql": "SELECT 1" }) }],
+            },
+            Msg { role: Role::User, blocks: vec![Block::ToolResult { id: "tu1".into(), content: "1 row".into(), is_error: false }] },
+        ];
+        let body = turn_body("claude-opus-5-5", "sys", "schema", &tools, &msgs);
+        assert_eq!(body["tools"][0]["cache_control"]["type"], "ephemeral");
+        assert_eq!(body["messages"][1]["content"][0], thinking);
+        assert_eq!(body["messages"][2]["content"][0]["tool_use_id"], "tu1");
+        assert!(turn_body("m", "s", "x", &[], &msgs).get("tools").is_none());
+
+        let reply = json!({
+            "content": [thinking, { "type": "text", "text": "Checking." }, { "type": "tool_use", "id": "tu2", "name": "finish", "input": { "answer": "x" } }],
+            "stop_reason": "tool_use",
+            "usage": { "input_tokens": 12, "cache_creation_input_tokens": 100, "cache_read_input_tokens": 900, "output_tokens": 30 }
+        });
+        let t = parse_turn(&reply).unwrap();
+        assert_eq!(t.blocks.len(), 3);
+        assert_eq!(t.usage, Usage { input: 112, cached: 900, output: 30 });
+        assert_eq!(t.tool_uses().next().unwrap().1, "finish");
+        assert!(parse_turn(&json!({ "content": [], "stop_reason": "refusal" })).is_err());
     }
 }

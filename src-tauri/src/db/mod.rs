@@ -98,7 +98,7 @@ pub struct LitePools {
     pub(crate) ro: SqlitePool,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct QueryResult {
     pub columns: Vec<String>,

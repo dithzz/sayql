@@ -2,6 +2,7 @@ use crate::ai::endpoint::{address, endpoint, valid_workspace_id};
 use crate::ai::{self, Api, KeyNeed};
 use crate::error::{AppError, AppResult};
 use crate::state::AppState;
+use crate::store::agent::AgentSettings;
 use crate::store::{ProviderSettings, Settings, secrets};
 use serde::Serialize;
 use tauri::State;
@@ -14,6 +15,9 @@ pub struct SettingsView {
     typing_model: String,
     /// Already resolved: the typing model when no separate one was chosen.
     expert_model: String,
+    /// The model that runs agent mode, as chosen (empty: the expert model).
+    agent_model: String,
+    agent: AgentSettings,
     /// The provider has everything it needs (key, model) to write SQL.
     ai_ready: bool,
     /// The first-run setup was finished or dismissed.
@@ -55,6 +59,8 @@ pub fn settings_view(s: &Settings) -> SettingsView {
         provider: s.provider.clone(),
         typing_model: active.typing_model.clone(),
         expert_model: active.model(true).to_string(),
+        agent_model: active.agent_model.clone(),
+        agent: s.agent.clone(),
         ai_ready: endpoint(s).is_ok(),
         onboarded: s.onboarded,
         workspace_id: s.workspace_id.clone(),
@@ -124,7 +130,25 @@ pub fn save_settings(
     s.workspace_id = workspace_id;
     // Claude's address is fixed; a base URL equal to the default is stored as "use the default".
     let base_url = if p.api == Api::Anthropic || base_url == p.base_url { String::new() } else { base_url };
-    s.set_provider_settings(p.id, ProviderSettings { base_url, typing_model, expert_model });
+    let agent_model = s.provider_settings(p.id).agent_model;
+    s.set_provider_settings(p.id, ProviderSettings { base_url, typing_model, expert_model, agent_model });
+    state.store.save_settings(&s)?;
+    Ok(settings_view(&s))
+}
+
+/// Saves the agent model of the current provider (empty: its expert model) and the run limits.
+#[tauri::command]
+pub fn save_agent_settings(state: State<'_, AppState>, agent_model: String, agent: AgentSettings) -> AppResult<SettingsView> {
+    let mut s = state.store.settings()?;
+    let p = ai::endpoint::provider(&s.provider)?;
+    let agent_model = agent_model.trim().to_string();
+    if p.api == Api::Anthropic && !agent_model.is_empty() && !ai::is_known(&agent_model) {
+        return Err(format!("Unknown model {agent_model}").into());
+    }
+    let mut chosen = s.provider_settings(p.id);
+    chosen.agent_model = agent_model;
+    s.set_provider_settings(p.id, chosen);
+    s.agent = agent.validated()?;
     state.store.save_settings(&s)?;
     Ok(settings_view(&s))
 }
