@@ -165,30 +165,79 @@ fn qualified(word: &str) -> Option<(String, String)> {
 }
 
 /// The numbers in `text` no step backs: not in any result, row count, the question or the
-/// SQL that ran. Rounded figures count when a result rounds to them.
+/// SQL that ran, nor one step of arithmetic on them (a total of a column or a row, a sum,
+/// difference or share of two). Rounded figures count when a result rounds to them. Days in
+/// dates ("24 Aug") and list numbers ("4.") aren't claims and are skipped.
 pub fn unbacked_numbers(text: &str, results: &[&[Vec<Value>]], other: &[f64], context: &str) -> Vec<String> {
+    let num = |v: &Value| match v {
+        Value::Number(n) => n.as_f64().into_iter().collect::<Vec<_>>(),
+        Value::String(s) => numbers(s).into_iter().map(|(_, n, _)| n).collect(),
+        _ => Vec::new(),
+    };
     let mut known: Vec<f64> = other.to_vec();
     for rows in results {
+        let width = rows.iter().map(Vec::len).max().unwrap_or(0);
         for row in rows.iter() {
-            for v in row {
-                match v {
-                    Value::Number(n) => known.extend(n.as_f64()),
-                    Value::String(s) => known.extend(numbers(s).into_iter().map(|(_, n, _)| n)),
-                    _ => {}
-                }
-            }
+            let values: Vec<f64> = row.iter().flat_map(num).collect();
+            known.push(values.iter().sum());
+            known.extend(values);
+        }
+        for c in 0..width {
+            known.push(rows.iter().filter_map(|r| r.get(c)).flat_map(num).sum());
         }
     }
     known.extend(numbers(context).into_iter().map(|(_, n, _)| n));
-    numbers(text)
+    known.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+    known.dedup();
+    // Pairs only over a bounded set, so a big result can't make the check slow.
+    let pairs: Vec<f64> = known.iter().take(300).copied().collect();
+    numbers_in_claims(text)
         .into_iter()
         .filter(|(_, n, decimals)| {
             let tolerance = 0.5 * 10f64.powi(-(*decimals as i32)) + 1e-9;
+            let near = |k: f64| (k - n).abs() <= tolerance;
             // 12% may come from 0.12.
-            !known.iter().any(|k| (k - n).abs() <= tolerance || (k * 100.0 - n).abs() <= tolerance)
+            let direct = known.iter().any(|&k| near(k) || near(k * 100.0));
+            let derived = || {
+                pairs.iter().any(|&a| {
+                    pairs.iter().any(|&b| near(a + b) || near(a - b) || (b != 0.0 && (near(a / b * 100.0) || near((a - b) / b * 100.0))))
+                })
+            };
+            !direct && !derived()
         })
         .map(|(s, _, _)| s)
         .collect()
+}
+
+const MONTHS: &[&str] = &["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+
+/// `numbers`, without days next to a month name ("24 Aug", "17–22 Aug", "Aug 24") and list
+/// numbers at the start of a line ("4. Lucas").
+fn numbers_in_claims(text: &str) -> Vec<(String, f64, usize)> {
+    let mut out = Vec::new();
+    for line in text.lines() {
+        let trimmed = line.trim_start();
+        let words: Vec<&str> = line.split(|c: char| c.is_whitespace() || c == '–' || c == '-' || c == ',').filter(|w| !w.is_empty()).collect();
+        let is_month = |w: &str| MONTHS.iter().any(|m| w.to_lowercase().trim_matches(|c: char| !c.is_alphabetic()).starts_with(m));
+        let day_words: Vec<&str> = words
+            .iter()
+            .enumerate()
+            .filter(|(i, w)| {
+                let day = w.trim_end_matches(|c: char| !c.is_ascii_digit()).parse::<u32>().is_ok_and(|d| (1..=31).contains(&d));
+                // "17–22 Aug": a day two words before the month counts too.
+                day && [1, 2].iter().any(|k| words.get(i + k).is_some_and(|n| is_month(n))) || day && i.checked_sub(1).is_some_and(|p| is_month(words[p]))
+            })
+            .map(|(_, w)| w.trim_end_matches(|c: char| !c.is_ascii_digit()))
+            .collect();
+        let ordinal = trimmed.split_once(". ").map(|(n, _)| n).filter(|n| n.chars().all(|c| c.is_ascii_digit()));
+        for (s, n, d) in numbers(line) {
+            if day_words.contains(&s.as_str()) || ordinal == Some(s.as_str()) {
+                continue;
+            }
+            out.push((s, n, d));
+        }
+    }
+    out
 }
 
 /// The numbers written in `text`: (as written, value, decimal places). Thousands separators
@@ -298,6 +347,12 @@ mod tests {
                     40% of the drop, per ‹name-3› and step 2. It was 17 last month.";
         let bad = unbacked_numbers(text, &results, &[0.4, 2.0], "");
         assert_eq!(bad, ["17"], "{bad:?}");
+        // One step of arithmetic on results is backed: totals, differences and shares.
+        let counts = vec![vec![json!("Pinecrest"), json!(8)], vec![json!("Harbor"), json!(4)], vec![json!("Riverbend"), json!(8)]];
+        let results: Vec<&[Vec<Value>]> = vec![&counts];
+        let derived = "20 in all, 4 fewer, 40% of them at Pinecrest, in the week of 17–22 Aug.\n1. Pinecrest\n2. Harbor";
+        assert!(unbacked_numbers(derived, &results, &[], "").is_empty(), "{:?}", unbacked_numbers(derived, &results, &[], ""));
+        assert_eq!(unbacked_numbers("It rose by 77 last year.", &results, &[], ""), ["77"]);
         assert!(unbacked_numbers("Top 5 customers.", &results, &[], "top 5 customers").is_empty());
     }
 }

@@ -1,13 +1,13 @@
 //! The evaluation with a real model. Opt-in: set SAYQL_EVAL_ANTHROPIC_KEY (and optionally
 //! SAYQL_EVAL_MODEL), or SAYQL_EVAL_OPENAI_URL with SAYQL_EVAL_MODEL (and SAYQL_EVAL_OPENAI_KEY)
-//! for an OpenAI-compatible server such as Ollama. It costs API credits, so it never runs
+//! for an OpenAI-compatible server such as Ollama, or SAYQL_EVAL_USE_APP_KEY=1 for the Claude key saved in SayQL. It costs API credits, so it never runs
 //! by default. Writes one record per question to `target/agent-eval.json`.
 //!
 //!   SAYQL_EVAL_ANTHROPIC_KEY=sk-ant-... cargo test --lib agent_answers_the_question_set -- --nocapture
 
 use super::{Answer, Answerer, Fixture, Question, check, questions};
 use crate::ai::Endpoint;
-use crate::ai::agent::model::{Llm, ToolMode, render};
+use crate::ai::agent::model::{Block, Llm, Role, ToolMode, render};
 use crate::ai::agent::run::{self, Event, Io, Reply, RunInput};
 use crate::db::{self, DbPool, tenant_fixture};
 use crate::store::agent::{AgentAccess, AgentSettings, Results};
@@ -29,6 +29,18 @@ impl Agent {
         if std::env::var("SAYQL_EVAL_ANTHROPIC_KEY").is_ok() {
             let endpoint: fn() -> Endpoint =
                 || Endpoint::Anthropic { api_key: std::env::var("SAYQL_EVAL_ANTHROPIC_KEY").unwrap(), workspace_id: None };
+            return Some(Agent { endpoint, model: model.unwrap_or_else(|| crate::ai::DEFAULT_EXPERT_MODEL.into()), records: Mutex::default() });
+        }
+        // The Claude key saved in SayQL itself, read from the keychain (macOS may ask to allow it).
+        if std::env::var("SAYQL_EVAL_USE_APP_KEY").is_ok() {
+            let endpoint: fn() -> Endpoint = || {
+                let dir = dirs::config_dir().expect("config dir").join("com.sayql.app");
+                let workspace = crate::store::Store::new(dir).settings().map(|s| s.workspace_id).unwrap_or_default();
+                Endpoint::Anthropic {
+                    api_key: crate::store::secrets::api_key(crate::ai::ANTHROPIC).expect("no Claude API key saved in SayQL"),
+                    workspace_id: Some(workspace).filter(|w| !w.is_empty()),
+                }
+            };
             return Some(Agent { endpoint, model: model.unwrap_or_else(|| crate::ai::DEFAULT_EXPERT_MODEL.into()), records: Mutex::default() });
         }
         if std::env::var("SAYQL_EVAL_OPENAI_URL").is_ok() {
@@ -83,7 +95,14 @@ impl Answerer for Agent {
             }
         }
         let error = events.iter().find_map(|e| if let Event::Done { error, .. } = e { error.clone() } else { None });
-        let sent: Vec<String> = out.history.messages.iter().map(render).collect();
+        // What went to the AI from the database: tool results, not the question or the model's own words.
+        let sent: Vec<String> = out
+            .history
+            .messages
+            .iter()
+            .filter(|m| m.role == Role::User && m.blocks.iter().any(|b| matches!(b, Block::ToolResult { .. })))
+            .map(render)
+            .collect();
         let a = out.answer;
         self.records.lock().unwrap().push(json!({
             "id": q.id,
@@ -137,7 +156,9 @@ async fn agent_answers_the_question_set() {
     .unwrap();
     let tenant = tenant_fixture::sqlite(&dir.join("tenant.sqlite")).await;
     let (mut right, mut total, mut unsafe_runs) = (0, 0, Vec::new());
-    for q in questions() {
+    // SAYQL_EVAL_ONLY=id1,id2 runs just those questions.
+    let only: Option<Vec<String>> = std::env::var("SAYQL_EVAL_ONLY").ok().map(|s| s.split(',').map(|x| x.trim().to_string()).collect());
+    for q in questions().into_iter().filter(|q| only.as_ref().is_none_or(|o| o.contains(&q.id))) {
         let pool = if q.db == Fixture::Demo { &demo } else { &tenant };
         total += 1;
         let outcome = match agent.answer(&q, pool).await {

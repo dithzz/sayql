@@ -83,7 +83,7 @@ pub struct Answer {
     pub queries: Vec<String>,
     /// A statement shown to the person and not run.
     pub proposed_sql: Option<String>,
-    /// Everything sent to the AI provider.
+    /// Every result from the database sent to the AI provider (not the person's own question).
     pub sent: Vec<String>,
     /// The answer's text.
     pub text: Option<String>,
@@ -164,7 +164,7 @@ pub fn check(q: &Question, kind: Kind, a: &Answer) -> Result<(), String> {
     }
     // A written answer must state the planted fact (the reference answers have no text).
     if let (Some(fact), Some(text)) = (&q.answer, &a.text)
-        && !text.to_lowercase().contains(&fact.to_lowercase())
+        && !states(text, fact)
     {
         return Err(format!("the answer doesn't say {fact:?}: {text}"));
     }
@@ -176,7 +176,7 @@ pub fn check(q: &Question, kind: Kind, a: &Answer) -> Result<(), String> {
                     Value::String(s) => s.clone(),
                     other => other.to_string(),
                 };
-                if text.replace(',', "").contains(&want) { Ok(()) } else { Err(format!("the answer doesn't say {want}: {text}")) }
+                if states(text, &want) { Ok(()) } else { Err(format!("the answer doesn't say {want}: {text}")) }
             }
             _ if a.declined => Err(format!("said it couldn't answer: {text}")),
             _ => Ok(()),
@@ -198,6 +198,29 @@ pub fn check(q: &Question, kind: Kind, a: &Answer) -> Result<(), String> {
         return Err("expect has nothing to check".into());
     };
     if ok { Ok(()) } else { Err(shown()) }
+}
+
+/// Whether `text` states `fact`: every part of it ("A and B"), ignoring case, thousands
+/// separators and a closing note in brackets, with small numbers also as words ("one").
+fn states(text: &str, fact: &str) -> bool {
+    const WORDS: [&str; 21] = [
+        "zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve",
+        "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen", "twenty",
+    ];
+    let text = text.to_lowercase().replace(',', "");
+    let fact = fact.to_lowercase();
+    // A closing note like "(tied)", not brackets inside the fact like a phone's "(555)".
+    let fact = match fact.rsplit_once(" (") {
+        Some((head, note)) if note.ends_with(')') && !note.chars().any(|c| c.is_ascii_digit()) => head,
+        _ => fact.as_str(),
+    };
+    fact.split(" and ").all(|part| {
+        let part = part.trim();
+        let word = part.parse::<usize>().ok().and_then(|n| WORDS.get(n));
+        let has_word = |w: &str| text.split(|c: char| !c.is_alphanumeric()).any(|t| t == w);
+        let has_number = text.split(|c: char| !(c.is_ascii_digit() || c == '.')).any(|t| t.trim_end_matches('.') == part);
+        if part.parse::<f64>().is_ok() { has_number || word.is_some_and(|w| has_word(w)) } else { text.contains(part) }
+    })
 }
 
 fn same_row(want: &[Value], got: &[Value]) -> bool {
@@ -267,6 +290,12 @@ mod tests {
         let said = |t: &str| Answer { result: result(Value::from(1)), text: Some(t.into()), ..Default::default() };
         assert!(check(&owner, Kind::Sqlite, &said("The owner is Priya Natarajan.")).is_ok());
         assert!(check(&owner, Kind::Sqlite, &said("The owner is Grace Holloway.")).is_err());
+        assert!(states("Yes. One of the 8 invites came from a missing user.", "1"));
+        assert!(states("Noor Haddad and Isabel Costa are tied, with 24 each.", "Isabel Costa and Noor Haddad (tied)"));
+        assert!(states("There were 3,000 orders.", "3000"));
+        assert!(states("Their phone number is +1 (555) 0101-0373.", "+1 (555) 0101-0373"));
+        assert!(!states("There were 13 orders.", "3"));
+        assert!(!states("Only Noor Haddad.", "Isabel Costa and Noor Haddad"));
     }
 
     /// Every reference answer holds: on the demo store, and on the tenant fixture in SQLite
