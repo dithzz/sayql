@@ -12,6 +12,7 @@ pub const QUERY: &str = "run_query";
 pub const EXPLAIN: &str = "explain_query";
 pub const ASK: &str = "ask_user";
 pub const FINISH: &str = "finish";
+pub const SHOW: &str = "show_value";
 
 pub fn all() -> Vec<ToolSpec> {
     vec![
@@ -70,6 +71,22 @@ pub fn all() -> Vec<ToolSpec> {
             description: "The database's estimated plan and cost for a query, without running it. Use before a query that \
                           could scan a big table. Not available on SQL Server.",
             schema: json!({ "type": "object", "properties": { "sql": { "type": "string" } }, "required": ["sql"] }),
+        },
+        ToolSpec {
+            name: SHOW,
+            description: "Look up a value to name in your answer, such as the full_name of the user with id 9. You get \
+                          a token (like ‹name-3›), never the value; put the token in the answer and the person sees the \
+                          real value. Use it to name people, places and things you found by id.",
+            schema: json!({
+                "type": "object",
+                "properties": {
+                    "table": { "type": "string" },
+                    "column": { "type": "string", "description": "The column to show, e.g. full_name." },
+                    "key_column": { "type": "string", "description": "The column that picks the row, e.g. id." },
+                    "key": { "description": "Its value, e.g. 9, or a token from an earlier result." }
+                },
+                "required": ["table", "column", "key_column", "key"]
+            }),
         },
         ToolSpec {
             name: ASK,

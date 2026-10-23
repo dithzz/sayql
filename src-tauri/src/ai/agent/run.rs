@@ -457,6 +457,7 @@ impl Run<'_> {
             tools::PROFILE => self.profile(&s("table"), &s("column"), &s("purpose")).await?,
             tools::QUERY => self.query(&s("sql"), &s("purpose")).await?,
             tools::EXPLAIN => self.explain(&s("sql")).await,
+            tools::SHOW => self.show(&s("table"), &s("column"), &s("key_column"), &input["key"]).await?,
             tools::ASK => {
                 let question = self.masker.unmask_text(&s("question"));
                 let choices: Vec<String> =
@@ -625,6 +626,52 @@ impl Run<'_> {
         self.results.push(stats_r);
         self.results.push(top_r);
         Ok(self.end_step(i, Ok(payload), &summary))
+    }
+
+    /// Looks up one value for the answer. The model gets a token for it, never the value.
+    async fn show(&mut self, table: &str, column: &str, key_column: &str, key: &Value) -> Result<(String, bool), Stop> {
+        let dialect = self.input.schema.dialect.clone();
+        let found = find_table(&self.input.schema, table).and_then(|t| {
+            let col = |name: &str| t.columns.iter().find(|c| c.name.eq_ignore_ascii_case(name)).map(|c| c.name.clone());
+            Some((schema::render_name(t, &dialect), col(column)?, col(key_column)?))
+        });
+        let text = format!("Looking up {table}.{column} to show you");
+        let Some((t, col, key_col)) = found else {
+            let i = self.new_step(tools::SHOW, text, None);
+            return Ok(self.end_step(i, Err(format!("There is no column {column} or {key_column} in {table}.")), "sent the error"));
+        };
+        // A token as the key stands for its real value.
+        let key = match key {
+            Value::String(s) if s.contains('‹') => Value::String(self.masker.unmask_text(s)),
+            other => other.clone(),
+        };
+        let literal = match super::mask::literal(&key, self.input.kind) {
+            Ok(l) if !key.is_null() && !key.is_array() && !key.is_object() => l,
+            _ => {
+                let i = self.new_step(tools::SHOW, text, None);
+                return Ok(self.end_step(i, Err("Give the key as one number or string.".into()), "sent the error"));
+            }
+        };
+        let (c, k) = (schema::quote_ident(&col, &dialect), schema::quote_ident(&key_col, &dialect));
+        let sql = match self.input.kind {
+            Kind::Mssql => format!("SELECT TOP 5 {c} AS {c} FROM {t} WHERE {k} = {literal}"),
+            _ => format!("SELECT {c} AS {c} FROM {t} WHERE {k} = {literal} LIMIT 5"),
+        };
+        let i = self.new_step(tools::SHOW, text, Some(sql.clone()));
+        let r = match self.run_sql(&sql).await {
+            Ok(r) => r,
+            Err(e) if e == readonly::STOPPED => return Err(Stop),
+            Err(e) => return Ok(self.end_step(i, Err(e), "sent the error")),
+        };
+        self.fill_step(i, &r, Vec::new());
+        let tokens: Vec<String> = r.rows.iter().filter_map(|row| row.first()).map(|v| self.masker.token_for(&col, v)).collect();
+        let out = match tokens.len() {
+            0 => "No row has that key.".to_string(),
+            1 => format!("{} (shown to the person, hidden from you). Use this token in your answer.", tokens[0]),
+            n => format!("{n} rows: {} (hidden from you). Use these tokens in your answer.", tokens.join(", ")),
+        };
+        self.results.push(r);
+        Ok(self.end_step(i, Ok(out), "sent a token only"))
     }
 
     async fn explain(&mut self, sql: &str) -> (String, bool) {

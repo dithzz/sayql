@@ -222,7 +222,17 @@ fn states(text: &str, fact: &str) -> bool {
             Ok(n) => text.split(|c: char| !(c.is_ascii_digit() || c == '.')).any(|t| t.trim_end_matches('.').parse::<f64>() == Ok(n)),
             Err(_) => false,
         };
-        if part.parse::<f64>().is_ok() { has_number || word.is_some_and(|w| has_word(w)) } else { text.contains(part) }
+        // "No" and "none" answer a count of zero.
+        let zero = part == "0" && ["no", "none", "zero"].iter().any(|w| has_word(w));
+        // A column fact like "patients.phone" may be written out ("the phone column of the patients table").
+        let column = part.split_once('.').filter(|(t, c)| !t.is_empty() && !c.is_empty() && part.parse::<f64>().is_err());
+        if part.parse::<f64>().is_ok() {
+            has_number || zero || word.is_some_and(|w| has_word(w))
+        } else if let Some((t, c)) = column {
+            text.contains(part) || (has_word(t) && has_word(c))
+        } else {
+            text.contains(part)
+        }
     })
 }
 
@@ -297,6 +307,9 @@ mod tests {
         assert!(states("Noor Haddad and Isabel Costa are tied, with 24 each.", "Isabel Costa and Noor Haddad (tied)"));
         assert!(states("There were 3,000 orders.", "3000"));
         assert!(states("The average is 77.50.", "77.5"));
+        assert!(states("No. Every item points to a product.", "0"));
+        assert!(states("They are in the `phone` column of the `patients` table.", "patients.phone"));
+        assert!(!states("They are in the users table.", "patients.phone"));
         assert!(states("Their phone number is +1 (555) 0101-0373.", "+1 (555) 0101-0373"));
         assert!(!states("There were 13 orders.", "3"));
         assert!(!states("Only Noor Haddad.", "Isabel Costa and Noor Haddad"));

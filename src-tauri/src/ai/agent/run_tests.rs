@@ -447,6 +447,7 @@ async fn tools_work_on_every_database() {
         let turns = vec![
             MockTurn::Tools(vec![("profile_column", json!({ "table": "appointments", "column": "status_id" }))]),
             MockTurn::Tools(vec![("explain_query", json!({ "sql": "SELECT COUNT(*) FROM appointments WHERE tenant_id = 3" }))]),
+            MockTurn::Tools(vec![("show_value", json!({ "table": "tenants", "column": "name", "key_column": "id", "key": 3 }))]),
             MockTurn::Tools(vec![("run_query", json!({ "sql": "SELECT email FROM users WHERE id = 9", "purpose": "x" }))]),
             MockTurn::Dynamic(Box::new(|last| {
                 let token = &last[last.find('‹').unwrap()..last.find('›').unwrap() + '›'.len_utf8()];
@@ -484,7 +485,8 @@ async fn tools_work_on_every_database() {
         } else {
             assert_eq!(steps[1].status, StepStatus::Done, "{kind:?}: {:?}", steps[1]);
         }
-        assert_eq!(steps[3].rows, [[json!("Priya Natarajan")]], "{kind:?}: {:?}", steps[3]);
+        assert_eq!(steps[2].rows, [[json!("Pinecrest Physio")]], "{kind:?}: {:?}", steps[2]);
+        assert_eq!(steps[4].rows, [[json!("Priya Natarajan")]], "{kind:?}: {:?}", steps[4]);
     }
 }
 
@@ -503,4 +505,22 @@ async fn renamed_name_columns_never_reach_the_model() {
     for name in ["Dana Reyes", "Grace Holloway", "Priya Natarajan", "Noor Haddad", "Victor Lindqvist"] {
         assert!(!ran.seen[1].contains(name), "{name} reached the model");
     }
+}
+
+/// On "counts only" the agent can still name who it found: show_value gives it a token, and
+/// the person sees the name.
+#[tokio::test]
+async fn show_value_names_things_without_sending_them() {
+    let f = fixture().await;
+    let turns = vec![
+        MockTurn::Tools(vec![("show_value", json!({ "table": "users", "column": "full_name", "key_column": "id", "key": 9 }))]),
+        MockTurn::Dynamic(Box::new(|last| {
+            let token = &last[last.find('‹').unwrap()..last.find('›').unwrap() + '›'.len_utf8()];
+            vec![("finish", json!({ "answer": format!("{token} owns Northfield.") }))]
+        })),
+    ];
+    let ran = go(&f.pool, turns, access(Results::Counts, false), AgentSettings::default(), vec![]).await;
+    assert_eq!(ran.done().0.as_ref().unwrap().text, "Priya Natarajan owns Northfield.");
+    assert!(!ran.seen.join("\n").contains("Priya"), "the name never reached the model");
+    assert_eq!(ran.steps()[0].sent_summary.as_deref(), Some("sent a token only"));
 }

@@ -283,6 +283,12 @@ impl Masker {
         out
     }
 
+    /// A token for a value the person may see but the AI may not, whatever its column or shape.
+    pub fn token_for(&mut self, column: &str, v: &Value) -> String {
+        let kind = self.column_rule(column).or_else(|| value_kind(v)).unwrap_or("value");
+        self.token(kind, v)
+    }
+
     /// Masks one value as it would be masked in a column called `column`.
     pub fn mask_value(&mut self, column: &str, v: &Value) -> Value {
         if v.is_null() {
@@ -473,7 +479,7 @@ fn plain(v: &Value) -> String {
 }
 
 /// The value as a SQL literal of `kind`'s dialect.
-fn literal(v: &Value, kind: Kind) -> Result<String, String> {
+pub(super) fn literal(v: &Value, kind: Kind) -> Result<String, String> {
     match v {
         Value::Number(n) => return Ok(n.to_string()),
         Value::Bool(b) if kind == Kind::Mssql => return Ok(if *b { "1" } else { "0" }.into()),
