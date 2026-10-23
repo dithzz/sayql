@@ -3,7 +3,7 @@
 All notable changes to SayQL are listed here. Downloads are on the
 [releases page](https://github.com/dithzz/sayql-releases/releases).
 
-## Unreleased
+## 0.3.0 (2026-10-23)
 
 - **Agent mode:** type `/agent` and a question that needs looking around first ("who owns this tenant?", "why did
   signups drop last week?"). The agent shows a plan you can change, works through it in read-only steps, asks
