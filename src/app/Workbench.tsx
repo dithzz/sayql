@@ -351,6 +351,8 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
                       }}
                       onAgentBusy={(busy) => setBusy(t.id, busy)}
                       onNotesChanged={() => setNotesVersion((v) => v + 1)}
+                      onSettingsChange={setSettings}
+                      onNotice={setNotice}
                     />
                     </ErrorBoundary>
                   );

@@ -26,6 +26,9 @@ export interface WorkspaceGeneration {
   /** Agent mode's setting line for this connection, shown under the Ask box in agent mode. */
   agentHint?: ReactNode;
   onInvestigate?: () => void;
+  onModeChange?: (agent: boolean) => void;
+  modelPicker?: ReactNode;
+  agentStarters?: string[];
 }
 
 /** An agent run in this tab: Run becomes Stop while it goes. */
@@ -158,6 +161,9 @@ export function SqlWorkspace({ connectionName, schema, active, modelNames, onOpe
         voicePrompt={voicePrompt(schema, focus.tables)}
         agentHint={g.agentHint}
         onInvestigate={g.onInvestigate}
+        onModeChange={g.onModeChange}
+        modelPicker={g.modelPicker}
+        agentStarters={g.agentStarters}
       />
       <div className={styles.editor}>
         <SqlEditor

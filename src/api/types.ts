@@ -81,7 +81,11 @@ export interface AiProvider {
   typingModel: string;
   /** Empty means the typing model does fixes too. */
   expertModel: string;
+  /** Empty means the expert model runs agent mode. */
+  agentModel: string;
   hasKey: boolean;
+  /** Set up (model, key, address), so the Ask box can switch to it. */
+  ready: boolean;
 }
 
 export interface Settings {

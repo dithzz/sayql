@@ -15,6 +15,10 @@ All notable changes to SayQL are listed here. Downloads are on the
   screen). Ask before each send shows exactly what would go, with Send and Skip; never-send columns are refused.
 - **Database notes:** facts the agent learns ("owner = memberships.role = 'owner'") can be saved per database.
   The Ask box, the agent and MCP all use them; edit them in the navigator.
+- **Quick or Agent, and the model, right in the Ask box.** A switch under the Ask box (or ⌘⇧A) picks
+  Quick (SQL as you type) or Agent, so nobody has to remember `/agent`; turning on Agent for a connection the
+  first time asks what it may see. Next to it, the model name switches the model, or the provider among the ones
+  already set up, without opening Settings. In agent mode, an empty Ask box suggests a few questions to start with.
 - MCP's read-only helpers moved to a module agent mode shares, so both keep the same safety rules.
 
 ## 0.2.9 (2026-10-23)

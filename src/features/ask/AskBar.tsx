@@ -44,6 +44,12 @@ export interface AskBarProps {
   agentHint?: ReactNode;
   /** Starts an investigation of the question as it is (the Investigate button). */
   onInvestigate?: () => void;
+  /** The Quick / Agent switch (and ⌘⇧A): present when agent mode can be used here. */
+  onModeChange?: (agent: boolean) => void;
+  /** The model switcher, shown in the footer. */
+  modelPicker?: ReactNode;
+  /** Example questions offered in agent mode while the question is empty. */
+  agentStarters?: string[];
 }
 
 /** The plain-English input. SQL appears in the editor below as the person types. */
@@ -106,6 +112,12 @@ export const AskBar = forwardRef<HTMLTextAreaElement, AskBarProps>(function AskB
         : "Ask in plain English, or type / for commands";
   // /new, /agent and the actions don't build on the last query; /followup always does.
   const followUp = p.followUp && slug !== "new" && slug !== "agent" && !isAction(command) ? p.followUp : undefined;
+  const agent = slug === "agent";
+  const setMode = (toAgent: boolean) => {
+    if (toAgent !== agent) p.onModeChange?.(toAgent);
+    input.current?.focus();
+  };
+  const starters = agent && !rest.trim() && !p.disabled ? (p.agentStarters ?? []) : [];
 
   return (
     <div className={styles.ask}>
@@ -159,7 +171,10 @@ export const AskBar = forwardRef<HTMLTextAreaElement, AskBarProps>(function AskB
               }
             }
             const el = e.currentTarget;
-            if (e.key === "Enter" && !e.shiftKey) {
+            if (e.key.toLowerCase() === "a" && e.shiftKey && (e.metaKey || e.ctrlKey) && p.onModeChange) {
+              e.preventDefault();
+              setMode(!agent);
+            } else if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
               p.onSubmit();
             } else if (e.key === "Escape") {
@@ -199,7 +214,27 @@ export const AskBar = forwardRef<HTMLTextAreaElement, AskBarProps>(function AskB
           <IconButton icon={X} label="Close explanation" size="sm" onClick={p.onDismissExplanation} />
         </div>
       )}
+      {starters.length > 0 && (
+        <div className={styles.starters} aria-label="Example questions">
+          {starters.map((s) => (
+            <button key={s} type="button" className={styles.starter} onClick={() => { setRest(s); input.current?.focus(); }}>
+              {s}
+            </button>
+          ))}
+        </div>
+      )}
       <div className={styles.footer}>
+        {p.onModeChange && (
+          <div className={styles.modes} role="radiogroup" aria-label="Mode" title="Switch with ⌘⇧A">
+            <button type="button" role="radio" aria-checked={!agent} className={cx(styles.mode, !agent && styles.modeOn)} onClick={() => setMode(false)} title="Quick: SQL appears as you type (⌘⇧A)">
+              <Zap size={12} /> Quick
+            </button>
+            <button type="button" role="radio" aria-checked={agent} className={cx(styles.mode, agent && styles.modeOn)} onClick={() => setMode(true)} title="Agent: investigates in several read-only steps and answers (⌘⇧A)">
+              <Bot size={12} /> Agent
+            </button>
+          </div>
+        )}
+        {p.modelPicker}
         {followUp && (
           <span className={styles.followUp} title="Requests like “remove a column” or “only active ones” change the last query you ran">
             <CornerDownRight size={13} /> {slug === "followup" ? "Changing your last query" : "Building on your last query"}
@@ -215,12 +250,17 @@ export const AskBar = forwardRef<HTMLTextAreaElement, AskBarProps>(function AskB
         ) : (
           <StatusLine status={p.status} modelNames={p.modelNames} onOpenSettings={p.onOpenSettings} onRetry={p.onRetry} />
         )}
-        {p.onInvestigate && slug !== "agent" && !isAction(command) && rest.trim() && (
+        {p.onInvestigate && !p.onModeChange && slug !== "agent" && !isAction(command) && rest.trim() && (
           <Button size="sm" variant="ghost" icon={Bot} onClick={p.onInvestigate} title="Let the agent investigate this in several read-only steps">
             Investigate
           </Button>
         )}
         <span className={styles.hints}>
+          {p.onModeChange && (
+            <>
+              <Kbd>⌘⇧A</Kbd> mode{" "}
+            </>
+          )}
           <Kbd>/</Kbd> commands <Kbd>↵</Kbd> {slug === "agent" ? "investigate" : isAction(command) ? slug : "run"} <Kbd>⇧↵</Kbd> new line{" "}
           <Kbd>esc</Kbd> clear
         </span>

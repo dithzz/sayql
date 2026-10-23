@@ -1,4 +1,5 @@
 export { SettingsPage } from "./SettingsPage";
 export type { SettingsSection } from "./SettingsPage";
-export { useSettings } from "./useSettings";
+export { ModelPicker } from "./ModelPicker";
+export { modelLabel, useSettings } from "./useSettings";
 export type { ModelNames } from "./useSettings";

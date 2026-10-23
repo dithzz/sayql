@@ -67,6 +67,9 @@ export const commands = {
   /** Creates the note when `id` is empty; refuses notes that hold values from the data. */
   saveNote: (note: DbNote) => invoke<DbNote>("save_note", { note }),
   deleteNote: (id: string) => invoke<void>("delete_note", { id }),
+  /** From the Ask box: switch to a ready provider and use `model` for typing (Quick) or agent mode. */
+  chooseModel: (provider: string, model: string, purpose: "typing" | "agent") =>
+    invoke<Settings>("choose_model", { provider, model, purpose }),
   /** The agent model (empty: the expert model) and the run limits. */
   saveAgentSettings: (agentModel: string, agent: AgentSettings) => invoke<Settings>("save_agent_settings", { agentModel, agent }),
 

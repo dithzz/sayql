@@ -5,6 +5,7 @@ import { Button, SplitPane } from "../components/ui";
 import {
   AgentAccessDialog,
   AgentPanel,
+  agentStarters,
   describeAccess,
   forStorage,
   isActive,
@@ -18,7 +19,7 @@ import { resolveSelection, type TextRange } from "../features/editor";
 import { statementRanges } from "../lib/sqlStatements";
 import { ConfirmWriteDialog, useQueryRunner } from "../features/query";
 import { ResultsPanel } from "../features/results";
-import type { ModelNames } from "../features/settings";
+import { ModelPicker, type ModelNames } from "../features/settings";
 import type { EditorTab } from "../features/tabs";
 import { SqlWorkspace } from "./SqlWorkspace";
 import styles from "./QueryTab.module.css";
@@ -45,6 +46,10 @@ export interface QueryTabProps {
   onAgentBusy: (busy: boolean) => void;
   /** A database note was saved (the navigator lists them). */
   onNotesChanged: () => void;
+  /** The Ask box switched model or provider. */
+  onSettingsChange: (s: Settings) => void;
+  /** Shows a message in the banner, e.g. when switching models fails. */
+  onNotice: (message: string) => void;
 }
 
 /** One editor tab: Ask bar and SQL editor above, results below, bound to the tab's database. */
@@ -200,6 +205,17 @@ export function QueryTab(props: QueryTabProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active, schema]);
 
+  /** The Ask box's Quick / Agent switch: adds or removes /agent, keeping the question. */
+  const asked = parseCommand(generation.question, skills).command;
+  const agentMode = asked?.kind === "builtin" && asked.builtin.slug === "agent";
+  const switchMode = (toAgent: boolean) => {
+    const { command, rest } = parseCommand(generation.question, skills);
+    if (!toAgent) return generation.setQuestion(rest);
+    const skill = command?.kind === "skill" ? command.skill.slug : null;
+    generation.setQuestion(withCommand("agent", skill ? withCommand(skill, rest) : rest));
+    if (!access?.enabled) setAccessDialog({ then: null });
+  };
+
   const busy = generation.status.kind === "writing";
   const canUseAi = settings.aiReady && !!schema;
   const autoFixFailed = autoFixUsed.current && !busy && !!query.error;
@@ -248,6 +264,17 @@ export function QueryTab(props: QueryTabProps) {
                     investigate(rest, skill);
                   }
                 : undefined,
+              onModeChange: canUseAi ? switchMode : undefined,
+              modelPicker: (
+                <ModelPicker
+                  settings={settings}
+                  purpose={agentMode ? "agent" : "typing"}
+                  onChange={props.onSettingsChange}
+                  onError={props.onNotice}
+                  onOpenSettings={onOpenSettings}
+                />
+              ),
+              agentStarters: agentStarters(schema),
             }}
             query={{
               sql: tab.sql,

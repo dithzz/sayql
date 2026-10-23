@@ -67,6 +67,7 @@ pub fn run() {
             agent::save_note,
             agent::delete_note,
             settings::save_agent_settings,
+            settings::choose_model,
             handoffs::take_handoffs,
             settings::save_settings,
             settings::list_models,

@@ -58,7 +58,9 @@ const provider = (id: string, label: string, extra: Partial<AiProvider> = {}): A
   baseUrl: "",
   typingModel: "",
   expertModel: "",
+  agentModel: "",
   hasKey: false,
+  ready: false,
   ...extra,
 });
 
@@ -85,6 +87,7 @@ const settings: Settings = {
       typingModel: "claude-haiku-5-5",
       expertModel: "claude-opus-5-5",
       hasKey: true,
+      ready: true,
     }),
     provider("openai", "OpenAI", { note: "GPT models with an OpenAI API key.", keyPlaceholder: "sk-…" }),
     provider("gemini", "Google Gemini", { note: "Gemini models with a Google AI Studio key.", keyPlaceholder: "AIza…" }),
@@ -93,6 +96,9 @@ const settings: Settings = {
       key: "none",
       local: true,
       defaultBaseUrl: "http://localhost:11434/v1",
+      typingModel: "qwen3",
+      expertModel: "qwen3",
+      ready: true,
     }),
     provider("custom", "Other (OpenAI-compatible)", { note: "Any server with an OpenAI-compatible API.", key: "optional", defaultBaseUrl: "" }),
   ],
@@ -449,7 +455,17 @@ export function installMockBackend() {
           return null;
         case "save_agent_settings":
           Object.assign(settings, { agentModel: a.agentModel, agent: a.agent });
+          settings.providers = settings.providers.map((p) => (p.id === settings.provider ? { ...p, agentModel: a.agentModel as string } : p));
           return { ...settings };
+        case "choose_model": {
+          const field = a.purpose === "agent" ? "agentModel" : "typingModel";
+          const chosen = settings.providers.find((p) => p.id === a.provider);
+          if (!chosen?.ready) return Promise.reject(`${chosen?.label ?? a.provider} isn't set up yet.`);
+          settings.providers = settings.providers.map((p) => (p.id === a.provider ? { ...p, [field]: a.model as string } : p));
+          const p = settings.providers.find((q) => q.id === a.provider)!;
+          Object.assign(settings, { provider: p.id, typingModel: p.typingModel, expertModel: p.expertModel, agentModel: p.agentModel });
+          return { ...settings };
+        }
         case "list_scripts":
           return [];
         case "save_script": {
