@@ -541,3 +541,34 @@ async fn show_value_takes_a_query() {
     assert_eq!(ran.done().0.as_ref().unwrap().text, "Dana Reyes is in the most tenants.");
     assert!(!ran.seen.join("\n").contains("Dana"), "the name never reached the model");
 }
+
+/// An answer that claims something about every row is sent back once to be checked.
+#[tokio::test]
+async fn claims_about_all_rows_are_checked_once() {
+    let f = fixture().await;
+    let turns = vec![
+        MockTurn::Tools(vec![("run_query", json!({ "sql": "SELECT COUNT(*) AS n FROM appointments WHERE status_id = 3", "purpose": "x" }))]),
+        MockTurn::Tools(vec![("finish", json!({ "answer": "There are 25 cancelled appointments. Every appointment has a patient." }))]),
+        MockTurn::Tools(vec![("run_query", json!({ "sql": "SELECT COUNT(*) AS n FROM appointments a LEFT JOIN patients p ON p.id = a.patient_id WHERE p.id IS NULL", "purpose": "check" }))]),
+        MockTurn::Tools(vec![("finish", json!({ "answer": "There are 25 cancelled appointments. 3 appointments have no patient." }))]),
+    ];
+    let ran = go(&f.pool, turns, access(Results::Counts, false), AgentSettings::default(), vec![]).await;
+    assert!(ran.seen[2].contains("- Every appointment has a patient"), "{}", ran.seen[2]);
+    assert!(!ran.seen[2].contains("- There are 25"), "only the sweeping claim is sent back");
+    assert_eq!(ran.done().0.as_ref().unwrap().text, "There are 25 cancelled appointments. 3 appointments have no patient.");
+    assert!(ran.steps().iter().any(|s| s.tool == "review"));
+    // A second sweeping answer stands: the check runs once.
+    let again = go(
+        &f.pool,
+        vec![
+            MockTurn::Tools(vec![("run_query", json!({ "sql": "SELECT 1", "purpose": "x" }))]),
+            MockTurn::Tools(vec![("finish", json!({ "answer": "All good." }))]),
+            MockTurn::Tools(vec![("finish", json!({ "answer": "All good, checked." }))]),
+        ],
+        access(Results::Counts, false),
+        AgentSettings::default(),
+        vec![],
+    )
+    .await;
+    assert_eq!(again.done().0.as_ref().unwrap().text, "All good, checked.");
+}

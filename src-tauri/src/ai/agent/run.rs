@@ -161,6 +161,8 @@ struct Run<'a> {
     results: Vec<QueryResult>,
     /// SQL the model checked with explain_query, which may then read a big table in full.
     explained: Vec<String>,
+    /// The answer's claims about all rows were sent back once to be checked.
+    reviewed: bool,
     turns: u32,
     queries: u32,
     usage: Usage,
@@ -191,6 +193,7 @@ pub async fn run(llm: &mut Llm, pool: &DbPool, mut input: RunInput, io: &mut Io)
         steps: Vec::new(),
         results: Vec::new(),
         explained: Vec::new(),
+        reviewed: false,
         turns: 0,
         queries: 0,
         usage: Usage::default(),
@@ -292,6 +295,23 @@ impl Run<'_> {
             let mut results = Vec::new();
             for (id, name, input) in calls {
                 if name == tools::FINISH {
+                    // Claims about all rows are checked once more, over all of them, before the answer stands.
+                    let claims = checks::sweeping_claims(input["answer"].as_str().unwrap_or(""));
+                    let cannot = input["cannot_answer"].as_bool().unwrap_or(false);
+                    if !self.reviewed && !last_turn && self.queries > 0 && !cannot && !claims.is_empty() {
+                        self.reviewed = true;
+                        let i = self.new_step("review", "Checking claims about all rows".into(), None);
+                        let list: Vec<String> = claims.iter().map(|c| format!("- {c}")).collect();
+                        let msg = format!(
+                            "Before this answer stands, check each sentence below that says something about all, every or no \
+                             rows. Run a query over all the relevant rows (not only the subset an earlier query filtered), \
+                             and correct any sentence the result doesn't support. Then call finish again.\n{}",
+                            list.join("\n")
+                        );
+                        let (content, is_error) = self.end_step(i, Ok(msg), "asked the AI to check its claims");
+                        results.push(Block::ToolResult { id, content, is_error });
+                        continue;
+                    }
                     return End::Answer(Box::new(self.answer(&input)));
                 }
                 let out = match self.tool(&name, &input).await {

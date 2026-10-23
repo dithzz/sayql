@@ -164,6 +164,19 @@ fn qualified(word: &str) -> Option<(String, String)> {
     (!alias.is_empty() && !column.is_empty()).then_some((alias, column))
 }
 
+/// Words that make a sentence a claim about all rows.
+const SWEEPING: &[&str] = &["every", "all", "none", "no", "never", "always", "each", "nobody", "nothing", "only"];
+
+/// The sentences of `text` that say something about all rows ("every period has an end
+/// date", "no injury is missing a person"), for checking over all of them.
+pub fn sweeping_claims(text: &str) -> Vec<String> {
+    text.split(['\n', '.', ';'])
+        .map(str::trim)
+        .filter(|s| s.split(|c: char| !c.is_alphanumeric()).any(|w| SWEEPING.contains(&w.to_lowercase().as_str())))
+        .map(String::from)
+        .collect()
+}
+
 /// The numbers in `text` no step backs: not in any result, row count, the question or the
 /// SQL that ran, nor one step of arithmetic on them (a total of a column or a row, a sum,
 /// difference or share of two). Rounded figures count when a result rounds to them. Days in
@@ -330,6 +343,14 @@ mod tests {
         assert_eq!(unfiltered_big_scan("SELECT * FROM orders o JOIN \"order_items\" oi ON oi.order_id = o.id", &s).map(|x| x.0), Some("order_items".into()));
         assert!(unfiltered_big_scan("SELECT COUNT(*) FROM order_items WHERE order_id = 3", &s).is_none());
         assert!(unfiltered_big_scan("SELECT COUNT(*) FROM orders", &s).is_none());
+    }
+
+    #[test]
+    fn finds_claims_about_all_rows() {
+        let claims = sweeping_claims("There are 3,291 current certificates. Every period has an end date. None is open-ended.");
+        assert_eq!(claims, ["Every period has an end date", "None is open-ended"]);
+        assert!(sweeping_claims("Springwood had 92 injuries; the next had 65.").is_empty());
+        assert!(sweeping_claims("Knowledge is noted.").is_empty(), "words inside words don't count");
     }
 
     #[test]
