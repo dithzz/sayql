@@ -24,7 +24,9 @@ const sqlite: Schema = {
 describe("fastPath", () => {
   it("lists a table by name, singular or plural", () => {
     expect(fastPath("customers", sqlite)).toBe("SELECT *\nFROM customers\nLIMIT 100;");
-    expect(fastPath("Show all customer", sqlite)).toBe("SELECT *\nFROM customers\nLIMIT 100;");
+    // "all" means all of them; the app caps the rows it shows.
+    expect(fastPath("Show all customer", sqlite)).toBe("SELECT *\nFROM customers;");
+    expect(fastPath("every order item", sqlite)).toBe("SELECT *\nFROM order_items;");
     expect(fastPath("list the order items", sqlite)).toBe("SELECT *\nFROM order_items\nLIMIT 100;");
     expect(fastPath("show category", sqlite)).toBe("SELECT *\nFROM categories\nLIMIT 100;");
   });
@@ -53,6 +55,7 @@ describe("fastPath", () => {
   it("quotes reserved words and keeps non-public schemas", () => {
     const pg: Schema = { dialect: "PostgreSQL", tables: [table("user", ["id"]), table("events", ["id"], "analytics")] };
     expect(fastPath("users", pg)).toBe('SELECT *\nFROM "user"\nLIMIT 100;');
+    expect(fastPath("show all users", pg)).toBe('SELECT *\nFROM "user";');
     expect(fastPath("events", pg)).toBe("SELECT *\nFROM analytics.events\nLIMIT 100;");
     const my: Schema = { dialect: "MySQL", tables: [table("order", ["id"])] };
     expect(fastPath("count orders", my)).toBe("SELECT COUNT(*) AS total_order\nFROM `order`;");

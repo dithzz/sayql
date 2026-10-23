@@ -866,7 +866,10 @@ async fn check_connection_errors(kind: Kind, t: &Target) {
     assert!(err.starts_with("Could not reach no-such-host.invalid:"), "{err}");
 
     let err = connect(&base, Some("wrong-password".into())).await.err().expect("wrong password").to_string();
-    assert!(err.contains("password authentication failed") || err.contains("Access denied"), "{err}");
+    assert!(
+        err.contains("password authentication failed") || err.contains("Access denied") || err.starts_with("Wrong user or password"),
+        "{err}"
+    );
 
     let plain = connect(&base, t.password.clone()).await.expect("connect with SSL off");
     // A server that offers TLS (MySQL 5.7 included) connects with SSL required, encrypted.

@@ -20,7 +20,12 @@ pub async fn connect(cfg: &ConnConfig, password: Option<String>) -> AppResult<Db
                 .username(&cfg.user)
                 .database(or(&cfg.database, "postgres"))
                 .ssl_mode(if cfg.ssl { PgSslMode::Require } else { PgSslMode::Prefer })
-                .application_name("sayql");
+                .application_name("sayql")
+                // No client-side statement cache: behind a transaction pooler (Supabase on port 6543,
+                // PgBouncer) the server connection changes between transactions, so a cached statement
+                // may not exist there, or a name may already be taken. Each transaction starts with
+                // DEALLOCATE ALL instead (db/execute.rs, db/introspect/postgres.rs, db/databases.rs).
+                .statement_cache_capacity(0);
             if !pw.is_empty() {
                 o = o.password(&pw);
             }
@@ -133,6 +138,10 @@ fn explain(e: sqlx::Error, host: &str, port: u16, ssl: bool) -> AppError {
             "Timed out reaching {addr}. Check the host and port, and that you're on the right network or VPN."
         )
         .into(),
+        // Poolers (PgBouncer, Supabase) report a wrong password as a SASL failure.
+        other if other.to_string().contains("SASL authentication failed") => {
+            format!("Wrong user or password for {addr}: the server rejected the login.").into()
+        }
         other => other.into(),
     }
 }

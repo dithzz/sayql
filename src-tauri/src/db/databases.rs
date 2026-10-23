@@ -35,10 +35,15 @@ pub async fn list_databases(pool: &DbPool) -> AppResult<Option<DatabaseList>> {
             let current = current.and_then(|r| r.try_get::<&str, _>(0).ok().flatten().map(str::to_string));
             DatabaseList { databases, current }
         }
-        DbPool::Pg(p) => DatabaseList {
-            databases: sqlx::query_scalar(PG_DATABASES).fetch_all(p).await?,
-            current: sqlx::query_scalar("SELECT current_database()::text").fetch_one(p).await.ok(),
-        },
+        DbPool::Pg(p) => {
+            // One transaction keeps both on one server connection behind a pooler (see introspect/postgres.rs).
+            let mut tx = p.begin().await?;
+            sqlx::raw_sql("DEALLOCATE ALL").execute(&mut *tx).await?;
+            let databases = sqlx::query_scalar(PG_DATABASES).fetch_all(&mut *tx).await?;
+            let current = sqlx::query_scalar("SELECT current_database()::text").fetch_one(&mut *tx).await.ok();
+            tx.rollback().await?;
+            DatabaseList { databases, current }
+        }
         DbPool::My(p) => {
             let rows = sqlx::query("SELECT CAST(SCHEMA_NAME AS CHAR) FROM information_schema.SCHEMATA ORDER BY 1").fetch_all(p).await?;
             let databases = rows

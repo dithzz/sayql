@@ -1,9 +1,15 @@
+// Behind a transaction pooler (Supabase on port 6543, PgBouncer), statements outside a transaction can
+// land on different server connections. So these run inside one read-only transaction, which keeps them on
+// one server connection, after clearing any prepared statements another client left there.
 use super::assemble;
 use crate::schema::Table;
 use sqlx::PgPool;
 use std::collections::HashMap;
 
-pub(super) async fn introspect(p: &PgPool) -> Result<Vec<Table>, sqlx::Error> {
+pub(super) async fn introspect(pool: &PgPool) -> Result<Vec<Table>, sqlx::Error> {
+    let mut tx = pool.begin().await?;
+    sqlx::raw_sql("SET TRANSACTION READ ONLY; DEALLOCATE ALL").execute(&mut *tx).await?;
+    let p = &mut *tx;
     // information_schema has no materialized views, so they come from the catalog. Partitions
     // are left out: the parent table is what queries use, and listing every partition would
     // crowd the AI's schema.
@@ -35,7 +41,7 @@ pub(super) async fn introspect(p: &PgPool) -> Result<Vec<Table>, sqlx::Error> {
            WHERE cl.relkind = 'm' AND has_table_privilege(cl.oid, 'SELECT')
            ) cols ORDER BY s, t, pos"#,
     )
-    .fetch_all(p)
+    .fetch_all(&mut *p)
     .await?;
     // From the catalog, not information_schema.table_constraints, which hides constraints
     // from roles that only have SELECT on a table: read-only logins would see no keys.
@@ -48,7 +54,7 @@ pub(super) async fn introspect(p: &PgPool) -> Result<Vec<Table>, sqlx::Error> {
            JOIN pg_attribute a ON a.attrelid = con.conrelid AND a.attnum = k.col
            WHERE con.contype = 'p'"#,
     )
-    .fetch_all(p)
+    .fetch_all(&mut *p)
     .await?;
     let fks: Vec<(String, String, String, String, String, String)> = sqlx::query_as(
         r#"SELECT ns.nspname::text, cl.relname::text, a.attname::text, fns.nspname::text, fcl.relname::text, fa.attname::text
@@ -62,7 +68,7 @@ pub(super) async fn introspect(p: &PgPool) -> Result<Vec<Table>, sqlx::Error> {
            JOIN pg_attribute fa ON fa.attrelid = con.confrelid AND fa.attnum = k.fcol
            WHERE con.contype = 'f' AND con.conparentid = 0"#,
     )
-    .fetch_all(p)
+    .fetch_all(&mut *p)
     .await?;
     let enum_rows: Vec<(String, String)> = sqlx::query_as(
         // Keyed like the column types above, so same-named enums in different schemas stay apart.
@@ -73,7 +79,7 @@ pub(super) async fn introspect(p: &PgPool) -> Result<Vec<Table>, sqlx::Error> {
            JOIN pg_namespace n ON n.oid = t.typnamespace
            JOIN pg_enum e ON e.enumtypid = t.oid ORDER BY t.oid, e.enumsortorder"#,
     )
-    .fetch_all(p)
+    .fetch_all(&mut *p)
     .await?;
     let mut enums: HashMap<String, Vec<String>> = HashMap::new();
     for (t, v) in enum_rows {
@@ -89,9 +95,10 @@ pub(super) async fn introspect(p: &PgPool) -> Result<Vec<Table>, sqlx::Error> {
            FROM pg_class c
            JOIN pg_namespace n ON n.oid = c.relnamespace WHERE c.relkind IN ('r', 'p', 'm') AND NOT c.relispartition"#,
     )
-    .fetch_all(p)
+    .fetch_all(&mut *p)
     .await?;
     // reltuples is -1 until the table is first vacuumed or analyzed: unknown, not empty.
     let rows = est.into_iter().filter(|(_, _, n)| *n >= 0).map(|(s, t, n)| ((s, t), n)).collect();
+    tx.rollback().await?;
     Ok(assemble(cols, pks, fks, enums, rows, true))
 }

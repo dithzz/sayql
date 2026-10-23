@@ -3,6 +3,17 @@
 All notable changes to SayQL are listed here. Downloads are on the
 [releases page](https://github.com/dithzz/sayql-releases/releases).
 
+## Unreleased
+
+- **Supabase and other connection poolers work:** PostgreSQL behind a transaction pooler (Supabase on port 6543,
+  PgBouncer) failed with "prepared statement already exists". Every query now runs in its own transaction on one
+  server connection, and settings a confirmed statement changes don't leak to the next person on that connection.
+  A wrong password behind a pooler now says so.
+- **Several questions, several queries:** asking two things at once ("who owns this account; also show all users")
+  writes one statement per question, each with its own results tab, instead of merging them.
+- **"All" means all:** "show all users" no longer adds `LIMIT 100`; the app's own 5,000-row cap still applies.
+- **No chatter in the SQL:** the AI writes at most a one-line assumption above a statement, never its reasoning.
+
 ## 0.2.8 (2026-10-23)
 
 - **Paste a connection string** into the New connection dialog to fill in every field, including the password.
