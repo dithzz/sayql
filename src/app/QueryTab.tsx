@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Wand2 } from "lucide-react";
-import { QUERY_CANCELLED, commands, type Schema, type Settings, type Skill } from "../api";
+import { QUERY_CANCELLED, commands, type QueryResult, type Schema, type Settings, type Skill } from "../api";
 import { Button, SplitPane } from "../components/ui";
 import {
   AgentAccessDialog,
@@ -16,6 +16,7 @@ import {
 } from "../features/agent";
 import { parseCommand, planRequest, useSqlGeneration, withCommand, type TaskKind } from "../features/ask";
 import { cx } from "../lib/cx";
+import { errorText } from "../lib/errors";
 import { resolveSelection, type TextRange } from "../features/editor";
 import { statementRanges } from "../lib/sqlStatements";
 import { ConfirmWriteDialog, useQueryRunner } from "../features/query";
@@ -150,12 +151,31 @@ export function QueryTab(props: QueryTabProps) {
   const agentLabel =
     agent.state.pending ? "Waiting for you" : runningStep ? `Step ${runningStep.id}: ${runningStep.text}` : agent.active ? "Thinking…" : null;
   const step = picked === null ? null : (agent.state.steps.find((s) => s.id === picked) ?? null);
+  // A run kept with the tab keeps its queries, not its rows: opening such a step reads them again
+  // (read-only, as the agent ran it).
+  const [reread, setReread] = useState<Record<string, { result: QueryResult | null; error: string | null }>>({});
+  const rereadKey = step ? `${agent.state.runId}:${step.id}` : "";
+  const rowsLost = !!step?.sql && step.status === "done" && step.rows.length === 0 && (step.rowCount ?? 0) > 0;
+  useEffect(() => {
+    if (!rowsLost || !step?.sql || reread[rereadKey]) return;
+    setReread((r) => ({ ...r, [rereadKey]: { result: null, error: null } }));
+    commands.runQuery(tab.target, step.sql, false).then(
+      (result) => setReread((r) => ({ ...r, [rereadKey]: { result, error: null } })),
+      (e) => setReread((r) => ({ ...r, [rereadKey]: { result: null, error: errorText(e) } })),
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rereadKey, rowsLost]);
+  const again = rowsLost ? reread[rereadKey] : undefined;
   const stepOutcome = step?.sql
     ? [
         {
           sql: step.sql,
-          result: step.status === "done" ? { columns: step.columns, rows: step.rows, rowsAffected: null, truncated: step.truncated, elapsedMs: step.elapsedMs ?? 0 } : null,
-          error: step.error,
+          result: again
+            ? again.result
+            : step.status === "done"
+              ? { columns: step.columns, rows: step.rows, rowsAffected: null, truncated: step.truncated, elapsedMs: step.elapsedMs ?? 0 }
+              : null,
+          error: again ? again.error : step.error,
           cancelled: false,
         },
       ]
@@ -390,8 +410,8 @@ export function QueryTab(props: QueryTabProps) {
                 <ResultsPanel
                   outcomes={stepOutcome ?? query.outcomes}
                   total={stepOutcome ? 1 : query.total}
-                  running={stepOutcome ? step?.status === "running" : query.running}
-                  note={step ? `Agent step ${step.id}` : undefined}
+                  running={stepOutcome ? step?.status === "running" || (!!again && !again.result && !again.error) : query.running}
+                  note={step ? (again ? `Agent step ${step.id}, run again: rows aren't kept after SayQL restarts` : `Agent step ${step.id}`) : undefined}
                 />
               )}
             </div>
