@@ -53,15 +53,25 @@ pub async fn run_query_with(
     let mut res = match pool {
         DbPool::Pg(p) => {
             let mut conn = p.acquire().await?;
+            // Every statement runs inside a transaction, which a pooler (Supabase on port 6543, PgBouncer)
+            // keeps on one server connection, starting with DEALLOCATE ALL so a statement name another
+            // client left on that server can't collide. A confirmed write commits at the end, except the
+            // few statements Postgres refuses inside a transaction (VACUUM and the like), run on their own.
+            let own = !read_only && pg_needs_autocommit(sql);
             // The server process's id, to cancel from another connection; in the same round trip.
-            let begin = if read_only { "BEGIN READ ONLY; SELECT pg_backend_pid()" } else { "SELECT pg_backend_pid()" };
+            let begin = match (read_only, own) {
+                (true, _) => "BEGIN READ ONLY; DEALLOCATE ALL; SELECT pg_backend_pid()",
+                (false, false) => "BEGIN; DEALLOCATE ALL; SELECT pg_backend_pid()",
+                (false, true) => "DEALLOCATE ALL; SELECT pg_backend_pid()",
+            };
             let pid: i32 = sqlx::raw_sql(begin).fetch_all(&mut *conn).await?.first().map(|r| r.try_get(0)).transpose()?.unwrap_or(0);
             let out = {
                 let mut query = Box::pin(collect_pg(&mut conn, sql, cap));
                 match race(&mut query, cancel).await {
                     Some(out) => Some(out),
                     None => {
-                        let _ = sqlx::query("SELECT pg_cancel_backend($1)").bind(pid).execute(p).await;
+                        // One plain-text message, so it works behind a pooler too; pid is a number from the server.
+                        let _ = sqlx::raw_sql(AssertSqlSafe(format!("SELECT pg_cancel_backend({pid})"))).execute(p).await;
                         let _ = tokio::time::timeout(STOP_GRACE, &mut query).await;
                         None
                     }
@@ -71,11 +81,28 @@ pub async fn run_query_with(
                 let _ = conn.close().await;
                 return Err(CANCELLED.into());
             };
-            if !read_only || conn.execute("ROLLBACK").await.is_err() {
-                // Never hand a connection with an open transaction back to the pool.
+            if read_only {
+                if conn.execute("ROLLBACK").await.is_err() {
+                    // Never hand a connection with an open transaction back to the pool.
+                    let _ = conn.close().await;
+                }
+                out?
+            } else {
+                // A COMMIT can still fail (a deferred constraint); that error is the result then.
+                // Behind a pooler the server connection outlives ours, so session state a confirmed
+                // statement set (SET, advisory locks) is undone before committing.
+                let end = if own {
+                    Ok(())
+                } else if out.is_ok() {
+                    sqlx::raw_sql("RESET ALL; SELECT pg_advisory_unlock_all(); COMMIT").execute(&mut *conn).await.map(|_| ())
+                } else {
+                    conn.execute("ROLLBACK").await.map(|_| ())
+                };
                 let _ = conn.close().await;
+                let out = out?;
+                end?;
+                out
             }
-            out?
         }
         DbPool::My(p) => {
             let mut conn = p.acquire().await?;
@@ -137,6 +164,20 @@ pub async fn run_query_with(
     };
     res.elapsed_ms = start.elapsed().as_millis();
     Ok(res)
+}
+
+/// Statements Postgres refuses inside a transaction block, so a confirmed one runs on its own.
+fn pg_needs_autocommit(sql: &str) -> bool {
+    let words: Vec<String> = sql.split_whitespace().take(4).map(|w| w.to_ascii_uppercase()).collect();
+    let w = |i: usize| words.get(i).map(String::as_str).unwrap_or("");
+    match w(0) {
+        "VACUUM" | "CLUSTER" => true,
+        "CREATE" | "DROP" => matches!(w(1), "DATABASE" | "TABLESPACE" | "SUBSCRIPTION")
+            || words.iter().any(|x| x == "CONCURRENTLY"),
+        "REINDEX" => w(1) == "SYSTEM" || w(1) == "DATABASE" || words.iter().any(|x| x == "CONCURRENTLY"),
+        "ALTER" => (w(1) == "SYSTEM") || (w(1) == "TYPE" && words.iter().any(|x| x == "ADD")) || w(1) == "SUBSCRIPTION",
+        _ => false,
+    }
 }
 
 /// Runs one statement, collecting up to `cap` rows and the affected-row count.
@@ -388,4 +429,37 @@ async fn collect_mssql(client: &mut MssqlClient, sql: &str, cap: usize) -> AppRe
         }
     }
     Ok((QueryResult { columns, rows, rows_affected: None, truncated, elapsed_ms: 0 }, udts))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::pg_needs_autocommit;
+
+    #[test]
+    fn statements_postgres_refuses_in_a_transaction_run_on_their_own() {
+        for sql in [
+            "VACUUM orders",
+            "vacuum analyze",
+            "CREATE INDEX CONCURRENTLY i ON t (a)",
+            "DROP INDEX CONCURRENTLY i",
+            "CREATE DATABASE x",
+            "DROP DATABASE x",
+            "REINDEX TABLE CONCURRENTLY t",
+            "ALTER SYSTEM SET work_mem = '64MB'",
+            "ALTER TYPE mood ADD VALUE 'meh'",
+            "CLUSTER",
+        ] {
+            assert!(pg_needs_autocommit(sql), "{sql}");
+        }
+        for sql in [
+            "UPDATE orders SET status = 'x' WHERE id = 1",
+            "DELETE FROM t",
+            "CREATE INDEX i ON t (a)",
+            "CREATE TABLE t (a int)",
+            "ALTER TABLE t ADD COLUMN b int",
+            "INSERT INTO t VALUES (1)",
+        ] {
+            assert!(!pg_needs_autocommit(sql), "{sql}");
+        }
+    }
 }

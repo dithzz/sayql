@@ -67,7 +67,8 @@ export function fastPath(question: string, schema: Schema | null): string | null
 
   if ((m = q.match(LIST))) {
     const t = findTable(schema, m[1]);
-    if (t) return selectAllSql(t, dialect);
+    // "all users" means all of them (the app caps what it shows); "users" alone gets a 100-row preview.
+    if (t) return /\b(all|every)\b/.test(q) ? `SELECT *\nFROM ${tableRef(t, dialect)};` : selectAllSql(t, dialect);
   }
   return null;
 }
