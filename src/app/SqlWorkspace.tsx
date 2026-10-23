@@ -29,6 +29,7 @@ export interface WorkspaceGeneration {
   onModeChange?: (agent: boolean) => void;
   modelPicker?: ReactNode;
   agentStarters?: string[];
+  agentAuto?: { on: boolean; onChange: (on: boolean) => void };
 }
 
 /** An agent run in this tab: Run becomes Stop while it goes. */
@@ -164,6 +165,7 @@ export function SqlWorkspace({ connectionName, schema, active, modelNames, onOpe
         onModeChange={g.onModeChange}
         modelPicker={g.modelPicker}
         agentStarters={g.agentStarters}
+        agentAuto={g.agentAuto}
       />
       <div className={styles.editor}>
         <SqlEditor

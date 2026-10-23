@@ -1,5 +1,5 @@
 import { forwardRef, useEffect, useId, useImperativeHandle, useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import { BookOpen, Bot, CheckCircle2, CornerDownRight, Sparkles, X, XCircle, Zap } from "lucide-react";
+import { BookOpen, Bot, CheckCircle2, CornerDownRight, FastForward, Sparkles, X, XCircle, Zap } from "lucide-react";
 import type { Skill } from "../../api";
 import { Button, IconButton, Kbd, Spinner } from "../../components/ui";
 import { cx } from "../../lib/cx";
@@ -50,6 +50,8 @@ export interface AskBarProps {
   modelPicker?: ReactNode;
   /** Example questions offered in agent mode while the question is empty. */
   agentStarters?: string[];
+  /** Auto mode's switch, shown in agent mode. */
+  agentAuto?: { on: boolean; onChange: (on: boolean) => void };
 }
 
 /** The plain-English input. SQL appears in the editor below as the person types. */
@@ -235,6 +237,22 @@ export const AskBar = forwardRef<HTMLTextAreaElement, AskBarProps>(function AskB
           </div>
         )}
         {p.modelPicker}
+        {agent && p.agentAuto && (
+          <button
+            type="button"
+            role="switch"
+            aria-checked={p.agentAuto.on}
+            className={cx(styles.auto, p.agentAuto.on && styles.autoOn)}
+            onClick={() => p.agentAuto!.onChange(!p.agentAuto!.on)}
+            title={
+              p.agentAuto.on
+                ? "Auto: runs without stopping for the plan or before each send. Click to ask again."
+                : "Ask: stops for you to approve the plan (and each send, if the connection asks). Click for Auto."
+            }
+          >
+            <FastForward size={12} /> {p.agentAuto.on ? "Auto" : "Ask first"}
+          </button>
+        )}
         {followUp && (
           <span className={styles.followUp} title="Requests like “remove a column” or “only active ones” change the last query you ran">
             <CornerDownRight size={13} /> {slug === "followup" ? "Changing your last query" : "Building on your last query"}

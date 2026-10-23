@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { Database, FileCode2, Server, Table2 } from "lucide-react";
+import { Copy, Database, FileCode2, Plus, Save, Server, Table2, X } from "lucide-react";
 import { commands, type Bootstrap, type ConnectionConfig, type DbNote, type Script, type Table, type Target } from "../api";
-import { Alert, Button, Dialog, EmptyState, ErrorBoundary, Spinner, SplitPane, TabBar, type TabItem } from "../components/ui";
+import { Alert, Button, Dialog, EmptyState, ErrorBoundary, Spinner, SplitPane, TabBar, type MenuEntry, type TabItem } from "../components/ui";
 import { AgentAccessDialog, NoteDialog, saveAgentAccess, useAgentAccess } from "../features/agent";
 import { ConnectionDialog, DATABASE_KINDS, newConnection, targetKey, useConnections } from "../features/connections";
 import { DatabaseNavigator, type NavigatorScript } from "../features/navigator";
-import { CloseTabDialog, SaveScriptDialog, useScripts } from "../features/scripts";
+import { CloseTabDialog, CloseTabsDialog, SaveScriptDialog, useScripts } from "../features/scripts";
 import { selectAllSql } from "../features/schema/sql";
 import { SettingsPage, useSettings, type SettingsSection } from "../features/settings";
 import { useSkills } from "../features/skills";
@@ -29,6 +29,7 @@ type OpenDialog =
   | { kind: "settings"; section?: SettingsSection; createSkill?: boolean }
   | { kind: "saveScript"; tabId: string; closeAfter: boolean }
   | { kind: "closeTab"; tabId: string }
+  | { kind: "closeTabs"; tabIds: string[] }
   | { kind: "deleteConnection"; connection: ConnectionConfig }
   | { kind: "feedback" }
   | { kind: "deleteScript"; script: Script }
@@ -126,6 +127,39 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
     saveTab(t).then(() => closeAfter && tabs.close(t.id), ask);
   };
 
+  /** Closes several tabs; asks first when some have SQL that isn't saved. */
+  const requestCloseMany = (ids: string[]) => {
+    if (ids.length === 1) return requestClose(ids[0]);
+    const closing = new Set(ids);
+    if (tabs.tabs.some((t) => closing.has(t.id) && hasUnsavedChanges(t))) setDialog({ kind: "closeTabs", tabIds: ids });
+    else tabs.closeWhere((t) => closing.has(t.id));
+  };
+
+  /** A tab's right-click menu, like an editor's. */
+  const tabMenu = (id: string): MenuEntry[] => {
+    const all = tabs.tabs;
+    const i = all.findIndex((t) => t.id === id);
+    const t = all[i];
+    if (!t) return [];
+    const ids = (list: EditorTab[]) => list.map((x) => x.id);
+    const others = all.filter((x) => x.id !== id);
+    const right = all.slice(i + 1);
+    const left = all.slice(0, i);
+    const saved = all.filter((x) => !hasUnsavedChanges(x));
+    return [
+      { label: "Close", icon: X, onSelect: () => requestClose(id) },
+      { label: "Close others", disabled: !others.length, onSelect: () => requestCloseMany(ids(others)) },
+      { label: "Close to the right", disabled: !right.length, onSelect: () => requestCloseMany(ids(right)) },
+      { label: "Close to the left", disabled: !left.length, onSelect: () => requestCloseMany(ids(left)) },
+      { label: "Close saved tabs", disabled: !saved.length, onSelect: () => requestCloseMany(ids(saved)) },
+      { label: "Close all", onSelect: () => requestCloseMany(ids(all)) },
+      "separator",
+      { label: "Duplicate", icon: Copy, onSelect: () => tabs.open(t.target, { title: t.title, question: t.question, sql: t.sql }) },
+      { label: "New tab on this database", icon: Plus, onSelect: () => tabs.open(t.target) },
+      { label: scriptOf(t) ? "Save" : "Save as script…", icon: Save, shortcut: "⌘S", disabled: !t.sql.trim(), onSelect: () => requestSave(t) },
+    ];
+  };
+
   /** Closes the tab, first asking to save when that would lose SQL. */
   const requestClose = (id: string) => {
     const t = tabById(id);
@@ -189,6 +223,8 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
       name: s.name,
       location: c?.kind === "sqlite" ? c.name : (s.database ?? c?.database ?? c?.name ?? ""),
       orphaned: !c,
+      // With no database open, "This database" lists them all.
+      here: !target || (!!c && target.connectionId === c.id && (s.database || c.database || null) === (target.database || c.database || null)),
     };
   });
 
@@ -324,6 +360,7 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
                 activeId={tabs.active?.id ?? null}
                 onSelect={tabs.activate}
                 onClose={requestClose}
+                menu={tabMenu}
                 onAdd={conn.connections.length ? newTab : undefined}
                 addLabel="New SQL tab (⌘T)"
               />
@@ -442,6 +479,25 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
           }}
         />
       )}
+      {dialog?.kind === "closeTabs" && (() => {
+        const closing = new Set(dialog.tabIds);
+        const unsaved = tabs.tabs.filter((t) => closing.has(t.id) && hasUnsavedChanges(t));
+        return (
+          <CloseTabsDialog
+            count={tabs.tabs.filter((t) => closing.has(t.id)).length}
+            unsaved={unsaved.map((t) => tabItems.find((i) => i.id === t.id)?.label ?? "Untitled")}
+            onCancel={() => setDialog(null)}
+            onDiscard={() => {
+              tabs.closeWhere((t) => closing.has(t.id));
+              setDialog(null);
+            }}
+            onKeepUnsaved={() => {
+              tabs.closeWhere((t) => closing.has(t.id) && !hasUnsavedChanges(t));
+              setDialog(null);
+            }}
+          />
+        );
+      })()}
       {dialog?.kind === "agentAccess" && dialogAccess && (
         <AgentAccessDialog
           connectionName={dialog.connection.name}

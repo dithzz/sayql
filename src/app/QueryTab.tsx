@@ -7,6 +7,7 @@ import {
   AgentPanel,
   agentStarters,
   describeAccess,
+  useAgentAuto,
   forStorage,
   isActive,
   saveAgentAccess,
@@ -106,7 +107,8 @@ export function QueryTab(props: QueryTabProps) {
   };
 
   // Agent mode: one run per tab, kept (queries and answer, no rows) when it ends.
-  const agent = useAgentRun({ target: tab.target, slot: tab.id, initial: tab.agentRun ?? null });
+  const [auto, setAuto] = useAgentAuto();
+  const agent = useAgentRun({ target: tab.target, slot: tab.id, initial: tab.agentRun ?? null, auto });
   const access = useAgentAccess(tab.target.connectionId);
   const [accessDialog, setAccessDialog] = useState<{ then: (() => void) | null } | null>(null);
   const [view, setView] = useState<"agent" | "results">(tab.agentRun ? "agent" : "results");
@@ -275,6 +277,7 @@ export function QueryTab(props: QueryTabProps) {
                 />
               ),
               agentStarters: agentStarters(schema),
+              agentAuto: { on: auto, onChange: setAuto },
             }}
             query={{
               sql: tab.sql,
@@ -349,6 +352,7 @@ export function QueryTab(props: QueryTabProps) {
                     setView("results");
                   }}
                   onGo={agent.go}
+                  onAuto={() => setAuto(true)}
                   onSend={agent.send}
                   onSkip={agent.skip}
                   onAnswer={agent.answer}

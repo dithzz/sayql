@@ -13,6 +13,7 @@ import {
   RotateCcw,
   Save,
   Send,
+  FastForward,
   SkipForward,
   StickyNote,
   X,
@@ -31,6 +32,8 @@ export interface AgentPanelProps {
   onSelect: (stepId: number) => void;
   onGo: (plan: string[] | null) => void;
   onSend: () => void;
+  /** Turns on Auto mode, which also carries on from the current pause. */
+  onAuto: () => void;
   onSkip: () => void;
   onAnswer: (text: string) => void;
   onStop: () => void;
@@ -72,13 +75,13 @@ export function AgentPanel(p: AgentPanelProps) {
       <div className={styles.body}>
         {run.phase === "idle" ? (
           <EmptyState icon={Bot} title="No investigation yet">
-            Type <code>/agent</code> and a question in the Ask box. The agent looks around in a few read-only steps and
+            Switch the Ask box to <b>Agent</b> and ask a question. The agent looks around in a few read-only steps and
             answers with the queries it ran.
           </EmptyState>
         ) : (
           <>
             <p className={styles.question}>{run.question}</p>
-            {run.plan && <PlanCard run={run} onGo={p.onGo} />}
+            {run.plan && <PlanCard run={run} onGo={p.onGo} onAuto={p.onAuto} />}
             <ol className={styles.steps}>
               {run.steps.map((s) => (
                 <StepRow
@@ -105,6 +108,9 @@ export function AgentPanel(p: AgentPanelProps) {
                   </Button>
                   <Button size="sm" icon={SkipForward} onClick={p.onSkip}>
                     Skip (send the row count only)
+                  </Button>
+                  <Button size="sm" variant="ghost" icon={FastForward} onClick={() => { p.onSend(); p.onAuto(); }} title="Send this and the rest without asking (Auto mode, for every run until you turn it off in the Ask box)">
+                    Send all from now on
                   </Button>
                 </div>
               </div>
@@ -166,11 +172,12 @@ function Meter({ run }: { run: AgentRunState }) {
   );
 }
 
-function PlanCard({ run, onGo }: { run: AgentRunState; onGo: (plan: string[] | null) => void }) {
+function PlanCard({ run, onGo, onAuto }: { run: AgentRunState; onGo: (plan: string[] | null) => void; onAuto: () => void }) {
   const waiting = run.pending?.kind === "plan";
   const [text, setText] = useState((run.plan ?? []).join("\n"));
   useEffect(() => setText((run.plan ?? []).join("\n")), [run.plan]);
   const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
+  const go = () => onGo(lines.join("\n") === (run.plan ?? []).join("\n") ? null : lines);
   if (!waiting) {
     return (
       <details className={styles.plan}>
@@ -185,8 +192,11 @@ function PlanCard({ run, onGo }: { run: AgentRunState; onGo: (plan: string[] | n
       <span className={styles.muted}>Change any line, then press Go. One step per line.</span>
       <textarea className={styles.planText} value={text} rows={Math.max(3, lines.length + 1)} onChange={(e) => setText(e.target.value)} aria-label="Plan" />
       <div className={styles.buttons}>
-        <Button size="sm" variant="primary" icon={Play} onClick={() => onGo(lines.join("\n") === (run.plan ?? []).join("\n") ? null : lines)}>
+        <Button size="sm" variant="primary" icon={Play} onClick={go}>
           Go
+        </Button>
+        <Button size="sm" variant="ghost" icon={FastForward} onClick={() => { go(); onAuto(); }} title="Go now, and don't stop for plans or sends again (Auto mode, until you turn it off in the Ask box)">
+          Go, and don't ask again
         </Button>
       </div>
     </div>

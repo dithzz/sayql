@@ -22,7 +22,7 @@ SayQL sends data only to services you configure, and only when you use them:
 | You ask in plain English | Your question; the database's table and column names, types, keys, enum values and row estimates; the current SQL for follow-ups, Explain, Fix and Improve; any skill you add | The AI provider you chose in Settings |
 | A query fails and SayQL fixes it | The query and the database's error message, with values from your rows masked | The AI provider you chose |
 | You use agent mode on a connection where you turned it on | Your question, the schema, saved database notes, the agent's queries and, depending on your setting for that connection, row counts only, counts and column summaries, or up to 20 rows per query with likely personal data masked | The AI provider you chose |
-| An AI app uses SayQL through MCP | The schemas and query results it asks for | That AI app (for example Claude or Cursor) |
+| An AI app uses SayQL through MCP | The schemas, saved database notes and query results it asks for (never the values of columns you marked never send) | That AI app (for example Claude or Cursor) |
 | You turn on voice input, once | A download request for the speech model (about 82 MB), checked against a fixed SHA-256 before use. No audio is sent | Hugging Face (huggingface.co/ggerganov/whisper.cpp) |
 | SayQL checks for updates, each time it starts | The app version and your operating system | GitHub (github.com/dithzz/sayql-releases) |
 

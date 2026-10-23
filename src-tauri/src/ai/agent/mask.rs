@@ -269,6 +269,11 @@ impl Masker {
         self.column_rule(column).is_some()
     }
 
+    /// Whether `column` (a result column's name) is on the never-send list.
+    pub fn is_never_send(&self, column: &str) -> bool {
+        self.never_send.contains(&column.trim().to_lowercase())
+    }
+
     /// Whether `sql` names a never-send column anywhere (select list, WHERE, COUNT, ...).
     pub fn names_never_send(&self, sql: &str) -> Option<String> {
         sql.split(|c: char| !(c.is_alphanumeric() || c == '_'))

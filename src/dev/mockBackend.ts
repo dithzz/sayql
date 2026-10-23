@@ -325,7 +325,7 @@ const waiting = new Map<string, (r: AgentReply) => void>();
 const stopped = new Set<string>();
 
 /** A scripted agent run on the demo store: plan, two steps, an optional Send/Skip pause, a cited answer. */
-async function mockAgentRun(runId: string, question: string, access: AgentAccess) {
+async function mockAgentRun(runId: string, question: string, access: AgentAccess, auto: boolean) {
   const pause = () => new Promise((r) => setTimeout(r, VIDEO ? 900 : 500));
   const reply = () => new Promise<AgentReply>((resolve) => waiting.set(runId, resolve));
   const event = (e: Record<string, unknown>) => emit("agent://event", { runId, ...e });
@@ -337,8 +337,8 @@ async function mockAgentRun(runId: string, question: string, access: AgentAccess
   });
   await pause();
   await usage(1, 0);
-  await event({ type: "plan", steps: ["Count paid orders per week", "Split the last week by category", "Compare with the week before"], waiting: true });
-  await reply();
+  await event({ type: "plan", steps: ["Count paid orders per week", "Split the last week by category", "Compare with the week before"], waiting: !auto });
+  if (!auto) await reply();
   if (stopped.has(runId)) return event({ type: "done", answer: null, error: null, stopped: true });
   const weekly = "SELECT strftime('%Y-%W', ordered_at) AS week, COUNT(*) AS paid FROM orders WHERE status = 'paid' GROUP BY week ORDER BY week DESC LIMIT 2";
   await event({ type: "step", step: step(1, { text: "Counting paid orders in the last two weeks", sql: weekly }) });
@@ -347,7 +347,7 @@ async function mockAgentRun(runId: string, question: string, access: AgentAccess
   const sent1 =
     access.results === "rows" ? `Step 1: 2 rows.\nColumns: ["week","paid"]\n["2026-42",31]\n["2026-41",52]` : access.results === "counts" ? `Step 1: Summary: {"rowCount":2,"columns":[{"name":"week","type":"text","nulls":0,"distinct":2},{"name":"paid","type":"number","nulls":0,"distinct":2,"min":31,"max":52}]}` : `Step 1: 2 rows. Columns: week, paid. No values are sent on this connection.`;
   const summary1 = { rows: "sent 2 rows", counts: "sent counts and column summaries", off: "sent row count only" }[access.results];
-  if (access.askBeforeSend && access.results !== "off") {
+  if (access.askBeforeSend && !auto && access.results !== "off") {
     await event({ type: "send", stepId: 1, payload: sent1 });
     const r = await reply();
     if (stopped.has(runId)) return event({ type: "done", answer: null, error: null, stopped: true });
@@ -423,7 +423,7 @@ export function installMockBackend() {
         case "start_agent": {
           const access = agentAccess.get(String(a.id));
           if (!access?.enabled) return Promise.reject("Agent mode is off for this connection. Turn it on in its agent settings first.");
-          void mockAgentRun(String(a.runId), String(a.question), access);
+          void mockAgentRun(String(a.runId), String(a.question), access, a.auto === true);
           return null;
         }
         case "stop_agent":

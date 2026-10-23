@@ -5,6 +5,7 @@
 //! dialog, where the person types the password, and SQL or a saved script in a tab, which
 //! they run. `export_csv` writes a read-only query's rows to a new file in Downloads.
 
+use crate::ai::agent::mask::Masker;
 use crate::db::{self, Kind};
 use crate::handoff::{self, Action, Handoff, ScriptRef};
 use crate::readonly::{DEFAULT_ROWS, MAX_ROWS, WRITE_REFUSED, describe, run_limited};
@@ -40,7 +41,9 @@ select only the columns you need. To hand work to the user in the SayQL app: add
 prefilled New connection dialog (never pass a password; the user types it in SayQL), and open_query \
 opens SQL in a new SayQL tab for the user to review and run (use it for statements that change data). \
 list_scripts shows the user's saved scripts; open_script opens one in SayQL. export_csv saves a read-only \
-query's rows (up to 100,000) to a CSV file in the user's Downloads folder without returning them.";
+query's rows (up to 100,000) to a CSV file in the user's Downloads folder without returning them. \
+describe_schema includes notes the user saved about the database (what codes mean, how tables relate); \
+trust them. Some columns may be marked never to send to AI: queries naming them are refused, so leave them out.";
 
 #[derive(Debug, Deserialize, JsonSchema)]
 struct ConnectionParams {
@@ -191,7 +194,14 @@ impl SayqlServer {
         if !db::is_read_only(&p.sql, pool.kind()) {
             return Err(WRITE_REFUSED.into());
         }
-        let r = run_limited(&pool, &p.sql, db::MAX_ROWS, QUERY_TIMEOUT).await?;
+        // Columns the user marked never to send to an AI (in the connection's agent settings)
+        // are refused here too, and withheld when a query returns them anyway (SELECT *).
+        let never = Masker::new(self.state.store.agent_access(&target.connection_id).map(|a| a.never_send).unwrap_or_default());
+        if let Some(col) = never.names_never_send(&p.sql) {
+            return Err(never_send_refused(&col));
+        }
+        let mut r = run_limited(&pool, &p.sql, db::MAX_ROWS, QUERY_TIMEOUT).await?;
+        withhold(&never, &r.columns, &mut r.rows);
         let limit = p.max_rows.unwrap_or(DEFAULT_ROWS).clamp(1, MAX_ROWS);
         let page = page(r.rows, r.truncated, p.offset.unwrap_or(0), limit);
         let mut out = json!({
@@ -305,6 +315,22 @@ struct Page {
 }
 
 /// `limit` rows from `offset` of the rows SayQL read (`cut_off`: the query had more).
+fn never_send_refused(column: &str) -> String {
+    format!("{column} is a column the user marked never to send to AI apps. Leave it out of the query.")
+}
+
+/// Replaces the values of never-send columns.
+fn withhold(never: &Masker, columns: &[String], rows: &mut [Vec<Value>]) {
+    let hidden: Vec<usize> = columns.iter().enumerate().filter(|(_, c)| never.is_never_send(c)).map(|(i, _)| i).collect();
+    for row in rows.iter_mut() {
+        for &i in &hidden {
+            if let Some(v) = row.get_mut(i).filter(|v| !v.is_null()) {
+                *v = json!("(withheld: never sent to AI)");
+            }
+        }
+    }
+}
+
 fn page(rows: Vec<Vec<Value>>, cut_off: bool, offset: usize, limit: usize) -> Page {
     let total = rows.len();
     let rows: Vec<_> = rows.into_iter().skip(offset).take(limit).collect();
@@ -456,6 +482,17 @@ mod tests {
         assert!(connection_draft(add_params(json!({ "type": "sqlite" })).unwrap()).is_err());
         assert!(add_params(json!({ "host": "db" })).is_err(), "type is required");
         assert!(add_params(json!({ "type": "postgres", "port": "5432" })).is_err());
+    }
+
+    #[test]
+    fn withholds_never_send_columns() {
+        let never = Masker::new(["patients.notes"]);
+        assert!(never.names_never_send("SELECT id, notes FROM patients").is_some());
+        let mut rows = vec![vec![json!(1), json!("private"), json!("x")], vec![json!(2), Value::Null, json!("y")]];
+        withhold(&never, &["id".into(), "NOTES".into(), "name".into()], &mut rows);
+        assert_eq!(rows[0], vec![json!(1), json!("(withheld: never sent to AI)"), json!("x")]);
+        assert_eq!(rows[1][1], Value::Null);
+        assert!(never_send_refused("notes").contains("never to send"));
     }
 
     #[test]

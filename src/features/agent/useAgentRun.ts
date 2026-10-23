@@ -10,6 +10,8 @@ export interface AgentRunOptions {
   slot: string;
   /** A finished run the tab kept (queries and answer, no rows). */
   initial?: AgentRunState | null;
+  /** Auto mode: approve the plan and sends without asking, also when turned on mid-run. */
+  auto: boolean;
 }
 
 export interface StartOptions {
@@ -20,9 +22,10 @@ export interface StartOptions {
 }
 
 /** Starts, watches, answers and stops agent runs in one tab. */
-export function useAgentRun({ target, slot, initial }: AgentRunOptions) {
+export function useAgentRun({ target, slot, initial, auto }: AgentRunOptions) {
   const [state, dispatch] = useReducer(agentReducer, initial ?? IDLE);
   const latest = useLatest(state);
+  const latestAuto = useLatest(auto);
 
   useEffect(() => {
     const off = subscribeToAgent((event) => dispatch({ type: "event", event }));
@@ -35,10 +38,10 @@ export function useAgentRun({ target, slot, initial }: AgentRunOptions) {
       const runId = crypto.randomUUID();
       dispatch({ type: "start", runId, question, keepSteps: o.followUp });
       commands
-        .startAgent(target, question, runId, slot, o.focusTables, o.skill, o.followUp)
+        .startAgent(target, question, runId, slot, o.focusTables, o.skill, o.followUp, latestAuto.current)
         .catch((e) => dispatch({ type: "failed", runId, error: errorText(e) }));
     },
-    [target, slot],
+    [target, slot, latestAuto],
   );
 
   const stop = useCallback(() => {
@@ -55,6 +58,13 @@ export function useAgentRun({ target, slot, initial }: AgentRunOptions) {
     },
     [latest],
   );
+
+  // Auto mode turned on while the run waits for Go or Send: carry on.
+  const pending = state.pending?.kind;
+  useEffect(() => {
+    if (auto && pending === "plan") reply({ type: "go", plan: null });
+    else if (auto && pending === "send") reply({ type: "send" });
+  }, [auto, pending, reply]);
 
   // A tab closed mid-run stops its run.
   useEffect(() => () => {

@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import type { ConnectionConfig, DatabaseList, DbNote, Schema, Table } from "../../api";
 import { ContextMenu, IconButton, Panel, Spinner, TextInput, TreeRow, useContextMenu, type MenuEntry } from "../../components/ui";
+import { usePersistentState } from "../../hooks/usePersistentState";
 import { cx } from "../../lib/cx";
 import { DATABASE_KINDS } from "../connections";
 import { countRowsSql, qualifiedName, tableRef, templateSql, type SqlTemplate } from "../schema";
@@ -76,6 +77,8 @@ export interface NavigatorScript {
   location: string;
   /** Its connection was deleted, so it can't be opened. */
   orphaned: boolean;
+  /** It runs on the database that's open now. */
+  here: boolean;
 }
 
 /**
@@ -84,6 +87,10 @@ export interface NavigatorScript {
  */
 export function DatabaseNavigator(p: DatabaseNavigatorProps) {
   const [filter, setFilter] = useState("");
+  /** Saved scripts: only the open database's, or all of them. */
+  const [scriptsShown, setScriptsShown] = usePersistentState<"here" | "all">("sayql.scriptsShown", "here");
+  const anyHere = p.scripts.some((s) => s.here);
+  const shownScripts = scriptsShown === "all" ? p.scripts : p.scripts.filter((s) => s.here);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [expandedTables, setExpandedTables] = useState<Set<string>>(new Set());
   const query = filter.trim().toLowerCase();
@@ -395,11 +402,33 @@ export function DatabaseNavigator(p: DatabaseNavigatorProps) {
               expanded={!collapsed.has("scripts")}
               icon={<Folder size={14} />}
               label={<span className={styles.connLabel}>Saved scripts</span>}
-              meta={p.scripts.length}
+              meta={
+                <span className={styles.scriptFilter} role="radiogroup" aria-label="Which scripts">
+                  {(["here", "all"] as const).map((v) => (
+                    <button
+                      key={v}
+                      type="button"
+                      role="radio"
+                      aria-checked={scriptsShown === v}
+                      className={cx(styles.scriptFilterOption, scriptsShown === v && styles.scriptFilterOn)}
+                      title={v === "here" ? "Only scripts for the open database" : "Scripts for every database"}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setScriptsShown(v);
+                      }}
+                    >
+                      {v === "here" ? `This database${anyHere ? ` ${p.scripts.filter((s) => s.here).length}` : ""}` : `All ${p.scripts.length}`}
+                    </button>
+                  ))}
+                </span>
+              }
               onClick={() => setCollapsed((s) => toggle(s, "scripts"))}
             />
+            {!collapsed.has("scripts") && shownScripts.length === 0 && (
+              <TreeRow depth={1} label={<span className={styles.message}>No scripts for this database</span>} />
+            )}
             {!collapsed.has("scripts") &&
-              p.scripts.map((s) => (
+              shownScripts.map((s) => (
                 <TreeRow
                   key={s.id}
                   depth={1}

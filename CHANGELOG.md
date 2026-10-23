@@ -19,6 +19,14 @@ All notable changes to SayQL are listed here. Downloads are on the
   Quick (SQL as you type) or Agent, so nobody has to remember `/agent`; turning on Agent for a connection the
   first time asks what it may see. Next to it, the model name switches the model, or the provider among the ones
   already set up, without opening Settings. In agent mode, an empty Ask box suggests a few questions to start with.
+- **Auto mode for the agent:** switch **Ask first** to **Auto** next to the model name (or press "Go, and don't
+  ask again") and runs no longer stop for the plan or before each send. Questions with two meanings still ask,
+  and what the AI may see stays as the connection's setting.
+- **Saved scripts follow the open database,** with **All** one click away.
+- **Right-click a tab** to close it, the others, those to the right or left, the saved ones or all, or duplicate it.
+  Closing several with unsaved SQL asks once, and can keep the unsaved ones open.
+- **MCP and agent mode work together:** MCP apps see your database notes, and never-send columns are refused
+  over MCP too (their values are withheld from `SELECT *`).
 - MCP's read-only helpers moved to a module agent mode shares, so both keep the same safety rules.
 
 ## 0.2.9 (2026-10-23)
