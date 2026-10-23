@@ -168,6 +168,20 @@ pub fn check(q: &Question, kind: Kind, a: &Answer) -> Result<(), String> {
     {
         return Err(format!("the answer doesn't say {fact:?}: {text}"));
     }
+    // The agent answers in words: check the planted fact (above) or the expected number.
+    if let (None, Some(text)) = (&a.result, &a.text) {
+        return match &e.value {
+            Some(v) if q.answer.is_none() => {
+                let want = match v {
+                    Value::String(s) => s.clone(),
+                    other => other.to_string(),
+                };
+                if text.replace(',', "").contains(&want) { Ok(()) } else { Err(format!("the answer doesn't say {want}: {text}")) }
+            }
+            _ if a.declined => Err(format!("said it couldn't answer: {text}")),
+            _ => Ok(()),
+        };
+    }
     let r = a.result.as_ref().ok_or("no result")?;
     let shown = || format!("got {}", serde_json::to_string(&r.rows).unwrap_or_default());
     let ok = if let Some(v) = &e.value {
@@ -206,6 +220,8 @@ fn same(got: &Value, want: &Value) -> bool {
         },
     }
 }
+
+mod agent;
 
 #[cfg(test)]
 mod tests {
