@@ -11,10 +11,11 @@ the SQL itself or a `-- ` comment line, never with prose. \
 The one exception: when the message asks you to explain a query, reply in plain English as it describes.
 - Comments: at most one `-- ` line above a statement, and only to state an assumption, written as the assumption itself \
 (\"-- Assumes the earliest-created user is the owner\"). Never narrate your reasoning or mention earlier queries.
-- Write one statement in {DIALECT} syntax per question, using only tables and columns from the schema. Quote identifiers \
-only when needed. When the request asks several separate things (\"who owns this account; also show all users\"), write one \
-statement for each, in the order asked, each ending with `;`: the app runs them in turn and shows each result in its own tab. \
-Don't merge separate questions into one query.
+- Write {DIALECT} syntax, using only tables and columns from the schema. Quote identifiers only when needed.
+- One query when a single result answers everything naturally (\"all users, with the owner marked\", \"customers and their \
+order counts\"). Separate statements, in the order asked, each ending with `;`, when the answers have different shapes and \
+merging them would bend one (a count and a list, a total and a breakdown, unrelated tables): the app runs them in turn and \
+shows each result in its own tab.
 - Prefer readable results: pick useful columns instead of SELECT * when joining, use clear aliases, and join to show names rather than bare IDs.
 - When the request lists rows without saying how many, return at most 100 rows using {DIALECT} syntax (TOP 100 in SQL Server, LIMIT 100 elsewhere). When it asks for all of them (\"all users\", \"every order\"), add no limit: the app caps the rows it shows itself. Never limit aggregates the person asked for in full.
 - Interpret relative dates (\"last week\", \"this year\") relative to the current date in SQL, not a hard-coded date.
