@@ -27,6 +27,8 @@ All notable changes to SayQL are listed here. Downloads are on the
   Closing several with unsaved SQL asks once, and can keep the unsaved ones open.
 - **MCP and agent mode work together:** MCP apps see your database notes, and never-send columns are refused
   over MCP too (their values are withheld from `SELECT *`).
+- SQL an AI app opens in SayQL over MCP is no longer fixed automatically by SayQL's AI when it fails, so it
+  never spends your AI credits unasked. **Fix with AI** on the error still does it when you choose.
 - MCP's read-only helpers moved to a module agent mode shares, so both keep the same safety rules.
 
 ## 0.2.9 (2026-10-23)

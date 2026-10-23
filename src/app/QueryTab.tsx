@@ -69,8 +69,13 @@ export function QueryTab(props: QueryTabProps) {
   /** The last run was a selection: the AI fixes whole queries, so it stays out of it. */
   const ranSelection = useRef(false);
 
+  /**
+   * SayQL's AI may have written the editor's SQL. SQL an AI app handed over (MCP) isn't
+   * fixed automatically, so it never spends the person's credits unasked; Fix with AI still can.
+   */
+  const aiWroteSql = useRef(!tab.origin);
   const query = useQueryRunner(tab.target, (sql, error) => {
-    if (ranSelection.current || autoFixUsed.current || !settings.aiReady || !generation.question.trim()) return;
+    if (ranSelection.current || autoFixUsed.current || !aiWroteSql.current || !settings.aiReady || !generation.question.trim()) return;
     autoFixUsed.current = true;
     generation.fix(sql, error);
   });
@@ -98,7 +103,10 @@ export function QueryTab(props: QueryTabProps) {
     skills,
     sql: tab.sql,
     onQuestionChange: (question) => onChange({ question }),
-    onSql: setSql,
+    onSql: (sql) => {
+      aiWroteSql.current = true;
+      setSql(sql);
+    },
     onRunRequested: (sql, task) => runAndRemember(sql, generation.question, task),
   });
 
