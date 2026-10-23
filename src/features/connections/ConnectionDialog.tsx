@@ -3,6 +3,7 @@ import { PlugZap, Trash2 } from "lucide-react";
 import { commands, type ConnectionConfig, type DatabaseKind } from "../../api";
 import { Alert, Button, Checkbox, Dialog, Field, FieldRow, SegmentedControl, TextInput } from "../../components/ui";
 import { errorText } from "../../lib/errors";
+import { parseConnectionString } from "./connectionString";
 import { DATABASE_KINDS, KIND_OPTIONS } from "./kinds";
 
 export function newConnection(): ConnectionConfig {
@@ -31,7 +32,27 @@ export function ConnectionDialog({ initial, note, onClose, onSaved, onDeleted }:
   const [status, setStatus] = useState<{ ok: boolean; text: string } | null>(null);
   const [testing, setTesting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [pasted, setPasted] = useState("");
+  const [pasteStatus, setPasteStatus] = useState<{ ok: boolean; text: string } | null>(null);
   const set = (patch: Partial<ConnectionConfig>) => setC((prev) => ({ ...prev, ...patch }));
+
+  // Fills the form from a pasted connection string, then clears it so the password isn't left on screen.
+  // The password only reaches the keychain when the person clicks Save.
+  const fillFrom = (text: string) => {
+    const parsed = parseConnectionString(text);
+    if (!parsed) {
+      setPasteStatus({ ok: false, text: "That doesn't look like a connection string SayQL can read." });
+      return;
+    }
+    set(parsed.fields);
+    if (parsed.password !== null) setPassword(parsed.password);
+    setPasted("");
+    setStatus(null);
+    setPasteStatus({
+      ok: true,
+      text: parsed.password !== null ? "Filled in, including the password. Check the details, then Test or Save." : "Filled in. Enter the password, then Test or Save.",
+    });
+  };
 
   const test = async () => {
     setTesting(true);
@@ -88,6 +109,36 @@ export function ConnectionDialog({ initial, note, onClose, onSaved, onDeleted }:
       }
     >
       {note && <Alert tone="info">{note}. Check the details, then enter the password.</Alert>}
+      <Field label="Connection string" optional hint="Paste one to fill in the fields below. The password is saved to your keychain only when you click Save.">
+        {(id) => (
+          <TextInput
+            id={id}
+            mono
+            type="password"
+            autoComplete="off"
+            spellCheck={false}
+            value={pasted}
+            placeholder="postgres://…, Server=…;Initial Catalog=…, jdbc:…"
+            onChange={(e) => {
+              setPasted(e.target.value);
+              setPasteStatus(null);
+            }}
+            onPaste={(e) => {
+              const text = e.clipboardData.getData("text");
+              if (!text.trim()) return;
+              e.preventDefault();
+              fillFrom(text);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && pasted.trim()) {
+                e.preventDefault();
+                fillFrom(pasted);
+              }
+            }}
+          />
+        )}
+      </Field>
+      {pasteStatus && <Alert tone={pasteStatus.ok ? "success" : "warning"}>{pasteStatus.text}</Alert>}
       <Field label="Database type">
         {() => (
           <SegmentedControl<DatabaseKind>
