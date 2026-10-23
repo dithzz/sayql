@@ -29,4 +29,4 @@ LIMIT 10;</code></pre>
 
 <h2>What keeps it safe</h2>
 <div class="callout safe"><svg><use href="#i-shield"/></svg><p><b>Read-only by default.</b> Reads run inside a read-only transaction, so PostgreSQL itself refuses writes. Anything that could change data asks you first.</p></div>
-<p>The AI sees table and column names, types, keys, enum values and row estimates, never your table rows. More in <a href="/docs/running-queries/">Run queries safely</a> and <a href="/docs/databases/">Databases</a>.</p>
+<p>The AI sees table and column names, types, keys, enum values and row estimates, never your table rows (unless you turn on <a href="/docs/agent-mode/">agent mode</a> for the connection). More in <a href="/docs/running-queries/">Run queries safely</a> and <a href="/docs/databases/">Databases</a>.</p>

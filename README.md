@@ -42,7 +42,7 @@ Asking an engineer takes time; general chatbots don't know your schema and can't
   requests are answered instantly on your machine, follow-ups edit the query you have ("only Canada",
   "sort by date"), and failed queries fix themselves once.
 - **Your AI, your data.** Use Claude, OpenAI, Gemini or any OpenAI-compatible API with your own key, or a local
-  model so nothing leaves your computer. Table rows are never sent to the AI.
+  model so nothing leaves your computer. The Ask box never sends table rows to the AI.
 - **Say it instead.** Click the mic and say your question. Speech is turned into text on your computer, and
   the audio never leaves it.
 - **Everything in one place.** Browse your tables, keep tabs open and save the queries you reuse. You see every
@@ -83,10 +83,21 @@ shows you the exact statement first, so nothing changes by accident.
 <tr>
 <td colspan="2" valign="top">
 
+### Investigate with agent mode
+
+Type `/agent` and a question that needs looking around first ("why did signups drop last week?", "who owns this
+tenant?"). The agent shows its plan, works through it in read-only steps, checks its joins, asks you when a
+question has two meanings, and answers with every sentence linked to the query behind it. A number it can't
+find in any result is marked "not verified". It never runs writes: a change comes back as SQL for you to review.
+It's off on every connection until you turn it on, and you choose what it may see of results: nothing, counts
+and summaries, or up to 20 rows with personal data masked. What it learns can be saved as database notes,
+which help the Ask box, the agent and MCP next time.
+
 ### Your AI, your data
 
 Use Claude, OpenAI, Gemini or any OpenAI-compatible API with your own key, or run a model on your own computer
-with Ollama or LM Studio, so your questions never leave it. Table rows are never sent to the AI. A setup guide
+with Ollama or LM Studio, so your questions never leave it. The Ask box never sends table rows to the AI; agent
+mode can, only on connections where you turn it on. A setup guide
 gets you to your first answer quickly.
 
 <picture>
@@ -135,11 +146,13 @@ database, and sends data only to services you configure:
 | --- | --- | --- |
 | You ask in plain English | Your question, the schema (table and column names, types, keys), and the current SQL for follow-ups | Your AI provider |
 | A query fails and SayQL fixes it | The query and the database's error message | Your AI provider |
+| You use agent mode on a connection where you turned it on | The agent's queries and, per your setting, row counts, column summaries, or up to 20 masked rows per query | Your AI provider |
 | You run a query | Your SQL | Your database |
 | SayQL starts | The app version and your operating system, to check for updates | GitHub (dithzz/sayql-releases) |
 | You first use voice input | A one-time download of the speech model (no audio) | Hugging Face |
 
-**Rows in your tables are never sent to an AI provider by the Ask box.** Database passwords and API keys are
+**Rows in your tables are never sent to an AI provider by the Ask box.** Agent mode can send them, only on
+connections where you turn it on (off by default), with likely personal data masked. Database passwords and API keys are
 kept in your OS keychain (macOS Keychain, Windows Credential Manager or Secret Service), never in files. With
 Ollama or LM Studio, nothing leaves your computer. Voice input is transcribed on your computer and audio is
 never sent anywhere. Details: [PRIVACY.md](PRIVACY.md).
@@ -222,8 +235,6 @@ microphone (on Linux, install `libasound2-dev` to build). [docs/ARCHITECTURE.md]
 ## Roadmap
 
 - **MCP server in the downloads**, so AI apps can use SayQL without building it.
-- **The SayQL agent:** a side panel that works through whole questions ("why do some accounts have no
-  invoices?") with read-only queries, and answers with every claim linked to the query behind it.
 - **Signed builds** for macOS and Windows, removing the first-launch confirmation.
 
 Ideas and votes are welcome in [Discussions](https://github.com/dithzz/sayql/discussions).

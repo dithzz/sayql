@@ -1,4 +1,4 @@
-<!-- order: 12 | slug: privacy | title: Privacy and data | group: Reference | description: What SayQL sends to your database, your AI provider and MCP apps, and what it never sends: your table rows. -->
+<!-- order: 12 | slug: privacy | title: Privacy and data | group: Reference | description: What SayQL sends to your database, your AI provider and MCP apps, and when table rows can reach the AI (agent mode, only if you turn it on). -->
 <p>SayQL has no account, no server of its own and no telemetry. It sends data only to services you configure, and only when you use them:</p>
 <div class="table-wrap"><table>
   <thead><tr><th>When</th><th>What's sent</th><th>To</th></tr></thead>
@@ -6,12 +6,13 @@
     <tr><td>You connect or run a query</td><td>Your login and your SQL</td><td>Your database</td></tr>
     <tr><td>You ask in plain English</td><td>Your question; table and column names, types, keys, enum values and row estimates; the current SQL for follow-ups, Explain, Fix and Improve; any skill you add</td><td>Your AI provider</td></tr>
     <tr><td>A query fails and SayQL fixes it</td><td>The query and the database's error, with values from your rows masked</td><td>Your AI provider</td></tr>
+    <tr><td>You use <a href="/docs/agent-mode/">agent mode</a> on a connection where you turned it on</td><td>Your question, the schema, saved notes, the agent's queries and, per your setting for that connection, row counts only, counts and column summaries, or up to 20 rows per query with likely personal data masked</td><td>Your AI provider</td></tr>
     <tr><td>An AI app uses SayQL over MCP</td><td>The schemas and query results it asks for</td><td>That AI app</td></tr>
     <tr><td>You first use voice input</td><td>A one-time download of the speech model (about 82 MB), checked against a fixed SHA-256. No audio</td><td>Hugging Face</td></tr>
     <tr><td>SayQL starts</td><td>The app version and your operating system, to check for updates</td><td>GitHub (dithzz/sayql-releases)</td></tr>
   </tbody>
 </table></div>
-<p>The rows in your tables are never sent to an AI provider by the Ask box. With a local model, nothing leaves your computer. Read the full <a href="https://github.com/dithzz/sayql-releases/blob/main/PRIVACY.md">privacy notice</a>.</p>
+<p>The Ask box never sends rows from your tables to an AI provider. Agent mode can, only on connections where you turn it on; it is off by default. With a local model, nothing leaves your computer. Read the full <a href="https://github.com/dithzz/sayql-releases/blob/main/PRIVACY.md">privacy notice</a>.</p>
 
 <h2>Voice input</h2>
 <p>When you say your question, the speech model (Whisper) turns it into text on your computer. Audio stays in memory only while you talk, is never saved, and is never sent anywhere, not even to your AI provider. Only the text goes on, like a typed question. Remove the model in <b>Settings → Voice</b>.</p>
