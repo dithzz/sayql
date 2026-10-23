@@ -3,7 +3,7 @@
 import type { Skill } from "../../api";
 
 /** Slugs taken by built-in Ask commands. Must match BUILTIN_COMMANDS in src-tauri/src/commands/skills.rs. */
-export const BUILTIN_SLUGS = ["followup", "new", "explain", "fix", "improve"] as const;
+export const BUILTIN_SLUGS = ["agent", "followup", "new", "explain", "fix", "improve"] as const;
 
 export const SKILL_LIMITS = { slug: 32, description: 100, instruction: 1000 };
 

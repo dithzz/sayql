@@ -1,5 +1,6 @@
 //! Process-wide state shared by the Tauri commands.
 
+use crate::ai::agent::run::{History, Reply};
 use crate::db::{self, DbPool};
 use crate::error::AppResult;
 use crate::schema::{self, Schema};
@@ -37,6 +38,13 @@ impl Target {
     }
 }
 
+/// An agent run in progress: how to reach it.
+pub struct AgentRun {
+    pub run_id: String,
+    pub replies: tokio::sync::mpsc::UnboundedSender<Reply>,
+    pub stop: CancellationToken,
+}
+
 /// A schema read from a target.
 pub struct LoadedSchema {
     pub schema: Schema,
@@ -56,6 +64,10 @@ pub struct AppState {
     generations: Mutex<HashMap<String, JoinHandle<()>>>,
     /// Running queries the UI can stop, by the id it gave each run.
     queries: Mutex<HashMap<String, CancellationToken>>,
+    /// The agent run per slot (one slot per editor tab).
+    agents: Mutex<HashMap<String, AgentRun>>,
+    /// Each slot's last finished agent conversation, for follow-ups.
+    agent_histories: Mutex<HashMap<String, History>>,
     pub voice: Voice,
 }
 
@@ -77,6 +89,8 @@ impl AppState {
             schemas: Mutex::new(HashMap::new()),
             generations: Mutex::new(HashMap::new()),
             queries: Mutex::new(HashMap::new()),
+            agents: Mutex::new(HashMap::new()),
+            agent_histories: Mutex::new(HashMap::new()),
         })
     }
 
@@ -135,6 +149,38 @@ impl AppState {
         if let Some(prev) = lock(&self.generations).remove(slot) {
             prev.abort();
         }
+    }
+
+    /// Makes `run` the slot's agent run, stopping the one it replaces.
+    pub fn start_agent(&self, slot: &str, run: AgentRun) {
+        if let Some(prev) = lock(&self.agents).insert(slot.to_string(), run) {
+            prev.stop.cancel();
+        }
+    }
+
+    /// Keeps a finished run's conversation for the slot's next follow-up, unless a newer
+    /// run has taken the slot since.
+    pub fn finish_agent(&self, slot: &str, run_id: &str, history: History) {
+        let mut agents = lock(&self.agents);
+        if agents.get(slot).is_some_and(|r| r.run_id == run_id) {
+            agents.remove(slot);
+            lock(&self.agent_histories).insert(slot.to_string(), history);
+        }
+    }
+
+    pub fn agent_history(&self, slot: &str) -> Option<History> {
+        lock(&self.agent_histories).get(slot).cloned()
+    }
+
+    pub fn stop_agent(&self, run_id: &str) {
+        if let Some(run) = lock(&self.agents).values().find(|r| r.run_id == run_id) {
+            run.stop.cancel();
+        }
+    }
+
+    /// Passes the person's reply to a waiting run. False when the run has ended.
+    pub fn reply_agent(&self, run_id: &str, reply: Reply) -> bool {
+        lock(&self.agents).values().find(|r| r.run_id == run_id).is_some_and(|r| r.replies.send(reply).is_ok())
     }
 
     /// The pool for `target`, connecting if it isn't open yet.

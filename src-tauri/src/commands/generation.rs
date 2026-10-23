@@ -21,6 +21,7 @@ pub fn generate_sql(
     focus_tables: Option<Vec<String>>,
     skill: Option<String>,
 ) -> AppResult<()> {
+    let notes = state.store.notes_text(&id, database.as_deref());
     let live = state.schema(&Target::new(id, database))?;
     let skill = match skill {
         None => None,
@@ -36,7 +37,7 @@ pub fn generate_sql(
         endpoint: endpoint(&settings)?,
         model: settings.provider_settings(&settings.provider).model(task.needs_expert()).to_string(),
         dialect: live.schema.dialect.clone(),
-        schema_text: schema_text(&live.schema, &live.schema_text, &question, &task, focus_tables.as_deref().unwrap_or(&[])),
+        schema_text: schema_text(&live.schema, &live.schema_text, &question, &task, focus_tables.as_deref().unwrap_or(&[])) + &notes,
         question,
         task,
         skill,

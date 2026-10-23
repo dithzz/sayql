@@ -183,7 +183,7 @@ export function useSqlGeneration(options: SqlGenerationOptions) {
       const p = plan(text);
       // Nothing to draft: an empty question, a command still being picked from the menu, or
       // explain, fix and improve, which wait for ↵. Stop any draft, but not a fix or explanation.
-      if (p.kind === "action" || !p.question.trim() || menuQuery(text) !== null) {
+      if (p.kind === "action" || p.kind === "agent" || !p.question.trim() || menuQuery(text) !== null) {
         const s = statusRef.current;
         if (s.kind === "writing" && s.task !== "draft") return;
         cancel();

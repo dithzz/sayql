@@ -1,5 +1,5 @@
-import { forwardRef, useEffect, useId, useImperativeHandle, useLayoutEffect, useRef, useState } from "react";
-import { BookOpen, CheckCircle2, CornerDownRight, Sparkles, X, XCircle, Zap } from "lucide-react";
+import { forwardRef, useEffect, useId, useImperativeHandle, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { BookOpen, Bot, CheckCircle2, CornerDownRight, Sparkles, X, XCircle, Zap } from "lucide-react";
 import type { Skill } from "../../api";
 import { Button, IconButton, Kbd, Spinner } from "../../components/ui";
 import { cx } from "../../lib/cx";
@@ -40,6 +40,10 @@ export interface AskBarProps {
   active: boolean;
   /** Table and column names that help voice input spell them. */
   voicePrompt: string;
+  /** In agent mode (`/agent`): this connection's setting, shown instead of the SQL status. */
+  agentHint?: ReactNode;
+  /** Starts an investigation of the question as it is (the Investigate button). */
+  onInvestigate?: () => void;
 }
 
 /** The plain-English input. SQL appears in the editor below as the person types. */
@@ -100,8 +104,8 @@ export const AskBar = forwardRef<HTMLTextAreaElement, AskBarProps>(function AskB
       : command
         ? "Ask in plain English"
         : "Ask in plain English, or type / for commands";
-  // /new and the actions don't build on the last query; /followup always does.
-  const followUp = p.followUp && slug !== "new" && !isAction(command) ? p.followUp : undefined;
+  // /new, /agent and the actions don't build on the last query; /followup always does.
+  const followUp = p.followUp && slug !== "new" && slug !== "agent" && !isAction(command) ? p.followUp : undefined;
 
   return (
     <div className={styles.ask}>
@@ -204,9 +208,21 @@ export const AskBar = forwardRef<HTMLTextAreaElement, AskBarProps>(function AskB
             </Button>
           </span>
         )}
-        <StatusLine status={p.status} modelNames={p.modelNames} onOpenSettings={p.onOpenSettings} onRetry={p.onRetry} />
+        {slug === "agent" ? (
+          <span className={styles.status}>
+            <Bot size={13} /> {p.agentHint}
+          </span>
+        ) : (
+          <StatusLine status={p.status} modelNames={p.modelNames} onOpenSettings={p.onOpenSettings} onRetry={p.onRetry} />
+        )}
+        {p.onInvestigate && slug !== "agent" && !isAction(command) && rest.trim() && (
+          <Button size="sm" variant="ghost" icon={Bot} onClick={p.onInvestigate} title="Let the agent investigate this in several read-only steps">
+            Investigate
+          </Button>
+        )}
         <span className={styles.hints}>
-          <Kbd>/</Kbd> commands <Kbd>↵</Kbd> {isAction(command) ? slug : "run"} <Kbd>⇧↵</Kbd> new line <Kbd>esc</Kbd> clear
+          <Kbd>/</Kbd> commands <Kbd>↵</Kbd> {slug === "agent" ? "investigate" : isAction(command) ? slug : "run"} <Kbd>⇧↵</Kbd> new line{" "}
+          <Kbd>esc</Kbd> clear
         </span>
       </div>
     </div>

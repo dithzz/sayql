@@ -44,6 +44,7 @@ const EDITS = {
     { scene: "skill", until: "safety" },
     { scene: "safety", until: "fix" },
     { scene: "fix" },
+    { scene: "agent" },
     { scene: "privacy" },
     { scene: "ai" },
     { scene: "mcp" },

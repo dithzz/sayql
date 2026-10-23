@@ -24,4 +24,4 @@ ORDER BY day;</code></pre>
 
 <h2>What keeps it safe</h2>
 <div class="callout safe"><svg><use href="#i-shield"/></svg><p><b>Read-only by default.</b> Reads run inside a read-only transaction, so the server itself refuses writes. Anything that could change data asks you first.</p></div>
-<p>The AI sees your schema (table and column names, types, keys, enum values and row estimates), never your rows. See <a href="/docs/asking/">Ask in plain English</a> and <a href="/docs/running-queries/">Run queries safely</a>.</p>
+<p>The AI sees your schema (table and column names, types, keys, enum values and row estimates), never your rows (unless you turn on <a href="/docs/agent-mode/">agent mode</a> for the connection). See <a href="/docs/asking/">Ask in plain English</a> and <a href="/docs/running-queries/">Run queries safely</a>.</p>

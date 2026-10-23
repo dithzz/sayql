@@ -1,0 +1,42 @@
+<!-- order: 14 | slug: agent-mode | title: Agent mode | group: Using SayQL | description: Let SayQL investigate a question in several read-only steps and answer with the queries behind it, and control exactly what it may send to the AI. -->
+<p class="lead">Some questions need looking around before one query can answer them: "who owns this tenant?", "why did signups drop last week?", "is status 3 cancelled or refunded?". Agent mode works through them in read-only steps and answers with the queries it ran.</p>
+
+<h2>Start an investigation</h2>
+<ul>
+  <li>Type <code>/agent</code> and your question in the Ask box, then press <kbd>↵</kbd>. Or type a question and click <b>Investigate</b>.</li>
+  <li>The agent first shows a short <b>plan</b>. Change any line, then press <b>Go</b>. To start right away every time, turn on <b>Skip the plan</b> in <b>Settings → Agent mode</b>.</li>
+  <li>Each <b>step</b> appears as it runs, with its SQL, row count and time. Click a step to see its rows in <b>Results</b>. <b>Stop</b> ends the run and the running query on the server.</li>
+  <li>When a question has two reasonable meanings, the agent <b>asks you</b> with choices instead of guessing.</li>
+</ul>
+
+<h2>The answer</h2>
+<ul>
+  <li>Each sentence links to the steps it rests on. SayQL checks every number in the answer against the steps' results; a number it can't find is marked <b>not verified</b>.</li>
+  <li>The agent checks its joins: a join that repeats rows before they are summed is flagged, and the agent is told to fix it.</li>
+  <li>It never changes data. If the answer is a change, it shows the statement marked <b>not run</b>, with <b>Open in editor</b>; the usual confirmation applies when you run it.</li>
+  <li><b>Open as query</b>, <b>Save as script</b>, <b>Rerun</b> (the same queries on fresh data, no AI) and <b>Ask a follow-up</b> work from the answer. To steer, open a step, choose <b>Edit and continue</b>, change its SQL, and the run continues from there.</li>
+</ul>
+
+<h2>Database notes</h2>
+<p>At the end of a run the agent may suggest notes: facts about the database such as "the owner of a tenant is memberships.role = 'owner'". Save the ones you agree with. Notes show under <b>Notes</b> in the Database Navigator (right-click to edit or delete), and the Ask box, the agent and MCP apps all use them. A note can't hold values from your rows: one with an email, a number like a phone, or a masked value is refused.</p>
+
+<h2>What the AI sees</h2>
+<p>Agent mode is <b>off on every connection</b> until you turn it on. The first <code>/agent</code> on a connection asks what it may see of query results there; change it later with <b>Change</b> under the Ask box, or by right-clicking the connection and choosing <b>Agent settings</b>.</p>
+<div class="table-wrap"><table>
+  <thead><tr><th>Setting</th><th>What the AI sees of each result</th></tr></thead>
+  <tbody>
+    <tr><td>Off (default)</td><td>How many rows it returned, and its column names. No values.</td></tr>
+    <tr><td>Counts and summaries only</td><td>The row count and, per column, its type, nulls, distinct values, and min and max for numbers and dates. No row values or group labels.</td></tr>
+    <tr><td>Up to 20 rows per query, masked</td><td>Up to 20 rows. Likely personal data is replaced by tokens like ‹email-3› before it leaves; SayQL puts the real values back on your screen and into the SQL it runs.</td></tr>
+  </tbody>
+</table></div>
+<ul>
+  <li><b>Ask before each send</b> pauses on exactly what would go, with <b>Send</b> and <b>Skip</b> (Skip sends the row count only). It starts on for cloud providers.</li>
+  <li><b>Never send</b> columns are masked whatever the setting, and queries that use them are refused.</li>
+  <li>Every step has a <b>Sent to AI</b> fold-out with the exact text that went to the model.</li>
+  <li>Masking is best effort. Columns are masked by name (email, phone, name, address, birth, SSN, MRN, patient, token, password, notes and similar) and values by shape (emails, phone numbers, card numbers, ID-like strings). A name in a free-text column with an ordinary name can get through, so for health or production data keep results Off or at counts, or mark such columns never send.</li>
+  <li>With Ollama or LM Studio, nothing leaves your computer.</li>
+</ul>
+
+<h2>Safety and limits</h2>
+<p>Every agent query goes through the same read-only checks as the rest of SayQL, one statement at a time, and the database enforces read-only where it can. A query that would read all of a very large table without a filter is refused until the agent checks its plan. Each run has limits on steps, queries, time per query, time per run and tokens; change them in <b>Settings → Agent mode</b>, where you can also pick the model that runs the agent (by default your expert model). Connect with a read-only database login for production.</p>

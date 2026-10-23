@@ -16,12 +16,12 @@ use super::*;
 use crate::schema::Table;
 use serde_json::json;
 
-struct Target {
+pub(super) struct Target {
     host: String,
     port: Option<u16>,
     user: String,
     password: Option<String>,
-    database: String,
+    pub(super) database: String,
 }
 
 /// Parses `scheme://user[:password]@host[:port][/database]`.
@@ -41,7 +41,7 @@ fn parse_url(url: &str) -> Target {
     Target { host, port, user, password, database }
 }
 
-fn env_target(var: &str) -> Option<Target> {
+pub(super) fn env_target(var: &str) -> Option<Target> {
     match std::env::var(var) {
         Ok(url) if !url.trim().is_empty() => Some(parse_url(url.trim())),
         _ => {
@@ -58,7 +58,7 @@ pub(crate) fn env_config(var: &str, kind: Kind) -> Option<(ConnConfig, Option<St
     Some((config(kind, &t, &db), t.password))
 }
 
-async fn open(kind: Kind, t: &Target, database: &str) -> DbPool {
+pub(super) async fn open(kind: Kind, t: &Target, database: &str) -> DbPool {
     connect(&config(kind, t, database), t.password.clone()).await.expect("connect")
 }
 
@@ -86,7 +86,7 @@ async fn mssql_batch(pool: &MssqlPool, sql: &str) -> Result<(), String> {
 }
 
 /// Runs a multi-statement setup script outside read-only mode.
-async fn exec(pool: &DbPool, sql: &str) {
+pub(super) async fn exec(pool: &DbPool, sql: &str) {
     let r = match pool {
         DbPool::Pg(p) => sqlx::raw_sql(sqlx::AssertSqlSafe(sql)).execute(p).await.map(|_| ()).map_err(|e| e.to_string()),
         DbPool::My(p) => sqlx::raw_sql(sqlx::AssertSqlSafe(sql)).execute(p).await.map(|_| ()).map_err(|e| e.to_string()),

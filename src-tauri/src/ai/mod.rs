@@ -1,14 +1,15 @@
 //! English → SQL generation, streamed to the UI as Tauri events. Claude goes over the
 //! Messages API; every other provider over the OpenAI-compatible Chat Completions API.
 
-mod anthropic;
+pub(crate) mod anthropic;
+pub mod agent;
 pub mod context;
 pub mod endpoint;
 mod models;
-mod openai;
+pub(crate) mod openai;
 mod prompt;
 mod providers;
-mod redact;
+pub(crate) mod redact;
 
 #[cfg(test)]
 pub(crate) use redact::database_error as mask_database_error;

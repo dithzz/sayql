@@ -1,6 +1,7 @@
 //! Saved connections and settings, as JSON files in the app config directory.
 //! Secrets never go in these files; see [`secrets`].
 
+pub mod agent;
 pub mod secrets;
 pub mod skills;
 
@@ -56,6 +57,15 @@ pub struct Settings {
     /// The first-run setup was finished or dismissed, so it isn't shown again.
     #[serde(default)]
     pub onboarded: bool,
+    /// Claude model for agent mode; empty means the expert model.
+    #[serde(default)]
+    pub agent_model: String,
+    #[serde(default)]
+    pub agent: agent::AgentSettings,
+    /// How tools reached each model the last time it ran the agent (`provider/model` →
+    /// native or text), so a model without tool calling isn't asked again.
+    #[serde(default)]
+    pub tool_modes: BTreeMap<String, crate::ai::agent::model::ToolMode>,
 }
 
 /// How SayQL uses one AI provider.
@@ -70,11 +80,18 @@ pub struct ProviderSettings {
     /// Empty means the typing model does fixes and improvements too.
     #[serde(default)]
     pub expert_model: String,
+    /// Empty means the expert model runs agent mode.
+    #[serde(default)]
+    pub agent_model: String,
 }
 
 impl ProviderSettings {
     pub fn model(&self, expert: bool) -> &str {
         if expert && !self.expert_model.is_empty() { &self.expert_model } else { &self.typing_model }
+    }
+
+    pub fn agent(&self) -> &str {
+        if self.agent_model.is_empty() { self.model(true) } else { &self.agent_model }
     }
 }
 
@@ -82,7 +99,12 @@ impl Settings {
     /// Claude's choices live in the top-level fields, which predate other providers.
     pub fn provider_settings(&self, id: &str) -> ProviderSettings {
         if id == crate::ai::ANTHROPIC {
-            ProviderSettings { base_url: String::new(), typing_model: self.typing_model.clone(), expert_model: self.expert_model.clone() }
+            ProviderSettings {
+                base_url: String::new(),
+                typing_model: self.typing_model.clone(),
+                expert_model: self.expert_model.clone(),
+                agent_model: self.agent_model.clone(),
+            }
         } else {
             self.providers.get(id).cloned().unwrap_or_default()
         }
@@ -92,6 +114,7 @@ impl Settings {
         if id == crate::ai::ANTHROPIC {
             self.typing_model = p.typing_model;
             self.expert_model = p.expert_model;
+            self.agent_model = p.agent_model;
         } else {
             self.providers.insert(id.to_string(), p);
         }
@@ -120,6 +143,9 @@ impl Default for Settings {
             demo_added: false,
             workspace_id: String::new(),
             onboarded: false,
+            agent_model: String::new(),
+            agent: agent::AgentSettings::default(),
+            tool_modes: BTreeMap::new(),
         }
     }
 }

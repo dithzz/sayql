@@ -55,7 +55,19 @@ cargo test --lib integration
 
 The URLs take the form `scheme://user:password@host:port/database` (no percent-encoding). `SAYQL_TEST_MYSQL_URL`
 also takes a MariaDB server. The tests create and drop their own schemas, databases and roles (all named
-`sayql_*`), so use throwaway servers. MySQL needs a few seconds after `docker run` before it accepts connections.
+`sayql_*`), so use throwaway servers. With the same variables, `cargo test --lib tenant_fixture ai::agent` loads
+the synthetic tenant database (`src-tauri/src/db/tenant_fixture.rs`, made-up rows only) into a `sayql_tenant`
+database on each server and runs the masking and agent evaluation checks against it.
+
+The agent evaluation can also run the 45-question set with a real model. It costs API credits, so it only runs
+when you set a key, and writes a record per question (steps, tokens, time, everything sent) to
+`src-tauri/target/agent-eval.json`:
+
+```bash
+SAYQL_EVAL_ANTHROPIC_KEY=sk-ant-... cargo test --lib agent_answers_the_question_set -- --nocapture
+```
+
+For a local model, set `SAYQL_EVAL_OPENAI_URL` (e.g. `http://localhost:11434/v1`) and `SAYQL_EVAL_MODEL` instead. MySQL needs a few seconds after `docker run` before it accepts connections.
 
 To run them against every version SayQL supports (PostgreSQL 13 to 17, MySQL 5.7 to 8.4, MariaDB 10.6 to
 11.4, SQL Server 2019 and 2022), each in its own throwaway container that is removed afterwards:

@@ -22,11 +22,11 @@ describe("menuQuery", () => {
 
 describe("menuItems", () => {
   it("lists every command, then Create skill", () => {
-    expect(slugs("")).toEqual(["followup", "new", "explain", "fix", "improve", "pii-safe", "this-month", "+create"]);
+    expect(slugs("")).toEqual(["agent", "followup", "new", "explain", "fix", "improve", "pii-safe", "this-month", "+create"]);
   });
 
   it("puts name matches first, then names or descriptions containing the text", () => {
-    expect(slugs("p")).toEqual(["pii-safe", "followup", "explain", "improve", "+create"]);
+    expect(slugs("p")).toEqual(["pii-safe", "agent", "followup", "explain", "improve", "+create"]);
     expect(slugs("month")).toEqual(["this-month", "+create"]);
     expect(slugs("personal")).toEqual(["pii-safe", "+create"]);
     expect(slugs("zzz")).toEqual(["+create"]);
@@ -106,6 +106,15 @@ describe("actionTask", () => {
     expect(actionTask("fix", "SELECT x", null)).toEqual({ kind: "fix", sql: "SELECT x", error: "" });
     expect(actionTask("improve", "SELECT x", "ignored")).toEqual({ kind: "improve", sql: "SELECT x" });
     expect(actionTask("explain", "SELECT x", null)).toEqual({ kind: "explain", sql: "SELECT x" });
+  });
+});
+
+describe("/agent", () => {
+  it("investigates on enter instead of drafting, with an optional skill after it", () => {
+    const skills = [{ slug: "pii-safe", description: "", instruction: "Hide emails." }];
+    const ctx = { previous: null, sql: "" };
+    expect(planRequest("/agent who owns it?", skills, ctx)).toEqual({ kind: "agent", question: "who owns it?", skill: null });
+    expect(planRequest("/agent /pii-safe who owns it?", skills, ctx)).toEqual({ kind: "agent", question: "who owns it?", skill: "pii-safe" });
   });
 });
 

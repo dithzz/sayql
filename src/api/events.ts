@@ -1,5 +1,13 @@
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import type { AiDelta, AiDone, VoiceProgress } from "./types";
+import type { AgentEvent, AiDelta, AiDone, VoiceProgress } from "./types";
+
+/** Must match EVENT in src-tauri/src/commands/agent.rs. */
+export const AGENT_EVENT = "agent://event";
+
+/** Subscribes to agent mode's events; filter them by `runId`. */
+export function subscribeToAgent(handler: (e: AgentEvent) => void): Promise<UnlistenFn> {
+  return listen<AgentEvent>(AGENT_EVENT, (e) => handler(e.payload));
+}
 
 export interface AiEventHandlers {
   delta: (e: AiDelta) => void;

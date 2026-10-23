@@ -6,12 +6,13 @@ mod db;
 mod error;
 pub mod handoff;
 pub mod mcp;
+mod readonly;
 mod schema;
 mod state;
 mod store;
 mod voice;
 
-use commands::{app, connections, generation, handoff as handoffs, query, scripts, settings, skills, updates};
+use commands::{agent, app, connections, generation, handoff as handoffs, query, scripts, settings, skills, updates};
 use state::AppState;
 use tauri::Manager;
 use tauri_plugin_deep_link::DeepLinkExt;
@@ -57,6 +58,15 @@ pub fn run() {
             skills::delete_skill,
             generation::generate_sql,
             generation::cancel_generation,
+            agent::start_agent,
+            agent::stop_agent,
+            agent::reply_agent,
+            agent::agent_access,
+            agent::save_agent_access,
+            agent::list_notes,
+            agent::save_note,
+            agent::delete_note,
+            settings::save_agent_settings,
             handoffs::take_handoffs,
             settings::save_settings,
             settings::list_models,

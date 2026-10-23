@@ -36,7 +36,7 @@ run() { # name kind url
   local name=$1 var=$2 url=$3
   echo "== $name"
   if env SAYQL_TEST_PG_URL= SAYQL_TEST_MYSQL_URL= SAYQL_TEST_MSSQL_URL= "$var=$url" \
-    cargo test -q --lib -- integration_tests:: mcp::tests::tools_work_against_real_databases; then
+    cargo test -q --lib -- integration_tests:: mcp::tests::tools_work_against_real_databases tenant_fixture ai::agent::; then
     PASSED+=("$name")
   else
     FAILED+=("$name")

@@ -408,6 +408,29 @@ p { text-wrap: pretty; }
 .note-badge { font-size: 11px; font-weight: 500; padding: 2px 7px; border-radius: 999px; background: var(--color-app-accent-soft); color: var(--color-app-accent); }
 .note-badge[hidden] { display: none; }
 
+/* agent mode: the plan, live steps and the cited answer, like the app's Agent view */
+.agent { overflow: hidden; padding: 8px 10px; display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; }
+.agent[hidden] { display: none; }
+.pill[hidden], .grid[hidden] { display: none; }
+.agent .ag-q { font-weight: 600; margin-bottom: 2px; }
+.ag-step { display: flex; align-items: center; gap: 7px; height: 22px; opacity: 0; transform: translateY(3px); transition: opacity 220ms, transform 220ms; white-space: nowrap; overflow: hidden; }
+.ag-step.in { opacity: 1; transform: none; }
+.ag-step .no { flex: none; display: inline-grid; place-items: center; min-width: 16px; height: 16px; border-radius: 999px; background: var(--color-surface-muted); color: var(--color-text-muted); font-size: 10.5px; }
+.ag-step .st { flex: none; width: 12px; height: 12px; border-radius: 50%; border: 1.5px solid var(--color-ai); border-right-color: transparent; animation: spin 700ms linear infinite; }
+.ag-step.done .st { animation: none; border: 0; border-radius: 0; background: var(--color-success); clip-path: polygon(14% 52%, 0 66%, 38% 100%, 100% 22%, 86% 8%, 38% 72%); }
+@keyframes spin { to { transform: rotate(360deg); } }
+.ag-step .tx { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.ag-step .rows { color: var(--color-text-subtle); font-size: 11.5px; }
+.ag-step .sent { flex: none; font-size: 10.5px; padding: 1px 6px; border-radius: 999px; background: var(--color-ai-soft); color: var(--color-ai); }
+.ag-answer { margin-top: 4px; padding: 8px 10px; border: 1px solid var(--color-app-accent); border-radius: var(--radius-md); background: var(--color-surface); opacity: 0; transition: opacity 260ms; }
+.ag-answer.in { opacity: 1; }
+.ag-answer b { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+.ag-answer .conf { font-weight: 500; font-size: 10.5px; padding: 1px 6px; border-radius: 999px; background: var(--color-success-soft); color: var(--color-success); }
+.ag-answer p { margin: 4px 0 0; line-height: 1.5; }
+.cite { display: inline-grid; place-items: center; min-width: 15px; height: 15px; margin-left: 2px; padding: 0 3px; border-radius: 999px; background: var(--color-app-accent-soft); color: var(--color-app-accent); font-size: 10px; vertical-align: super; }
+.cmd-chip.agent-chip { background: var(--color-ai-soft); color: var(--color-ai); }
+.card-text .fine { margin-top: 10px; font-size: 13.5px; color: var(--color-text-subtle); }
+
 /* supported */
 .support { padding: 40px 0 8px; }
 .support-row { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 16px; align-items: start; }
@@ -518,7 +541,7 @@ section.block { padding: 96px 0 0; }
 <script defer src="/_vercel/insights/script.js"></script>
 <script type="application/ld+json">{"@context": "https://schema.org", "@type": "SoftwareApplication", "name": "SayQL", "alternateName": "SayQL Community Edition", "description": "Ask your database in plain English: SayQL writes the SQL and runs it read-only. Free, open-source text-to-SQL for PostgreSQL, MySQL, SQLite and SQL Server.", "url": "https://sayql.dev/", "image": "https://sayql.dev/og.png", "applicationCategory": "DeveloperApplication", "operatingSystem": "macOS, Windows, Linux", "downloadUrl": "https://github.com/dithzz/sayql-releases/releases/latest", "license": "https://www.apache.org/licenses/LICENSE-2.0", "isAccessibleForFree": true, "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}, "author": {"@type": "Person", "name": "Adith L S", "url": "https://github.com/dithzz"}, "sameAs": ["https://github.com/dithzz/sayql"]}</script>
 <script type="application/ld+json">{"@context": "https://schema.org", "@type": "WebSite", "name": "SayQL", "url": "https://sayql.dev/"}</script>
-<!-- faq-jsonld --><script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "What is SayQL?", "acceptedAnswer": {"@type": "Answer", "text": "A free, open-source desktop app that turns plain English into SQL (text-to-SQL) for PostgreSQL, MySQL, SQLite and SQL Server. It knows your schema and runs queries read-only."}}, {"@type": "Question", "name": "Do I need to know SQL?", "acceptedAnswer": {"@type": "Answer", "text": "No. The SQL is always in front of you, so you’ll pick it up along the way."}}, {"@type": "Question", "name": "What does the AI see?", "acceptedAnswer": {"@type": "Answer", "text": "Your question and your table and column names. When a query fails, the SQL and the error too. Never the rows in your tables. With Ollama or LM Studio, nothing leaves your computer."}}, {"@type": "Question", "name": "Can it break my database?", "acceptedAnswer": {"@type": "Answer", "text": "Queries run read-only, and the database enforces it too. An UPDATE or DELETE always stops for your confirmation first."}}, {"@type": "Question", "name": "What does it cost?", "acceptedAnswer": {"@type": "Answer", "text": "SayQL is free. You pay your AI provider for what you use, with your own key, or nothing with a local model."}}, {"@type": "Question", "name": "Why does my computer warn me on first launch?", "acceptedAnswer": {"@type": "Answer", "text": "Early-access builds aren’t code-signed with Apple or Microsoft yet. Confirm the first launch once and it opens normally after that. Updates are signed with SayQL’s own key."}}]}</script><!-- /faq-jsonld -->
+<!-- faq-jsonld --><script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "What is SayQL?", "acceptedAnswer": {"@type": "Answer", "text": "A free, open-source desktop app that turns plain English into SQL (text-to-SQL) for PostgreSQL, MySQL, SQLite and SQL Server. It knows your schema and runs queries read-only."}}, {"@type": "Question", "name": "Do I need to know SQL?", "acceptedAnswer": {"@type": "Answer", "text": "No. The SQL is always in front of you, so you’ll pick it up along the way."}}, {"@type": "Question", "name": "What does the AI see?", "acceptedAnswer": {"@type": "Answer", "text": "Your question and your table and column names. When a query fails, the SQL and the error too. Never the rows in your tables, unless you turn on agent mode for a connection, and then only what you allow for it. With Ollama or LM Studio, nothing leaves your computer."}}, {"@type": "Question", "name": "Can it break my database?", "acceptedAnswer": {"@type": "Answer", "text": "Queries run read-only, and the database enforces it too. An UPDATE or DELETE always stops for your confirmation first."}}, {"@type": "Question", "name": "What does it cost?", "acceptedAnswer": {"@type": "Answer", "text": "SayQL is free. You pay your AI provider for what you use, with your own key, or nothing with a local model."}}, {"@type": "Question", "name": "Why does my computer warn me on first launch?", "acceptedAnswer": {"@type": "Answer", "text": "Early-access builds aren’t code-signed with Apple or Microsoft yet. Confirm the first launch once and it opens normally after that. Updates are signed with SayQL’s own key."}}]}</script><!-- /faq-jsonld -->
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -594,7 +617,7 @@ section.block { padding: 96px 0 0; }
     </div>
     <p class="meta">macOS, Windows and Linux · Open source, Apache 2.0<span data-downloads hidden> · <span data-downloads-count></span> downloads</span></p>
 
-    <div class="app window" id="hero-demo" role="img" aria-label="Demo: SayQL turns a plain-English question and the /pii-safe skill into SQL as you type, then runs it read-only">
+    <div class="app window" id="hero-demo" role="img" aria-label="Demo: SayQL turns a plain-English question and the /pii-safe skill into SQL as you type, then runs it read-only; with /agent it investigates a question in read-only steps and answers with the queries behind it">
       <div class="titlebar"><div class="lights"><i></i><i></i><i></i></div>SayQL</div>
       <div class="topbar">
         <span class="logo"><svg class="wordmark" width="38" height="17" aria-hidden="true"><use href="#i-wordmark"/></svg></span>
@@ -626,7 +649,7 @@ section.block { padding: 96px 0 0; }
             <span class="end"><svg class="i tool"><use href="#i-save"/></svg><span class="tool"><svg class="i"><use href="#i-wand"/></svg>Improve</span><span class="run-btn" data-run><svg class="i"><use href="#i-play"/></svg>Run <span class="kbd">⌘↵</span></span></span>
           </div>
           <div class="askbox" data-ask>
-            <div class="q-line" style="margin-top:0"><svg class="i spark"><use href="#i-sparkles"/></svg><span class="cmd-chip skill" data-chip hidden>/pii-safe</span><span class="q" data-q><span class="ph">Ask in plain English, or type / for commands</span></span><svg class="i mic end" aria-hidden="true"><use href="#i-mic"/></svg><span class="pill"><svg class="i"><use href="#i-table"/></svg><span data-pill>customers, orders</span><svg class="i"><use href="#i-eye"/></svg><svg class="i"><use href="#i-x"/></svg></span></div>
+            <div class="q-line" style="margin-top:0"><svg class="i spark"><use href="#i-sparkles"/></svg><span class="cmd-chip skill" data-chip hidden>/pii-safe</span><span class="cmd-chip agent-chip" data-agent-chip hidden>/agent</span><span class="q" data-q><span class="ph">Ask in plain English, or type / for commands</span></span><svg class="i mic end" aria-hidden="true"><use href="#i-mic"/></svg><span class="pill"><svg class="i"><use href="#i-table"/></svg><span data-pill>customers, orders</span><svg class="i"><use href="#i-eye"/></svg><svg class="i"><use href="#i-x"/></svg></span></div>
           </div>
           <div class="hintbar">
             <span class="building" data-building hidden><svg class="i"><use href="#i-corner"/></svg>Building on your last query <span class="newq" data-newq>New query</span></span>
@@ -637,6 +660,7 @@ section.block { padding: 96px 0 0; }
           <div class="results">
             <div class="pane-h"><svg class="i"><use href="#i-table"/></svg>Results <span class="sub" data-meta></span><span class="end"><svg class="i"><use href="#i-copy"/></svg>Copy as CSV</span></div>
             <div class="grid" data-grid><div class="empty">Run a query to see rows here</div></div>
+            <div class="agent" data-agent hidden></div>
           </div>
         </div>
       </div>
@@ -685,6 +709,18 @@ section.block { padding: 96px 0 0; }
     </div>
 
     <div class="cards bento">
+      <article class="card b-6 b-wide">
+        <div class="card-text">
+          <h3>Agent mode <span class="note-badge tag">beta</span></h3>
+          <p>Type <code>/agent</code> and a question that needs looking around: “why did paid orders drop last week?”. SayQL shows its plan, works through it in read-only steps, checks its own work and answers with every sentence linked to the query behind it.</p>
+          <p class="fine">Off until you turn it on for a connection. You choose what the AI sees of results: nothing, counts only, or 20 rows with personal data masked.</p>
+        </div>
+        <div class="app mini" id="demo-agent" role="img" aria-label="Demo: agent mode works through a question in read-only steps and answers with citations">
+          <div class="askbox"><div class="q-line" style="margin-top:0"><svg class="i spark"><use href="#i-sparkles"/></svg><span class="cmd-chip agent-chip">/agent</span><span class="q" data-q></span></div></div>
+          <div class="hintbar"><span class="state">Results to AI: counts and summaries only · Ask before send</span></div>
+          <div class="agent" data-agent></div>
+        </div>
+      </article>
       <article class="card b-4">
         <div class="card-text">
           <h3>Read-only unless you say so</h3>
@@ -798,7 +834,7 @@ section.block { padding: 96px 0 0; }
     <div class="facts">
       <div class="fact">
         <h3><svg class="icon"><use href="#i-lock"/></svg>Your rows stay with you</h3>
-        <p>The AI sees your question and table names, never your data.</p>
+        <p>The AI sees your question and table names, never your data, unless you turn on agent mode for a connection.</p>
       </div>
       <div class="fact">
         <h3><svg class="icon"><use href="#i-key"/></svg>Secrets in your keychain</h3>
@@ -872,7 +908,7 @@ section.block { padding: 96px 0 0; }
       </details>
       <details>
         <summary>What does the AI see?<svg class="icon"><use href="#i-plus"/></svg></summary>
-        <p>Your question and your table and column names. When a query fails, the SQL and the error too. Never the rows in your tables. With Ollama or LM Studio, nothing leaves your computer.</p>
+        <p>Your question and your table and column names. When a query fails, the SQL and the error too. Never the rows in your tables, unless you turn on agent mode for a connection, and then only what you allow for it. With Ollama or LM Studio, nothing leaves your computer.</p>
       </details>
       <details>
         <summary>Can it break my database?<svg class="icon"><use href="#i-plus"/></svg></summary>
@@ -963,13 +999,59 @@ section.block { padding: 96px 0 0; }
     return t;
   }
 
+  /* ---------- agent mode: the same run in the hero and in its feature card ---------- */
+  var AGENT = {
+    question: "why did paid orders drop last week?",
+    steps: [
+      { text: "Counting paid orders in the last two weeks", rows: "2 rows", sql: "SELECT strftime('%Y-%W', ordered_at) AS week,\n       COUNT(*) AS paid\nFROM orders\nWHERE status = 'paid'\nGROUP BY week\nORDER BY week DESC\nLIMIT 2;" },
+      { text: "Splitting last week's paid orders by category", rows: "8 rows", sql: "SELECT c.name, COUNT(DISTINCT o.id) AS paid\nFROM orders o\nJOIN order_items oi ON oi.order_id = o.id\nJOIN products p ON p.id = oi.product_id\nJOIN categories c ON c.id = p.category_id\nWHERE o.status = 'paid'\nGROUP BY c.name;" },
+      { text: "Checking for missing days in last week", rows: "1 row", sql: "SELECT COUNT(DISTINCT date(ordered_at)) AS days\nFROM orders\nWHERE ordered_at >= date('now', '-7 days');" },
+      { text: "Checking claims about all rows", rows: "", sql: null }
+    ],
+    answer: 'Paid orders fell from 52 to 31.<span class="cite">1</span> Electronics went from 14 to 2, most of the drop.<span class="cite">2</span> No day is missing from last week, so it isn\'t a data gap.<span class="cite">3</span>'
+  };
+  function agentStep(i, s, done) {
+    return '<div class="ag-step' + (done ? " done in" : "") + '"><span class="no">' + (i + 1) + '</span><span class="st"></span><span class="tx">' + esc(s.text) +
+      '</span><span class="rows">' + (done ? s.rows : "") + '</span>' + (done ? '<span class="sent">' + (s.sql ? "sent counts only" : "checked") + "</span>" : "") + "</div>";
+  }
+  function agentAnswer(shown) {
+    return '<div class="ag-answer' + (shown ? " in" : "") + '"><b>Answer <span class="conf">high confidence</span></b><p>' + AGENT.answer + "</p></div>";
+  }
+  // Plays the run into `box` from time `t`; `onStep(sql)` shows each step's SQL. Returns when the answer shows.
+  function playAgent(box, later, t, onStep) {
+    box.innerHTML = "";
+    AGENT.steps.forEach(function (s, i) {
+      later(function () {
+        box.insertAdjacentHTML("beforeend", agentStep(i, s, false));
+        var row = box.lastElementChild;
+        requestAnimationFrame(function () { row.classList.add("in"); });
+        if (onStep && s.sql) onStep(s.sql);
+      }, t + i * 1300);
+      later(function () {
+        var rows = box.querySelectorAll(".ag-step");
+        rows[i].outerHTML = agentStep(i, s, true);
+      }, t + i * 1300 + 900);
+    });
+    var end = t + AGENT.steps.length * 1300 + 200;
+    later(function () {
+      box.insertAdjacentHTML("beforeend", agentAnswer(false));
+      var a = box.lastElementChild;
+      requestAnimationFrame(function () { a.classList.add("in"); });
+    }, end);
+    return end;
+  }
+  function stillAgent(box) {
+    box.innerHTML = AGENT.steps.map(function (s, i) { return agentStep(i, s, true); }).join("") + agentAnswer(true);
+  }
+
   /* ---------- hero: the workbench, with the app's built-in demo database ---------- */
   (function () {
     var el = document.getElementById("hero-demo");
     var $ = function (s) { return el.querySelector(s); };
     var ask = $("[data-ask]"), q = $("[data-q]"), code = $("[data-code]"), gutter = $("[data-gutter]"), grid = $("[data-grid]"),
         meta = $("[data-meta]"), state = $("[data-state]"), building = $("[data-building]"), newq = $("[data-newq]"),
-        pill = $("[data-pill]"), run = $("[data-run]"), chip = $("[data-chip]");
+        pill = $("[data-pill]"), run = $("[data-run]"), chip = $("[data-chip]"),
+        agentPane = $("[data-agent]"), agentChip = $("[data-agent-chip]"), resultsTitle = el.querySelector(".results .pane-h");
 
     var TOP = "SELECT c.id AS customer_id,\n       c.first_name || ' ' || c.last_name AS customer,\n       c.country,\n       COUNT(DISTINCT o.id) AS orders,\n       ROUND(SUM(oi.quantity * oi.unit_price), 2) AS total_spend\nFROM customers c\nJOIN orders o ON o.customer_id = c.id\nJOIN order_items oi ON oi.order_id = o.id\nWHERE o.status NOT IN ('cancelled', 'refunded')\nGROUP BY c.id\nORDER BY total_spend DESC\nLIMIT 10;";
     var PEOPLE = [[214, "Ava Smith", "USA", 31, 18420.5], [87, "Liam Patel", "India", 27, 16935], [342, "Noah Garcia", "Spain", 26, 15210.75], [19, "Emma Kim", "South Korea", 24, 14388.2], [156, "Olivia Nguyen", "Australia", 22, 13702.4], [401, "Arjun Müller", "Germany", 21, 12950], [63, "Priya Rossi", "Italy", 20, 12118.65], [278, "Mateo Silva", "Brazil", 19, 11640.3], [125, "Sofia Haddad", "Canada", 18, 10987.1], [330, "Kenji Watanabe", "Japan", 17, 10402.85]];
@@ -982,8 +1064,10 @@ section.block { padding: 96px 0 0; }
         sql: TOP.replace("\nGROUP BY", "\n  AND c.country IN ('Spain', 'Germany', 'Italy')\nGROUP BY"),
         cols: COLS, rows: PEOPLE.filter(function (r) { return /Spain|Germany|Italy/.test(r[2]); }), meta: "3 rows · 6 ms" },
       { tables: ["orders"], question: "how many orders in each status", sql: "SELECT status, COUNT(*) AS orders\nFROM orders\nGROUP BY status\nORDER BY orders DESC;",
-        cols: ["status", "orders"], rows: [["delivered", 2154], ["shipped", 389], ["processing", 201], ["cancelled", 152], ["refunded", 104]], meta: "5 rows · 4 ms" }
+        cols: ["status", "orders"], rows: [["delivered", 2154], ["shipped", 389], ["processing", 201], ["cancelled", 152], ["refunded", 104]], meta: "5 rows · 4 ms" },
+      { tables: [], agent: true, question: AGENT.question }
     ];
+    var RESULTS_TITLE = resultsTitle.innerHTML;
     var current = 0;
 
     function setSql(sql) {
@@ -1009,8 +1093,14 @@ section.block { padding: 96px 0 0; }
     function setScene(s) {
       el.querySelectorAll(".row[data-t]").forEach(function (r) { r.classList.toggle("sel", s.tables.indexOf(r.getAttribute("data-t")) >= 0); });
       pill.textContent = s.tables.join(", ");
+      pill.parentNode.hidden = !s.tables.length;
       building.hidden = !s.followup;
       chip.hidden = !s.skill;
+      agentChip.hidden = !s.agent;
+      agentPane.hidden = !s.agent;
+      grid.hidden = !!s.agent;
+      resultsTitle.innerHTML = s.agent ? '<svg class="i"><use href="#i-sparkles"/></svg>Agent <span class="sub">step-by-step, read-only</span>' : RESULTS_TITLE;
+      if (!s.agent) meta = $("[data-meta]");
     }
     function done(s) {
       ask.classList.remove("live");
@@ -1022,6 +1112,18 @@ section.block { padding: 96px 0 0; }
     demo(el, function (later, loop) {
       var s = SCENES[current];
       setScene(s);
+      if (s.agent) {
+        setSql(""); agentPane.innerHTML = "";
+        ask.classList.add("live");
+        q.innerHTML = '<span class="caret"></span>';
+        state.className = "state"; state.textContent = "Results to AI: counts and summaries only";
+        var ta = typeInto(q, s.question, 600, later);
+        later(function () { ask.classList.remove("live"); q.textContent = s.question; state.className = "state ai"; state.innerHTML = "<i></i>Investigating with Opus 5.5…"; }, ta + 300);
+        var ea = playAgent(agentPane, later, ta + 600, setSql);
+        later(function () { state.className = "state"; state.innerHTML = '<svg class="i"><use href="#i-check"/></svg>Answered in 4 steps, nothing changed'; }, ea);
+        later(function () { current = (current + 1) % SCENES.length; loop(); }, ea + 6500);
+        return;
+      }
       if (!s.followup) { setSql(""); clearRows(); }
       ask.classList.add("live");
       q.innerHTML = '<span class="caret"></span>';
@@ -1050,6 +1152,20 @@ section.block { padding: 96px 0 0; }
       var s = SCENES[0];
       setScene(s); setSql(s.sql); showRows(s); done(s);
     });
+  })();
+
+  /* ---------- agent mode card ---------- */
+  (function () {
+    var el = document.getElementById("demo-agent");
+    var q = el.querySelector("[data-q]"), box = el.querySelector("[data-agent]");
+    demo(el, function (later, loop) {
+      q.innerHTML = '<span class="caret"></span>';
+      box.innerHTML = "";
+      var t = typeInto(q, AGENT.question, 400, later);
+      later(function () { q.textContent = AGENT.question; }, t + 200);
+      var end = playAgent(box, later, t + 500);
+      later(loop, end + 6000);
+    }, function () { q.textContent = AGENT.question; stillAgent(box); });
   })();
 
   /* ---------- run selection: a cut statement snaps to the whole statement ---------- */

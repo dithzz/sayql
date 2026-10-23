@@ -5,7 +5,7 @@ Music: Corporate Tech by MomotMusic (https://pixabay.com/music/corporate-corpora
 
 - 0:00.0 problem card (cut)
 - 0:02.1 ask (cut)
-    - 0:04.5 caption: “SQL appears as you type. No waiting.”
+    - 0:04.7 caption: “SQL appears as you type. No waiting.”
     - 0:07.3 caption: “It already knows your schema”
-- 0:09.9 followup (cut)
+- 0:10.0 followup (cut)
 - 0:12.8 end card (cut)

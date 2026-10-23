@@ -78,6 +78,9 @@ pub fn delete_connection(state: State<'_, AppState>, id: String) -> AppResult<()
     let list: Vec<ConnConfig> = state.store.connections()?.into_iter().filter(|c| c.id != id).collect();
     state.store.save_connections(&list)?;
     state.close(&id);
+    if let Err(e) = state.store.forget_agent(&id) {
+        eprintln!("sayql: couldn't remove the agent settings of connection {id}: {e}");
+    }
     // The connection is already gone; a keychain failure here only leaves a stale secret.
     if let Err(e) = secrets::delete_password(&id) {
         eprintln!("sayql: couldn't remove the saved password of connection {id}: {e}");

@@ -1,5 +1,5 @@
-import type { RefObject } from "react";
-import { Eraser, FileCode2, Play, Save, Square, Wand2 } from "lucide-react";
+import type { ReactNode, RefObject } from "react";
+import { CircleStop, Eraser, FileCode2, Play, Save, Square, Wand2 } from "lucide-react";
 import type { Schema, Skill } from "../api";
 import { Badge, Button, IconButton, Panel } from "../components/ui";
 import { AskBar, type GenerationStatus } from "../features/ask";
@@ -23,6 +23,17 @@ export interface WorkspaceGeneration {
   followUp?: { onStartFresh: () => void };
   explanation: string | null;
   onDismissExplanation: () => void;
+  /** Agent mode's setting line for this connection, shown under the Ask box in agent mode. */
+  agentHint?: ReactNode;
+  onInvestigate?: () => void;
+}
+
+/** An agent run in this tab: Run becomes Stop while it goes. */
+export interface WorkspaceAgent {
+  running: boolean;
+  onStop: () => void;
+  /** What the run is doing, for the toolbar. */
+  label: string | null;
 }
 
 /** The SQL editor and running it. */
@@ -64,10 +75,11 @@ export interface SqlWorkspaceProps {
   focus: WorkspaceFocus;
   /** Opened by an AI app, e.g. "From Claude (MCP)". */
   origin?: string;
+  agent?: WorkspaceAgent;
 }
 
 /** The SQL editor view: the plain-English Ask bar above an editable SQL editor. */
-export function SqlWorkspace({ connectionName, schema, active, modelNames, onOpenSettings, skills, generation: g, query: q, focus, origin }: SqlWorkspaceProps) {
+export function SqlWorkspace({ connectionName, schema, active, modelNames, onOpenSettings, skills, generation: g, query: q, focus, origin, agent }: SqlWorkspaceProps) {
   const writing = g.status.kind === "writing";
   const hasSelection = !!q.selection && !!q.sql.slice(q.selection.start, q.selection.end).trim();
   return (
@@ -99,6 +111,14 @@ export function SqlWorkspace({ connectionName, schema, active, modelNames, onOpe
               Cancel
             </Button>
           )}
+          {agent?.running ? (
+            <>
+              {agent.label && <span className={styles.agentLabel}>{agent.label}</span>}
+              <Button size="sm" variant="danger" icon={CircleStop} onClick={agent.onStop} title="Stop the agent and its running query">
+                Stop
+              </Button>
+            </>
+          ) : (
           <Button
             size="sm"
             variant="primary"
@@ -111,6 +131,7 @@ export function SqlWorkspace({ connectionName, schema, active, modelNames, onOpe
           >
             {hasSelection ? "Run selection" : writing ? "Run when ready" : "Run"}
           </Button>
+          )}
         </>
       }
     >
@@ -135,6 +156,8 @@ export function SqlWorkspace({ connectionName, schema, active, modelNames, onOpe
         onFocusTablesChange={focus.onTablesChange}
         active={active}
         voicePrompt={voicePrompt(schema, focus.tables)}
+        agentHint={g.agentHint}
+        onInvestigate={g.onInvestigate}
       />
       <div className={styles.editor}>
         <SqlEditor

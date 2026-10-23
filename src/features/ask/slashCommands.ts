@@ -16,6 +16,7 @@ export interface Builtin {
 
 /** One entry per BUILTIN_SLUGS from skills (checked in slashCommands.test.ts). */
 export const BUILTINS: Builtin[] = [
+  { slug: "agent", description: "Investigate in several steps (beta)", placeholder: "What should the agent find out?" },
   { slug: "followup", description: "Change the current query", placeholder: "What to change — e.g. only active ones" },
   { slug: "new", description: "Start fresh, ignore the last query", placeholder: "Ask in plain English" },
   { slug: "explain", description: "Explain the current query", placeholder: "Anything to focus on? (optional)" },
@@ -88,7 +89,9 @@ export type Plan =
       /** Instant local answers (no AI) may stand in. Not with a skill, whose instruction may change the answer. */
       instant: boolean;
     }
-  | { kind: "action"; command: ActionCommand; question: string; skill: null };
+  | { kind: "action"; command: ActionCommand; question: string; skill: null }
+  /** `/agent`: investigate in several read-only steps on ↵; nothing is drafted while typing. A skill may follow it. */
+  | { kind: "agent"; question: string; skill: string | null };
 
 export interface PlanContext {
   /** The query last run in the tab. */
@@ -101,6 +104,11 @@ export interface PlanContext {
 export function planRequest(text: string, skills: Skill[], ctx: PlanContext): Plan {
   const { command, rest } = parseCommand(text, skills);
   if (isAction(command)) return { kind: "action", command: command.builtin.slug, question: rest, skill: null };
+  if (command?.kind === "builtin" && command.builtin.slug === "agent") {
+    const inner = parseCommand(rest, skills);
+    const skill = inner.command?.kind === "skill" ? inner.command.skill.slug : null;
+    return { kind: "agent", question: skill ? inner.rest : rest, skill };
+  }
   const draft = (task: Extract<GenerationTask, { kind: "draft" }>, skill: string | null = null) => ({
     kind: "draft" as const,
     question: rest,

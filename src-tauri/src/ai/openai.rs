@@ -4,6 +4,7 @@
 //! Only fields every one of them accepts are sent (no `max_tokens`, `temperature` or
 //! reasoning options), since some reject parameters their models don't support.
 
+use super::agent::model::{Block, Msg, Role, ToolSpec, Turn, Usage};
 use super::sse::SseParser;
 use super::{GenRequest, Output, prompt};
 use crate::error::{AppError, AppResult};
@@ -11,7 +12,7 @@ use futures_util::StreamExt;
 use serde_json::{Value, json};
 
 /// Where to send requests, and how to name the service in messages.
-pub(super) struct Service<'a> {
+pub(crate) struct Service<'a> {
     pub label: &'a str,
     pub base_url: &'a str,
     pub api_key: Option<&'a str>,
@@ -89,6 +90,119 @@ pub(super) async fn run(out: &mut Output<'_>, http: &reqwest::Client, svc: &Serv
         Some("content_filter") => Err("The model declined this request. Try rephrasing it.".into()),
         Some("length") => Err("The generated query was cut off. Try a simpler request.".into()),
         _ => Ok(cached),
+    }
+}
+
+/// One agent turn with tools over Chat Completions. Models without tool support reject
+/// `tools` or ignore it; the agent then switches to the text protocol.
+pub(crate) async fn turn(
+    http: &reqwest::Client,
+    svc: &Service<'_>,
+    model: &str,
+    system: &str,
+    schema: &str,
+    tools: &[ToolSpec],
+    messages: &[Msg],
+) -> AppResult<Turn> {
+    let resp = svc
+        .request(http, reqwest::Method::POST, "chat/completions")
+        .json(&turn_body(model, system, schema, tools, messages))
+        .send()
+        .await
+        .map_err(|e| svc.unreachable(e))?;
+    let status = resp.status().as_u16();
+    let text = resp.text().await.map_err(|e| format!("The response was interrupted: {e}"))?;
+    if !(200..300).contains(&status) {
+        return Err(api_error(svc.label, status, &text));
+    }
+    let v: Value = serde_json::from_str(&text).map_err(|_| format!("{} returned an unexpected reply.", svc.label))?;
+    if let Some(msg) = error_message(&v) {
+        return Err(format!("{} error: {msg}", svc.label).into());
+    }
+    parse_turn(&v)
+}
+
+fn turn_body(model: &str, system: &str, schema: &str, tools: &[ToolSpec], messages: &[Msg]) -> Value {
+    let mut out = vec![json!({ "role": "system", "content": format!("{system}\n\n{schema}") })];
+    for m in messages {
+        match m.role {
+            Role::Assistant => {
+                let text: Vec<&str> = m.blocks.iter().filter_map(|b| if let Block::Text(t) = b { Some(t.as_str()) } else { None }).collect();
+                let calls: Vec<Value> = m
+                    .blocks
+                    .iter()
+                    .filter_map(|b| match b {
+                        Block::ToolUse { id, name, input } => {
+                            Some(json!({ "id": id, "type": "function", "function": { "name": name, "arguments": input.to_string() } }))
+                        }
+                        _ => None,
+                    })
+                    .collect();
+                let mut msg = json!({ "role": "assistant", "content": text.join("\n") });
+                if !calls.is_empty() {
+                    msg["tool_calls"] = Value::Array(calls);
+                }
+                out.push(msg);
+            }
+            Role::User => {
+                let mut text = Vec::new();
+                for b in &m.blocks {
+                    match b {
+                        Block::ToolResult { id, content, is_error } => {
+                            let content = if *is_error { format!("Error: {content}") } else { content.clone() };
+                            out.push(json!({ "role": "tool", "tool_call_id": id, "content": content }));
+                        }
+                        Block::Text(t) => text.push(t.as_str()),
+                        _ => {}
+                    }
+                }
+                if !text.is_empty() {
+                    out.push(json!({ "role": "user", "content": text.join("\n") }));
+                }
+            }
+        }
+    }
+    let mut body = json!({ "model": model, "messages": out });
+    if !tools.is_empty() {
+        body["tools"] = tools
+            .iter()
+            .map(|t| json!({ "type": "function", "function": { "name": t.name, "description": t.description, "parameters": t.schema } }))
+            .collect();
+    }
+    body
+}
+
+fn parse_turn(v: &Value) -> AppResult<Turn> {
+    let choice = &v["choices"][0];
+    let msg = &choice["message"];
+    let mut blocks = Vec::new();
+    if let Some(text) = msg["content"].as_str() {
+        let mut think = ThinkFilter::default();
+        let text = think.push(text) + &think.finish();
+        if !text.trim().is_empty() {
+            blocks.push(Block::Text(text));
+        }
+    }
+    for (i, call) in msg["tool_calls"].as_array().into_iter().flatten().enumerate() {
+        let f = &call["function"];
+        // Arguments arrive as a JSON string; some local servers send an object.
+        let input = match &f["arguments"] {
+            Value::String(s) => serde_json::from_str(s).unwrap_or(Value::Null),
+            other => other.clone(),
+        };
+        let id = call["id"].as_str().map(str::to_string).unwrap_or_else(|| format!("call_{i}"));
+        blocks.push(Block::ToolUse { id, name: f["name"].as_str().unwrap_or("").to_string(), input });
+    }
+    let u = &v["usage"];
+    let cached = u["prompt_tokens_details"]["cached_tokens"].as_u64().unwrap_or(0);
+    let usage = Usage {
+        input: u["prompt_tokens"].as_u64().unwrap_or(0).saturating_sub(cached),
+        cached,
+        output: u["completion_tokens"].as_u64().unwrap_or(0),
+    };
+    match choice["finish_reason"].as_str() {
+        Some("content_filter") => Err("The model declined this request. Try rephrasing it.".into()),
+        finish => Ok(Turn { blocks, usage, truncated: finish == Some("length") }),
     }
 }
 
@@ -204,6 +318,35 @@ impl ThinkFilter {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn tool_turns_round_trip() {
+        let tools = [ToolSpec { name: "run_query", description: "Run SQL", schema: json!({ "type": "object" }) }];
+        let msgs = vec![
+            Msg::user("How many?"),
+            Msg { role: Role::Assistant, blocks: vec![Block::ToolUse { id: "c1".into(), name: "run_query".into(), input: json!({ "sql": "SELECT 1" }) }] },
+            Msg { role: Role::User, blocks: vec![Block::ToolResult { id: "c1".into(), content: "bad".into(), is_error: true }] },
+        ];
+        let body = turn_body("qwen3", "sys", "schema", &tools, &msgs);
+        assert_eq!(body["messages"][0]["content"], "sys\n\nschema");
+        assert_eq!(body["messages"][2]["tool_calls"][0]["function"]["arguments"], "{\"sql\":\"SELECT 1\"}");
+        assert_eq!(body["messages"][3], json!({ "role": "tool", "tool_call_id": "c1", "content": "Error: bad" }));
+        assert_eq!(body["tools"][0]["function"]["name"], "run_query");
+
+        let reply = json!({
+            "choices": [{ "message": { "content": "<think>x</think>Looking.", "tool_calls": [
+                { "id": "c2", "type": "function", "function": { "name": "finish", "arguments": "{\"answer\":\"3\"}" } },
+                { "type": "function", "function": { "name": "ask_user", "arguments": { "question": "?" } } }
+            ] }, "finish_reason": "tool_calls" }],
+            "usage": { "prompt_tokens": 500, "completion_tokens": 20, "prompt_tokens_details": { "cached_tokens": 400 } }
+        });
+        let t = parse_turn(&reply).unwrap();
+        assert_eq!(t.blocks[0], Block::Text("Looking.".into()));
+        let calls: Vec<_> = t.tool_uses().map(|(id, n, i)| (id.to_string(), n.to_string(), i.clone())).collect();
+        assert_eq!(calls[0], ("c2".into(), "finish".into(), json!({ "answer": "3" })));
+        assert_eq!(calls[1].0, "call_1");
+        assert_eq!(t.usage, Usage { input: 100, cached: 400, output: 20 });
+    }
 
     fn filter(chunks: &[&str]) -> String {
         let mut f = ThinkFilter::default();

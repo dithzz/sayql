@@ -1,8 +1,19 @@
 import { useEffect, useRef, useState } from "react";
 import { Wand2 } from "lucide-react";
-import { QUERY_CANCELLED, type Schema, type Settings, type Skill } from "../api";
+import { QUERY_CANCELLED, commands, type Schema, type Settings, type Skill } from "../api";
 import { Button, SplitPane } from "../components/ui";
-import { parseCommand, planRequest, useSqlGeneration, type TaskKind } from "../features/ask";
+import {
+  AgentAccessDialog,
+  AgentPanel,
+  describeAccess,
+  forStorage,
+  isActive,
+  saveAgentAccess,
+  useAgentAccess,
+  useAgentRun,
+} from "../features/agent";
+import { parseCommand, planRequest, useSqlGeneration, withCommand, type TaskKind } from "../features/ask";
+import { cx } from "../lib/cx";
 import { resolveSelection, type TextRange } from "../features/editor";
 import { statementRanges } from "../lib/sqlStatements";
 import { ConfirmWriteDialog, useQueryRunner } from "../features/query";
@@ -26,10 +37,19 @@ export interface QueryTabProps {
   /** "Create skill…" in the "/" menu. */
   onCreateSkill: () => void;
   onSave: () => void;
+  /** Opens SQL in a new tab on the same database. */
+  onOpenQuery: (sql: string, question: string) => void;
+  /** Opens SQL in a new tab and asks for a script name. */
+  onSaveAsScript: (sql: string, question: string) => void;
+  /** An agent run started or ended in this tab (the tab shows a spinner). */
+  onAgentBusy: (busy: boolean) => void;
+  /** A database note was saved (the navigator lists them). */
+  onNotesChanged: () => void;
 }
 
 /** One editor tab: Ask bar and SQL editor above, results below, bound to the tab's database. */
-export function QueryTab({ tab, active, label, schema, settings, modelNames, onChange, onOpenSettings, skills, onCreateSkill, onSave }: QueryTabProps) {
+export function QueryTab(props: QueryTabProps) {
+  const { tab, active, label, schema, settings, modelNames, onChange, onOpenSettings, skills, onCreateSkill, onSave } = props;
   const askRef = useRef<HTMLTextAreaElement>(null);
   const setSql = (sql: string) => onChange({ sql });
   const lastRun = tab.lastRun ?? null;
@@ -80,6 +100,52 @@ export function QueryTab({ tab, active, label, schema, settings, modelNames, onC
     if (!generation.requestRun()) runAndRemember(tab.sql, generation.question);
   };
 
+  // Agent mode: one run per tab, kept (queries and answer, no rows) when it ends.
+  const agent = useAgentRun({ target: tab.target, slot: tab.id, initial: tab.agentRun ?? null });
+  const access = useAgentAccess(tab.target.connectionId);
+  const [accessDialog, setAccessDialog] = useState<{ then: (() => void) | null } | null>(null);
+  const [view, setView] = useState<"agent" | "results">(tab.agentRun ? "agent" : "results");
+  /** The agent step whose rows the Results view shows; null shows the last query run here. */
+  const [picked, setPicked] = useState<number | null>(null);
+  /** The next /agent question continues the last run ("Ask a follow-up"). */
+  const followUpNext = useRef(false);
+  const provider = settings.providers.find((p) => p.id === settings.provider);
+
+  useEffect(() => {
+    if (agent.state.runId && !isActive(agent.state)) onChange({ agentRun: forStorage(agent.state) });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [agent.state.phase]);
+  useEffect(() => props.onAgentBusy(agent.active), [agent.active]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const investigate = (question: string, skill: string | null) => {
+    if (!question.trim()) return;
+    const followUp = followUpNext.current;
+    const go = () => {
+      followUpNext.current = false;
+      setView("agent");
+      setPicked(null);
+      agent.start(question, { focusTables: focusEnabled ? (tab.focusTables ?? []) : [], skill, followUp });
+    };
+    if (!settings.aiReady) return onOpenSettings();
+    if (!access?.enabled) return setAccessDialog({ then: go });
+    go();
+  };
+
+  const runningStep = agent.state.steps.find((s) => s.status === "running");
+  const agentLabel =
+    agent.state.pending ? "Waiting for you" : runningStep ? `Step ${runningStep.id}: ${runningStep.text}` : agent.active ? "Thinking…" : null;
+  const step = picked === null ? null : (agent.state.steps.find((s) => s.id === picked) ?? null);
+  const stepOutcome = step?.sql
+    ? [
+        {
+          sql: step.sql,
+          result: step.status === "done" ? { columns: step.columns, rows: step.rows, rowsAffected: null, truncated: step.truncated, elapsedMs: step.elapsedMs ?? 0 } : null,
+          error: step.error,
+          cancelled: false,
+        },
+      ]
+    : null;
+
   /**
    * Runs just the selected SQL, if any. A selection that cuts a statement (a DELETE without
    * its WHERE) runs the whole statements it touches instead, selected in the editor to show
@@ -96,6 +162,7 @@ export function QueryTab({ tab, active, label, schema, settings, modelNames, onC
   /** ↵ in the Ask box: /explain, /fix and /improve work on the editor's SQL; anything else runs. */
   const submit = () => {
     const plan = planRequest(generation.question, skills, { previous: lastRun, sql: tab.sql });
+    if (plan.kind === "agent") return investigate(plan.question, plan.skill);
     if (plan.kind === "draft") return run();
     generation.act(plan.command, tab.sql, plan.command === "fix" ? query.error : null);
   };
@@ -165,6 +232,22 @@ export function QueryTab({ tab, active, label, schema, settings, modelNames, onC
               followUp: lastRun ? { onStartFresh: () => onChange({ lastRun: null }) } : undefined,
               explanation: generation.explanation,
               onDismissExplanation: generation.dismissExplanation,
+              agentHint: (
+                <>
+                  {access?.enabled ? describeAccess(access) : "Agent mode is off for this connection"}
+                  <Button size="sm" variant="ghost" onClick={() => setAccessDialog({ then: null })}>
+                    {access?.enabled ? "Change" : "Turn on"}
+                  </Button>
+                </>
+              ),
+              onInvestigate: canUseAi
+                ? () => {
+                    const { command, rest } = parseCommand(generation.question, skills);
+                    const skill = command?.kind === "skill" ? command.skill.slug : null;
+                    generation.setQuestion(withCommand("agent", skill ? withCommand(skill, rest) : rest));
+                    investigate(rest, skill);
+                  }
+                : undefined,
             }}
             query={{
               sql: tab.sql,
@@ -184,9 +267,11 @@ export function QueryTab({ tab, active, label, schema, settings, modelNames, onC
               onTablesChange: (focusTables) => onChange({ focusTables }),
             }}
             origin={tab.origin}
+            agent={{ running: agent.active, onStop: agent.stop, label: agentLabel }}
           />
         }
         second={
+          agent.state.phase === "idle" ? (
           <ResultsPanel
             outcomes={query.outcomes}
             total={query.total}
@@ -212,8 +297,80 @@ export function QueryTab({ tab, active, label, schema, settings, modelNames, onC
               )
             }
           />
+          ) : (
+            <div className={styles.results}>
+              <div className={styles.views} role="tablist" aria-label="Agent or results">
+                {(["agent", "results"] as const).map((v) => (
+                  <button
+                    key={v}
+                    type="button"
+                    role="tab"
+                    aria-selected={view === v}
+                    className={cx(styles.view, view === v && styles.viewActive)}
+                    onClick={() => setView(v)}
+                  >
+                    {v === "agent" ? "Agent" : step ? `Results · step ${step.id}` : "Results"}
+                  </button>
+                ))}
+              </div>
+              {view === "agent" ? (
+                <AgentPanel
+                  run={agent.state}
+                  selected={picked}
+                  onSelect={(id) => {
+                    setPicked(id);
+                    setView("results");
+                  }}
+                  onGo={agent.go}
+                  onSend={agent.send}
+                  onSkip={agent.skip}
+                  onAnswer={agent.answer}
+                  onStop={agent.stop}
+                  onOpenQuery={(sql) => props.onOpenQuery(sql, agent.state.question)}
+                  onSaveScript={(sqls) => props.onSaveAsScript(joinStatements(sqls), agent.state.question)}
+                  onRerun={(sqls) => {
+                    setPicked(null);
+                    setView("results");
+                    runAndRemember(joinStatements(sqls), agent.state.question);
+                  }}
+                  onFollowUp={() => {
+                    followUpNext.current = true;
+                    generation.setQuestion(withCommand("agent", ""));
+                    askRef.current?.focus();
+                  }}
+                  onSteer={(id, sql) => {
+                    followUpNext.current = true;
+                    investigate(`I changed the query of step ${id}. Run this instead and continue from there:\n${sql}`, null);
+                  }}
+                  onSaveNote={async (text) => {
+                    await commands.saveNote({ id: "", connectionId: tab.target.connectionId, database: tab.target.database, text, updatedAt: 0 });
+                    props.onNotesChanged();
+                  }}
+                />
+              ) : (
+                <ResultsPanel
+                  outcomes={stepOutcome ?? query.outcomes}
+                  total={stepOutcome ? 1 : query.total}
+                  running={stepOutcome ? step?.status === "running" : query.running}
+                  note={step ? `Agent step ${step.id}` : undefined}
+                />
+              )}
+            </div>
+          )
         }
       />
+      {active && accessDialog && access && (
+        <AgentAccessDialog
+          connectionName={label}
+          provider={{ label: provider?.label ?? settings.provider, local: provider?.local ?? false }}
+          access={access}
+          onSave={async (a) => {
+            const saved = await saveAgentAccess(tab.target.connectionId, a);
+            if (saved.enabled) accessDialog.then?.();
+          }}
+          onClose={() => setAccessDialog(null)}
+        />
+      )}
       {active && query.pendingWrite && (
         <ConfirmWriteDialog
           sql={query.pendingWrite}
@@ -225,3 +382,6 @@ export function QueryTab({ tab, active, label, schema, settings, modelNames, onC
     </div>
   );
 }
+
+/** Statements as one script, each ending with `;`. */
+const joinStatements = (sqls: string[]) => sqls.map((s) => s.trim().replace(/;+$/, "") + ";").join("\n\n");

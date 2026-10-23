@@ -58,7 +58,7 @@ function Welcome(p: OnboardingDialogProps) {
   const points = [
     { icon: MessageSquareText, text: "Type what you need in plain English. SayQL writes the SQL as you type." },
     { icon: ShieldCheck, text: "Queries run read-only. Anything that could change data asks you first." },
-    { icon: HardDrive, text: "Your rows never go to the AI: only your question and table and column names." },
+    { icon: HardDrive, text: "The Ask box never sends your rows to the AI: only your question and table and column names." },
   ];
   return (
     <>
