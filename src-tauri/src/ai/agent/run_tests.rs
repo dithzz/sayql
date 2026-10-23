@@ -434,3 +434,56 @@ async fn follow_ups_mask_values_the_person_quotes() {
     let seen = mock.seen.lock().unwrap().clone();
     assert!(!seen[0].contains("priya.natarajan@example.com") && seen[0].contains("'‹email-1›'"), "{}", seen[0]);
 }
+
+/// profile_column, explain_query and a token follow-up on every database: SQLite always, the
+/// servers when SAYQL_TEST_*_URL is set (see db/integration_tests.rs).
+#[tokio::test]
+async fn tools_work_on_every_database() {
+    let f = fixture().await;
+    let mut pools = vec![f.pool.clone()];
+    pools.extend(tenant_fixture::servers().await);
+    for pool in &pools {
+        let kind = pool.kind();
+        let turns = vec![
+            MockTurn::Tools(vec![("profile_column", json!({ "table": "appointments", "column": "status_id" }))]),
+            MockTurn::Tools(vec![("explain_query", json!({ "sql": "SELECT COUNT(*) FROM appointments WHERE tenant_id = 3" }))]),
+            MockTurn::Tools(vec![("run_query", json!({ "sql": "SELECT email FROM users WHERE id = 9", "purpose": "x" }))]),
+            MockTurn::Dynamic(Box::new(|last| {
+                let token = &last[last.find('‹').unwrap()..last.find('›').unwrap() + '›'.len_utf8()];
+                vec![("run_query", json!({ "sql": format!("SELECT full_name FROM users WHERE email = '{token}'"), "purpose": "y" }))]
+            })),
+            MockTurn::Tools(vec![("finish", json!({ "answer": "Done." }))]),
+        ];
+        let schema = db::introspect(pool, kind).await.unwrap();
+        let (tx, rx) = tokio::sync::mpsc::unbounded_channel::<Reply>();
+        drop(tx);
+        let events = Arc::new(Mutex::new(Vec::new()));
+        let sink = events.clone();
+        let mut io = Io { emit: Arc::new(move |e| sink.lock().unwrap().push(e)), replies: rx, stop: CancellationToken::new() };
+        let input = RunInput {
+            run_id: "r".into(),
+            question: "q".into(),
+            kind,
+            schema_text: crate::schema::render_full(&schema),
+            schema,
+            notes: vec![],
+            focus: vec![],
+            skill: None,
+            access: access(Results::Rows, false),
+            limits: AgentSettings::default(),
+            history: None,
+        };
+        let mut llm = Llm::Mock(Mock::new(turns));
+        run::run(&mut llm, pool, input, &mut io).await;
+        let steps = steps_of(&events.lock().unwrap());
+        let profile = &steps[0];
+        assert_eq!(profile.status, StepStatus::Done, "{kind:?}: {profile:?}");
+        assert!(profile.sent.as_deref().unwrap().contains("\"rows\":255"), "{kind:?}: {:?}", profile.sent);
+        if kind == Kind::Mssql {
+            assert!(steps[1].error.as_deref().unwrap().contains("SQL Server plans"), "{kind:?}");
+        } else {
+            assert_eq!(steps[1].status, StepStatus::Done, "{kind:?}: {:?}", steps[1]);
+        }
+        assert_eq!(steps[3].rows, [[json!("Priya Natarajan")]], "{kind:?}: {:?}", steps[3]);
+    }
+}

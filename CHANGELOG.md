@@ -5,8 +5,17 @@ All notable changes to SayQL are listed here. Downloads are on the
 
 ## Unreleased
 
-- **Groundwork for agent mode** (not in the app yet): MCP's read-only helpers move to a module agent mode will
-  share, plus masking of likely personal data, a synthetic tenant test database and an evaluation question set.
+- **Agent mode:** type `/agent` and a question that needs looking around first ("who owns this tenant?", "why did
+  signups drop last week?"). The agent shows a plan you can change, works through it in read-only steps, asks
+  you when a question has two meanings, and answers with every sentence linked to the queries behind it.
+  Numbers it can't find in any result are marked "not verified", and joins that would double count are flagged.
+  It never runs writes: a change comes back as SQL marked "not run". Stop ends the run and its query.
+- **Off until you turn it on, per connection.** You choose what the AI may see of results there: nothing, counts
+  and summaries, or up to 20 rows per query with likely personal data masked (and filled back in on your
+  screen). Ask before each send shows exactly what would go, with Send and Skip; never-send columns are refused.
+- **Database notes:** facts the agent learns ("owner = memberships.role = 'owner'") can be saved per database.
+  The Ask box, the agent and MCP all use them; edit them in the navigator.
+- MCP's read-only helpers moved to a module agent mode shares, so both keep the same safety rules.
 
 ## 0.2.9 (2026-10-23)
 

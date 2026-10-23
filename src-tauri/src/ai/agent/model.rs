@@ -160,6 +160,10 @@ pub struct Mock {
     pub seen: std::sync::Mutex<Vec<String>>,
 }
 
+/// Chooses the tool calls of a turn from the last message's text.
+#[cfg(test)]
+pub type Pick = Box<dyn Fn(&str) -> Vec<(&'static str, Value)> + Send>;
+
 #[cfg(test)]
 pub enum MockTurn {
     /// Call these tools: (name, input).
@@ -167,7 +171,7 @@ pub enum MockTurn {
     /// A reply that calls no tool.
     Text(&'static str),
     /// Pick the next turn from what was sent so far (the last message's text).
-    Dynamic(Box<dyn Fn(&str) -> Vec<(&'static str, Value)> + Send>),
+    Dynamic(Pick),
     /// Never answers, for testing Stop and the run time limit.
     Hang,
 }

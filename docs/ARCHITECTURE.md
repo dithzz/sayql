@@ -19,6 +19,8 @@ src/
   components/ui/        reusable, feature-agnostic primitives (Button, Dialog, Panel, SplitPane, TabBar, TreeRow, Form,
                         ContextMenu, BrandMark…)
   features/             one folder per product area; each exports its public API from index.ts
+    agent/              agent mode: run state (agentRun.ts reducer, useAgentRun), the Agent view, the
+                        per-connection opt-in dialog and access store, note editing, Settings → Agent mode
     ask/                plain-English input, instant fast path, AI generation hook
     connections/        connection dialog, kinds metadata, useConnections
     editor/             Monaco setup (offline, themed) and SqlEditor
@@ -66,6 +68,7 @@ src-tauri/src/
     app.rs              app_info: version, OS and architecture, for pre-filling feedback
     connections.rs      init, save/delete/test/open connection, refresh schema
     query.rs            run_query (write confirmation gate)
+    agent.rs            start/stop/reply_agent (agent://event), per-connection agent access, database notes
     generation.rs       generate_sql, cancel_generation
     scripts.rs          list/save/delete saved scripts
     settings.rs         save_settings, the settings view sent to the UI
@@ -95,13 +98,21 @@ src-tauri/src/
     models.rs           Claude's models and per-model request options
     prompt.rs           the English → SQL prompt, shared by every provider
     sse.rs              server-sent-event parser
-    agent/              agent mode (phase 1: groundwork; the loop, tools and commands come in phase 2)
+    agent/              agent mode: answers a question in several read-only steps with a cited answer
+      run.rs            the loop: turns, tools run through the read-only gate, result setting and Ask before
+                        send, step/query/time/token limits, Stop, events to the tab
+      model.rs          the provider-neutral conversation (text, tool calls, results) and a scripted mock
+      tools.rs          the tools the model may call (plan, search, describe, profile, query, explain, ask, finish)
+      prompt.rs         instructions, the "why" playbook, the schema and notes block
+      checks.rs         checks in code: joins that repeat rows before a sum, numbers no step backs, big scans
+      text_protocol.rs  one fenced JSON action per reply, for models without tool calling
       mask.rs           masks likely personal data in results as per-run tokens (‹email-3›), puts real values back
                         into SQL as dialect literals, and builds the "counts and summaries only" view
-      eval/             tests only: the evaluation question set (questions.json, demo store and tenant fixture) and
-                        its runner; `Reference` answers with each question's SQL today, the agent plugs in in phase 2
+      eval/             tests only: the evaluation question set (questions.json, demo store and tenant fixture);
+                        `Reference` checks the set, `agent.rs` runs it with a real model (opt-in, API key)
   schema/               schema model (mod.rs) and compact prompt rendering (render.rs)
-  store/                settings/connections JSON (mod.rs) and keychain secrets (secrets.rs)
+  store/                settings/connections JSON (mod.rs), keychain secrets (secrets.rs), and agent mode's
+                        per-connection access, run limits and database notes (agent.rs)
   voice/                voice input, all on this computer, no Tauri types
     model.rs            the Whisper model: pinned URL and SHA-256, download, path in app data
     audio.rs            microphone capture with cpal, mono 16 kHz resampling

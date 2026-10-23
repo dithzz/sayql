@@ -144,6 +144,8 @@ pub struct Outcome {
     pub history: History,
     /// How tools reached the model in the end (it may have fallen back to text).
     pub mode: ToolMode,
+    /// The evaluation reads the answer here; the app gets it from the Done event.
+    #[cfg_attr(not(test), allow(dead_code))]
     pub answer: Option<Answer>,
 }
 

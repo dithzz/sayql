@@ -65,10 +65,10 @@ fn last_action(text: &str) -> Option<(&str, Value)> {
         let body_start = text[start + 3..].find('\n').map(|n| start + 3 + n + 1)?;
         let Some(len) = text[body_start..].find("```") else { break };
         let body = &text[body_start..body_start + len];
-        if let Ok(v) = serde_json::from_str::<Value>(body.trim()) {
-            if v["tool"].is_string() {
-                found = Some((&text[..start], v));
-            }
+        if let Ok(v) = serde_json::from_str::<Value>(body.trim())
+            && v["tool"].is_string()
+        {
+            found = Some((&text[..start], v));
         }
         from = body_start + len + 3;
     }

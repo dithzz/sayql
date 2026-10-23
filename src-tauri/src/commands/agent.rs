@@ -17,6 +17,7 @@ const EVENT: &str = "agent://event";
 /// Progress arrives as `agent://event`s tagged with `run_id`. `follow_up` continues the
 /// tab's last run (its queries and answer, not its rows) instead of starting fresh.
 #[tauri::command]
+#[allow(clippy::too_many_arguments)]
 pub async fn start_agent(
     app: AppHandle,
     state: State<'_, AppState>,
@@ -90,13 +91,12 @@ pub async fn start_agent(
         let state = app.state::<AppState>();
         state.finish_agent(&slot, &run_id, outcome.history);
         // Remember a model that needed the text protocol, so it isn't asked for tools again.
-        if outcome.mode != mode {
-            if let Ok(mut s) = state.store.settings() {
-                if crate::ai::find_provider(&provider).is_some_and(|p| p.api == Api::OpenAi) {
-                    s.tool_modes.insert(mode_key, outcome.mode);
-                    let _ = state.store.save_settings(&s);
-                }
-            }
+        if outcome.mode != mode
+            && crate::ai::find_provider(&provider).is_some_and(|p| p.api == Api::OpenAi)
+            && let Ok(mut s) = state.store.settings()
+        {
+            s.tool_modes.insert(mode_key, outcome.mode);
+            let _ = state.store.save_settings(&s);
         }
     });
     Ok(())
