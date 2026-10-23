@@ -16,7 +16,7 @@ export interface Builtin {
 
 /** One entry per BUILTIN_SLUGS from skills (checked in slashCommands.test.ts). */
 export const BUILTINS: Builtin[] = [
-  { slug: "agent", description: "Investigate in several steps", placeholder: "What should the agent find out?" },
+  { slug: "agent", description: "Investigate in several steps (beta)", placeholder: "What should the agent find out?" },
   { slug: "followup", description: "Change the current query", placeholder: "What to change — e.g. only active ones" },
   { slug: "new", description: "Start fresh, ignore the last query", placeholder: "Ask in plain English" },
   { slug: "explain", description: "Explain the current query", placeholder: "Anything to focus on? (optional)" },

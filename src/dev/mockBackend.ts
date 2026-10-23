@@ -310,7 +310,10 @@ async function streamSql(reqId: number, sql: string) {
 }
 
 /** Agent mode in the preview: access per connection, notes, and replies runs wait for. */
-const agentAccess = new Map<string, AgentAccess>();
+// The video turns agent mode on for the demo store, counts only, so the scene goes straight to the plan.
+const agentAccess = new Map<string, AgentAccess>(
+  VIDEO ? [["demo", { enabled: true, results: "counts", askBeforeSend: false, neverSend: [] }]] : [],
+);
 let notes: DbNote[] = [];
 const waiting = new Map<string, (r: AgentReply) => void>();
 const stopped = new Set<string>();

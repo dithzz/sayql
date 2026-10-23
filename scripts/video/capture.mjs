@@ -99,7 +99,8 @@ async function waitFor(sel, text = null, timeout = 8000) {
 const waitForText = async (text, timeout = 8000) => {
   for (const end = Date.now() + timeout; Date.now() < end; await sleep(50))
     if (await page.evaluate((t) => document.body.innerText.includes(t), text)) return;
-  throw new Error(`Timed out waiting for "${text}"`);
+  const shown = await page.evaluate(() => document.body.innerText.slice(-600));
+  throw new Error(`Timed out waiting for "${text}". The page ends with:\n${shown}`);
 };
 
 const union = (...rs) => {
@@ -157,6 +158,24 @@ const results = async () => {
   const head = await waitFor("*", "Results");
   return { x: head.x - 20, y: head.y - 10, w: VIEW.width - head.x + 20, h: VIEW.height - head.y - 20 };
 };
+
+/** The Agent view below the editor: from its tab to the bottom of the window. */
+const agentArea = async () => {
+  const tab = await waitFor('[role="tab"]', "Agent");
+  return { x: tab.x - 20, y: tab.y - 10, w: VIEW.width - tab.x + 20, h: VIEW.height - tab.y - 20 };
+};
+
+/** Scrolls the element matching `sel` whose text is `text` into view, inside its scrolling panel. */
+const reveal = (sel, text) =>
+  page.evaluate(
+    (sel, text) => {
+      const el = [...document.querySelectorAll(sel)].find((e) => e.offsetParent && e.textContent.trim().startsWith(text));
+      el?.scrollIntoView({ block: "nearest" });
+      return !!el;
+    },
+    sel,
+    text,
+  );
 
 const scene = (name) => log("scene", { name });
 const cam = (r, opts = {}) => log("cam", { rect: r, ...opts });
@@ -265,6 +284,55 @@ cam(union(await results(), await askBar()), { maxZoom: 1.3 });
 await sleep(2200);
 log("end");
 
+// Off camera: an empty editor and a taller Agent view for the next scene.
+await click(await waitFor('button[aria-label="Clear"]'), { glide: 0 });
+{
+  const bar = await page.evaluate(() => {
+    const seps = [...document.querySelectorAll('[role="separator"]')].filter((e) => e.offsetParent);
+    const r = seps.sort((a, b) => b.getBoundingClientRect().y - a.getBoundingClientRect().y)[0].getBoundingClientRect();
+    return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+  });
+  await page.send("Input.dispatchMouseEvent", { type: "mouseMoved", ...bar });
+  await page.send("Input.dispatchMouseEvent", { type: "mousePressed", ...bar, button: "left", clickCount: 1 });
+  for (let k = 1; k <= 10; k++) {
+    await page.send("Input.dispatchMouseEvent", { type: "mouseMoved", x: bar.x, y: bar.y - k * 22, button: "left" });
+    await sleep(16);
+  }
+  await page.send("Input.dispatchMouseEvent", { type: "mouseReleased", x: bar.x, y: bar.y - 220, button: "left", clickCount: 1 });
+}
+await sleep(400);
+
+// 8. Agent mode: a question that needs several steps. In ?video mode agent mode is on for
+// the demo store with counts only, so it goes straight to the plan.
+scene("agent");
+cam(await askBar(), { maxZoom: 1.9 });
+caption("Agent mode investigates, step by step");
+hideCursor();
+await focusAsk();
+await press("Escape");
+await sleep(400);
+await type("/ag");
+await sleep(800);
+await press("Enter");
+await sleep(400);
+await type("why did paid orders drop last week?");
+await sleep(300);
+await press("Enter");
+await waitForText("Change any line, then press Go");
+await sleep(300);
+cam(union(await askBar(), await agentArea()), { maxZoom: 1.3 });
+await sleep(1600);
+await reveal("button", "Go");
+await sleep(200);
+await click(await waitFor("button", "Go"));
+await waitForText("Paid orders fell from 52 to 31", 20000);
+await reveal("section", "Answer");
+await sleep(300);
+cam(await agentArea(), { maxZoom: 1.45 });
+caption("Every answer cites the queries behind it");
+await sleep(5200);
+log("end");
+
 // Off camera: open the setup guide.
 await click(await rect('button[aria-label="Settings"]'), { glide: 0 });
 await click(await waitFor("button", "About"), { glide: 0 });
@@ -272,13 +340,13 @@ await click(await waitFor("button", "Show the setup guide again"), { glide: 0 })
 await waitFor('[role="dialog"] ul');
 await sleep(800);
 
-// 8. Privacy, in the guide's own words.
+// 9. Privacy, in the guide's own words.
 scene("privacy");
 // The dialog from its title down to the end of the list.
 const guide = await waitFor('[role="dialog"]');
 const points = await waitFor('[role="dialog"] ul');
 cam({ ...guide, h: points.y + points.h - guide.y }, { maxZoom: 1.8, pad: 40 });
-caption("Your data is never processed by AI");
+caption("The Ask box never sends your data to AI");
 await sleep(3200);
 caption("It only sees your schema");
 await sleep(3000);
@@ -287,7 +355,7 @@ await click(await waitFor("button", "Get started"));
 await waitFor('[role="radiogroup"]');
 await sleep(300);
 
-// 9. Any AI.
+// 10. Any AI.
 scene("ai");
 cam(await waitFor('[role="dialog"]'), { maxZoom: 1.5, pad: 40 });
 caption("Use the AI you like");
@@ -314,7 +382,7 @@ await click(await waitFor("button", "AI apps (MCP)"), { glide: 0 });
 await waitForText("Use SayQL from AI apps (MCP)");
 await sleep(800);
 
-// 10. MCP.
+// 11. MCP.
 scene("mcp");
 cam(null);
 caption("Claude can query through SayQL");

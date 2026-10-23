@@ -269,7 +269,7 @@ export function SettingsPage({ settings, onClose, onSaved, onShowSetup, skills, 
           )}
           {section === "agent" && (
             <>
-              <h2 className={styles.title}>Agent mode</h2>
+              <h2 className={styles.title}>Agent mode (beta)</h2>
               <AgentSettingsSection settings={settings} onSaved={onSaved} />
             </>
           )}
