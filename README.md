@@ -23,7 +23,7 @@ The right SQL in seconds, and nothing changes unless you say so.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset=".github/assets/hero-dark.png">
-  <img src=".github/assets/hero-light.png" alt="SayQL: the Ask box with the question 'Top 10 customers by total spend', the SQL it wrote, and the 10 result rows" width="100%">
+  <img src=".github/assets/hero-light.png" alt="SayQL: the Ask box in Quick mode with the question 'Top 10 customers by total spend', the SQL it wrote, and the 10 result rows" width="100%">
 </picture>
 
 </div>
@@ -66,7 +66,7 @@ the database rejects a query, SayQL fixes it automatically.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset=".github/assets/feature-ask-dark.png">
-  <img src=".github/assets/feature-ask-light.png" alt="The Ask box with two tables picked as context, the question, and the SQL being written" width="100%">
+  <img src=".github/assets/feature-ask-light.png" alt="The Ask box with two tables picked as context, the Quick / Agent switch, the model picker, and the SQL it wrote" width="100%">
 </picture>
 
 </td>
@@ -97,6 +97,11 @@ mode lets it run without stopping for the plan or each send.
 It's off on every connection until you turn it on, and you choose what it may see of results: nothing, counts
 and summaries, or up to 20 rows with personal data masked. What it learns can be saved as database notes,
 which help the Ask box, the agent and MCP next time.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/feature-agent-dark.png">
+  <img src=".github/assets/feature-agent-light.png" alt="Agent mode in Auto: two read-only steps that sent only counts and summaries, and an answer citing them" width="100%">
+</picture>
 
 ### Your AI, your data
 
