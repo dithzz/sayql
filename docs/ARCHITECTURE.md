@@ -85,6 +85,8 @@ src-tauri/src/
     demo.rs, demo.sql   the bundled demo database
     tests.rs            SQLite end-to-end tests
     integration_tests.rs  PostgreSQL/MySQL/SQL Server tests (opt-in via env vars, see CONTRIBUTING.md)
+    tenant_fixture.rs   tests only: a synthetic multi-tenant health database with planted answers and personal data,
+                        written for each dialect (SQLite always, the servers when their env vars are set)
   ai/                   English → SQL over any AI provider, no knowledge of Tauri commands
     mod.rs              stream_sql (picks the client per Endpoint) + event payloads
     providers.rs        the provider catalog: Claude plus OpenAI-compatible presets
@@ -93,6 +95,9 @@ src-tauri/src/
     models.rs           Claude's models and per-model request options
     prompt.rs           the English → SQL prompt, shared by every provider
     sse.rs              server-sent-event parser
+    agent/              agent mode (phase 1: groundwork; the loop, tools and commands come in phase 2)
+      mask.rs           masks likely personal data in results as per-run tokens (‹email-3›), puts real values back
+                        into SQL as dialect literals, and builds the "counts and summaries only" view
   schema/               schema model (mod.rs) and compact prompt rendering (render.rs)
   store/                settings/connections JSON (mod.rs) and keychain secrets (secrets.rs)
   voice/                voice input, all on this computer, no Tauri types

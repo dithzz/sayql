@@ -113,4 +113,6 @@ mod integration_tests;
 #[cfg(test)]
 pub(crate) use integration_tests::env_config;
 #[cfg(test)]
+pub(crate) mod tenant_fixture;
+#[cfg(test)]
 mod tests;

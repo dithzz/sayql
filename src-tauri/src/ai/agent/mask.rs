@@ -928,6 +928,44 @@ mod tests {
         assert_eq!(m.unmask_text(&format!("The owner is {}. ‹name-9› is unknown.", t[0])), "The owner is Dana Reyes. ‹name-9› is unknown.");
     }
 
+    /// The phase 1 gate: no planted value in the tenant fixture survives masking, in any
+    /// table, on SQLite and on each server that is set.
+    #[tokio::test]
+    async fn tenant_fixture_pii_never_survives() {
+        use crate::db::{self, tenant_fixture};
+        let dir = std::env::temp_dir().join(format!("sayql-mask-tenant-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let mut pools = vec![tenant_fixture::sqlite(&dir.join("tenant.sqlite")).await];
+        pools.extend(tenant_fixture::servers().await);
+        let planted = tenant_fixture::planted_pii();
+        for pool in &pools {
+            let mut m = Masker::new(Vec::<String>::new());
+            let schema = db::introspect(pool, pool.kind()).await.unwrap();
+            assert_eq!(schema.tables.len(), 9, "{:?}", pool.kind());
+            let mut raw = String::new();
+            for t in &schema.tables {
+                let r = db::run_query(pool, &format!("SELECT * FROM {}", t.name), true).await.unwrap();
+                raw.push_str(&serde_json::to_string(&r.rows).unwrap());
+                let sent = serde_json::to_string(&m.mask(&r, r.rows.len())).unwrap();
+                let summary = serde_json::to_string(&m.summarize(&r)).unwrap();
+                for p in &planted {
+                    assert!(!sent.contains(p.as_str()), "{:?} {}: {p:?} survived masking", pool.kind(), t.name);
+                    assert!(!summary.contains(p.as_str()), "{:?} {}: {p:?} is in the summary", pool.kind(), t.name);
+                }
+            }
+            // Every planted value is really there, so the check above isn't empty.
+            for p in &planted {
+                assert!(raw.contains(p.as_str()), "{:?}: {p:?} is not in the fixture", pool.kind());
+            }
+            // Tokens lead back to the real rows: the planted owner, found again by email.
+            let r = db::run_query(pool, "SELECT email FROM users WHERE full_name = 'Priya Natarajan'", true).await.unwrap();
+            let token = m.mask(&r, 1).rows[0][0].as_str().unwrap().to_string();
+            let sql = m.unmask_sql(&format!("SELECT full_name FROM users WHERE email = '{token}'"), pool.kind()).unwrap();
+            assert_eq!(db::run_query(pool, &sql, true).await.unwrap().rows, [[json!("Priya Natarajan")]]);
+        }
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
     /// Tricky values go in as literals and come back unchanged, on SQLite always and on the
     /// servers when the SAYQL_TEST_*_URL variables are set (see db/integration_tests.rs).
     #[tokio::test]
