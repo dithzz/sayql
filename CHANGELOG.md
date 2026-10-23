@@ -3,7 +3,7 @@
 All notable changes to SayQL are listed here. Downloads are on the
 [releases page](https://github.com/dithzz/sayql-releases/releases).
 
-## Unreleased
+## 0.2.9 (2026-10-23)
 
 - **Supabase and other connection poolers work:** PostgreSQL behind a transaction pooler (Supabase on port 6543,
   PgBouncer) failed with "prepared statement already exists". Every query now runs in its own transaction on one
