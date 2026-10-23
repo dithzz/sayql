@@ -99,7 +99,98 @@ export interface Settings {
   /** Claude's models. */
   models: ModelOption[];
   providers: AiProvider[];
+  /** The model that runs agent mode, as chosen; empty means the expert model. */
+  agentModel: string;
+  agent: AgentSettings;
 }
+
+/** Run limits for agent mode. */
+export interface AgentSettings {
+  maxSteps: number;
+  maxQueries: number;
+  querySeconds: number;
+  runSeconds: number;
+  maxTokens: number;
+  /** Start right away instead of showing the plan first. */
+  skipPlan: boolean;
+}
+
+/** What the AI may see of query results on a connection in agent mode. */
+export type AgentResults = "off" | "counts" | "rows";
+
+/** Agent mode's access to one connection; off until the person turns it on. */
+export interface AgentAccess {
+  enabled: boolean;
+  results: AgentResults;
+  askBeforeSend: boolean;
+  /** Columns never sent (`column` or `table.column`). */
+  neverSend: string[];
+}
+
+/** A fact about a database that helps answer questions on it. Never holds row values. */
+export interface DbNote {
+  /** Empty for a new note. */
+  id: string;
+  connectionId: string;
+  database: string | null;
+  text: string;
+  updatedAt: number;
+}
+
+export interface AgentUsage {
+  input: number;
+  cached: number;
+  output: number;
+}
+
+/** One agent step. `sql`, `columns` and `rows` are real values that stay on this computer; `sent` is what went to the AI. */
+export interface AgentStep {
+  id: number;
+  tool: string;
+  text: string;
+  status: "running" | "done" | "error";
+  sql: string | null;
+  rowCount: number | null;
+  truncated: boolean;
+  elapsedMs: number | null;
+  columns: string[];
+  rows: Cell[][];
+  sent: string | null;
+  sentSummary: string | null;
+  checks: string[];
+  error: string | null;
+}
+
+export interface AgentSentence {
+  text: string;
+  steps: number[];
+  unverified: string[];
+}
+
+export interface AgentAnswer {
+  text: string;
+  sentences: AgentSentence[];
+  confidence: "high" | "medium" | "low";
+  assumptions: string[];
+  notes: string[];
+  proposedSql: string | null;
+  cannotAnswer: boolean;
+  unverified: string[];
+  model: string;
+  usage: AgentUsage;
+}
+
+/** Events from src-tauri/src/ai/agent/run.rs, all tagged with `runId`. */
+export type AgentEvent =
+  | { type: "plan"; runId: string; steps: string[]; waiting: boolean }
+  | { type: "step"; runId: string; step: AgentStep }
+  | { type: "send"; runId: string; stepId: number; payload: string }
+  | { type: "question"; runId: string; stepId: number; question: string; choices: string[] }
+  | { type: "progress"; runId: string; turns: number; maxTurns: number; queries: number; maxQueries: number; usage: AgentUsage; elapsedMs: number }
+  | { type: "done"; runId: string; answer: AgentAnswer | null; error: string | null; stopped: boolean };
+
+/** The person's reply to a paused run. */
+export type AgentReply = { type: "go"; plan: string[] | null } | { type: "send" } | { type: "skip" } | { type: "answer"; text: string };
 
 /** What Settings saves for one provider. `apiKey: null` keeps the saved key. */
 export interface ProviderChoice {

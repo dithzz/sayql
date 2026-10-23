@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Database, FileCode2, Server, Table2 } from "lucide-react";
-import { commands, type Bootstrap, type ConnectionConfig, type Script, type Table, type Target } from "../api";
-import { Alert, Button, Dialog, EmptyState, ErrorBoundary, SplitPane, TabBar, type TabItem } from "../components/ui";
+import { commands, type Bootstrap, type ConnectionConfig, type DbNote, type Script, type Table, type Target } from "../api";
+import { Alert, Button, Dialog, EmptyState, ErrorBoundary, Spinner, SplitPane, TabBar, type TabItem } from "../components/ui";
+import { AgentAccessDialog, NoteDialog, saveAgentAccess, useAgentAccess } from "../features/agent";
 import { ConnectionDialog, DATABASE_KINDS, newConnection, targetKey, useConnections } from "../features/connections";
 import { DatabaseNavigator, type NavigatorScript } from "../features/navigator";
 import { CloseTabDialog, SaveScriptDialog, useScripts } from "../features/scripts";
@@ -31,6 +32,8 @@ type OpenDialog =
   | { kind: "deleteConnection"; connection: ConnectionConfig }
   | { kind: "feedback" }
   | { kind: "deleteScript"; script: Script }
+  | { kind: "agentAccess"; connection: ConnectionConfig }
+  | { kind: "note"; note: DbNote | null }
   | null;
 
 /** The main window. Owns no logic of its own: it wires the feature hooks to the feature views. */
@@ -51,11 +54,32 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
     !boot.settings.onboarded && !boot.settings.aiReady ? "welcome" : null,
   );
 
+  /** Tabs with an agent run going, which show a spinner. */
+  const [busyTabs, setBusyTabs] = useState<Set<string>>(new Set());
+  const setBusy = (id: string, busy: boolean) =>
+    setBusyTabs((s) => {
+      if (s.has(id) === busy) return s;
+      const next = new Set(s);
+      if (busy) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  /** Bumped when a note changes, so the navigator lists it. */
+  const [notesVersion, setNotesVersion] = useState(0);
+
   // The navigator follows the active tab, like DBeaver's "link with editor".
   const target = tabs.active?.target ?? null;
   const active = target ? conn.connection(target.connectionId) : null;
   const { schema, loading, error } = conn.schemaState(target);
   const databaseName = conn.databaseName(target);
+  const [notes, setNotes] = useState<DbNote[]>([]);
+  useEffect(() => {
+    if (!target) return setNotes([]);
+    commands.listNotes(target).then(setNotes, () => setNotes([]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [targetKey(target), notesVersion]);
+  const agentAccessConnection = dialog?.kind === "agentAccess" ? dialog.connection.id : null;
+  const dialogAccess = useAgentAccess(agentAccessConnection);
 
   // On start: drop restored tabs whose connection no longer exists, and open the first
   // connection if nothing is open. The ref keeps StrictMode's double effect from opening two.
@@ -153,7 +177,7 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
       label: t.title || db || name,
       detail: t.title ? (db ?? name) : db ? name : undefined,
       title: [name, db, t.title].filter(Boolean).join(" / "),
-      icon: <Icon size={14} color={c ? DATABASE_KINDS[c.kind].color : undefined} />,
+      icon: busyTabs.has(t.id) ? <Spinner size={13} /> : <Icon size={14} color={c ? DATABASE_KINDS[c.kind].color : undefined} />,
       dirty: hasUnsavedChanges(t),
     };
   });
@@ -287,6 +311,10 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
                 const s = scripts.scripts.find((x) => x.id === id);
                 if (s) setDialog({ kind: "deleteScript", script: s });
               }}
+              notes={notes}
+              onEditNote={(note) => setDialog({ kind: "note", note })}
+              onDeleteNote={(note) => void commands.deleteNote(note.id).then(() => setNotesVersion((v) => v + 1))}
+              onAgentSettings={(connection) => setDialog({ kind: "agentAccess", connection })}
             />
           }
           second={
@@ -316,6 +344,13 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
                       skills={skills.skills}
                       onCreateSkill={() => setDialog({ kind: "settings", section: "skills", createSkill: true })}
                       onSave={() => requestSave(t)}
+                      onOpenQuery={(sql, question) => tabs.open(t.target, { sql, question })}
+                      onSaveAsScript={(sql, question) => {
+                        const id = tabs.open(t.target, { sql, question });
+                        setDialog({ kind: "saveScript", tabId: id, closeAfter: false });
+                      }}
+                      onAgentBusy={(busy) => setBusy(t.id, busy)}
+                      onNotesChanged={() => setNotesVersion((v) => v + 1)}
                     />
                     </ErrorBoundary>
                   );
@@ -403,6 +438,30 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
             setDialog(null);
             requestSave(tabById(dialog.tabId)!, true);
           }}
+        />
+      )}
+      {dialog?.kind === "agentAccess" && dialogAccess && (
+        <AgentAccessDialog
+          connectionName={dialog.connection.name}
+          provider={(() => {
+            const p = settings.providers.find((x) => x.id === settings.provider);
+            return { label: p?.label ?? settings.provider, local: p?.local ?? false };
+          })()}
+          access={dialogAccess}
+          onSave={async (a) => void (await saveAgentAccess(dialog.connection.id, a))}
+          onClose={() => setDialog(null)}
+        />
+      )}
+      {dialog?.kind === "note" && target && (
+        <NoteDialog
+          text={dialog.note?.text ?? ""}
+          databaseName={databaseName ?? active?.name ?? "this database"}
+          onSave={async (text) => {
+            const base: DbNote = dialog.note ?? { id: "", connectionId: target.connectionId, database: target.database, text, updatedAt: 0 };
+            await commands.saveNote({ ...base, text });
+            setNotesVersion((v) => v + 1);
+          }}
+          onClose={() => setDialog(null)}
         />
       )}
       {dialog?.kind === "deleteScript" && (

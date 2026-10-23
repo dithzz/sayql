@@ -1,11 +1,12 @@
 import { useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
-import { BookOpen, CornerDownRight, Plus, RotateCcw, ScrollText, Wand2, Wrench, type LucideIcon } from "lucide-react";
+import { BookOpen, Bot, CornerDownRight, Plus, RotateCcw, ScrollText, Wand2, Wrench, type LucideIcon } from "lucide-react";
 import { cx } from "../../lib/cx";
 import type { BuiltinCommand, MenuItem } from "./slashCommands";
 import styles from "./SlashMenu.module.css";
 
 const ICONS: Record<BuiltinCommand, LucideIcon> = {
+  agent: Bot,
   followup: CornerDownRight,
   new: RotateCcw,
   explain: BookOpen,

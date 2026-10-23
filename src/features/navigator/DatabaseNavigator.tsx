@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState, type MouseEvent } from "react";
 import {
+  Bot,
   Copy,
   Database,
   Eye,
@@ -17,12 +18,13 @@ import {
   Search,
   Server,
   Sparkles,
+  StickyNote,
   Table2,
   Trash2,
   Type,
   Wand2,
 } from "lucide-react";
-import type { ConnectionConfig, DatabaseList, Schema, Table } from "../../api";
+import type { ConnectionConfig, DatabaseList, DbNote, Schema, Table } from "../../api";
 import { ContextMenu, IconButton, Panel, Spinner, TextInput, TreeRow, useContextMenu, type MenuEntry } from "../../components/ui";
 import { cx } from "../../lib/cx";
 import { DATABASE_KINDS } from "../connections";
@@ -57,6 +59,13 @@ export interface DatabaseNavigatorProps {
   scripts: NavigatorScript[];
   onOpenScript: (id: string) => void;
   onDeleteScript: (id: string) => void;
+  /** Database notes of the open database (facts agent mode, the Ask box and MCP use). */
+  notes: DbNote[];
+  /** Edits a note, or (`null`) adds one to the open database. */
+  onEditNote: (note: DbNote | null) => void;
+  onDeleteNote: (note: DbNote) => void;
+  /** Agent mode's settings for a connection: what it may send to the AI. */
+  onAgentSettings: (c: ConnectionConfig) => void;
 }
 
 /** A saved script as listed in the navigator. */
@@ -116,6 +125,8 @@ export function DatabaseNavigator(p: DatabaseNavigatorProps) {
       { label: "Refresh", icon: RefreshCw, disabled: !active || p.loading, onSelect: p.onRefresh },
       "separator",
       { label: "Edit connection…", icon: Pencil, onSelect: () => p.onEdit(c) },
+      { label: "Agent settings…", icon: Bot, onSelect: () => p.onAgentSettings(c) },
+      { label: "Add database note…", icon: StickyNote, disabled: !active || !p.schema, onSelect: () => p.onEditNote(null) },
       { label: "Copy name", icon: Copy, onSelect: () => copy(c.name) },
       "separator",
       { label: "Delete connection…", icon: Trash2, danger: true, onSelect: () => p.onDeleteConnection(c) },
@@ -128,6 +139,7 @@ export function DatabaseNavigator(p: DatabaseNavigatorProps) {
       { label: current ? "Open" : "Open database", icon: FolderOpen, disabled: current, onSelect: () => p.onOpenDatabase(name) },
       { label: "New SQL tab", icon: FilePlus2, onSelect: () => p.onNewTab(c.id, name) },
       { label: "Refresh", icon: RefreshCw, disabled: !current || p.loading, onSelect: p.onRefresh },
+      { label: "Add database note…", icon: StickyNote, disabled: !current, onSelect: () => p.onEditNote(null) },
       "separator",
       { label: "Copy name", icon: Copy, onSelect: () => copy(name) },
     ];
@@ -176,6 +188,13 @@ export function DatabaseNavigator(p: DatabaseNavigatorProps) {
     { label: "Copy name", icon: Copy, onSelect: () => copy(sc.name) },
     "separator",
     { label: "Delete script…", icon: Trash2, danger: true, onSelect: () => p.onDeleteScript(sc.id) },
+  ];
+
+  const noteMenu = (n: DbNote): MenuEntry[] => [
+    { label: "Edit note…", icon: Pencil, onSelect: () => p.onEditNote(n) },
+    { label: "Copy", icon: Copy, onSelect: () => copy(n.text) },
+    "separator",
+    { label: "Delete note", icon: Trash2, danger: true, onSelect: () => p.onDeleteNote(n) },
   ];
 
   const toggle = (set: Set<string>, key: string) => {
@@ -253,6 +272,30 @@ export function DatabaseNavigator(p: DatabaseNavigatorProps) {
       <>
         {renderFolder(`${key}:tables`, "Tables", tables, depth)}
         {renderFolder(`${key}:views`, "Views", views, depth)}
+        {p.notes.length > 0 && (
+          <div role="group">
+            <TreeRow
+              depth={depth}
+              expanded={!collapsed.has(`${key}:notes`)}
+              icon={<StickyNote size={14} />}
+              label="Notes"
+              meta={p.notes.length}
+              title="Facts about this database that the Ask box, agent mode and MCP use"
+              onClick={() => setCollapsed((s) => toggle(s, `${key}:notes`))}
+            />
+            {!collapsed.has(`${key}:notes`) &&
+              p.notes.map((n) => (
+                <TreeRow
+                  key={n.id}
+                  depth={depth + 1}
+                  label={<span className={styles.note}>{n.text}</span>}
+                  title={n.text}
+                  onDoubleClick={() => p.onEditNote(n)}
+                  onContextMenu={(e) => menu.open(e, noteMenu(n))}
+                />
+              ))}
+          </div>
+        )}
         {tables.length + views.length === 0 && (
           <TreeRow depth={depth} label={<span className={styles.message}>{query ? "No matches" : "No tables"}</span>} />
         )}

@@ -5,7 +5,7 @@ use crate::error::{AppError, AppResult};
 
 /// The Ask box's own commands; a skill can't take their names. Must match BUILTINS in
 /// src/features/ask/slashCommands.ts.
-pub const BUILTIN_COMMANDS: [&str; 5] = ["followup", "new", "explain", "fix", "improve"];
+pub const BUILTIN_COMMANDS: [&str; 6] = ["agent", "followup", "new", "explain", "fix", "improve"];
 pub const MAX_SLUG: usize = 32;
 pub const MAX_DESCRIPTION: usize = 100;
 pub const MAX_INSTRUCTION: usize = 1000;

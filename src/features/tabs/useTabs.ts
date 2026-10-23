@@ -1,6 +1,7 @@
 import { useCallback } from "react";
 import type { PreviousQuery, Target } from "../../api";
 import { usePersistentState } from "../../hooks/usePersistentState";
+import type { AgentRunState } from "../agent";
 
 export interface EditorTab {
   id: string;
@@ -25,6 +26,8 @@ export interface EditorTab {
   savedSql?: string;
   /** Opened by an AI app, e.g. "From Claude (MCP)". */
   origin?: string;
+  /** The tab's last agent run: its steps' queries and the answer, never rows. */
+  agentRun?: AgentRunState | null;
 }
 
 /** True when closing the tab would lose SQL. */

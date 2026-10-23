@@ -1,6 +1,10 @@
 import { invoke } from "@tauri-apps/api/core";
 import type {
+  AgentAccess,
+  AgentReply,
+  AgentSettings,
   Bootstrap,
+  DbNote,
   ConnectionConfig,
   DatabaseList,
   GenerationTask,
@@ -47,6 +51,24 @@ export const commands = {
   generateSql: (t: Target, question: string, reqId: number, slot: string, task: GenerationTask, focusTables: string[], skill: string | null) =>
     invoke<void>("generate_sql", { id: t.connectionId, database: t.database, question, reqId, slot, task, focusTables, skill }),
   cancelGeneration: (slot: string) => invoke<void>("cancel_generation", { slot }),
+
+  /**
+   * Starts an agent run in `slot` (the tab), stopping the one there; progress arrives as
+   * `agent://event`s (see `subscribeToAgent`). `followUp` continues the tab's last run.
+   */
+  startAgent: (t: Target, question: string, runId: string, slot: string, focusTables: string[], skill: string | null, followUp: boolean) =>
+    invoke<void>("start_agent", { id: t.connectionId, database: t.database, question, runId, slot, focusTables, skill, followUp }),
+  /** Stops the model and the running query, on the server too. */
+  stopAgent: (runId: string) => invoke<void>("stop_agent", { runId }),
+  replyAgent: (runId: string, reply: AgentReply) => invoke<void>("reply_agent", { runId, reply }),
+  agentAccess: (connectionId: string) => invoke<AgentAccess>("agent_access", { id: connectionId }),
+  saveAgentAccess: (connectionId: string, access: AgentAccess) => invoke<AgentAccess>("save_agent_access", { id: connectionId, access }),
+  listNotes: (t: Target) => invoke<DbNote[]>("list_notes", { id: t.connectionId, database: t.database }),
+  /** Creates the note when `id` is empty; refuses notes that hold values from the data. */
+  saveNote: (note: DbNote) => invoke<DbNote>("save_note", { note }),
+  deleteNote: (id: string) => invoke<void>("delete_note", { id }),
+  /** The agent model (empty: the expert model) and the run limits. */
+  saveAgentSettings: (agentModel: string, agent: AgentSettings) => invoke<Settings>("save_agent_settings", { agentModel, agent }),
 
   listScripts: () => invoke<Script[]>("list_scripts"),
   /** Creates the script when `id` is empty; returns it as stored. */

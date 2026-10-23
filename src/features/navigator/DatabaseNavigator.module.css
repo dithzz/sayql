@@ -47,3 +47,10 @@
   font-size: var(--font-size-sm);
   color: var(--color-text-subtle);
 }
+
+.note {
+  overflow: hidden;
+  color: var(--color-text-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

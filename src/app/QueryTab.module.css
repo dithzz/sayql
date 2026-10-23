@@ -7,3 +7,40 @@
 .tab[hidden] {
   display: none;
 }
+
+/* Agent mode: the Agent view and the Results view share the results area. */
+.results {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+.results > :last-child {
+  flex: 1;
+  min-height: 0;
+}
+.views {
+  display: flex;
+  flex-shrink: 0;
+  gap: 2px;
+  padding: var(--space-1) var(--space-2) 0;
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+.view {
+  height: var(--control-h-sm);
+  padding: 0 var(--space-3);
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+.view:hover {
+  color: var(--color-text);
+}
+.viewActive {
+  border-bottom-color: var(--color-accent);
+  color: var(--color-text);
+}

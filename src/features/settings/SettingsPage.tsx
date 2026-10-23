@@ -1,19 +1,21 @@
 import { useEffect, useId, useState } from "react";
-import { ArrowLeft, Info, Mic, Plug, RefreshCw, ScrollText, Sparkles, type LucideIcon } from "lucide-react";
+import { ArrowLeft, Bot, Info, Mic, Plug, RefreshCw, ScrollText, Sparkles, type LucideIcon } from "lucide-react";
 import { commands, type AiProvider, type Settings } from "../../api";
 import { Alert, Button, Field, Select, TextInput } from "../../components/ui";
 import { cx } from "../../lib/cx";
 import { errorText } from "../../lib/errors";
+import { AgentSettingsSection } from "../agent";
 import { SkillsSection, type SkillsApi } from "../skills";
 import { VoiceSection } from "../voice";
 import { ClaudeIntegration } from "./ClaudeIntegration";
 import { version } from "../../../package.json";
 import styles from "./SettingsPage.module.css";
 
-export type SettingsSection = "ai" | "skills" | "voice" | "mcp" | "about";
+export type SettingsSection = "ai" | "agent" | "skills" | "voice" | "mcp" | "about";
 
 const SECTIONS: { id: SettingsSection; label: string; icon: LucideIcon }[] = [
   { id: "ai", label: "AI provider", icon: Sparkles },
+  { id: "agent", label: "Agent mode", icon: Bot },
   { id: "skills", label: "Skills", icon: ScrollText },
   { id: "voice", label: "Voice", icon: Mic },
   { id: "mcp", label: "AI apps (MCP)", icon: Plug },
@@ -263,6 +265,12 @@ export function SettingsPage({ settings, onClose, onSaved, onShowSetup, skills, 
                   Save
                 </Button>
               </div>
+            </>
+          )}
+          {section === "agent" && (
+            <>
+              <h2 className={styles.title}>Agent mode</h2>
+              <AgentSettingsSection settings={settings} onSaved={onSaved} />
             </>
           )}
           {section === "skills" && (

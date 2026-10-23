@@ -107,3 +107,13 @@
 .dotOk {
   color: var(--color-success);
 }
+
+/* The agent step in the SQL editor's toolbar while a run goes. */
+.agentLabel {
+  max-width: 260px;
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

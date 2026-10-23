@@ -2,7 +2,7 @@
 // for design work without the Rust backend. Never loaded inside the Tauri app.
 import { emit } from "@tauri-apps/api/event";
 import { mockIPC } from "@tauri-apps/api/mocks";
-import type { AiProvider, Bootstrap, QueryResult, Schema, Settings, Skill, Table } from "../api";
+import type { AgentAccess, AgentReply, AgentStep, AiProvider, Bootstrap, DbNote, QueryResult, Schema, Settings, Skill, Table } from "../api";
 import { EXAMPLE_SKILLS, skillError } from "../features/skills";
 import { version } from "../../package.json";
 import { isReadOnly } from "./readOnly";
@@ -69,6 +69,8 @@ const settings: Settings = {
   aiReady: true,
   onboarded: false,
   workspaceId: "",
+  agentModel: "",
+  agent: { maxSteps: 12, maxQueries: 10, querySeconds: 30, runSeconds: 180, maxTokens: 400000, skipPlan: false },
   models: [
     { id: "claude-opus-5-5", label: "Claude Opus 5.5 — most accurate" },
     { id: "claude-sonnet-5-5", label: "Claude Sonnet 5.5 — balanced" },
@@ -307,6 +309,76 @@ async function streamSql(reqId: number, sql: string) {
   await emit("ai://done", { reqId, error: null, totalMs: Math.round(performance.now() - started), cacheReadTokens: 1800 });
 }
 
+/** Agent mode in the preview: access per connection, notes, and replies runs wait for. */
+const agentAccess = new Map<string, AgentAccess>();
+let notes: DbNote[] = [];
+const waiting = new Map<string, (r: AgentReply) => void>();
+const stopped = new Set<string>();
+
+/** A scripted agent run on the demo store: plan, two steps, an optional Send/Skip pause, a cited answer. */
+async function mockAgentRun(runId: string, question: string, access: AgentAccess) {
+  const pause = () => new Promise((r) => setTimeout(r, VIDEO ? 900 : 500));
+  const reply = () => new Promise<AgentReply>((resolve) => waiting.set(runId, resolve));
+  const event = (e: Record<string, unknown>) => emit("agent://event", { runId, ...e });
+  const usage = (turns: number, queries: number) =>
+    event({ type: "progress", turns, maxTurns: 12, queries, maxQueries: 10, usage: { input: 900 * turns, cached: 4200 * turns, output: 180 * turns }, elapsedMs: turns * 1400 });
+  const step = (id: number, patch: Partial<AgentStep>): AgentStep => ({
+    id, tool: "run_query", text: "", status: "running", sql: null, rowCount: null, truncated: false, elapsedMs: null,
+    columns: [], rows: [], sent: null, sentSummary: null, checks: [], error: null, ...patch,
+  });
+  await pause();
+  await usage(1, 0);
+  await event({ type: "plan", steps: ["Count paid orders per week", "Split the last week by category", "Compare with the week before"], waiting: true });
+  await reply();
+  if (stopped.has(runId)) return event({ type: "done", answer: null, error: null, stopped: true });
+  const weekly = "SELECT strftime('%Y-%W', ordered_at) AS week, COUNT(*) AS paid FROM orders WHERE status = 'paid' GROUP BY week ORDER BY week DESC LIMIT 2";
+  await event({ type: "step", step: step(1, { text: "Counting paid orders in the last two weeks", sql: weekly }) });
+  await pause();
+  const rows1 = [["2026-42", 31], ["2026-41", 52]];
+  const sent1 =
+    access.results === "rows" ? `Step 1: 2 rows.\nColumns: ["week","paid"]\n["2026-42",31]\n["2026-41",52]` : access.results === "counts" ? `Step 1: Summary: {"rowCount":2,"columns":[{"name":"week","type":"text","nulls":0,"distinct":2},{"name":"paid","type":"number","nulls":0,"distinct":2,"min":31,"max":52}]}` : `Step 1: 2 rows. Columns: week, paid. No values are sent on this connection.`;
+  const summary1 = { rows: "sent 2 rows", counts: "sent counts and column summaries", off: "sent row count only" }[access.results];
+  if (access.askBeforeSend && access.results !== "off") {
+    await event({ type: "send", stepId: 1, payload: sent1 });
+    const r = await reply();
+    if (stopped.has(runId)) return event({ type: "done", answer: null, error: null, stopped: true });
+    if (r.type === "skip") {
+      await event({ type: "step", step: step(1, { text: "Counting paid orders in the last two weeks", sql: weekly, status: "done", rowCount: 2, elapsedMs: 4, columns: ["week", "paid"], rows: rows1, sent: "Step 1: 2 rows. The person chose not to send this result.", sentSummary: "skipped: sent row count only" }) });
+    }
+  }
+  await event({ type: "step", step: step(1, { text: "Counting paid orders in the last two weeks", sql: weekly, status: "done", rowCount: 2, elapsedMs: 4, columns: ["week", "paid"], rows: rows1, sent: sent1, sentSummary: summary1 }) });
+  await usage(2, 1);
+  await pause();
+  const byCat = "SELECT c.name, COUNT(DISTINCT o.id) AS paid FROM orders o JOIN order_items oi ON oi.order_id = o.id JOIN products p ON p.id = oi.product_id JOIN categories c ON c.id = p.category_id WHERE o.status = 'paid' AND strftime('%Y-%W', o.ordered_at) = '2026-42' GROUP BY c.name ORDER BY paid";
+  await event({ type: "step", step: step(2, { text: "Splitting last week's paid orders by category", sql: byCat }) });
+  await pause();
+  if (stopped.has(runId)) return event({ type: "done", answer: null, error: null, stopped: true });
+  await event({ type: "step", step: step(2, { text: "Splitting last week's paid orders by category", sql: byCat, status: "done", rowCount: 3, elapsedMs: 9, columns: ["name", "paid"], rows: [["Electronics", 2], ["Books", 11], ["Toys", 18]], sent: "Step 2: 3 rows.", sentSummary: summary1 }) });
+  await usage(3, 2);
+  await pause();
+  await event({
+    type: "done",
+    error: null,
+    stopped: false,
+    answer: {
+      text: "Paid orders fell from 52 to 31. Electronics had only 2 paid orders last week, the biggest drop.",
+      sentences: [
+        { text: "Paid orders fell from 52 to 31.", steps: [1], unverified: [] },
+        { text: "Electronics had only 2 paid orders last week, the biggest drop.", steps: [2], unverified: [] },
+      ],
+      confidence: "medium",
+      assumptions: ["A week runs Monday to Sunday."],
+      notes: ["orders.status 'paid' = paid but not yet shipped"],
+      proposedSql: null,
+      cannotAnswer: false,
+      unverified: [],
+      model: "claude-opus-5-5",
+      usage: { input: 2700, cached: 12600, output: 540 },
+    },
+  });
+  void question;
+}
+
 export function installMockBackend() {
   mockIPC(
     async (cmd, args) => {
@@ -338,6 +410,42 @@ export function installMockBackend() {
         case "cancel_generation":
         case "cancel_query":
           return null;
+        case "start_agent": {
+          const access = agentAccess.get(String(a.id));
+          if (!access?.enabled) return Promise.reject("Agent mode is off for this connection. Turn it on in its agent settings first.");
+          void mockAgentRun(String(a.runId), String(a.question), access);
+          return null;
+        }
+        case "stop_agent":
+          stopped.add(String(a.runId));
+          waiting.get(String(a.runId))?.({ type: "skip" });
+          return null;
+        case "reply_agent": {
+          const resolve = waiting.get(String(a.runId));
+          waiting.delete(String(a.runId));
+          resolve?.(a.reply as AgentReply);
+          return null;
+        }
+        case "agent_access":
+          return agentAccess.get(String(a.id)) ?? { enabled: false, results: "off", askBeforeSend: true, neverSend: [] };
+        case "save_agent_access":
+          agentAccess.set(String(a.id), a.access as AgentAccess);
+          return a.access;
+        case "list_notes":
+          return notes.filter((n) => n.connectionId === a.id);
+        case "save_note": {
+          const note = a.note as DbNote;
+          if (/@|‹/.test(note.text)) return Promise.reject("A note describes the database, not the data in it. Remove the value (an email, number or name) from it.");
+          const saved = { ...note, id: note.id || crypto.randomUUID(), updatedAt: Date.now() };
+          notes = [...notes.filter((n) => n.id !== saved.id), saved];
+          return saved;
+        }
+        case "delete_note":
+          notes = notes.filter((n) => n.id !== a.id);
+          return null;
+        case "save_agent_settings":
+          Object.assign(settings, { agentModel: a.agentModel, agent: a.agent });
+          return { ...settings };
         case "list_scripts":
           return [];
         case "save_script": {
