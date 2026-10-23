@@ -78,6 +78,24 @@ pub fn join_fan_out(sql: &str, schema: &Schema) -> Vec<String> {
     out
 }
 
+/// A table with more rows than this is big: reading all of it needs a filter or a plan check.
+pub const BIG_TABLE_ROWS: i64 = 1_000_000;
+
+/// The big table `sql` reads without any WHERE clause, with its row estimate.
+pub fn unfiltered_big_scan(sql: &str, schema: &Schema) -> Option<(String, i64)> {
+    let words: Vec<String> = tokens(sql).into_iter().map(|w| w.to_lowercase()).collect();
+    if words.iter().any(|w| w == "where") {
+        return None;
+    }
+    words.iter().enumerate().filter(|(_, w)| *w == "from" || *w == "join").find_map(|(i, _)| {
+        let name = unquote(words.get(i + 1)?);
+        let short = name.rsplit('.').next().unwrap_or(&name).to_string();
+        let t = schema.tables.iter().find(|t| t.name.eq_ignore_ascii_case(&short))?;
+        let rows = t.row_estimate?;
+        (rows > BIG_TABLE_ROWS).then(|| (t.name.clone(), rows))
+    })
+}
+
 /// How many statements `sql` holds, ignoring `;` in strings, comments and at the end.
 pub fn statements(sql: &str) -> usize {
     let t = tokens(sql);
@@ -253,6 +271,16 @@ mod tests {
         ] {
             assert!(join_fan_out(fine, &schema()).is_empty(), "{fine}");
         }
+    }
+
+    #[test]
+    fn finds_unfiltered_scans_of_big_tables() {
+        let mut s = schema();
+        s.tables[1].row_estimate = Some(5_000_000);
+        assert_eq!(unfiltered_big_scan("SELECT SUM(quantity) FROM order_items", &s), Some(("order_items".into(), 5_000_000)));
+        assert_eq!(unfiltered_big_scan("SELECT * FROM orders o JOIN \"order_items\" oi ON oi.order_id = o.id", &s).map(|x| x.0), Some("order_items".into()));
+        assert!(unfiltered_big_scan("SELECT COUNT(*) FROM order_items WHERE order_id = 3", &s).is_none());
+        assert!(unfiltered_big_scan("SELECT COUNT(*) FROM orders", &s).is_none());
     }
 
     #[test]

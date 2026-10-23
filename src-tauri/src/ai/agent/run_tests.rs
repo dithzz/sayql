@@ -46,18 +46,22 @@ impl Ran {
     }
 
     fn steps(&self) -> Vec<run::Step> {
-        // The last event for each step id.
-        let mut out: Vec<run::Step> = Vec::new();
-        for e in &self.events {
-            if let Event::Step { step, .. } = e {
-                match out.iter_mut().find(|s| s.id == step.id) {
-                    Some(s) => *s = step.clone(),
-                    None => out.push(step.clone()),
-                }
+        steps_of(&self.events)
+    }
+}
+
+/// The last event for each step id.
+fn steps_of(events: &[Event]) -> Vec<run::Step> {
+    let mut out: Vec<run::Step> = Vec::new();
+    for e in events {
+        if let Event::Step { step, .. } = e {
+            match out.iter_mut().find(|s| s.id == step.id) {
+                Some(s) => *s = step.clone(),
+                None => out.push(step.clone()),
             }
         }
-        out
     }
+    out
 }
 
 async fn go(pool: &DbPool, turns: Vec<MockTurn>, access: AgentAccess, limits: AgentSettings, replies: Vec<Reply>) -> Ran {
@@ -353,4 +357,80 @@ async fn a_follow_up_continues_the_conversation() {
     let seen = mock.seen.lock().unwrap().clone();
     assert!(seen[0].contains("Who owns Northfield") && seen[0].contains("and Harbor?"), "{}", seen[0]);
     assert_eq!(out.answer.unwrap().text, "Also.");
+}
+
+#[tokio::test]
+async fn big_tables_need_a_filter_or_a_checked_plan() {
+    let f = fixture().await;
+    let mut schema = db::introspect(&f.pool, Kind::Sqlite).await.unwrap();
+    schema.tables.iter_mut().find(|t| t.name == "audit_log").unwrap().row_estimate = Some(9_000_000);
+    let all = "SELECT COUNT(*) AS n FROM audit_log";
+    let turns = vec![
+        MockTurn::Tools(vec![("run_query", json!({ "sql": all, "purpose": "x" }))]),
+        MockTurn::Tools(vec![("explain_query", json!({ "sql": all }))]),
+        MockTurn::Tools(vec![("run_query", json!({ "sql": all, "purpose": "x" }))]),
+        MockTurn::Tools(vec![("finish", json!({ "answer": "Done." }))]),
+    ];
+    let (tx, rx) = tokio::sync::mpsc::unbounded_channel::<Reply>();
+    drop(tx);
+    let events = Arc::new(Mutex::new(Vec::new()));
+    let sink = events.clone();
+    let mut io = Io { emit: Arc::new(move |e| sink.lock().unwrap().push(e)), replies: rx, stop: CancellationToken::new() };
+    let input = RunInput {
+        run_id: "r".into(),
+        question: "How many audit rows?".into(),
+        kind: Kind::Sqlite,
+        schema_text: crate::schema::render_full(&schema),
+        schema,
+        notes: vec![],
+        focus: vec![],
+        skill: None,
+        access: access(Results::Counts, false),
+        limits: AgentSettings::default(),
+        history: None,
+    };
+    let mut llm = Llm::Mock(Mock::new(turns));
+    run::run(&mut llm, &f.pool, input, &mut io).await;
+    let steps = steps_of(&events.lock().unwrap());
+    assert!(steps[0].error.as_deref().unwrap().contains("reads all of audit_log"), "{steps:?}");
+    assert_eq!(steps[1].status, StepStatus::Done, "{steps:?}");
+    assert_eq!(steps[2].status, StepStatus::Done, "after the plan check it runs: {steps:?}");
+}
+
+#[tokio::test]
+async fn follow_ups_mask_values_the_person_quotes() {
+    let f = fixture().await;
+    let first = go(
+        &f.pool,
+        vec![
+            MockTurn::Tools(vec![("run_query", json!({ "sql": "SELECT email FROM users WHERE id = 9", "purpose": "x" }))]),
+            MockTurn::Tools(vec![("finish", json!({ "answer": "Found it." }))]),
+        ],
+        access(Results::Rows, false),
+        AgentSettings::default(),
+        vec![],
+    )
+    .await;
+    let schema = db::introspect(&f.pool, Kind::Sqlite).await.unwrap();
+    let (tx, rx) = tokio::sync::mpsc::unbounded_channel::<Reply>();
+    drop(tx);
+    let mut io = Io { emit: Arc::new(|_| {}), replies: rx, stop: CancellationToken::new() };
+    let input = RunInput {
+        run_id: "r2".into(),
+        question: "I changed step 1's query. Run this instead: SELECT full_name FROM users WHERE email = 'priya.natarajan@example.com'".into(),
+        kind: Kind::Sqlite,
+        schema_text: crate::schema::render_full(&schema),
+        schema,
+        notes: vec![],
+        focus: vec![],
+        skill: None,
+        access: access(Results::Rows, false),
+        limits: AgentSettings::default(),
+        history: Some(first.outcome.history),
+    };
+    let mut llm = Llm::Mock(Mock::new(vec![MockTurn::Tools(vec![("finish", json!({ "answer": "OK." }))])]));
+    run::run(&mut llm, &f.pool, input, &mut io).await;
+    let Llm::Mock(mock) = llm else { unreachable!() };
+    let seen = mock.seen.lock().unwrap().clone();
+    assert!(!seen[0].contains("priya.natarajan@example.com") && seen[0].contains("'‹email-1›'"), "{}", seen[0]);
 }

@@ -8,6 +8,7 @@ import {
   Database,
   FileCode2,
   MessageSquareReply,
+  Pencil,
   Play,
   RotateCcw,
   Save,
@@ -43,6 +44,8 @@ export interface AgentPanelProps {
   onFollowUp: () => void;
   /** Saves a suggested note; rejects with a message the panel shows. */
   onSaveNote: (text: string) => Promise<void>;
+  /** Continues the run from a step whose SQL the person changed. */
+  onSteer: (stepId: number, sql: string) => void;
 }
 
 /** Agent mode's view of a run: plan, steps, pauses, and the cited answer. */
@@ -78,7 +81,13 @@ export function AgentPanel(p: AgentPanelProps) {
             {run.plan && <PlanCard run={run} onGo={p.onGo} />}
             <ol className={styles.steps}>
               {run.steps.map((s) => (
-                <StepRow key={s.id} step={s} selected={p.selected === s.id} onSelect={() => p.onSelect(s.id)} />
+                <StepRow
+                  key={s.id}
+                  step={s}
+                  selected={p.selected === s.id}
+                  onSelect={() => p.onSelect(s.id)}
+                  onSteer={!active && s.tool === "run_query" && s.sql ? (sql) => p.onSteer(s.id, sql) : undefined}
+                />
               ))}
             </ol>
             {run.phase === "starting" || (run.phase === "running" && !run.steps.some((s) => s.status === "running")) ? (
@@ -184,8 +193,20 @@ function PlanCard({ run, onGo }: { run: AgentRunState; onGo: (plan: string[] | n
   );
 }
 
-function StepRow({ step, selected, onSelect }: { step: AgentStep; selected: boolean; onSelect: () => void }) {
+function StepRow({
+  step,
+  selected,
+  onSelect,
+  onSteer,
+}: {
+  step: AgentStep;
+  selected: boolean;
+  onSelect: () => void;
+  /** Present when the run has ended: change this step's SQL and continue from it. */
+  onSteer?: (sql: string) => void;
+}) {
   const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<string | null>(null);
   const icon =
     step.status === "running" ? <Spinner size={12} /> : step.status === "error" ? <XCircle size={13} className={styles.bad} /> : <Check size={13} className={styles.good} />;
   return (
@@ -214,7 +235,28 @@ function StepRow({ step, selected, onSelect }: { step: AgentStep; selected: bool
       </div>
       {open && (
         <div className={styles.details}>
-          {step.sql && <pre className={styles.sql}>{step.sql}</pre>}
+          {editing !== null ? (
+            <>
+              <textarea className={styles.planText} rows={4} value={editing} onChange={(e) => setEditing(e.target.value)} aria-label={`Step ${step.id} SQL`} />
+              <div className={styles.buttons}>
+                <Button size="sm" variant="primary" icon={Play} disabled={!editing.trim()} onClick={() => (onSteer?.(editing), setEditing(null))}>
+                  Continue from here
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => setEditing(null)}>
+                  Cancel
+                </Button>
+              </div>
+            </>
+          ) : (
+            step.sql && <pre className={styles.sql}>{step.sql}</pre>
+          )}
+          {onSteer && editing === null && (
+            <div>
+              <Button size="sm" variant="ghost" icon={Pencil} onClick={() => setEditing(step.sql ?? "")}>
+                Edit and continue
+              </Button>
+            </div>
+          )}
           {step.checks.map((c, i) => (
             <span key={i} className={styles.check}>
               <AlertTriangle size={12} /> {c}

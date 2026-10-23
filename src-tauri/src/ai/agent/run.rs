@@ -157,6 +157,8 @@ struct Run<'a> {
     next_step: u32,
     steps: Vec<Step>,
     results: Vec<QueryResult>,
+    /// SQL the model checked with explain_query, which may then read a big table in full.
+    explained: Vec<String>,
     turns: u32,
     queries: u32,
     usage: Usage,
@@ -186,6 +188,7 @@ pub async fn run(llm: &mut Llm, pool: &DbPool, mut input: RunInput, io: &mut Io)
         next_step,
         steps: Vec::new(),
         results: Vec::new(),
+        explained: Vec::new(),
         turns: 0,
         queries: 0,
         usage: Usage::default(),
@@ -196,7 +199,8 @@ pub async fn run(llm: &mut Llm, pool: &DbPool, mut input: RunInput, io: &mut Io)
     let first = if r.messages.is_empty() {
         prompt::question(&r.input.question, &r.input.focus, r.input.skill.as_deref())
     } else {
-        r.input.question.clone()
+        // A follow-up can quote values the person saw on screen (an edited step's SQL); they go masked.
+        r.masker.remask_text(&r.input.question)
     };
     r.messages.push(Msg::user(first));
     let end = r.go().await;
@@ -520,6 +524,17 @@ impl Run<'_> {
             Ok(r) => r,
             Err(e) => return Ok(self.end_step(i, Err(e), "sent the refusal")),
         };
+        // Gentle on production: reading a big table in full needs a filter, or a plan checked first.
+        if let Some((table, rows)) = checks::unfiltered_big_scan(&real, &self.input.schema)
+            && !self.explained.contains(&real)
+            && self.input.kind != Kind::Mssql
+        {
+            let msg = format!(
+                "This query reads all of {table} (about {rows} rows) with no WHERE clause, so it was not run. Add a \
+                 filter, or call explain_query with this SQL to check its cost; if the plan is acceptable, run it again."
+            );
+            return Ok(self.end_step(i, Err(msg), "sent the refusal"));
+        }
         self.queries += 1;
         let r = match self.run_sql(&real).await {
             Ok(r) => r,
@@ -624,6 +639,7 @@ impl Run<'_> {
         };
         match self.run_sql(&format!("{prefix} {real}")).await {
             Ok(r) => {
+                self.explained.push(real.clone());
                 let text = r.rows.iter().map(|row| row.iter().map(plain).collect::<Vec<_>>().join(" | ")).collect::<Vec<_>>().join("\n");
                 self.fill_step(i, &r, Vec::new());
                 let plan = self.masker.remask_text(&format!("{}\n{text}", r.columns.join(" | ")));

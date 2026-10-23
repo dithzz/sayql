@@ -338,6 +338,10 @@ export function QueryTab(props: QueryTabProps) {
                     generation.setQuestion(withCommand("agent", ""));
                     askRef.current?.focus();
                   }}
+                  onSteer={(id, sql) => {
+                    followUpNext.current = true;
+                    investigate(`I changed the query of step ${id}. Run this instead and continue from there:\n${sql}`, null);
+                  }}
                   onSaveNote={async (text) => {
                     await commands.saveNote({ id: "", connectionId: tab.target.connectionId, database: tab.target.database, text, updatedAt: 0 });
                     props.onNotesChanged();
