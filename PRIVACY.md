@@ -35,8 +35,8 @@ from. It uses no cookies, doesn't track you across sites, and stores no personal
 nothing to it.
 
 If you join the SayQL for teams waitlist, the website stores the email, interest and team size you enter
-(not your IP address), and uses them only to contact you about SayQL for teams. To be removed, ask through
-the contact details on the website.
+(not your IP address), and uses them only to contact you about SayQL for teams. To be removed, email
+hello@azenvoc.com.
 
 ## Feedback
 
@@ -50,4 +50,4 @@ What an AI provider does with your requests is governed by that provider's own t
 
 ## Questions
 
-Questions about this notice can be sent through the contact details on the SayQL website.
+Questions about this notice: hello@azenvoc.com.
