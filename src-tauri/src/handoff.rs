@@ -64,12 +64,21 @@ pub struct ScriptRef {
     pub script_id: String,
 }
 
+/// A SayQL Team invite: the "Sign in to your team" dialog, filled in. The person confirms it.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TeamJoin {
+    pub server: String,
+    pub code: String,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum Action {
     NewConnection(ConnectionDraft),
     OpenQuery(QueryDraft),
     OpenScript(ScriptRef),
+    TeamJoin(TeamJoin),
 }
 
 impl Action {
@@ -78,6 +87,7 @@ impl Action {
             Action::NewConnection(_) => "new-connection",
             Action::OpenQuery(_) => "open-query",
             Action::OpenScript(_) => "open-script",
+            Action::TeamJoin(_) => "team-join",
         }
     }
 }
@@ -252,6 +262,10 @@ pub fn to_url(handoff: &Handoff, token: &str) -> Result<String, String> {
                 put("question", qd.question.as_deref().unwrap_or_default());
             }
             Action::OpenScript(s) => put("script_id", &s.script_id),
+            Action::TeamJoin(t) => {
+                put("server", &t.server);
+                put("code", &t.code);
+            }
         }
     }
     let url = String::from(url);
@@ -314,6 +328,36 @@ pub fn parse_url(link: &str) -> Result<(Handoff, String), String> {
         Action::OpenQuery(query_draft(p("connection_id").unwrap_or(""), p("database"), p("sql").unwrap_or(""), p("title"), p("question"))?)
     };
     Ok((Handoff { source: source(get("from").as_deref()), action }, token))
+}
+
+/// Reads a `sayql://team-join?server=…&code=…` invite link, sent by a team admin. `None` for
+/// any other link. Unlike the other links it needs no token: it only fills in the sign-in
+/// dialog, where the person sees the server and decides; nothing is sent until they confirm.
+pub fn parse_team_join(link: &str) -> Option<Result<Handoff, String>> {
+    let url = Url::parse(link).ok()?;
+    if url.scheme() != SCHEME || url.host_str() != Some("team-join") {
+        return None;
+    }
+    Some((|| {
+        if link.len() > 2048 || !matches!(url.path(), "" | "/") || url.fragment().is_some() {
+            return Err("Invalid team invite link.".to_string());
+        }
+        let mut server = None;
+        let mut code = None;
+        for (k, v) in url.query_pairs() {
+            let slot = match k.as_ref() {
+                "server" => &mut server,
+                "code" => &mut code,
+                other => return Err(format!("Unexpected `{other}` in the link.")),
+            };
+            if slot.replace(v.to_string()).is_some() {
+                return Err(format!("`{k}` is given twice."));
+            }
+        }
+        let server = crate::team::clean_server(&server.unwrap_or_default())?;
+        let code = crate::team::clean_code(&code.unwrap_or_default())?;
+        Ok(Handoff { source: None, action: Action::TeamJoin(TeamJoin { server, code }) })
+    })())
 }
 
 fn token_dir(config_dir: &Path) -> PathBuf {

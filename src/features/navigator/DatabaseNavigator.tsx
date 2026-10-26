@@ -22,6 +22,7 @@ import {
   Table2,
   Trash2,
   Type,
+  Users,
   Wand2,
 } from "lucide-react";
 import type { ConnectionConfig, DatabaseList, DbNote, Schema, Table } from "../../api";
@@ -126,6 +127,18 @@ export function DatabaseNavigator(p: DatabaseNavigatorProps) {
 
   const connectionMenu = (c: ConnectionConfig): MenuEntry[] => {
     const active = c.id === p.activeId;
+    // A team connection is managed by the team admin: no editing or deleting it here.
+    if (c.team) {
+      return [
+        { label: active ? "Connected" : "Connect", icon: Plug, disabled: active, onSelect: () => p.onOpen(c.id) },
+        { label: "New SQL tab", icon: FilePlus2, shortcut: active ? "⌘T" : undefined, onSelect: () => p.onNewTab(c.id, null) },
+        { label: "Refresh", icon: RefreshCw, disabled: !active || p.loading, onSelect: p.onRefresh },
+        "separator",
+        { label: "Agent settings…", icon: Bot, onSelect: () => p.onAgentSettings(c) },
+        { label: "Add database note…", icon: StickyNote, disabled: !active || !p.schema, onSelect: () => p.onEditNote(null) },
+        { label: "Copy name", icon: Copy, onSelect: () => copy(c.name) },
+      ];
+    }
     return [
       { label: active ? "Connected" : "Connect", icon: Plug, disabled: active, onSelect: () => p.onOpen(c.id) },
       { label: "New SQL tab", icon: FilePlus2, shortcut: active ? "⌘T" : undefined, onSelect: () => p.onNewTab(c.id, null) },
@@ -346,6 +359,39 @@ export function DatabaseNavigator(p: DatabaseNavigatorProps) {
     );
   };
 
+  const own = p.connections.filter((c) => !c.team);
+  const team = p.connections.filter((c) => c.team);
+
+  const renderConnection = (c: ConnectionConfig) => {
+    const active = c.id === p.activeId;
+    const list = p.databases[c.id];
+    return (
+      <div key={c.id} role="group">
+        <TreeRow
+          depth={0}
+          expanded={active}
+          selected={active}
+          icon={
+            c.kind === "sqlite" ? (
+              <Database size={14} color={DATABASE_KINDS[c.kind].color} />
+            ) : (
+              <Server size={14} color={DATABASE_KINDS[c.kind].color} />
+            )
+          }
+          label={<span className={styles.connLabel}>{c.name}</span>}
+          meta={active && p.loading && !list ? <Spinner size={12} /> : DATABASE_KINDS[c.kind].short}
+          // Team connections show no host or password, and can't be edited here.
+          title={c.team ? [c.team.database, c.team.notes, "Shared by your team admin"].filter(Boolean).join(" · ") : undefined}
+          actions={c.team ? undefined : <IconButton icon={Pencil} label="Edit connection" size="sm" onClick={() => p.onEdit(c)} />}
+          onClick={() => p.onOpen(c.id)}
+          onContextMenu={(e) => menu.open(e, connectionMenu(c))}
+        />
+        {/* Servers list their databases; SQLite (or a server that won't list them) shows the schema directly. */}
+        {active && (list ? renderDatabases(c, list) : renderSchema(c.id, 1))}
+      </div>
+    );
+  };
+
   return (
     <Panel
       title="Database Navigator"
@@ -367,34 +413,24 @@ export function DatabaseNavigator(p: DatabaseNavigatorProps) {
         />
       </div>
       <div className={styles.tree} role="tree" aria-label="Database objects">
-        {p.connections.map((c) => {
-          const active = c.id === p.activeId;
-          const list = p.databases[c.id];
-          return (
-            <div key={c.id} role="group">
-              <TreeRow
-                depth={0}
-                expanded={active}
-                selected={active}
-                icon={
-                  c.kind === "sqlite" ? (
-                    <Database size={14} color={DATABASE_KINDS[c.kind].color} />
-                  ) : (
-                    <Server size={14} color={DATABASE_KINDS[c.kind].color} />
-                  )
-                }
-                label={<span className={styles.connLabel}>{c.name}</span>}
-                meta={active && p.loading && !list ? <Spinner size={12} /> : DATABASE_KINDS[c.kind].short}
-                actions={<IconButton icon={Pencil} label="Edit connection" size="sm" onClick={() => p.onEdit(c)} />}
-                onClick={() => p.onOpen(c.id)}
-                onContextMenu={(e) => menu.open(e, connectionMenu(c))}
-              />
-              {/* Servers list their databases; SQLite (or a server that won't list them) shows the schema directly. */}
-              {active && (list ? renderDatabases(c, list) : renderSchema(c.id, 1))}
-            </div>
-          );
-        })}
-        {p.connections.length === 0 && <TreeRow depth={0} label={<span className={styles.message}>No connections yet</span>} />}
+        {own.map(renderConnection)}
+        {own.length === 0 && team.length === 0 && (
+          <TreeRow depth={0} label={<span className={styles.message}>No connections yet</span>} />
+        )}
+        {team.length > 0 && (
+          <div role="group" className={styles.scripts}>
+            <TreeRow
+              depth={0}
+              expanded={!collapsed.has("team")}
+              icon={<Users size={14} />}
+              label={<span className={styles.connLabel}>Team</span>}
+              meta={team.length}
+              title="Shared by your team admin on your team's SayQL server. Queries on them run there."
+              onClick={() => setCollapsed((s) => toggle(s, "team"))}
+            />
+            {!collapsed.has("team") && team.map(renderConnection)}
+          </div>
+        )}
         {p.scripts.length > 0 && (
           <div role="group" className={styles.scripts}>
             <TreeRow

@@ -1,0 +1,41 @@
+<!-- order: 15 | slug: teams | title: SayQL for teams | group: Using SayQL | description: Sign in to your company's SayQL server to use the database connections your team shares, with an audit log and admin rules for what the AI may see. -->
+<p class="lead">With SayQL for teams, your company runs its own SayQL server. It holds the team's database connections, so nobody needs the database passwords, and it keeps an audit log of every query.</p>
+<div class="callout"><svg><use href="#i-info"/></svg><p><b>Not using a team?</b> Nothing changes. Without signing in, SayQL never contacts a team server and works exactly as before.</p></div>
+
+<h2>Sign in</h2>
+<ul>
+  <li>Your team admin sends you an invite: a server address and an invite code, or a link that starts with <code>sayql://team-join</code>.</li>
+  <li>Open <b>Settings → Team</b>, click <b>Sign in</b>, and enter the server and the code. An invite link opens the same dialog filled in; check the server is your company's, then click <b>Sign in</b>. Nothing is sent before you do.</li>
+  <li>An invite code works once and expires after 7 days. Your sign-in is kept in your system keychain.</li>
+  <li><b>Settings → Team</b> shows the server, your email and the team's plan and licence. <b>Sign out</b> ends the sign-in on the server and removes it from this computer.</li>
+</ul>
+
+<h2>Team connections</h2>
+<p>The team's connections appear in the Database Navigator under <b>Team</b>. They work like your own: the Ask box, the editor and agent mode all use them. A few things differ:</p>
+<ul>
+  <li><b>Read-only.</b> Your team's server runs only queries that read data. A statement that would change data is refused before it reaches the database.</li>
+  <li><b>No host or password.</b> SayQL never sees them: the schema and every query go through your team's server. Team connections can't be edited or deleted in SayQL; your team admin manages them.</li>
+  <li><b>Audited.</b> Each query is recorded in the server's audit log with where it came from (Ask box, editor or agent) and, from the Ask box or agent mode, the question it answers. Results are never stored.</li>
+</ul>
+
+<h2>Rules set by your team admin</h2>
+<ul>
+  <li><b>What agent mode may see.</b> Your admin sets the most the AI may see of results on each team connection. You can choose less in <b>Agent settings</b>, not more; the options above it are marked <b>Set by your team admin</b>.</li>
+  <li><b>Never-send columns.</b> Columns your admin marks never send are added to the connection's list and can't be removed. Agent mode refuses queries that use them, and the server leaves them out of every result (the Results panel says how many were withheld).</li>
+</ul>
+
+<h2>Messages you may see</h2>
+<div class="table-wrap"><table>
+  <thead><tr><th>Message</th><th>What to do</th></tr></thead>
+  <tbody>
+    <tr><td>Signed out of your team, sign in again.</td><td>Your sign-in was revoked, or your account removed. Ask your team admin for a new invite.</td></tr>
+    <tr><td>Your team's SayQL server runs only read-only queries</td><td>Run changes to data some other way your team agreed on.</td></tr>
+    <tr><td>Your team admin marked a column in this query never send</td><td>Leave that column out of the query.</td></tr>
+    <tr><td>Agent mode is turned off for this connection by your team admin.</td><td>Use the Ask box or the editor there, or ask your team admin.</td></tr>
+    <tr><td>That invite code isn't valid or has expired.</td><td>Codes work once and last 7 days. Ask your team admin for a new one.</td></tr>
+    <tr><td>No licence, licence expired, or no free seats</td><td>Ask your team admin: the server's licence needs adding, renewing or more seats.</td></tr>
+  </tbody>
+</table></div>
+
+<h2>Privacy</h2>
+<p>When you're signed in, queries on team connections and the questions they answer go to your team's server, which your company runs, and are recorded in its audit log. Your own connections, and anything you do on them, never go there. Questions still go to the AI provider you chose in Settings, as on your own connections.</p>

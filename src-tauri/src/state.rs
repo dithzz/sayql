@@ -5,6 +5,7 @@ use crate::db::{self, DbPool};
 use crate::error::AppResult;
 use crate::schema::{self, Schema};
 use crate::store::{Store, secrets};
+use crate::team::{self, TeamClient, TeamConnection, TeamPool};
 use crate::voice::Voice;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -68,6 +69,8 @@ pub struct AppState {
     agents: Mutex<HashMap<String, AgentRun>>,
     /// Each slot's last finished agent conversation, for follow-ups.
     agent_histories: Mutex<HashMap<String, History>>,
+    /// The team server's connections as last listed; empty when signed out.
+    team_connections: Mutex<Vec<TeamConnection>>,
     pub voice: Voice,
 }
 
@@ -91,6 +94,7 @@ impl AppState {
             queries: Mutex::new(HashMap::new()),
             agents: Mutex::new(HashMap::new()),
             agent_histories: Mutex::new(HashMap::new()),
+            team_connections: Mutex::new(Vec::new()),
         })
     }
 
@@ -183,12 +187,59 @@ impl AppState {
         lock(&self.agents).values().find(|r| r.run_id == run_id).is_some_and(|r| r.replies.send(reply).is_ok())
     }
 
+    /// The signed-in team server. Reads the keychain only when settings say there is one.
+    pub fn team_client(&self) -> AppResult<Option<TeamClient>> {
+        let Some(account) = self.store.settings()?.team else { return Ok(None) };
+        let token = secrets::team_token().ok_or(team::SIGNED_OUT)?;
+        Ok(Some(TeamClient::new(self.http.clone(), account.server, token, Some(self.store.clone()))))
+    }
+
+    pub fn set_team_connections(&self, list: Vec<TeamConnection>) {
+        *lock(&self.team_connections) = list;
+    }
+
+    /// A team connection by its id in the app (`team:…`).
+    pub fn team_connection(&self, id: &str) -> Option<TeamConnection> {
+        let server_id = id.strip_prefix(team::ID_PREFIX)?;
+        lock(&self.team_connections).iter().find(|c| c.id == server_id).cloned()
+    }
+
+    /// Forgets the team connections and closes their tabs' pools, after signing out.
+    pub fn forget_team(&self) {
+        lock(&self.team_connections).clear();
+        lock(&self.pools).retain(|t, _| !t.connection_id.starts_with(team::ID_PREFIX));
+        lock(&self.schemas).retain(|t, _| !t.connection_id.starts_with(team::ID_PREFIX));
+    }
+
+    /// Fails unless `id` is a saved connection or a listed team connection.
+    pub fn check_connection(&self, id: &str) -> AppResult<()> {
+        if self.team_connection(id).is_some() {
+            return Ok(());
+        }
+        self.store.connection(id).map(|_| ())
+    }
+
+    fn kind_of(&self, id: &str) -> AppResult<db::Kind> {
+        if id.starts_with(team::ID_PREFIX) {
+            return self.team_connection(id).and_then(|c| c.kind()).ok_or_else(|| team::SIGNED_OUT.into());
+        }
+        Ok(self.store.connection(id)?.kind)
+    }
+
     /// The pool for `target`, connecting if it isn't open yet.
     pub async fn target_pool(&self, target: &Target) -> AppResult<DbPool> {
         if let Some(pool) = self.pool(target) {
             return Ok(pool);
         }
         let id = &target.connection_id;
+        if id.starts_with(team::ID_PREFIX) {
+            let conn = self.team_connection(id).ok_or(team::SIGNED_OUT)?;
+            let kind = conn.kind().ok_or("Your team's server lists this connection with a database type SayQL doesn't know.")?;
+            let client = self.team_client()?.ok_or(team::SIGNED_OUT)?;
+            let pool = DbPool::Team(TeamPool { client, id: conn.id, kind, source: team::Source::Editor, question: None });
+            self.set_pool(target.clone(), pool.clone());
+            return Ok(pool);
+        }
         let cfg = self.store.connection(id)?;
         let pool = match &target.database {
             None => db::connect(&cfg, secrets::password(id)).await?,
@@ -203,7 +254,7 @@ impl AppState {
 
     /// Reads `target`'s schema and caches it, with its prompt text.
     pub async fn load_schema(&self, target: &Target) -> AppResult<Schema> {
-        let kind = self.store.connection(&target.connection_id)?.kind;
+        let kind = self.kind_of(&target.connection_id)?;
         let pool = self.target_pool(target).await?;
         let schema = db::introspect(&pool, kind).await?;
         let schema_text = schema::render_full(&schema);

@@ -500,6 +500,15 @@ export function installMockBackend() {
           return null;
         case "take_handoffs":
           return [];
+        // Signed out of SayQL Team: there is no team server in the browser preview.
+        case "team_status":
+          return null;
+        case "team_connections":
+          return [];
+        case "team_sign_out":
+          return null;
+        case "team_sign_in":
+          return Promise.reject("Signing in to a team isn't available in the browser preview.");
         case "mcp_setup":
           return { path: "/Applications/SayQL.app/Contents/MacOS/sayql-mcp", exists: true, appimage: false };
         case "test_connection":

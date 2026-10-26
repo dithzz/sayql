@@ -339,8 +339,9 @@ impl Run<'_> {
     /// warning for the agent and a step for the person. Supabase turns it on for app tables, so
     /// a read-only login there can see empty tables that aren't empty.
     async fn row_security(&mut self) -> Option<String> {
-        // Checked once per conversation, not again for each follow-up.
-        if self.input.kind != Kind::Postgres || self.messages.len() > 1 {
+        // Checked once per conversation, not again for each follow-up. A team server's login is
+        // its admin's business, and the check would be one more query in their audit log.
+        if self.input.kind != Kind::Postgres || self.messages.len() > 1 || matches!(self.pool, DbPool::Team(_)) {
             return None;
         }
         let sql = "SELECT n.nspname || '.' || c.relname FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace \

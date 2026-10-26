@@ -3,6 +3,15 @@
 All notable changes to SayQL are listed here. Downloads are on the
 [releases page](https://github.com/dithzz/sayql-releases/releases).
 
+## Unreleased
+
+- **Sign in to your team (SayQL Team, preview):** in **Settings → Team**, sign in to your company's SayQL server
+  with an invite code, or open a `sayql://team-join` invite link, which fills in the dialog for you to confirm.
+  The team's connections appear in the navigator under **Team**: read-only, with no host or password on your
+  computer, and every query goes through the team server, which records it (and the question it answers) in its
+  audit log. The team admin's rules win there: agent mode can't see more than they allow, and their never-send
+  columns can't be removed. Without signing in, SayQL never contacts a team server.
+
 ## 0.3.0 (2026-10-23)
 
 - **Agent mode:** type `/agent` and a question that needs looking around first ("who owns this tenant?", "why did

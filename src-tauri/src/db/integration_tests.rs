@@ -91,7 +91,7 @@ pub(super) async fn exec(pool: &DbPool, sql: &str) {
         DbPool::Pg(p) => sqlx::raw_sql(sqlx::AssertSqlSafe(sql)).execute(p).await.map(|_| ()).map_err(|e| e.to_string()),
         DbPool::My(p) => sqlx::raw_sql(sqlx::AssertSqlSafe(sql)).execute(p).await.map(|_| ()).map_err(|e| e.to_string()),
         DbPool::Ms(p) => mssql_batch(p, sql).await,
-        DbPool::Lite(_) => unreachable!("SQLite is covered by the unit tests"),
+        DbPool::Lite(_) | DbPool::Team(_) => unreachable!("covered by the unit tests"),
     };
     r.unwrap_or_else(|e| panic!("setup failed: {e}\n{sql}"));
 }

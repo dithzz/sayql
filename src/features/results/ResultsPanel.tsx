@@ -62,6 +62,11 @@ export function ResultsPanel({ outcomes, total, running, errorHint, errorAction,
               {" · "}
               {result.elapsedMs} ms
               {result.truncated && <Badge tone="warning">first 5,000 rows</Badge>}
+              {!!result.withheld?.length && (
+                <Badge tone="warning" title={`Withheld: ${result.withheld.join(", ")}`}>
+                  {plural(result.withheld.length, "column")} withheld by your team admin
+                </Badge>
+              )}
             </span>
           )}
           {!running && many && stopped >= 0 && (

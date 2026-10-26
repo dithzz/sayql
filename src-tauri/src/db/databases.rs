@@ -25,7 +25,7 @@ const MYSQL_SYSTEM: &[&str] = &["information_schema", "mysql", "performance_sche
 /// `None` for SQLite, where a file is a single database.
 pub async fn list_databases(pool: &DbPool) -> AppResult<Option<DatabaseList>> {
     let list = match pool {
-        DbPool::Lite(_) => return Ok(None),
+        DbPool::Lite(_) | DbPool::Team(_) => return Ok(None),
         DbPool::Ms(p) => {
             let mut conn = p.acquire().await?;
             let client = conn.client();
@@ -62,6 +62,7 @@ pub async fn list_databases(pool: &DbPool) -> AppResult<Option<DatabaseList>> {
 pub async fn open_database(base: &DbPool, cfg: &ConnConfig, password: Option<String>, database: &str) -> AppResult<DbPool> {
     match base {
         DbPool::Ms(p) => Ok(DbPool::Ms(p.for_database(database).await?)),
+        DbPool::Team(_) => Err("A team connection opens the one database your team admin set up.".into()),
         _ => connect(&ConnConfig { database: database.to_string(), ..cfg.clone() }, password).await,
     }
 }

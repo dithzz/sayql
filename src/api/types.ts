@@ -16,7 +16,47 @@ export interface ConnectionConfig {
   ssl: boolean;
   /** SQL Server: accept a self-signed server certificate. */
   trustCert: boolean;
+  /** Set on a SayQL Team connection (id `team:…`): read-only here, managed by the team admin. */
+  team?: TeamConnectionInfo;
 }
+
+/** A team connection's details from the team server; never its host, user or password. */
+export interface TeamConnectionInfo {
+  /** The database's name on the server, for display. */
+  database: string;
+  notes: string;
+}
+
+/** Who is signed in to SayQL Team, and where; mirrors `team::TeamAccount`. */
+export interface TeamAccount {
+  server: string;
+  email: string;
+  name: string;
+  role: string;
+}
+
+/** The team server and its licence, from `/me`; mirrors `team::ServerInfo`. */
+export interface TeamServerInfo {
+  name: string;
+  version: string;
+  licensed: boolean;
+  plan: string | null;
+  licensee: string | null;
+  expires: string | null;
+  users: number | null;
+  userLimit: number | null;
+}
+
+export interface TeamStatus {
+  account: TeamAccount;
+  server: TeamServerInfo;
+}
+
+/** Where a query came from, for the team server's audit log. */
+export type QuerySource = "ask" | "agent" | "editor";
+
+/** Must match `team::SIGNED_OUT` in src-tauri/src/team.rs. */
+export const TEAM_SIGNED_OUT = "Signed out of your team, sign in again.";
 
 export type Dialect = "PostgreSQL" | "MySQL" | "SQLite" | "SQL Server";
 
@@ -56,6 +96,8 @@ export interface QueryResult {
   rowsAffected: number | null;
   truncated: boolean;
   elapsedMs: number;
+  /** Columns a team server left out because its admin marked them never send. */
+  withheld?: string[];
 }
 
 export interface ModelOption {
@@ -106,6 +148,8 @@ export interface Settings {
   /** The model that runs agent mode, as chosen; empty means the expert model. */
   agentModel: string;
   agent: AgentSettings;
+  /** The SayQL Team server signed in to; absent when signed out. */
+  team?: TeamAccount | null;
 }
 
 /** Run limits for agent mode. */
@@ -127,7 +171,16 @@ export interface AgentAccess {
   enabled: boolean;
   results: AgentResults;
   askBeforeSend: boolean;
-  /** Columns never sent (`column` or `table.column`). */
+  /** Columns never sent (`column` or `table.column`), the team admin's included. */
+  neverSend: string[];
+  /** On a team connection: what the team admin set, which can't be loosened here. */
+  team?: TeamRules | null;
+}
+
+/** The team admin's rules for agent mode on a team connection. */
+export interface TeamRules {
+  /** The most agent mode may see of results. */
+  maxResults: AgentResults;
   neverSend: string[];
 }
 
@@ -332,6 +385,8 @@ export type Handoff = { source: string | null } & (
   | ({ type: "newConnection" } & ConnectionDraft)
   | ({ type: "openQuery" } & QueryDraft)
   | { type: "openScript"; scriptId: string }
+  /** A SayQL Team invite link: the sign-in dialog, filled in, for the person to confirm. */
+  | { type: "teamJoin"; server: string; code: string }
 );
 
 /** Voice input's on-device speech model. */

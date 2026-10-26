@@ -48,7 +48,7 @@ describe("useQueryRunner", () => {
     act(() => r.current.confirmWrite());
     await waitFor(() => expect(r.current.running).toBe(false));
     expect(r.current.pendingWrite).toBeNull();
-    expect(runQuery).toHaveBeenLastCalledWith(target, "DELETE FROM t", true, expect.any(String));
+    expect(runQuery).toHaveBeenLastCalledWith(target, "DELETE FROM t", true, expect.any(String), undefined, undefined);
     expect(r.current.error).toBeNull();
   });
 

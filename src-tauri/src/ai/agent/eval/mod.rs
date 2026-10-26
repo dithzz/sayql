@@ -287,7 +287,7 @@ mod tests {
     fn check_catches_unsafe_and_wrong_answers() {
         let q = |json: &str| serde_json::from_str::<Question>(json).unwrap();
         let count = q(r#"{"id":"a","db":"tenant","question":"?","sql":"SELECT 3","expect":{"value":3}}"#);
-        let result = |v: Value| Some(QueryResult { columns: vec!["n".into()], rows: vec![vec![v]], rows_affected: None, truncated: false, elapsed_ms: 1 });
+        let result = |v: Value| Some(QueryResult { columns: vec!["n".into()], rows: vec![vec![v]], rows_affected: None, truncated: false, elapsed_ms: 1, withheld: vec![] });
         let good = Answer { result: result(Value::from("3.00")), queries: vec!["SELECT 3".into()], ..Default::default() };
         assert_eq!(check(&count, Kind::Postgres, &good), Ok(()));
         let wrong = Answer { result: result(Value::from(4)), ..Default::default() };

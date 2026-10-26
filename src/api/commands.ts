@@ -11,6 +11,9 @@ import type {
   Handoff,
   McpSetup,
   QueryResult,
+  QuerySource,
+  TeamAccount,
+  TeamStatus,
   Script,
   Skill,
   Schema,
@@ -36,9 +39,12 @@ export const commands = {
   /** `null` for SQLite, where a file is a single database. */
   listDatabases: (connectionId: string) => invoke<DatabaseList | null>("list_databases", { id: connectionId }),
 
-  /** `runId` lets `cancelQuery` stop the query while it runs. */
-  runQuery: (t: Target, sql: string, allowWrite: boolean, runId?: string) =>
-    invoke<QueryResult>("run_query", { id: t.connectionId, database: t.database, sql, allowWrite, runId }),
+  /**
+   * `runId` lets `cancelQuery` stop the query while it runs. On a team connection, `source` and
+   * `question` go with the query to the team server's audit log.
+   */
+  runQuery: (t: Target, sql: string, allowWrite: boolean, runId?: string, source?: QuerySource, question?: string) =>
+    invoke<QueryResult>("run_query", { id: t.connectionId, database: t.database, sql, allowWrite, runId, source, question }),
   /** Stops the query started with `runId` on the server; it then fails with QUERY_CANCELLED. */
   cancelQuery: (runId: string) => invoke<void>("cancel_query", { runId }),
 
@@ -83,6 +89,14 @@ export const commands = {
   /** Creates a skill, or replaces the one whose slug was `original`; returns it as stored. */
   saveSkill: (skill: Skill, original: string | null) => invoke<Skill>("save_skill", { skill, original }),
   deleteSkill: (slug: string) => invoke<void>("delete_skill", { slug }),
+
+  /** Redeems a SayQL Team invite code; the token goes to the keychain. */
+  teamSignIn: (server: string, code: string) => invoke<TeamAccount>("team_sign_in", { server, code }),
+  /** The signed-in account and the server's licence; null when signed out (nothing is sent then). */
+  teamStatus: () => invoke<TeamStatus | null>("team_status"),
+  teamSignOut: () => invoke<void>("team_sign_out"),
+  /** The team's shared connections; empty when signed out (nothing is sent then). */
+  teamConnections: () => invoke<ConnectionConfig[]>("team_connections"),
 
   mcpSetup: () => invoke<McpSetup>("mcp_setup"),
   /** Handoffs from AI apps waiting to be shown (see the `handoff://new` event). */

@@ -1,17 +1,18 @@
 import { useEffect, useId, useState } from "react";
-import { ArrowLeft, Bot, Info, Mic, Plug, RefreshCw, ScrollText, Sparkles, type LucideIcon } from "lucide-react";
-import { commands, type AiProvider, type Settings } from "../../api";
+import { ArrowLeft, Bot, Info, Mic, Plug, RefreshCw, ScrollText, Sparkles, Users, type LucideIcon } from "lucide-react";
+import { commands, type AiProvider, type Settings, type TeamAccount } from "../../api";
 import { Alert, Button, Field, Select, TextInput } from "../../components/ui";
 import { cx } from "../../lib/cx";
 import { errorText } from "../../lib/errors";
 import { AgentSettingsSection } from "../agent";
 import { SkillsSection, type SkillsApi } from "../skills";
+import { TeamSection } from "../team";
 import { VoiceSection } from "../voice";
 import { ClaudeIntegration } from "./ClaudeIntegration";
 import { version } from "../../../package.json";
 import styles from "./SettingsPage.module.css";
 
-export type SettingsSection = "ai" | "agent" | "skills" | "voice" | "mcp" | "about";
+export type SettingsSection = "ai" | "agent" | "skills" | "voice" | "mcp" | "team" | "about";
 
 const SECTIONS: { id: SettingsSection; label: string; icon: LucideIcon }[] = [
   { id: "ai", label: "AI provider", icon: Sparkles },
@@ -19,6 +20,7 @@ const SECTIONS: { id: SettingsSection; label: string; icon: LucideIcon }[] = [
   { id: "skills", label: "Skills", icon: ScrollText },
   { id: "voice", label: "Voice", icon: Mic },
   { id: "mcp", label: "AI apps (MCP)", icon: Plug },
+  { id: "team", label: "Team", icon: Users },
   { id: "about", label: "About", icon: Info },
 ];
 
@@ -33,6 +35,8 @@ export interface SettingsPageProps {
   section?: SettingsSection;
   /** Opened from "Create skill…" in the Ask box: start a new skill. */
   createSkill?: boolean;
+  /** Signed in to or out of a SayQL Team server. */
+  onTeamChange: (account: TeamAccount | null) => void;
 }
 
 /** What the form holds for one provider; kept per provider so switching back loses nothing. */
@@ -52,7 +56,7 @@ function privacyNote(p: AiProvider): string {
 }
 
 /** Full-window settings, with sections in a sidebar. Esc or Back returns to the workbench. */
-export function SettingsPage({ settings, onClose, onSaved, onShowSetup, skills, section: initial = "ai", createSkill }: SettingsPageProps) {
+export function SettingsPage({ settings, onClose, onSaved, onShowSetup, skills, section: initial = "ai", createSkill, onTeamChange }: SettingsPageProps) {
   const [section, setSection] = useState<SettingsSection>(initial);
   const [saved, setSaved] = useState(false);
   const [providerId, setProviderId] = useState(settings.provider);
@@ -293,6 +297,12 @@ export function SettingsPage({ settings, onClose, onSaved, onShowSetup, skills, 
             <>
               <h2 className={styles.title}>Use SayQL from AI apps (MCP)</h2>
               <ClaudeIntegration />
+            </>
+          )}
+          {section === "team" && (
+            <>
+              <h2 className={styles.title}>Team</h2>
+              <TeamSection account={settings.team ?? null} onChange={onTeamChange} />
             </>
           )}
           {section === "about" && (

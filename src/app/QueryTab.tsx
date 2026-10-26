@@ -87,8 +87,11 @@ export function QueryTab(props: QueryTabProps) {
     ranSelection.current = false;
     setWidened(null);
     // Follow-ups see the question without its "/command".
-    onChange({ lastRun: sql.trim() ? { question: parseCommand(question, skills).rest, sql } : null });
-    query.run(sql, schema?.dialect);
+    const asked = parseCommand(question, skills).rest;
+    onChange({ lastRun: sql.trim() ? { question: asked, sql } : null });
+    // On a team connection, the team server's audit log records the question the SQL answers.
+    const fromAsk = (task !== "manual" || aiWroteSql.current) && !!asked.trim();
+    query.run(sql, schema?.dialect, fromAsk ? { source: "ask", question: asked } : { source: "editor" });
   };
 
   const generation = useSqlGeneration({
@@ -159,7 +162,7 @@ export function QueryTab(props: QueryTabProps) {
   useEffect(() => {
     if (!rowsLost || !step?.sql || reread[rereadKey]) return;
     setReread((r) => ({ ...r, [rereadKey]: { result: null, error: null } }));
-    commands.runQuery(tab.target, step.sql, false).then(
+    commands.runQuery(tab.target, step.sql, false, undefined, "agent").then(
       (result) => setReread((r) => ({ ...r, [rereadKey]: { result, error: null } })),
       (e) => setReread((r) => ({ ...r, [rereadKey]: { result: null, error: errorText(e) } })),
     );
@@ -191,7 +194,7 @@ export function QueryTab(props: QueryTabProps) {
     if (!r) return run();
     ranSelection.current = true;
     setWidened(r.expanded ? { range: r.range, count: statementRanges(r.sql, schema?.dialect).length } : null);
-    query.run(r.sql, schema?.dialect);
+    query.run(r.sql, schema?.dialect, { source: "editor" });
   };
 
   /** ↵ in the Ask box: /explain, /fix and /improve work on the editor's SQL; anything else runs. */

@@ -10,9 +10,10 @@ mod readonly;
 mod schema;
 mod state;
 mod store;
+mod team;
 mod voice;
 
-use commands::{agent, app, connections, generation, handoff as handoffs, query, scripts, settings, skills, updates};
+use commands::{agent, app, connections, generation, handoff as handoffs, query, scripts, settings, skills, team as teams, updates};
 use state::AppState;
 use tauri::Manager;
 use tauri_plugin_deep_link::DeepLinkExt;
@@ -75,6 +76,10 @@ pub fn run() {
             settings::mcp_setup,
             updates::check_update,
             updates::install_update,
+            teams::team_sign_in,
+            teams::team_status,
+            teams::team_sign_out,
+            teams::team_connections,
             commands::voice::voice_status,
             commands::voice::voice_download,
             commands::voice::voice_cancel_download,
