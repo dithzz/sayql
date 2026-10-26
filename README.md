@@ -255,6 +255,21 @@ microphone (on Linux, install `libasound2-dev` to build). [docs/ARCHITECTURE.md]
 
 Ideas and votes are welcome in [Discussions](https://github.com/dithzz/sayql/discussions).
 
+## How SayQL is funded
+
+SayQL is made by one person. The app is free and will stay that way; teams that need control can pay for
+[SayQL for teams](https://sayql.dev/#teams), a server they run themselves. These promises hold either way:
+
+1. **Single-user stays free.** Everything one person needs to ask, run, fix and export works in this app,
+   forever, including at work and including agent mode.
+2. **No take-backs.** A feature that shipped free never moves to a paid plan.
+3. **Paid means multi-user and governance.** Shared connections, admin-set rules, audit logs, SSO and
+   approvals: things that only matter when a company manages many people or AI agents.
+4. **Your data never reaches SayQL.** The team server runs on your own network.
+5. **No ads, no data sales, no hidden telemetry.** Licence keys work offline; nothing phones home.
+6. **The app stays Apache-2.0.** Paid code lives in a separate server, not in a closed fork of the app.
+7. **Public pricing.** Prices will be on the website.
+
 ## Community
 
 - **Questions, ideas and feedback:** [Discussions](https://github.com/dithzz/sayql/discussions)
