@@ -179,3 +179,44 @@ fn only_team_connections_use_team_ai_with_the_teams_models() {
     off.store(true, Ordering::Relaxed);
     assert!(route("team:c_1", &s, &client, "ask", off, true).is_none());
 }
+
+/// Against a real SayQL server with team AI on (Anthropic, models claude-sonnet-5-5 and
+/// claude-haiku-5-5, a personal limit under 200 tokens) and an unused member invite:
+/// `SAYQL_TEST_TEAM_URL=… SAYQL_TEST_TEAM_CODE=… cargo test --lib ai::team_tests::real_server -- --ignored`.
+#[tokio::test]
+#[ignore]
+async fn real_server() {
+    let (Ok(url), Ok(code)) = (std::env::var("SAYQL_TEST_TEAM_URL"), std::env::var("SAYQL_TEST_TEAM_CODE")) else { return };
+    let http = reqwest::Client::new();
+    let (token, _) = crate::team::redeem(&http, &url, &code, "e2e").await.unwrap();
+    let client = TeamClient::new(http.clone(), url, token, None);
+    let ai = client.ai_status().await.unwrap();
+    assert!(ai.usable(), "{ai:?}");
+    let conn = client.connections().await.unwrap().remove(0);
+    let off = Arc::new(AtomicBool::new(false));
+    let (endpoint, ai) = route(&conn.local_id(), &ai, &client, "ask", off, false).unwrap();
+    let mut r = request(endpoint);
+    r.model = ai.fast_model();
+    // Streams through the server until the personal limit is reached, then says so plainly.
+    let mut answered = 0;
+    let limit = loop {
+        let mut out = Output::new(Sink::Collect(String::new()), 1);
+        match anthropic::run(&mut out, &http, &r.endpoint.claude().unwrap(), &r).await {
+            Ok(_) => {
+                let Sink::Collect(text) = out.sink else { unreachable!() };
+                assert_eq!(text, "SELECT count(*) FROM patients");
+                answered += 1;
+                assert!(answered < 20, "the limit never applied");
+            }
+            Err(e) => break e,
+        }
+    };
+    assert!(answered >= 1 && matches!(limit, AppError::TeamRefused(_)), "{limit}");
+    println!("limit message: {limit}");
+    assert!(client.ai_status().await.unwrap().you.unwrap().tokens >= 100);
+    // A model the admin didn't allow.
+    r.model = "claude-opus-5-5".into();
+    let mut out = Output::new(Sink::Collect(String::new()), 1);
+    let e = anthropic::run(&mut out, &http, &r.endpoint.claude().unwrap(), &r).await.unwrap_err();
+    println!("model message: {e}");
+}
