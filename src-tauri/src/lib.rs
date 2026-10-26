@@ -80,6 +80,7 @@ pub fn run() {
             teams::team_status,
             teams::team_sign_out,
             teams::team_connections,
+            teams::team_ai,
             commands::voice::voice_status,
             commands::voice::voice_download,
             commands::voice::voice_cancel_download,

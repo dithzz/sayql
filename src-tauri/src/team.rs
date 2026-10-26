@@ -97,6 +97,8 @@ struct Redeemed {
 pub struct TeamStatus {
     pub account: TeamAccount,
     pub server: ServerInfo,
+    /// Team AI and this month's usage; `None` if the server couldn't say.
+    pub ai: Option<ai::AiStatus>,
 }
 
 /// One shared connection as the server lists it: never its host, user or password.
@@ -386,6 +388,19 @@ impl TeamClient {
         self.send::<Value>(self.http.post(endpoint(&self.server, &["auth", "signout"])?).timeout(REQUEST_TIMEOUT)).await.map(|_| ())
     }
 
+    /// Team AI: whether the company key is set up, its models and this month's usage.
+    pub async fn ai_status(&self) -> AppResult<ai::AiStatus> {
+        self.get(&["ai"]).await
+    }
+
+    pub fn server(&self) -> &str {
+        &self.server
+    }
+
+    pub fn token(&self) -> &str {
+        &self.token
+    }
+
     pub async fn connections(&self) -> AppResult<Vec<TeamConnection>> {
         self.get(&["connections"]).await
     }
@@ -542,6 +557,8 @@ impl TeamPool {
         self.client.schema(&self.id, self.kind).await
     }
 }
+
+pub mod ai;
 
 #[cfg(test)]
 mod tests;

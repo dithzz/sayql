@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { ConnectionConfig, TeamAccount, TeamStatus } from "../../api";
+import type { ConnectionConfig, Settings, TeamAccount, TeamAiStatus, TeamStatus } from "../../api";
+import { ModelPicker } from "../settings/ModelPicker";
 import { DatabaseNavigator } from "../navigator/DatabaseNavigator";
 import { TeamSection } from "./TeamSection";
 import { TEAMS_URL, licenceText } from "./teamText";
@@ -12,6 +13,7 @@ const teamStatus = vi.fn<() => Promise<TeamStatus | null>>();
 const teamConnections = vi.fn<() => Promise<ConnectionConfig[]>>();
 const teamSignOut = vi.fn<() => Promise<void>>();
 const teamSignIn = vi.fn<(server: string, code: string) => Promise<TeamAccount>>();
+const teamAi = vi.fn<() => Promise<TeamAiStatus | null>>();
 vi.mock("../../api", async (orig) => ({
   ...(await orig<typeof import("../../api")>()),
   commands: {
@@ -19,6 +21,7 @@ vi.mock("../../api", async (orig) => ({
     teamConnections: () => teamConnections(),
     teamSignOut: () => teamSignOut(),
     teamSignIn: (s: string, c: string) => teamSignIn(s, c),
+    teamAi: () => teamAi(),
   },
 }));
 const openUrl = vi.fn();
@@ -26,6 +29,11 @@ vi.mock("@tauri-apps/plugin-opener", () => ({ openUrl: (u: string) => openUrl(u)
 
 const account: TeamAccount = { server: "https://sayql.acme.test", email: "ana@acme.test", name: "Ana", role: "member" };
 const info = { name: "SayQL server", version: "0.1.0", licensed: true, plan: "team", licensee: "Acme", expires: "2027-04-30", users: 3, userLimit: 10 };
+
+const ai: TeamAiStatus = {
+  enabled: true, provider: "anthropic", models: ["claude-sonnet-5-5", "claude-haiku-5-5"], defaultModel: "claude-sonnet-5-5",
+  fastModel: "claude-haiku-5-5", month: "2026-11", you: { tokens: 120_000, limit: 2_000_000 }, team: { tokens: 900_000, limit: null },
+};
 
 const conn = (id: string, name: string, team?: ConnectionConfig["team"]): ConnectionConfig => ({
   id, name, kind: "postgres", host: "", port: null, database: "", user: "", file: "", ssl: false, trustCert: false, team,
@@ -42,7 +50,7 @@ describe("SayQL Team", () => {
     expect(screen.getByText("Using SayQL with a team? Sign in to your company's SayQL server.")).toBeTruthy();
     await new Promise((r) => setTimeout(r, 10));
     expect(apply).toHaveBeenCalledWith([]);
-    for (const command of [teamStatus, teamConnections, teamSignOut, teamSignIn]) expect(command).not.toHaveBeenCalled();
+    for (const command of [teamStatus, teamConnections, teamSignOut, teamSignIn, teamAi]) expect(command).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByText("SayQL for teams"));
     expect(openUrl).toHaveBeenCalledWith(TEAMS_URL);
@@ -54,16 +62,23 @@ describe("SayQL Team", () => {
 
   it("signed in, loads the team's connections and shows the account and licence", async () => {
     teamConnections.mockResolvedValue([conn("team:c_1", "Production", { database: "app", notes: "" })]);
-    teamStatus.mockResolvedValue({ account, server: info });
+    teamStatus.mockResolvedValue({ account, server: info, ai });
     teamSignOut.mockResolvedValue();
+    teamAi.mockResolvedValue(ai);
     const apply = vi.fn();
-    renderHook(() => useTeamConnections(account, apply, vi.fn()));
+    const onAi = vi.fn();
+    renderHook(() => useTeamConnections(account, apply, vi.fn(), onAi));
     await waitFor(() => expect(apply).toHaveBeenCalledWith([expect.objectContaining({ id: "team:c_1" })]));
+    await waitFor(() => expect(onAi).toHaveBeenCalledWith(ai));
 
     const onChange = vi.fn();
     render(<TeamSection account={account} onChange={onChange} />);
     await waitFor(() => expect(screen.getByText("Team plan for Acme · 3 of 10 seats · until 2027-04-30")).toBeTruthy());
     expect(screen.getByText("ana@acme.test")).toBeTruthy();
+    // Team AI: who provides it, and this month's usage against the limits.
+    expect(screen.getByText("Provided by your team (Anthropic Claude)")).toBeTruthy();
+    expect(screen.getByText("You: 120k of 2M tokens")).toBeTruthy();
+    expect(screen.getByText("Your team: 900k tokens (no limit)")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
     await waitFor(() => expect(onChange).toHaveBeenCalledWith(null));
   });
@@ -91,5 +106,14 @@ describe("SayQL Team", () => {
     expect(screen.queryByText("Edit connection…")).toBeNull();
     expect(screen.queryByText("Delete connection…")).toBeNull();
     expect(screen.getByText("Agent settings…")).toBeTruthy();
+  });
+
+  it("on a team connection with team AI, shows the team's models, set by the admin", () => {
+    const settings = { aiReady: false, providers: [], models: [], provider: "anthropic", typingModel: "", expertModel: "", agentModel: "" } as unknown as Settings;
+    render(<ModelPicker settings={settings} purpose="typing" onChange={vi.fn()} onError={vi.fn()} onOpenSettings={vi.fn()} team={ai} />);
+    fireEvent.click(screen.getByText(/claude-haiku-5-5 · Team/));
+    expect(screen.getByText("Set by your team admin")).toBeTruthy();
+    expect(screen.getByText("claude-sonnet-5-5")).toBeTruthy();
+    expect(screen.queryByText("More models and providers…")).toBeNull();
   });
 });

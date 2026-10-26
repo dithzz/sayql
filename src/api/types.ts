@@ -50,6 +50,30 @@ export interface TeamServerInfo {
 export interface TeamStatus {
   account: TeamAccount;
   server: TeamServerInfo;
+  /** Team AI and this month's usage; null if the server couldn't say. */
+  ai: TeamAiStatus | null;
+}
+
+/** Tokens used this month against a limit (`null`: no limit). */
+export interface TeamAiUsage {
+  tokens: number;
+  limit: number | null;
+}
+
+/**
+ * Team AI: the company's AI key on the team server, used for AI requests on team connections;
+ * mirrors `team::ai::AiStatus`.
+ */
+export interface TeamAiStatus {
+  enabled: boolean;
+  provider: "anthropic" | "openai" | null;
+  models: string[];
+  defaultModel: string | null;
+  fastModel: string | null;
+  /** e.g. "2026-11". */
+  month: string | null;
+  you: TeamAiUsage | null;
+  team: TeamAiUsage | null;
 }
 
 /** Where a query came from, for the team server's audit log. */

@@ -505,6 +505,8 @@ export function installMockBackend() {
           return null;
         case "team_connections":
           return [];
+        case "team_ai":
+          return null;
         case "team_sign_out":
           return null;
         case "team_sign_in":

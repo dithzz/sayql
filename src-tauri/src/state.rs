@@ -5,7 +5,10 @@ use crate::db::{self, DbPool};
 use crate::error::AppResult;
 use crate::schema::{self, Schema};
 use crate::store::{Store, secrets};
+use crate::ai::Endpoint;
+use crate::team::ai::AiStatus;
 use crate::team::{self, TeamClient, TeamConnection, TeamPool};
+use std::sync::atomic::{AtomicBool, Ordering};
 use crate::voice::Voice;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -71,6 +74,10 @@ pub struct AppState {
     agent_histories: Mutex<HashMap<String, History>>,
     /// The team server's connections as last listed; empty when signed out.
     team_connections: Mutex<Vec<TeamConnection>>,
+    /// Team AI as the server last described it; `None` when signed out or not yet asked.
+    team_ai: Mutex<Option<AiStatus>>,
+    /// The server said team AI is off since then: use the person's own AI until it's asked again.
+    team_ai_off: Arc<AtomicBool>,
     pub voice: Voice,
 }
 
@@ -95,6 +102,8 @@ impl AppState {
             agents: Mutex::new(HashMap::new()),
             agent_histories: Mutex::new(HashMap::new()),
             team_connections: Mutex::new(Vec::new()),
+            team_ai: Mutex::new(None),
+            team_ai_off: Arc::new(AtomicBool::new(false)),
         })
     }
 
@@ -204,8 +213,38 @@ impl AppState {
         lock(&self.team_connections).iter().find(|c| c.id == server_id).cloned()
     }
 
+    pub fn set_team_ai(&self, status: Option<AiStatus>) {
+        self.team_ai_off.store(false, Ordering::Relaxed);
+        *lock(&self.team_ai) = status;
+    }
+
+    /// Asks the team server about team AI and remembers the answer; `None` when signed out.
+    pub async fn refresh_team_ai(&self) -> AppResult<Option<AiStatus>> {
+        let Some(client) = self.team_client()? else {
+            self.set_team_ai(None);
+            return Ok(None);
+        };
+        let status = client.ai_status().await?;
+        self.set_team_ai(Some(status.clone()));
+        Ok(Some(status))
+    }
+
+    /// Team AI, if it applies to `connection_id`: a team connection, signed in, with team AI on.
+    /// Personal connections always get `None`, and keep the person's own provider and key.
+    /// `own_ready`: the person has their own AI to fall back on if the server turns team AI off.
+    pub fn team_ai_route(&self, connection_id: &str, source: &str, own_ready: bool) -> Option<(Endpoint, AiStatus)> {
+        // Personal connections never reach the keychain or the team server from here.
+        if !connection_id.starts_with(team::ID_PREFIX) || self.team_ai_off.load(Ordering::Relaxed) {
+            return None;
+        }
+        let status = lock(&self.team_ai).clone()?;
+        let client = self.team_client().ok().flatten()?;
+        team::ai::route(connection_id, &status, &client, source, self.team_ai_off.clone(), own_ready)
+    }
+
     /// Forgets the team connections and closes their tabs' pools, after signing out.
     pub fn forget_team(&self) {
+        self.set_team_ai(None);
         lock(&self.team_connections).clear();
         lock(&self.pools).retain(|t, _| !t.connection_id.starts_with(team::ID_PREFIX));
         lock(&self.schemas).retain(|t, _| !t.connection_id.starts_with(team::ID_PREFIX));

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Copy, Database, FileCode2, Plus, Save, Server, Table2, X } from "lucide-react";
-import { TEAM_SIGNED_OUT, commands, type Bootstrap, type ConnectionConfig, type DbNote, type Script, type Table, type TeamAccount, type Target } from "../api";
+import { TEAM_SIGNED_OUT, commands, type Bootstrap, type ConnectionConfig, type DbNote, type Script, type Table, type TeamAccount, type TeamAiStatus, type Target } from "../api";
 import { Alert, Button, Dialog, EmptyState, ErrorBoundary, Spinner, SplitPane, TabBar, type MenuEntry, type TabItem } from "../components/ui";
 import { AgentAccessDialog, NoteDialog, saveAgentAccess, useAgentAccess } from "../features/agent";
 import { ConnectionDialog, DATABASE_KINDS, newConnection, targetKey, useConnections } from "../features/connections";
@@ -13,7 +13,7 @@ import { hasUnsavedChanges, useTabs, type EditorTab } from "../features/tabs";
 import { useUpdate } from "../features/updates";
 import { FeedbackDialog } from "../features/feedback";
 import { useHandoffs } from "../features/handoff";
-import { TeamSignInDialog, useTeamConnections } from "../features/team";
+import { TeamSignInDialog, teamAiDestination, teamAiOn, useTeamConnections } from "../features/team";
 import { exampleQuestions, OnboardingDialog, type OnboardingStep } from "../features/onboarding";
 import { QueryTab } from "./QueryTab";
 import { StatusBar } from "./StatusBar";
@@ -87,10 +87,19 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
 
   // SayQL Team: the team's shared connections, fetched only while signed in.
   const setTeam = (team: TeamAccount | null) => setSettings((s) => ({ ...s, team }));
-  useTeamConnections(settings.team ?? null, conn.setTeam, (e) => {
-    if (e === TEAM_SIGNED_OUT) setTeam(null);
-    setNotice(`Couldn't load your team's connections: ${e}`);
-  });
+  /** Team AI: the company's AI for team connections; null when off or signed out. */
+  const [teamAi, setTeamAi] = useState<TeamAiStatus | null>(null);
+  useTeamConnections(
+    settings.team ?? null,
+    conn.setTeam,
+    (e) => {
+      if (e === TEAM_SIGNED_OUT) setTeam(null);
+      setNotice(`Couldn't load your team's connections: ${e}`);
+    },
+    setTeamAi,
+  );
+  /** Team AI for a connection: only team connections use it. */
+  const teamAiFor = (connectionId: string) => (conn.connection(connectionId)?.team && teamAiOn(teamAi) ? teamAi : null);
   // A query or schema load that found the team sign-in revoked: show the team as signed out.
   useEffect(() => {
     if (error?.includes(TEAM_SIGNED_OUT)) setTeam(null);
@@ -248,7 +257,11 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
   /** A name to suggest when a tab is saved for the first time. */
   const suggestedName = (t: EditorTab) => t.title || t.question.trim().slice(0, 60) || `${tabLabel(t).db ?? tabLabel(t).name} query`;
 
-  const openSettings = () => setDialog({ kind: "settings" });
+  const openSettings = () => {
+    setDialog({ kind: "settings" });
+    // Team AI's limits and usage may have changed since: ask again (only when signed in).
+    if (settings.team) commands.teamAi().then(setTeamAi, () => {});
+  };
 
   const finishSetup = () => {
     setSetupStep(null);
@@ -408,6 +421,7 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
                       onNotesChanged={() => setNotesVersion((v) => v + 1)}
                       onSettingsChange={setSettings}
                       onNotice={setNotice}
+                      teamAi={teamAiFor(t.target.connectionId)}
                     />
                     </ErrorBoundary>
                   );
@@ -520,6 +534,8 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
         <AgentAccessDialog
           connectionName={dialog.connection.name}
           provider={(() => {
+            const ai = teamAiFor(dialog.connection.id);
+            if (ai) return teamAiDestination(ai);
             const p = settings.providers.find((x) => x.id === settings.provider);
             return { label: p?.label ?? settings.provider, local: p?.local ?? false };
           })()}

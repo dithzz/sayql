@@ -22,7 +22,7 @@ const COMMANDS = [
   "install_update", "save_settings", "finish_onboarding", "list_models", "voice_status", "voice_download",
   "voice_cancel_download", "voice_delete_model", "voice_start", "voice_stop", "voice_cancel",
   "agent_access", "save_agent_access", "start_agent", "reply_agent", "stop_agent", "list_notes", "save_note", "delete_note",
-  "save_agent_settings", "choose_model", "team_sign_in", "team_status", "team_sign_out", "team_connections",
+  "save_agent_settings", "choose_model", "team_sign_in", "team_status", "team_sign_out", "team_connections", "team_ai",
 ];
 
 describe("mock backend", () => {

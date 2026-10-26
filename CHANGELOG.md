@@ -11,6 +11,10 @@ All notable changes to SayQL are listed here. Downloads are on the
   computer, and every query goes through the team server, which records it (and the question it answers) in its
   audit log. The team admin's rules win there: agent mode can't see more than they allow, and their never-send
   columns can't be removed. Without signing in, SayQL never contacts a team server.
+- **Team AI:** when your team admin sets up a company AI key on the team server, the Ask box, fixes,
+  Improve and agent mode on team connections use it through the server (streaming as usual), with the team's
+  models shown as set by your admin. Settings → Team shows this month's usage against the limits; at a limit,
+  SayQL says when it resets. Your own connections keep your own AI provider and key.
 
 ## 0.3.0 (2026-10-23)
 

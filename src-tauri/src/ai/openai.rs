@@ -16,18 +16,31 @@ pub(crate) struct Service<'a> {
     pub label: &'a str,
     pub base_url: &'a str,
     pub api_key: Option<&'a str>,
+    /// Through the team server: its labelling headers and its own error codes.
+    pub team: Option<&'a crate::team::ai::TeamAi>,
 }
 
 impl Service<'_> {
     fn request(&self, http: &reqwest::Client, method: reqwest::Method, path: &str) -> reqwest::RequestBuilder {
         let req = http.request(method, format!("{}/{path}", self.base_url.trim_end_matches('/')));
-        match self.api_key {
-            Some(key) => req.bearer_auth(key),
-            None => req,
+        match (self.team, self.api_key) {
+            (Some(t), _) => t.authorize(req),
+            (None, Some(key)) => req.bearer_auth(key),
+            (None, None) => req,
+        }
+    }
+
+    fn error(&self, status: u16, body: &str) -> AppError {
+        match self.team {
+            Some(t) => t.error(status, body),
+            None => api_error(self.label, status, body),
         }
     }
 
     fn unreachable(&self, e: reqwest::Error) -> AppError {
+        if let Some(t) = self.team {
+            return t.unreachable(e);
+        }
         format!("Could not reach {} at {}. Check that it's running and the base URL in Settings. ({e})", self.label, self.base_url)
             .into()
     }
@@ -57,7 +70,7 @@ pub(super) async fn run(out: &mut Output<'_>, http: &reqwest::Client, svc: &Serv
         .map_err(|e| svc.unreachable(e))?;
     let status = resp.status().as_u16();
     if !resp.status().is_success() {
-        return Err(api_error(svc.label, status, &resp.text().await.unwrap_or_default()));
+        return Err(svc.error(status, &resp.text().await.unwrap_or_default()));
     }
 
     let mut parser = SseParser::default();
@@ -113,7 +126,7 @@ pub(crate) async fn turn(
     let status = resp.status().as_u16();
     let text = resp.text().await.map_err(|e| format!("The response was interrupted: {e}"))?;
     if !(200..300).contains(&status) {
-        return Err(api_error(svc.label, status, &text));
+        return Err(svc.error(status, &text));
     }
     let v: Value = serde_json::from_str(&text).map_err(|_| format!("{} returned an unexpected reply.", svc.label))?;
     if let Some(msg) = error_message(&v) {
@@ -434,7 +447,7 @@ mod tests {
                       data: {\"choices\":[{\"delta\":{\"content\":\" FROM customers;\"},\"finish_reason\":\"stop\"}]}\r\n\r\n\
                       data: [DONE]\r\n\r\n";
         let (url, req) = fake_server("200 OK", stream).await;
-        let svc = Service { label: "Ollama", base_url: &url, api_key: Some("k") };
+        let svc = Service { label: "Ollama", base_url: &url, api_key: Some("k"), team: None };
         let mut out = Output::new(super::super::Sink::Collect(String::new()), 1);
         run(&mut out, &reqwest::Client::new(), &svc, &request()).await.unwrap();
 
@@ -449,14 +462,14 @@ mod tests {
     #[tokio::test]
     async fn reports_a_rejected_key_and_a_cut_off_reply() {
         let (url, _) = fake_server("401 Unauthorized", r#"{"error":{"message":"Incorrect API key"}}"#).await;
-        let svc = Service { label: "OpenAI", base_url: &url, api_key: Some("bad") };
+        let svc = Service { label: "OpenAI", base_url: &url, api_key: Some("bad"), team: None };
         let mut out = Output::new(super::super::Sink::Collect(String::new()), 1);
         let e = run(&mut out, &reqwest::Client::new(), &svc, &request()).await.unwrap_err().to_string();
         assert!(e.contains("OpenAI API key was rejected (Incorrect API key)"), "{e}");
 
         let cut = "data: {\"choices\":[{\"delta\":{\"content\":\"SELECT\"},\"finish_reason\":\"length\"}]}\n\n";
         let (url, _) = fake_server("200 OK", cut).await;
-        let svc = Service { label: "Groq", base_url: &url, api_key: None };
+        let svc = Service { label: "Groq", base_url: &url, api_key: None, team: None };
         let e = run(&mut out, &reqwest::Client::new(), &svc, &request()).await.unwrap_err().to_string();
         assert!(e.contains("cut off"), "{e}");
     }
@@ -464,7 +477,7 @@ mod tests {
     #[tokio::test]
     async fn lists_models() {
         let (url, req) = fake_server("200 OK", r#"{"object":"list","data":[{"id":"qwen3:32b"},{"id":"llama3.3:70b"}]}"#).await;
-        let svc = Service { label: "Ollama", base_url: &url, api_key: None };
+        let svc = Service { label: "Ollama", base_url: &url, api_key: None, team: None };
         assert_eq!(list_models(&reqwest::Client::new(), &svc).await.unwrap(), ["llama3.3:70b", "qwen3:32b"]);
         let req = req.await.unwrap();
         assert!(req.starts_with("GET /v1/models ") && !req.to_ascii_lowercase().contains("authorization"), "{req}");

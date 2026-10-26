@@ -10,6 +10,48 @@ use serde_json::{Value, json};
 const API_URL: &str = "https://api.anthropic.com/v1/messages";
 const API_VERSION: &str = "2023-06-01";
 
+/// How a request reaches Claude: with the person's key, or through their team's server.
+pub(crate) enum Access<'a> {
+    Key { api_key: &'a str, workspace_id: Option<&'a str> },
+    Team(&'a crate::team::ai::TeamAi),
+}
+
+impl Access<'_> {
+    /// A Messages API request carrying `body`, authorized for this access.
+    fn post(&self, http: &reqwest::Client, body: &Value, beta: Option<&str>) -> reqwest::RequestBuilder {
+        let mut req = match self {
+            Access::Key { api_key, workspace_id } => {
+                let mut req = http.post(API_URL).header("x-api-key", *api_key);
+                if let Some(ws) = workspace_id {
+                    req = req.header("anthropic-workspace-id", *ws);
+                }
+                req
+            }
+            // The server sets the company key and the API version itself.
+            Access::Team(t) => t.authorize(http.post(format!("{}/v1/messages", t.base))),
+        };
+        req = req.header("anthropic-version", API_VERSION).json(body);
+        if let Some(b) = beta {
+            req = req.header("anthropic-beta", b);
+        }
+        req
+    }
+
+    fn unreachable(&self, e: reqwest::Error) -> AppError {
+        match self {
+            Access::Key { .. } => format!("Could not reach the Claude API: {e}").into(),
+            Access::Team(t) => t.unreachable(e),
+        }
+    }
+
+    fn error(&self, status: u16, body: &str) -> AppError {
+        match self {
+            Access::Key { .. } => api_error(status, body),
+            Access::Team(t) => t.error(status, body),
+        }
+    }
+}
+
 /// The Messages API body (without model-specific options) for one request.
 fn request_body(r: &GenRequest) -> Value {
     json!({
@@ -33,25 +75,15 @@ fn request_body(r: &GenRequest) -> Value {
 pub(super) async fn run(
     out: &mut Output<'_>,
     http: &reqwest::Client,
-    api_key: &str,
-    workspace_id: Option<&str>,
+    access: &Access<'_>,
     r: &GenRequest,
 ) -> AppResult<Option<u64>> {
     let mut body = request_body(r);
     let beta = models::apply_options(&r.model, &mut body);
-
-    let mut req = http.post(API_URL).header("x-api-key", api_key).header("anthropic-version", API_VERSION).json(&body);
-    if let Some(b) = beta {
-        req = req.header("anthropic-beta", b);
-    }
-    if let Some(ws) = workspace_id {
-        req = req.header("anthropic-workspace-id", ws);
-    }
-
-    let resp = req.send().await.map_err(|e| format!("Could not reach the Claude API: {e}"))?;
+    let resp = access.post(http, &body, beta).send().await.map_err(|e| access.unreachable(e))?;
     let status = resp.status().as_u16();
     if !resp.status().is_success() {
-        return Err(api_error(status, &resp.text().await.unwrap_or_default()));
+        return Err(access.error(status, &resp.text().await.unwrap_or_default()));
     }
 
     let mut parser = SseParser::default();
@@ -96,8 +128,7 @@ pub(super) async fn run(
 #[allow(clippy::too_many_arguments)]
 pub(crate) async fn turn(
     http: &reqwest::Client,
-    api_key: &str,
-    workspace_id: Option<&str>,
+    access: &Access<'_>,
     model: &str,
     system: &str,
     schema: &str,
@@ -106,18 +137,11 @@ pub(crate) async fn turn(
 ) -> AppResult<Turn> {
     let mut body = turn_body(model, system, schema, tools, messages);
     let beta = models::apply_options(model, &mut body);
-    let mut req = http.post(API_URL).header("x-api-key", api_key).header("anthropic-version", API_VERSION).json(&body);
-    if let Some(b) = beta {
-        req = req.header("anthropic-beta", b);
-    }
-    if let Some(ws) = workspace_id {
-        req = req.header("anthropic-workspace-id", ws);
-    }
-    let resp = req.send().await.map_err(|e| format!("Could not reach the Claude API: {e}"))?;
+    let resp = access.post(http, &body, beta).send().await.map_err(|e| access.unreachable(e))?;
     let status = resp.status().as_u16();
     let text = resp.text().await.map_err(|e| format!("The response was interrupted: {e}"))?;
     if !(200..300).contains(&status) {
-        return Err(api_error(status, &text));
+        return Err(access.error(status, &text));
     }
     parse_turn(&serde_json::from_str(&text)?)
 }

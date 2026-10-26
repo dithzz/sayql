@@ -1,7 +1,7 @@
 use crate::ai::agent::model::{Llm, ToolMode};
 use crate::ai::agent::run::{self, Event, Io, Reply, RunInput};
 use crate::ai::endpoint::endpoint;
-use crate::ai::{Api, Endpoint};
+use crate::ai::Api;
 use crate::error::{AppError, AppResult};
 use crate::state::{AgentRun, AppState, Target};
 use crate::store::agent::{AgentAccess, Note};
@@ -47,19 +47,21 @@ pub async fn start_agent(
     let live = state.schema(&target)?;
     let pool = state.target_pool(&target).await?.with_context(Source::Agent, Some(question.clone()));
     let mut settings = state.store.settings()?;
-    let endpoint = endpoint(&settings)?;
+    let own = endpoint(&settings);
+    let team_ai = state.team_ai_route(&id, "agent", own.is_ok());
     // Auto mode: no stop for the plan or before each send. What the AI may see (the results
     // setting, masking, never-send columns) stays as set; questions with two meanings still ask.
     if auto == Some(true) {
         settings.agent.skip_plan = true;
         access.ask_before_send = false;
     }
-    let model = settings.provider_settings(&settings.provider).agent().to_string();
-    let mode_key = format!("{}/{model}", settings.provider);
-    let mode = match &endpoint {
-        Endpoint::Anthropic { .. } => ToolMode::Native,
-        Endpoint::OpenAi { .. } => settings.tool_modes.get(&mode_key).copied().unwrap_or(ToolMode::Native),
+    // A team connection with team AI runs on the team's default model, through the team server.
+    let (endpoint, model, provider) = match team_ai {
+        Some((route, ai)) => (route, ai.default_model(), "team".to_string()),
+        None => (own?, settings.provider_settings(&settings.provider).agent().to_string(), settings.provider.clone()),
     };
+    let mode_key = format!("{provider}/{model}");
+    let mode = if endpoint.is_openai() { settings.tool_modes.get(&mode_key).copied().unwrap_or(ToolMode::Native) } else { ToolMode::Native };
     let skill = match skill {
         None => None,
         Some(slug) => Some(
@@ -95,7 +97,6 @@ pub async fn start_agent(
     let emitter = app.clone();
     let mut io = Io { emit: Arc::new(move |e: Event| { let _ = emitter.emit(EVENT, e); }), replies: rx, stop };
     let http = state.http.clone();
-    let provider = settings.provider.clone();
     tauri::async_runtime::spawn(async move {
         let mut llm = Llm::Remote { http, endpoint, model, mode };
         let outcome = run::run(&mut llm, &pool, input, &mut io).await;

@@ -45,3 +45,24 @@
   margin: 0;
   overflow-wrap: anywhere;
 }
+
+.usage {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: var(--space-1);
+}
+.bar {
+  display: block;
+  width: 100%;
+  max-width: 240px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--color-border);
+  overflow: hidden;
+}
+.fill {
+  display: block;
+  height: 100%;
+  background: var(--color-accent);
+}

@@ -13,6 +13,7 @@ import type {
   QueryResult,
   QuerySource,
   TeamAccount,
+  TeamAiStatus,
   TeamStatus,
   Script,
   Skill,
@@ -97,6 +98,8 @@ export const commands = {
   teamSignOut: () => invoke<void>("team_sign_out"),
   /** The team's shared connections; empty when signed out (nothing is sent then). */
   teamConnections: () => invoke<ConnectionConfig[]>("team_connections"),
+  /** Team AI, asked again; null when signed out (nothing is sent then). */
+  teamAi: () => invoke<TeamAiStatus | null>("team_ai"),
 
   mcpSetup: () => invoke<McpSetup>("mcp_setup"),
   /** Handoffs from AI apps waiting to be shown (see the `handoff://new` event). */

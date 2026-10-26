@@ -24,6 +24,13 @@
   <li><b>Never-send columns.</b> Columns your admin marks never send are added to the connection's list and can't be removed. Agent mode refuses queries that use them, and the server leaves them out of every result (the Results panel says how many were withheld).</li>
 </ul>
 
+<h2>Team AI</h2>
+<p>Your team admin can also give the team one company AI key, with monthly limits. Then, on team connections, the Ask box, fixes, Improve and agent mode use your team's AI through your team's server, and you don't need an AI key of your own for them. Your own connections keep using your own AI provider and key.</p>
+<ul>
+  <li>The Ask box shows your team's model, marked <b>Team</b>. Click it to see the models your admin allows; they're <b>set by your team admin</b> and can't be switched there.</li>
+  <li><b>Settings → Team</b> shows who provides the AI and how much you and your team have used this month against the limits. When a limit is reached, AI requests on team connections stop until the 1st of the next month, and SayQL says so.</li>
+</ul>
+
 <h2>Messages you may see</h2>
 <div class="table-wrap"><table>
   <thead><tr><th>Message</th><th>What to do</th></tr></thead>
@@ -33,9 +40,11 @@
     <tr><td>Your team admin marked a column in this query never send</td><td>Leave that column out of the query.</td></tr>
     <tr><td>Agent mode is turned off for this connection by your team admin.</td><td>Use the Ask box or the editor there, or ask your team admin.</td></tr>
     <tr><td>That invite code isn't valid or has expired.</td><td>Codes work once and last 7 days. Ask your team admin for a new one.</td></tr>
+    <tr><td>You've used your team AI allowance for this month</td><td>It resets on the 1st. Ask your team admin if you need more.</td></tr>
     <tr><td>No licence, licence expired, or no free seats</td><td>Ask your team admin: the server's licence needs adding, renewing or more seats.</td></tr>
   </tbody>
 </table></div>
 
 <h2>Privacy</h2>
-<p>When you're signed in, queries on team connections and the questions they answer go to your team's server, which your company runs, and are recorded in its audit log. Your own connections, and anything you do on them, never go there. Questions still go to the AI provider you chose in Settings, as on your own connections.</p>
+<p>When you're signed in, queries on team connections and the questions they answer go to your team's server, which your company runs, and are recorded in its audit log. Your own connections, and anything you do on them, never go there.</p>
+<p>With team AI on, AI requests on team connections (your question, the schema and, in agent mode if allowed, masked rows) also go to your company's SayQL server, which forwards them to your company's AI provider and stores only token counts. Nothing reaches SayQL itself. Without team AI, questions on team connections go to the AI provider you chose in Settings, as on your own connections.</p>

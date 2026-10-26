@@ -5,6 +5,7 @@ use crate::db::ConnConfig;
 use crate::error::AppResult;
 use crate::state::AppState;
 use crate::store::secrets;
+use crate::team::ai::AiStatus;
 use crate::team::{self, TeamAccount, TeamConnection, TeamStatus};
 use serde::Serialize;
 use tauri::State;
@@ -72,7 +73,9 @@ pub async fn team_status(state: State<'_, AppState>) -> AppResult<Option<TeamSta
         settings.team = Some(account.clone());
         state.store.save_settings(&settings)?;
     }
-    Ok(Some(TeamStatus { account, server }))
+    // With /me: team AI, so Settings shows it and AI requests on team connections use it.
+    let ai = state.refresh_team_ai().await.ok().flatten();
+    Ok(Some(TeamStatus { account, server, ai }))
 }
 
 /// Signs out: the server revokes the token (when it can be reached), and this computer forgets it.
@@ -99,5 +102,15 @@ pub async fn team_connections(state: State<'_, AppState>) -> AppResult<Vec<TeamC
     };
     let views = list.iter().filter_map(view).collect();
     state.set_team_connections(list);
+    // Team AI applies to these connections; an older server without it simply has none.
+    if state.refresh_team_ai().await.is_err() {
+        state.set_team_ai(None);
+    }
     Ok(views)
+}
+
+/// Team AI's state, asked again (Settings opening); `None` when signed out, without asking anyone.
+#[tauri::command]
+pub async fn team_ai(state: State<'_, AppState>) -> AppResult<Option<AiStatus>> {
+    state.refresh_team_ai().await
 }

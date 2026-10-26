@@ -370,7 +370,7 @@ impl Run<'_> {
     }
 
     fn can_fall_back(&self, switched: bool) -> bool {
-        !switched && matches!(self.llm, Llm::Remote { endpoint: crate::ai::Endpoint::OpenAi { .. }, mode: ToolMode::Native, .. })
+        !switched && matches!(&*self.llm, Llm::Remote { endpoint, mode: ToolMode::Native, .. } if endpoint.is_openai())
     }
 
     fn fall_back(&mut self, switched: &mut bool) {
