@@ -12,6 +12,8 @@ export interface QueryRunner {
   total: number;
   /** The database error that stopped the last run, if any. */
   error: string | null;
+  /** That error is a team server refusing by its rules, which no AI fix can help with. */
+  refused: boolean;
   running: boolean;
   /** A data-changing statement waiting for the user's confirmation. */
   pendingWrite: string | null;
@@ -104,7 +106,7 @@ export function useQueryRunner(target: Target | null, onFailure?: (sql: string, 
       if (id !== runId.current) return;
       setRunning(false);
       const last = out[out.length - 1];
-      if (statements.length === 1 && last?.error && last.error !== QUERY_CANCELLED) failure.current?.(last.sql, last.error);
+      if (statements.length === 1 && last?.error && last.error !== QUERY_CANCELLED && !last.refused) failure.current?.(last.sql, last.error);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [target, failure],
@@ -114,6 +116,7 @@ export function useQueryRunner(target: Target | null, onFailure?: (sql: string, 
     outcomes,
     total,
     error: outcomes.find((o) => o.error)?.error ?? null,
+    refused: !!outcomes.find((o) => o.error)?.refused,
     running,
     pendingWrite,
     run,

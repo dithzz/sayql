@@ -345,7 +345,7 @@ export function QueryTab(props: QueryTabProps) {
             }
             errorAction={
               // The AI rewrites one whole query, so a selection or a script is left to the person.
-              canUseAi && !ranSelection.current && query.total === 1 && query.error !== QUERY_CANCELLED && (
+              canUseAi && !ranSelection.current && query.total === 1 && query.error !== QUERY_CANCELLED && !query.refused && (
                 <Button
                   size="sm"
                   variant="ghost"

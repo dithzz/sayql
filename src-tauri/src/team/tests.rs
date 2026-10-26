@@ -85,8 +85,11 @@ fn err(status: u16, code: &str) -> (u16, Value) {
 }
 
 /// The contract's happy path, with the auth checked on every route but the open two.
-fn server(method: &str, path: &str, _body: &Value) -> (u16, Value) {
+fn server(method: &str, path: &str, body: &Value) -> (u16, Value) {
+    let sql = body["sql"].as_str().unwrap_or("").to_ascii_lowercase();
     match (method, path) {
+        // The server, not the app, refuses writes, so the attempt is in its audit log.
+        ("POST", p) if p.ends_with("/query") && !sql.starts_with("select") => err(422, "write_refused"),
         ("POST", "/api/v1/auth/redeem") => {
             (200, json!({ "token": "tok-1", "user": { "id": "u_1", "email": "ana@acme.test", "name": "Ana", "role": "member" } }))
         }
@@ -113,7 +116,6 @@ fn server(method: &str, path: &str, _body: &Value) -> (u16, Value) {
             json!({ "columns": [{ "name": "id", "type": "int4" }, { "name": "ssn", "type": "text" }], "rows": [[1], [2]], "row_count": 2,
                     "truncated": false, "elapsed_ms": 12, "withheld": ["ssn"], "audit_id": "a_1" }),
         ),
-        ("POST", "/api/v1/connections/c_write/query") => err(400, "write_refused"),
         ("POST", "/api/v1/connections/c_never/query") => err(400, "never_send"),
         ("POST", "/api/v1/connections/c_nolic/query") => err(402, "no_licence"),
         ("POST", "/api/v1/connections/c_expired/query") => err(402, "licence_expired"),
@@ -185,7 +187,16 @@ async fn server_errors_become_clear_messages() {
         let p = pool(&f.url, id);
         async move { p.query("select 1", 10, &CancellationToken::new()).await.unwrap_err().to_string() }
     };
-    assert_eq!(msg("c_write").await, WRITE_REFUSED);
+    // Refusals by the server's rules are marked as such (the UI offers no AI fix); database errors aren't.
+    let refused = |e: AppError| matches!(e, AppError::TeamRefused(_));
+    let q = |id: &'static str| {
+        let p = pool(&f.url, id);
+        async move { p.query("select 1", 10, &CancellationToken::new()).await.unwrap_err() }
+    };
+    assert!(refused(q("c_never").await) && refused(q("c_nolic").await) && refused(q("c_noagent").await));
+    assert!(!refused(q("c_db").await));
+    assert_eq!(serde_json::to_value(q("c_nolic").await).unwrap()["teamRefused"], true);
+    assert!(serde_json::to_value(q("c_db").await).unwrap().is_string());
     assert!(msg("c_never").await.starts_with("Your team admin marked a column in this query never send"));
     assert!(msg("c_nolic").await.contains("has no licence"));
     assert!(msg("c_expired").await.contains("licence has expired"));
@@ -206,6 +217,23 @@ async fn server_errors_become_clear_messages() {
     let f3 = fake(full).await;
     let e = redeem(&reqwest::Client::new(), &f3.url, "x", "d").await.unwrap_err().to_string();
     assert!(e.contains("no free seats"), "{e}");
+}
+
+/// A write on a team connection isn't stopped in the app: it goes to the server, which refuses
+/// it and records the attempt. The editor and Ask box use this path (no confirm dialog first).
+#[tokio::test]
+async fn writes_go_to_the_server_to_be_refused_and_audited() {
+    let f = fake(server).await;
+    let p = crate::db::DbPool::Team(pool(&f.url, "c_1"));
+    let e = crate::db::run_query_with(&p, "delete from patients", true, 10, &CancellationToken::new()).await.unwrap_err();
+    assert!(matches!(&e, AppError::TeamRefused(m) if m == WRITE_REFUSED), "{e}");
+    let seen = f.seen.lock().unwrap().clone();
+    assert_eq!(seen.last().unwrap().body["sql"], "delete from patients");
+    // Agent mode's read-only runner sends it too.
+    let agent = p.with_context(Source::Agent, None);
+    let e = crate::readonly::run_limited(&agent, "update patients set ssn = null", 10, Duration::from_secs(5)).await.unwrap_err();
+    assert_eq!(e, WRITE_REFUSED);
+    assert_eq!(f.seen.lock().unwrap().last().unwrap().body["source"], "agent");
 }
 
 #[tokio::test]
@@ -236,6 +264,10 @@ fn server_addresses_are_cleaned_and_https_is_required_off_this_computer() {
     assert_eq!(clean_server("http://localhost:8080").unwrap(), "http://localhost:8080");
     assert_eq!(clean_server("http://127.0.0.1:8080").unwrap(), "http://127.0.0.1:8080");
     assert!(clean_server("http://sayql.acme.internal").unwrap_err().contains("https://"));
+    // Half-typed addresses are caught before anything is sent.
+    for half in ["http:/", "http:", "https:/", "http", "https://", "http://", ":"] {
+        assert_eq!(clean_server(half).unwrap_err(), ENTER_SERVER, "{half}");
+    }
     for bad in ["", "ftp://acme.test", "https://user:pw@acme.test", "https://acme.test/?x=1", "not a url at all"] {
         assert!(clean_server(bad).is_err(), "{bad}");
     }

@@ -25,6 +25,7 @@ use url::Url;
 pub const ID_PREFIX: &str = "team:";
 
 pub const SIGNED_OUT: &str = "Signed out of your team, sign in again.";
+pub const ENTER_SERVER: &str = "Enter your server's address, for example https://sayql.example.com";
 pub const AGENT_OFF: &str = "Agent mode is turned off for this connection by your team admin.";
 pub const BAD_INVITE: &str = "That invite code isn't valid or has expired. Ask your team admin for a new one.";
 pub const WRITE_REFUSED: &str = "Your team's SayQL server runs only read-only queries, so this statement was not run.";
@@ -189,14 +190,20 @@ pub fn own_access(access: AgentAccess, rules: &TeamRules) -> AgentAccess {
 /// Plain `http://` is only accepted on this computer, so the token never crosses a network
 /// unencrypted.
 pub fn clean_server(input: &str) -> Result<String, String> {
-    let input = input.trim().trim_end_matches('/');
-    if input.is_empty() {
-        return Err("Enter your team's SayQL server address.".into());
+    let bad = || ENTER_SERVER.to_string();
+    let input = input.trim();
+    // Half-typed schemes ("http:/", "https:") aren't hosts: don't turn them into https://http.
+    let schemeless = !input.contains("://");
+    if input.is_empty() || (schemeless && input.contains(':') && input.split(':').next().is_some_and(|s| matches!(s.to_ascii_lowercase().as_str(), "http" | "https"))) {
+        return Err(bad());
     }
-    let with_scheme = if input.contains("://") { input.to_string() } else { format!("https://{input}") };
-    let bad = || format!("{input} isn't a server address. It looks like https://sayql.example.com.");
+    let input = input.trim_end_matches('/');
+    let with_scheme = if schemeless { format!("https://{input}") } else { input.to_string() };
     let url = Url::parse(&with_scheme).map_err(|_| bad())?;
-    let host = url.host_str().ok_or_else(bad)?;
+    let host = url.host_str().filter(|h| !h.is_empty()).ok_or_else(bad)?;
+    if schemeless && matches!(host.to_ascii_lowercase().as_str(), "http" | "https") {
+        return Err(bad());
+    }
     if !url.username().is_empty() || url.password().is_some() || url.query().is_some() || url.fragment().is_some() {
         return Err(bad());
     }
@@ -271,6 +278,17 @@ pub fn error_text(code: &str, message: &str) -> String {
     }
 }
 
+/// Codes for a team server refusing by its rules, as opposed to the database failing.
+const REFUSALS: [&str; 7] = ["write_refused", "never_send", "forbidden", "no_licence", "licence_expired", "seat_limit", "unauthorized"];
+
+/// The error for a server error code: a refusal, or a plain message (`db_error`, `timeout`, …).
+fn coded_error(code: Option<&str>, msg: String) -> AppError {
+    match code {
+        Some(c) if REFUSALS.contains(&c) => AppError::TeamRefused(msg),
+        _ => AppError::User(msg),
+    }
+}
+
 /// The body of a reply as `T`, or the server's error as a message. `None` for `204`.
 async fn decode<T: DeserializeOwned>(resp: reqwest::Response) -> Result<T, (Option<String>, String)> {
     let status = resp.status();
@@ -300,7 +318,7 @@ pub async fn redeem(http: &reqwest::Client, server: &str, code: &str, device: &s
         Some("unauthorized" | "not_found" | "bad_request" | "forbidden") => {
             AppError::User(BAD_INVITE.into())
         }
-        _ => AppError::User(msg),
+        c => coded_error(c, msg),
     })?;
     if r.token.is_empty() {
         return Err("Your team's SayQL server didn't return a sign-in.".into());
@@ -350,7 +368,8 @@ impl TeamClient {
                 // The token was revoked (or the person removed): it's no use any more.
                 forget_sign_in(store);
             }
-            (code, AppError::User(msg))
+            let e = coded_error(code.as_deref(), msg);
+            (code, e)
         })
     }
 
@@ -383,7 +402,7 @@ impl TeamClient {
         let r = tokio::select! {
             r = req => r.map_err(|(code, e)| match code.as_deref() {
                 // The server refuses agent mode's queries where the admin turned it off.
-                Some("forbidden") if agent => AGENT_OFF.into(),
+                Some("forbidden") if agent => AppError::TeamRefused(AGENT_OFF.into()),
                 _ => e,
             })?,
             _ = cancel.cancelled() => return Err(CANCELLED.into()),

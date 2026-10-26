@@ -14,6 +14,9 @@ pub enum AppError {
     NeedsWriteConfirmation,
     /// A message written for the person using the app.
     User(String),
+    /// A team server refused the request by its rules (read-only, never send, licence, sign-in):
+    /// not a database error, so the UI offers no AI fix.
+    TeamRefused(String),
     Database(sqlx::Error),
     SqlServer(tiberius::error::Error),
     Io(std::io::Error),
@@ -27,7 +30,7 @@ impl fmt::Display for AppError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             AppError::NeedsWriteConfirmation => f.write_str(WRITE_CONFIRM),
-            AppError::User(msg) => f.write_str(msg),
+            AppError::User(msg) | AppError::TeamRefused(msg) => f.write_str(msg),
             AppError::Database(e) => f.write_str(&database_error(e)),
             AppError::SqlServer(e) => f.write_str(&sql_server_error(e)),
             AppError::Io(e) => write!(f, "File error: {e}"),
@@ -75,9 +78,20 @@ fn sql_server_error(e: &tiberius::error::Error) -> String {
 
 impl std::error::Error for AppError {}
 
+/// Errors reach the UI as their message. A team server's refusal comes as
+/// `{"message": "…", "teamRefused": true}` (see `isTeamRefusal` in src/lib/errors.ts).
 impl Serialize for AppError {
     fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
-        s.serialize_str(&self.to_string())
+        match self {
+            AppError::TeamRefused(msg) => {
+                use serde::ser::SerializeStruct;
+                let mut st = s.serialize_struct("TeamRefused", 2)?;
+                st.serialize_field("message", msg)?;
+                st.serialize_field("teamRefused", &true)?;
+                st.end()
+            }
+            other => s.serialize_str(&other.to_string()),
+        }
     }
 }
 

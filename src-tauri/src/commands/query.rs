@@ -1,7 +1,7 @@
 use crate::db::{self, DbPool, Kind, QueryResult};
 use crate::error::{AppError, AppResult};
 use crate::state::{AppState, Target};
-use crate::team::{self, Source};
+use crate::team::Source;
 use tauri::State;
 
 /// Runs one statement. Statements that change data fail with `WRITE_CONFIRM` unless
@@ -22,8 +22,9 @@ pub async fn run_query(
 ) -> AppResult<QueryResult> {
     let pool = state.open_pool(&Target::new(id, database))?;
     let pool = pool.with_context(source.unwrap_or_default(), question);
+    // A team connection never writes, so there's nothing to confirm: every statement goes to the
+    // team server, which refuses writes and records the attempt in its audit log.
     let read_only = match pool {
-        DbPool::Team(_) if !db::is_read_only(&sql, pool.kind()) => return Err(team::WRITE_REFUSED.into()),
         DbPool::Team(_) => true,
         _ => write_gate(&sql, pool.kind(), allow_write)?,
     };

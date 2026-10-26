@@ -42,6 +42,11 @@ pub async fn run_query_with(
     if sql.is_empty() {
         return Err("Nothing to run.".into());
     }
+    // A team server checks every statement itself and records refused ones in its audit log,
+    // so a write goes there to be refused rather than being stopped here.
+    if let DbPool::Team(t) = pool {
+        return t.query(sql, cap, cancel).await;
+    }
     if read_only && !super::is_read_only(sql, pool.kind()) {
         return Err("This statement can change data, so it can't run in read-only mode.".into());
     }
@@ -161,7 +166,6 @@ pub async fn run_query_with(
             out?
         }
         DbPool::Ms(p) => Box::pin(run_mssql(p, sql, read_only, cap, cancel)).await?,
-        // The team server times its own queries and checks they are read-only.
         DbPool::Team(t) => return t.query(sql, cap, cancel).await,
     };
     res.elapsed_ms = start.elapsed().as_millis();

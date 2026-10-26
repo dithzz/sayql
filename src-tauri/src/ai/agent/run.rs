@@ -555,7 +555,9 @@ impl Run<'_> {
         if checks::statements(&real) > 1 {
             return Err("Run one statement at a time.".into());
         }
-        if !db::is_read_only(&real, kind) {
+        // A team server refuses writes itself and audits the attempt, so it gets to see them.
+        let team = matches!(self.pool, DbPool::Team(_));
+        if !team && !db::is_read_only(&real, kind) {
             return Err(readonly::AGENT_WRITE_REFUSED.into());
         }
         if let Some(col) = self.masker.names_never_send(&real) {
@@ -571,7 +573,10 @@ impl Run<'_> {
         let secs = Duration::from_secs(self.input.limits.query_seconds);
         let r = readonly::run_limited_with(self.pool, sql, ROWS_READ, secs, &self.io.stop).await;
         // Database messages can quote values; the model gets them masked.
-        r.map_err(|e| self.masker.remask_text(&redact::database_error(&e)))
+        r.map_err(|e| match e.as_str() {
+            crate::team::WRITE_REFUSED => readonly::AGENT_WRITE_REFUSED.to_string(),
+            _ => self.masker.remask_text(&redact::database_error(&e)),
+        })
     }
 
     async fn query(&mut self, sql: &str, purpose: &str) -> Result<(String, bool), Stop> {

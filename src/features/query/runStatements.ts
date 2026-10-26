@@ -1,5 +1,5 @@
 import { WRITE_CONFIRM, type QueryResult } from "../../api";
-import { errorText } from "../../lib/errors";
+import { errorText, isTeamRefusal } from "../../lib/errors";
 
 /** What happened to one statement of a run. */
 export interface Outcome {
@@ -8,6 +8,8 @@ export interface Outcome {
   error: string | null;
   /** The person declined to run this statement that may change data. */
   cancelled: boolean;
+  /** `error` is a team server refusing by its rules, not the database failing. */
+  refused?: boolean;
 }
 
 /**
@@ -26,7 +28,7 @@ export async function runStatements(
     try {
       return { sql, result: await exec(sql, allowWrite), error: null, cancelled: false };
     } catch (e) {
-      return { sql, result: null, error: errorText(e), cancelled: false };
+      return { sql, result: null, error: errorText(e), cancelled: false, refused: isTeamRefusal(e) };
     }
   };
   for (const sql of statements) {
