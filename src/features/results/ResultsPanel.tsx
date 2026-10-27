@@ -62,6 +62,11 @@ export function ResultsPanel({ outcomes, total, running, errorHint, errorAction,
               {" · "}
               {result.elapsedMs} ms
               {result.truncated && <Badge tone="warning">first 5,000 rows</Badge>}
+              {!!result.withheld?.length && (
+                <Badge tone="warning" title={`Withheld: ${result.withheld.join(", ")}`}>
+                  {plural(result.withheld.length, "column")} withheld by your team admin
+                </Badge>
+              )}
             </span>
           )}
           {!running && many && stopped >= 0 && (
@@ -107,8 +112,14 @@ export function ResultsPanel({ outcomes, total, running, errorHint, errorAction,
         </EmptyState>
       ) : shown?.error ? (
         <div className={styles.error}>
-          <Alert tone="danger" actions={errorAction}>
-            <strong>{many ? `Statement ${index + 1} returned an error` : "The database returned an error"}</strong>
+          <Alert tone="danger" actions={shown.refused ? undefined : errorAction}>
+            <strong>
+              {shown.refused
+                ? "Your team's SayQL server refused this"
+                : many
+                  ? `Statement ${index + 1} returned an error`
+                  : "The database returned an error"}
+            </strong>
             <pre className={styles.errorSql}>{shown.error}</pre>
           </Alert>
           {many && <pre className={styles.statement}>{shown.sql}</pre>}

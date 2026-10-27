@@ -187,6 +187,21 @@ pub fn set_api_key(provider: &str, key: &str) -> AppResult<()> {
     set(&api_key_account(provider), key.trim())
 }
 
+const TEAM_TOKEN_ACCOUNT: &str = "team-token";
+
+/// The SayQL Team sign-in token. Only read when settings say a team server is signed in.
+pub fn team_token() -> Option<String> {
+    get(TEAM_TOKEN_ACCOUNT)
+}
+
+pub fn set_team_token(token: &str) -> AppResult<()> {
+    set(TEAM_TOKEN_ACCOUNT, token)
+}
+
+pub fn delete_team_token() -> AppResult<()> {
+    lock(&VAULT).remove(TEAM_TOKEN_ACCOUNT)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

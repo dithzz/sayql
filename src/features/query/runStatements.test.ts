@@ -50,4 +50,13 @@ describe("runStatements", () => {
     expect(summary(out)).toEqual(["cancelled"]);
     expect(db.calls).toEqual(["run: DELETE FROM t;"]);
   });
+
+  it("marks a team server's refusal, without asking to confirm the write first", async () => {
+    const confirm = async () => true;
+    const refusal = { message: "Your team's SayQL server runs only read-only queries, so this statement was not run.", teamRefused: true };
+    const out = await runStatements(["DELETE FROM t"], async () => Promise.reject(refusal), confirm, () => {});
+    expect(out).toEqual([{ sql: "DELETE FROM t", result: null, error: refusal.message, cancelled: false, refused: true }]);
+    const db = await runStatements(["SELECT bad"], async () => Promise.reject("no such column: bad"), confirm, () => {});
+    expect(db[0].refused).toBe(false);
+  });
 });

@@ -339,8 +339,9 @@ impl Run<'_> {
     /// warning for the agent and a step for the person. Supabase turns it on for app tables, so
     /// a read-only login there can see empty tables that aren't empty.
     async fn row_security(&mut self) -> Option<String> {
-        // Checked once per conversation, not again for each follow-up.
-        if self.input.kind != Kind::Postgres || self.messages.len() > 1 {
+        // Checked once per conversation, not again for each follow-up. A team server's login is
+        // its admin's business, and the check would be one more query in their audit log.
+        if self.input.kind != Kind::Postgres || self.messages.len() > 1 || matches!(self.pool, DbPool::Team(_)) {
             return None;
         }
         let sql = "SELECT n.nspname || '.' || c.relname FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace \
@@ -369,7 +370,7 @@ impl Run<'_> {
     }
 
     fn can_fall_back(&self, switched: bool) -> bool {
-        !switched && matches!(self.llm, Llm::Remote { endpoint: crate::ai::Endpoint::OpenAi { .. }, mode: ToolMode::Native, .. })
+        !switched && matches!(&*self.llm, Llm::Remote { endpoint, mode: ToolMode::Native, .. } if endpoint.is_openai())
     }
 
     fn fall_back(&mut self, switched: &mut bool) {
@@ -554,7 +555,9 @@ impl Run<'_> {
         if checks::statements(&real) > 1 {
             return Err("Run one statement at a time.".into());
         }
-        if !db::is_read_only(&real, kind) {
+        // A team server refuses writes itself and audits the attempt, so it gets to see them.
+        let team = matches!(self.pool, DbPool::Team(_));
+        if !team && !db::is_read_only(&real, kind) {
             return Err(readonly::AGENT_WRITE_REFUSED.into());
         }
         if let Some(col) = self.masker.names_never_send(&real) {
@@ -570,7 +573,10 @@ impl Run<'_> {
         let secs = Duration::from_secs(self.input.limits.query_seconds);
         let r = readonly::run_limited_with(self.pool, sql, ROWS_READ, secs, &self.io.stop).await;
         // Database messages can quote values; the model gets them masked.
-        r.map_err(|e| self.masker.remask_text(&redact::database_error(&e)))
+        r.map_err(|e| match e.as_str() {
+            crate::team::WRITE_REFUSED => readonly::AGENT_WRITE_REFUSED.to_string(),
+            _ => self.masker.remask_text(&redact::database_error(&e)),
+        })
     }
 
     async fn query(&mut self, sql: &str, purpose: &str) -> Result<(String, bool), Stop> {

@@ -98,6 +98,15 @@ pub enum ToolMode {
     Text,
 }
 
+/// One turn on whichever client the endpoint speaks.
+async fn turn(http: &reqwest::Client, endpoint: &Endpoint, model: &str, system: &str, schema: &str, tools: &[ToolSpec], messages: &[Msg]) -> AppResult<Turn> {
+    match (endpoint.claude(), endpoint.openai()) {
+        (Some(access), _) => crate::ai::anthropic::turn(http, &access, model, system, schema, tools, messages).await,
+        (None, Some(svc)) => crate::ai::openai::turn(http, &svc, model, system, schema, tools, messages).await,
+        (None, None) => Err("This AI provider isn't supported.".into()),
+    }
+}
+
 /// A model to run the agent with.
 pub enum Llm {
     Remote { http: reqwest::Client, endpoint: Endpoint, model: String, mode: ToolMode },
@@ -108,27 +117,11 @@ pub enum Llm {
 impl Llm {
     pub async fn turn(&self, system: &str, schema: &str, tools: &[ToolSpec], messages: &[Msg]) -> AppResult<Turn> {
         match self {
-            Llm::Remote { http, endpoint, model, mode: ToolMode::Native } => match endpoint {
-                Endpoint::Anthropic { api_key, workspace_id } => {
-                    crate::ai::anthropic::turn(http, api_key, workspace_id.as_deref(), model, system, schema, tools, messages).await
-                }
-                Endpoint::OpenAi { label, base_url, api_key } => {
-                    let svc = crate::ai::openai::Service { label, base_url, api_key: api_key.as_deref() };
-                    crate::ai::openai::turn(http, &svc, model, system, schema, tools, messages).await
-                }
-            },
+            Llm::Remote { http, endpoint, model, mode: ToolMode::Native } => turn(http, endpoint, model, system, schema, tools, messages).await,
             Llm::Remote { http, endpoint, model, mode: ToolMode::Text } => {
                 let system = format!("{system}\n\n{}", text_protocol::instructions(tools));
                 let messages = text_protocol::to_text(messages);
-                let reply = match endpoint {
-                    Endpoint::Anthropic { api_key, workspace_id } => {
-                        crate::ai::anthropic::turn(http, api_key, workspace_id.as_deref(), model, &system, schema, &[], &messages).await?
-                    }
-                    Endpoint::OpenAi { label, base_url, api_key } => {
-                        let svc = crate::ai::openai::Service { label, base_url, api_key: api_key.as_deref() };
-                        crate::ai::openai::turn(http, &svc, model, &system, schema, &[], &messages).await?
-                    }
-                };
+                let reply = turn(http, endpoint, model, &system, schema, &[], &messages).await?;
                 Ok(text_protocol::from_text(reply))
             }
             #[cfg(test)]

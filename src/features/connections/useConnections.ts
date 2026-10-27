@@ -26,6 +26,8 @@ export interface ConnectionsState {
   upsert: (c: ConnectionConfig) => void;
   /** Record a connection deleted by the connection dialog. */
   remove: (id: string) => void;
+  /** Replaces the SayQL Team connections (empty when signed out); saved connections stay. */
+  setTeam: (list: ConnectionConfig[]) => void;
   dismissError: (t: Target) => void;
 }
 
@@ -99,5 +101,11 @@ export function useConnections(initial: ConnectionConfig[]): ConnectionsState {
       forget(id);
     },
     dismissError: (t) => patch(targetKey(t), { error: null }),
+    setTeam: (list) => {
+      if (list.length === 0 && !connections.some((c) => c.team)) return;
+      setConnections((all) => [...all.filter((c) => !c.team), ...list]);
+      // Signing in again (or as someone else) reloads their schemas.
+      connections.filter((c) => c.team).forEach((c) => forget(c.id));
+    },
   };
 }

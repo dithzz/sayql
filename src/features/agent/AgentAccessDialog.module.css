@@ -49,3 +49,16 @@
   font-size: var(--font-size-sm);
   resize: vertical;
 }
+
+/* A results setting above what the team admin allows. */
+.locked {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.admin {
+  font-weight: normal;
+  color: var(--color-text-muted);
+}
+.adminColumns {
+  font-family: var(--font-mono);
+}
