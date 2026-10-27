@@ -126,7 +126,7 @@ EOF
 fi
 
 say ""
-say "Starting SayQL server $VERSION…"
+say "Starting SayQL server ${VERSION}..."
 docker compose pull --quiet --ignore-pull-failures
 # Recreated so the logs below are from this start only.
 docker compose up -d --remove-orphans --force-recreate
