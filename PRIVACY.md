@@ -32,6 +32,8 @@ When you are signed in to a team server, queries and questions on its connection
 
 When your team also provides AI (team AI), AI requests on team connections go to your company's SayQL server instead of your own AI provider: your question, the schema and, in agent mode if your settings and your team admin allow it, masked rows. The server forwards them to your company's AI provider and stores only token counts, never the prompt or the answer. Nothing reaches SayQL itself. Your own connections keep using your own AI provider.
 
+**SayQL AI credits** are the exception, and only if your team admin chooses them: instead of a company AI key, the team server then uses a prepaid SayQL credit key, and its AI provider is SayQL's endpoint at `sayql.dev/api/ai`. Those requests (the question, the schema and, in agent mode if allowed, masked rows) pass through SayQL's service on their way to Anthropic, with SayQL's own Anthropic key. SayQL stores the model and token counts of each request against your team's balance, never the prompt or the answer. Anthropic handles the request under its commercial terms.
+
 The Ask box never sends rows from your tables to an AI provider. Agent mode can, only on connections where you turn it on; it is off by default. Masking in agent mode is best effort: a free-text column can hold anything, so mark such columns "never send", or keep results to counts. With "Ask before each send", you see exactly what would go before it goes. With a local provider (Ollama or LM Studio), AI requests don't leave your computer.
 
 ## The website

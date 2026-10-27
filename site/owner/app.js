@@ -30,6 +30,11 @@
   function err(id, msg) { $(id).textContent = msg || ""; show(id, !!msg); }
   function date(s) { return s ? String(s).slice(0, 10) : "—"; }
   function money(n) { return "$" + Math.round(n).toLocaleString("en-US"); }
+  // Cents, or four decimals for amounts under a cent so small usage still shows.
+  function usd(micro) {
+    var v = (micro || 0) / 1e6, a = Math.abs(v);
+    return (v < 0 ? "−$" : "$") + a.toFixed(a > 0 && a < 0.01 ? 4 : 2);
+  }
   function within(s, days) { return s && Date.now() - Date.parse(s) <= days * DAY; }
   function today() { return new Date().toISOString().slice(0, 10); }
 
@@ -103,6 +108,26 @@
         { text: l.price_usd_month == null ? "—" : money(l.price_usd_month), cls: "num" }, l.notes];
     }, "No licences recorded yet. Record each key you sign below.");
 
+    var ai = d.ai || [];
+    rows("ai", ai, function (a) {
+      var m = a.month || { requests: 0, tokens: 0, charged_micro: 0, cost_micro: 0, last_used: null };
+      var bal = el("span", usd(a.balance_micro), "pill " + (!a.active ? "" : a.balance_micro <= 0 ? "bad" : a.balance_micro < 5e6 ? "warn" : "good"));
+      var toggle = el("button", a.active ? "Turn off" : "Turn on", a.active ? "danger" : "");
+      toggle.type = "button";
+      toggle.addEventListener("click", function () {
+        if (a.active && !confirm("Turn off " + a.name + "? Their key stops working at once.")) return;
+        api("ai-active", "POST", { account_id: a.id, active: !a.active }).then(load, function (e) { err("error", e.message); });
+      });
+      return [a.name + (a.active ? "" : " (off)"), a.contact_email, bal, { text: m.requests, cls: "num" },
+        { text: m.tokens.toLocaleString("en-US"), cls: "num" }, { text: usd(m.charged_micro), cls: "num" },
+        { text: usd(m.cost_micro), cls: "num" }, date(m.last_used), toggle];
+    }, "No credit accounts yet. Create one below for a team that wants SayQL to provide the AI.");
+    var sel = $("ai-topup-account");
+    var keep = sel.value;
+    sel.textContent = "";
+    ai.forEach(function (a) { var o = el("option", a.name + " (" + usd(a.balance_micro) + ")"); o.value = a.id; sel.append(o); });
+    if (keep) sel.value = keep;
+
     rows("trials", d.trials, function (t) {
       return [date(t.created_at), t.company, t.email, t.size, t.server_version];
     }, "No trial sign-ups yet.");
@@ -162,6 +187,39 @@
 
   $("signout").addEventListener("click", function () {
     api("logout", "POST", {}).then(function () { location.reload(); });
+  });
+
+  $("ai-new").addEventListener("submit", function (ev) {
+    ev.preventDefault();
+    var f = ev.target;
+    err("ai-new-error", "");
+    api("ai-account", "POST", { name: f.name.value, contact_email: f.contact_email.value, initial_usd: f.initial_usd.value })
+      .then(function (r) {
+        f.reset();
+        $("ai-key-value").value = r.key;
+        show("ai-key", true);
+        return load();
+      }, function (e) { err("ai-new-error", e.message); });
+  });
+
+  $("ai-key-copy").addEventListener("click", function () {
+    var b = $("ai-key-copy");
+    navigator.clipboard.writeText($("ai-key-value").value).then(function () { b.textContent = "Copied"; },
+      function () { $("ai-key-value").select(); b.textContent = "Select it"; });
+    setTimeout(function () { b.textContent = "Copy"; }, 1500);
+  });
+
+  $("ai-topup").addEventListener("submit", function (ev) {
+    ev.preventDefault();
+    var f = ev.target;
+    err("ai-topup-error", "");
+    $("ai-topup-ok").textContent = "";
+    api("ai-topup", "POST", { account_id: Number(f.account_id.value), usd: f.usd.value, note: f.note.value, kind: f.adjust.checked ? "adjust" : "topup" })
+      .then(function (r) {
+        f.usd.value = ""; f.note.value = ""; f.adjust.checked = false;
+        $("ai-topup-ok").textContent = "Done. Balance " + usd(r.balance_micro) + ".";
+        return load();
+      }, function (e) { err("ai-topup-error", e.message); });
   });
 
   $("licence-form").addEventListener("submit", function (ev) {

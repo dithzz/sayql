@@ -58,6 +58,40 @@
       </form>
     </details>
 
+    <h2 class="section">AI credits <span class="subtle">this month, for teams without their own AI key</span></h2>
+    <div class="tablewrap"><table class="list">
+      <thead><tr><th>Team</th><th>Contact</th><th class="num">Balance</th><th class="num">Requests</th><th class="num">Tokens</th><th class="num">Charged</th><th class="num">Anthropic cost</th><th>Last used</th><th></th></tr></thead>
+      <tbody id="ai"></tbody>
+    </table></div>
+    <div class="grid">
+      <details class="card">
+        <summary>New credit account</summary>
+        <form id="ai-new">
+          <label>Team or company <input name="name" required autocomplete="off"></label>
+          <label>Contact email <input name="contact_email" type="email" autocomplete="off"></label>
+          <label>First top-up, USD <input name="initial_usd" inputmode="decimal" placeholder="50"></label>
+          <p class="error" id="ai-new-error" hidden></p>
+          <div class="actions left"><button type="submit" class="primary">Create</button></div>
+        </form>
+        <div id="ai-key" hidden>
+          <p class="notice warn">Copy this key now: it isn't shown again. Send it to the team's admin with the setup steps below.</p>
+          <div class="copyrow"><input id="ai-key-value" readonly><button type="button" id="ai-key-copy">Copy</button></div>
+          <p class="small muted">On their admin page → AI: provider <b>Anthropic</b>, base URL <code>https://sayql.dev/api/ai</code>, this key as the API key, models <code>claude-sonnet-5-5</code> and <code>claude-haiku-5-5</code> (or <code>claude-opus-5-5</code>).</p>
+        </div>
+      </details>
+      <details class="card">
+        <summary>Top up</summary>
+        <form id="ai-topup">
+          <label>Account <select name="account_id" id="ai-topup-account"></select></label>
+          <label>Amount, USD <input name="usd" inputmode="decimal" required placeholder="50"></label>
+          <label>Note <input name="note" autocomplete="off" placeholder="Dodo order, invoice number…"></label>
+          <label class="inline"><input type="checkbox" name="adjust"> Correction (may be negative)</label>
+          <p class="error" id="ai-topup-error" hidden></p>
+          <div class="actions left"><button type="submit" class="primary">Add</button><span class="small good" id="ai-topup-ok"></span></div>
+        </form>
+      </details>
+    </div>
+
     <h2 class="section">Trial sign-ups <span class="subtle">opt-in, from server admin pages</span></h2>
     <div class="tablewrap"><table class="list">
       <thead><tr><th>When</th><th>Company</th><th>Email</th><th>Team size</th><th>Server</th></tr></thead>

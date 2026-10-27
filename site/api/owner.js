@@ -36,6 +36,9 @@ export default async function handler(req, res) {
     if (!signedIn(req)) return res.status(401).json({ error: "Sign in first." });
     if (action === "data" && req.method === "GET") return res.status(200).json(await data(db));
     if (action === "licence" && req.method === "POST") return await recordLicence(req, res, db);
+    if (action === "ai-account" && req.method === "POST") return await createAiAccount(req, res, db);
+    if (action === "ai-topup" && req.method === "POST") return await topUpAi(req, res, db);
+    if (action === "ai-active" && req.method === "POST") return await setAiActive(req, res, db);
     return res.status(404).json({ error: "No such action." });
   } catch (e) {
     console.error("owner:", action, e.message);
@@ -108,7 +111,8 @@ function checkPassword(password, stored) {
 
 async function data(db) {
   const since = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-  const [waitlist, trials, licences, installs, downloads] = await Promise.all([
+  const month = new Date().toISOString().slice(0, 7) + "-01T00:00:00Z";
+  const [waitlist, trials, licences, installs, downloads, aiAccounts, aiMonth] = await Promise.all([
     select(db, "waitlist?select=email,interest,size,created_at&order=created_at.desc"),
     select(db, "trials?select=company,email,size,server_version,created_at&order=created_at.desc"),
     select(
@@ -117,8 +121,26 @@ async function data(db) {
     ),
     select(db, `install_runs?select=day,runs&day=gte.${since}&order=day.asc`),
     downloadCounts(),
+    select(db, "ai_accounts?select=id,name,contact_email,balance_micro,active,created_at&order=created_at.desc"),
+    select(
+      db,
+      `ai_ledger?select=account_id,kind,amount_micro,cost_micro,input_tokens,cache_write_tokens,cache_read_tokens,output_tokens,at&at=gte.${encodeURIComponent(month)}&order=at.desc&limit=5000`,
+    ),
   ]);
-  return { waitlist, trials, licences, installs, downloads, generated_at: new Date().toISOString() };
+  // Per account this month: requests, tokens, what customers paid and what Anthropic cost us.
+  const byAccount = {};
+  for (const r of aiMonth) {
+    const a = (byAccount[r.account_id] ||= { requests: 0, tokens: 0, charged_micro: 0, cost_micro: 0, topups_micro: 0, last_used: null });
+    if (r.kind === "usage") {
+      a.requests += 1;
+      a.tokens += (r.input_tokens || 0) + (r.cache_write_tokens || 0) + (r.cache_read_tokens || 0) + (r.output_tokens || 0);
+      a.charged_micro += -r.amount_micro;
+      a.cost_micro += r.cost_micro || 0;
+      a.last_used ||= r.at;
+    } else if (r.kind === "topup") a.topups_micro += r.amount_micro;
+  }
+  const ai = aiAccounts.map((a) => ({ ...a, month: byAccount[a.id] || null }));
+  return { waitlist, trials, licences, installs, downloads, ai, generated_at: new Date().toISOString() };
 }
 
 /** App downloads per release and platform, from GitHub's public counts (update checks excluded). */
@@ -201,6 +223,70 @@ function verifyLicence(key) {
   } catch {
     return null;
   }
+}
+
+// ---- AI credits ----
+
+/** A new credit account. Its key is returned this once; only a SHA-256 of it is kept. */
+async function createAiAccount(req, res, db) {
+  const b = body(req);
+  const name = String(b.name || "").trim().slice(0, 200);
+  if (!name) return res.status(400).json({ error: "Name the team or company." });
+  const email = String(b.contact_email || "").trim().toLowerCase().slice(0, 320) || null;
+  const key = "sqlc_" + crypto.randomBytes(24).toString("base64url");
+  const r = await fetch(`${db.url}/rest/v1/ai_accounts`, {
+    method: "POST",
+    headers: headers(db, { "Content-Type": "application/json", Prefer: "return=representation" }),
+    body: JSON.stringify({ name, contact_email: email, key_sha256: crypto.createHash("sha256").update(key).digest("hex") }),
+  });
+  if (!r.ok) throw new Error(`ai_accounts answered ${r.status}`);
+  const [account] = await r.json();
+  const dollars = Number(b.initial_usd || 0);
+  if (dollars > 0) await rpc(db, "ai_topup", { p_account: account.id, p_amount: Math.round(dollars * 1e6), p_kind: "topup", p_note: "first top-up" });
+  return res.status(200).json({ ok: true, id: account.id, key });
+}
+
+/** A top-up in USD (or, as an adjustment, a correction that may be negative). */
+async function topUpAi(req, res, db) {
+  const b = body(req);
+  const id = Number(b.account_id);
+  const dollars = Number(b.usd);
+  const kind = b.kind === "adjust" ? "adjust" : "topup";
+  if (!Number.isInteger(id)) return res.status(400).json({ error: "Pick an account." });
+  if (!Number.isFinite(dollars) || dollars === 0 || Math.abs(dollars) > 100_000 || (kind === "topup" && dollars < 0)) {
+    return res.status(400).json({ error: "Enter an amount in USD." });
+  }
+  const balance = await rpc(db, "ai_topup", {
+    p_account: id,
+    p_amount: Math.round(dollars * 1e6),
+    p_kind: kind,
+    p_note: String(b.note || "").trim().slice(0, 500) || null,
+  });
+  return res.status(200).json({ ok: true, balance_micro: balance });
+}
+
+/** Turns an account off (its key stops working at once) or back on. */
+async function setAiActive(req, res, db) {
+  const b = body(req);
+  const id = Number(b.account_id);
+  if (!Number.isInteger(id)) return res.status(400).json({ error: "Pick an account." });
+  const r = await fetch(`${db.url}/rest/v1/ai_accounts?id=eq.${id}`, {
+    method: "PATCH",
+    headers: headers(db, { "Content-Type": "application/json", Prefer: "return=minimal" }),
+    body: JSON.stringify({ active: !!b.active }),
+  });
+  if (!r.ok) throw new Error(`ai_accounts answered ${r.status}`);
+  return res.status(200).json({ ok: true });
+}
+
+async function rpc(db, fn, args) {
+  const r = await fetch(`${db.url}/rest/v1/rpc/${fn}`, {
+    method: "POST",
+    headers: headers(db, { "Content-Type": "application/json" }),
+    body: JSON.stringify(args),
+  });
+  if (!r.ok) throw new Error(`${fn} answered ${r.status}`);
+  return r.json();
 }
 
 // ---- Supabase ----
