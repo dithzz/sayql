@@ -519,19 +519,11 @@ section.block { padding: 80px 0 0; }
 .note { margin: 0; padding: 4px 0 4px 24px; border-left: 2px solid var(--color-border); color: var(--color-text-muted); }
 .note footer { margin-top: 12px; font-size: 14px; color: var(--color-text-subtle); }
 @media (max-width: 760px) { .free { grid-template-columns: 1fr; gap: 32px; } }
-.teams { display: grid; grid-template-columns: 1.1fr 1fr; gap: 48px; align-items: start; }
 .team-points { margin: 28px 0 0; padding: 0; list-style: none; display: grid; gap: 18px; }
 .team-points li { display: grid; grid-template-columns: 20px 1fr; gap: 12px; }
 .team-points .icon { margin-top: 3px; color: var(--color-accent); }
 .team-points strong { display: block; font-weight: 500; }
 .team-points span { color: var(--color-text-muted); }
-.team-side { display: grid; gap: 20px; min-width: 0; }
-.install { padding: 24px; border: 1px solid var(--color-accent); border-radius: var(--radius-lg); background: var(--color-surface); display: grid; gap: 12px; }
-.install h3 { font-size: 18px; }
-.install > * { min-width: 0; }
-.install p, .install ol { margin: 0; color: var(--color-text-muted); }
-.install ol { padding-left: 20px; display: grid; gap: 6px; font-size: 14px; }
-.install .small { margin-top: 0; }
 .install-cmd { display: flex; align-items: center; gap: 8px; padding: 6px 6px 6px 12px; border: 1px solid var(--color-border-strong); border-radius: var(--radius-md); background: var(--color-page); }
 .install-cmd code { flex: 1; min-width: 0; overflow-x: auto; white-space: nowrap; font: 400 13px/1.6 var(--font-mono); color: var(--color-text); }
 .btn-sm { height: 28px; padding: 0 10px; font-size: 13px; }
@@ -545,15 +537,25 @@ section.block { padding: 80px 0 0; }
 .waitlist .small { margin-top: 0; }
 .waitlist-status { min-height: 1.4em; font-size: 14px; color: var(--color-text-muted); }
 .waitlist-status.ok { color: var(--color-text); }
-@media (max-width: 760px) { .teams { grid-template-columns: 1fr; gap: 32px; } }
 
 /* teams: the admin page, drawn like the app demos */
-.admin-mock { margin-top: 32px; }
-.teams > div { min-width: 0; }
 .admin-mock .grid { overflow-x: auto; }
+#teams .b-wide .card-text { align-self: center; }
+#teams .team-points { margin: 0; gap: 20px; }
+.team-card { padding: 24px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; align-content: start; }
+.team-card h3 { font-size: 17px; }
+.team-card p { margin: 0; color: var(--color-text-muted); font-size: 15px; }
+.team-card .fine { font-size: 13.5px; color: var(--color-text-subtle); }
+.team-card .fine a { text-decoration: underline; text-underline-offset: 2px; }
+.team-card .waitlist { padding: 0; border: 0; background: none; gap: 12px; }
+.waitlist-row { display: flex; gap: 8px; }
+.waitlist-row > * { min-width: 0; }
+.waitlist-row .btn { height: 40px; flex: none; }
+@media (max-width: 560px) { .waitlist-row { flex-wrap: wrap; } .waitlist-row .btn { width: 100%; } }
+@media (max-width: 560px) { .admin-mock .titlebar .tag { display: none; } .admin-tabs { overflow: hidden; } }
 .admin-mock .titlebar .tag { position: absolute; right: 12px; }
 .admin-tabs { display: flex; gap: 2px; padding: 0 10px; border-bottom: 1px solid var(--color-border); background: var(--color-surface-muted); font-size: 12.5px; }
-.admin-tabs span { padding: 7px 9px; color: var(--color-text-muted); border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.admin-tabs span { white-space: nowrap; padding: 7px 9px; color: var(--color-text-muted); border-bottom: 2px solid transparent; margin-bottom: -1px; }
 .admin-tabs span.on { color: var(--color-text); border-bottom-color: var(--color-app-accent); font-weight: 500; }
 .admin-mock .grid table { width: 100%; }
 .admin-mock .grid tbody tr { opacity: 1; }
@@ -562,7 +564,6 @@ section.block { padding: 80px 0 0; }
 .st.ok { color: var(--color-success); background: var(--color-success-soft); }
 .st.no { color: var(--color-danger); background: var(--color-danger-soft); }
 .admin-mock .grid tr.refused td { background: var(--color-danger-soft); }
-.admin-foot { padding: 8px 12px; font-size: 12px; color: var(--color-text-subtle); border-top: 1px solid var(--color-border-subtle); }
 
 /* pricing */
 .plans { margin-top: 32px; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; max-width: 920px; }
@@ -965,67 +966,72 @@ section.block { padding: 80px 0 0; }
 </section>
 
 <section class="block" id="teams">
-  <div class="wrap teams">
-    <div>
-      <div class="head">
-        <h2>SayQL for teams</h2>
-        <p>Let analysts, support and product get answers from production, with the controls your security lead needs. It runs on your own servers, so your data never reaches us.</p>
-      </div>
-      <ul class="team-points">
-        <li><svg class="icon"><use href="#i-key"/></svg><div><strong>Shared connections</strong><span>Your team queries the databases you choose. Nobody sees the password.</span></div></li>
-        <li><svg class="icon"><use href="#i-scroll"/></svg><div><strong>Every query on record</strong><span>An audit log of who asked what, kept on your server.</span></div></li>
-        <li><svg class="icon"><use href="#i-lock"/></svg><div><strong>Rules the AI can't cross</strong><span>You decide what agent mode may see and which columns are never sent. Nobody can loosen it.</span></div></li>
-      </ul>
-      <div class="app admin-mock" role="img" aria-label="The SayQL server's admin page: the audit log lists who ran which query, from where, and a refused UPDATE">
-        <div class="titlebar"><div class="lights"><i></i><i></i><i></i></div>sayql.acme.com/admin<span class="tag">Your server</span></div>
-        <div class="admin-tabs"><span>Overview</span><span>Connections</span><span>People</span><span class="on">Audit log</span><span>AI</span></div>
-        <div class="grid">
-          <table>
-            <thead><tr><th>When</th><th>Who</th><th>Source</th><th>Status</th><th>Query</th></tr></thead>
-            <tbody>
-              <tr><td>09:42</td><td>ana@acme.com</td><td>Ask</td><td><span class="st ok">OK</span></td><td class="sql">SELECT country, COUNT(*) FROM customers…</td></tr>
-              <tr><td>09:40</td><td>raj@acme.com</td><td>Agent</td><td><span class="st ok">OK</span></td><td class="sql">SELECT date(created_at), COUNT(*) FROM orders…</td></tr>
-              <tr class="refused"><td>09:37</td><td>sam@acme.com</td><td>Editor</td><td><span class="st no">Refused</span></td><td class="sql">UPDATE orders SET status = 'shipped'…</td></tr>
-              <tr><td>09:31</td><td>ana@acme.com</td><td>Ask</td><td><span class="st ok">OK</span></td><td class="sql">SELECT plan, SUM(mrr) FROM subscriptions…</td></tr>
-            </tbody>
-          </table>
+  <div class="wrap">
+    <div class="head">
+      <h2>SayQL for teams</h2>
+      <p>Let analysts, support and product get answers from production, with the controls your security lead needs. It runs on your own servers, so your data never reaches us.</p>
+    </div>
+
+    <div class="cards bento">
+      <article class="card b-6 b-wide">
+        <div class="card-text">
+          <ul class="team-points">
+            <li><svg class="icon"><use href="#i-key"/></svg><div><strong>Shared connections</strong><span>Your team queries the databases you choose. Nobody sees the password.</span></div></li>
+            <li><svg class="icon"><use href="#i-scroll"/></svg><div><strong>Every query on record</strong><span>Who asked what, allowed or refused, kept on your server.</span></div></li>
+            <li><svg class="icon"><use href="#i-lock"/></svg><div><strong>Rules the AI can't cross</strong><span>You decide what agent mode may see and which columns are never sent.</span></div></li>
+          </ul>
         </div>
-        <div class="admin-foot">Every query, allowed or refused. Results are never stored.</div>
-      </div>
-      <p class="small">The desktop app stays free and open source. Paid plans add control for teams; nothing free ever moves behind a paywall (<a href="https://github.com/dithzz/sayql#how-sayql-is-funded">our principles</a>).</p>
+        <div class="app mini admin-mock" role="img" aria-label="The SayQL server's admin page: the audit log lists who ran which query, from where, and a refused UPDATE">
+          <div class="titlebar"><div class="lights"><i></i><i></i><i></i></div>sayql.acme.com/admin<span class="tag">Your server</span></div>
+          <div class="admin-tabs"><span>Overview</span><span>Connections</span><span>People</span><span class="on">Audit log</span><span>AI</span></div>
+          <div class="grid">
+            <table>
+              <thead><tr><th>When</th><th>Who</th><th>Source</th><th>Status</th><th>Query</th></tr></thead>
+              <tbody>
+                <tr><td>09:42</td><td>ana@acme.com</td><td>Ask</td><td><span class="st ok">OK</span></td><td class="sql">SELECT country, COUNT(*) FROM customers…</td></tr>
+                <tr><td>09:40</td><td>raj@acme.com</td><td>Agent</td><td><span class="st ok">OK</span></td><td class="sql">SELECT date(created_at), COUNT(*) FROM orders…</td></tr>
+                <tr class="refused"><td>09:37</td><td>sam@acme.com</td><td>Editor</td><td><span class="st no">Refused</span></td><td class="sql">UPDATE orders SET status = 'shipped'…</td></tr>
+                <tr><td>09:31</td><td>ana@acme.com</td><td>Ask</td><td><span class="st ok">OK</span></td><td class="sql">SELECT plan, SUM(mrr) FROM subscriptions…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </article>
+
+      <article class="card b-3 team-card">
+        <h3>Try it free for 30 days</h3>
+        <p>On any machine with Docker that can reach your database:</p>
+        <div class="install-cmd"><code id="install-cmd">curl -fsSL https://sayql.dev/install | sh</code><button class="btn btn-sm" type="button" id="install-copy">Copy</button></div>
+        <p class="fine">Open the admin link it prints, add a database and invite your team. Up to 10 people, no card. No company AI key? Use SayQL AI credits. <a href="/docs/teams/#set-up-a-team-server">Setup guide</a></p>
+      </article>
+
+      <article class="card b-3 team-card">
+        <form class="waitlist" id="waitlist" novalidate>
+          <h3>Want news, or help setting up?</h3>
+          <p>We'll reply in person. Only about SayQL for teams; unsubscribe any time.</p>
+          <div class="waitlist-row">
+            <input type="email" name="email" autocomplete="email" required placeholder="you@company.com" aria-label="Work email">
+            <button class="btn btn-primary" type="submit">Keep me posted</button>
+          </div>
+          <div class="waitlist-row">
+            <select name="interest" aria-label="Interested in">
+              <option value="team">For my team</option>
+              <option value="gateway">For our AI agents</option>
+              <option value="both">Both</option>
+            </select>
+            <select name="size" aria-label="Team size">
+              <option value="1-9">1 to 9 people</option>
+              <option value="10-49">10 to 49</option>
+              <option value="50-249">50 to 249</option>
+              <option value="250+">250 or more</option>
+            </select>
+          </div>
+          <input class="hp" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
+          <p class="waitlist-status" id="waitlist-status" role="status"></p>
+        </form>
+      </article>
     </div>
-    <div class="team-side">
-    <div class="install">
-      <h3>Try it free for 30 days</h3>
-      <p>On any machine with Docker that can reach your database, run:</p>
-      <div class="install-cmd"><code id="install-cmd">curl -fsSL https://sayql.dev/install | sh</code><button class="btn btn-sm" type="button" id="install-copy">Copy</button></div>
-      <ol>
-        <li>Open the admin link it prints.</li>
-        <li>Add a database. The page shows the SQL for a read-only login.</li>
-        <li>Invite your team. Each link opens the SayQL app and signs them in.</li>
-      </ol>
-      <p class="small">Up to 10 people, no card or licence key needed. Give it a domain and HTTPS is set up for you. No company AI key? Use SayQL AI credits. <a href="/docs/teams/#set-up-a-team-server">Setup guide</a></p>
-    </div>
-    <form class="waitlist" id="waitlist" novalidate>
-      <h3>Want news, or help setting up?</h3>
-      <label>Work email<input type="email" name="email" autocomplete="email" required placeholder="you@company.com"></label>
-      <label>Interested in<select name="interest">
-        <option value="team">SayQL for my team</option>
-        <option value="gateway">Safe database access for our AI agents</option>
-        <option value="both">Both</option>
-      </select></label>
-      <label>Team size<select name="size">
-        <option value="1-9">1 to 9 people</option>
-        <option value="10-49">10 to 49</option>
-        <option value="50-249">50 to 249</option>
-        <option value="250+">250 or more</option>
-      </select></label>
-      <input class="hp" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
-      <button class="btn btn-lg" type="submit">Keep me posted</button>
-      <p class="waitlist-status" id="waitlist-status" role="status"></p>
-      <p class="small">We only email you about SayQL for teams. Unsubscribe any time.</p>
-    </form>
-    </div>
+    <p class="small">The desktop app stays free and open source. Paid plans add control for teams; nothing free ever moves behind a paywall (<a href="https://github.com/dithzz/sayql#how-sayql-is-funded">our principles</a>).</p>
   </div>
 </section>
 
