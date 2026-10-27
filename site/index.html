@@ -446,7 +446,7 @@ p { text-wrap: pretty; }
 @media (max-width: 640px) { .support-row { grid-template-columns: minmax(0, 1fr); gap: 8px; } }
 
 /* sections */
-section.block { padding: 96px 0 0; }
+section.block { padding: 80px 0 0; }
 .head { max-width: 36em; }
 .head h2 { font-size: clamp(28px, 3.6vw, 36px); line-height: 1.15; }
 .head p { margin-top: 12px; font-size: 17px; color: var(--color-text-muted); }
@@ -528,6 +528,7 @@ section.block { padding: 96px 0 0; }
 .team-side { display: grid; gap: 20px; min-width: 0; }
 .install { padding: 24px; border: 1px solid var(--color-accent); border-radius: var(--radius-lg); background: var(--color-surface); display: grid; gap: 12px; }
 .install h3 { font-size: 18px; }
+.install > * { min-width: 0; }
 .install p, .install ol { margin: 0; color: var(--color-text-muted); }
 .install ol { padding-left: 20px; display: grid; gap: 6px; font-size: 14px; }
 .install .small { margin-top: 0; }
@@ -546,6 +547,45 @@ section.block { padding: 96px 0 0; }
 .waitlist-status.ok { color: var(--color-text); }
 @media (max-width: 760px) { .teams { grid-template-columns: 1fr; gap: 32px; } }
 
+/* teams: the admin page, drawn like the app demos */
+.admin-mock { margin-top: 32px; }
+.teams > div { min-width: 0; }
+.admin-mock .grid { overflow-x: auto; }
+.admin-mock .titlebar .tag { position: absolute; right: 12px; }
+.admin-tabs { display: flex; gap: 2px; padding: 0 10px; border-bottom: 1px solid var(--color-border); background: var(--color-surface-muted); font-size: 12.5px; }
+.admin-tabs span { padding: 7px 9px; color: var(--color-text-muted); border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.admin-tabs span.on { color: var(--color-text); border-bottom-color: var(--color-app-accent); font-weight: 500; }
+.admin-mock .grid table { width: 100%; }
+.admin-mock .grid tbody tr { opacity: 1; }
+.admin-mock .grid td.sql { font-size: 11.5px; color: var(--color-text-muted); max-width: 240px; overflow: hidden; text-overflow: ellipsis; }
+.st { display: inline-block; font: 600 10.5px/1 var(--font-sans); padding: 3px 6px; border-radius: 3px; letter-spacing: 0.2px; }
+.st.ok { color: var(--color-success); background: var(--color-success-soft); }
+.st.no { color: var(--color-danger); background: var(--color-danger-soft); }
+.admin-mock .grid tr.refused td { background: var(--color-danger-soft); }
+.admin-foot { padding: 8px 12px; font-size: 12px; color: var(--color-text-subtle); border-top: 1px solid var(--color-border-subtle); }
+
+/* pricing */
+.plans { margin-top: 32px; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; max-width: 920px; }
+.plan { padding: 28px; border: 1px solid var(--color-border); border-radius: var(--radius-card); background: var(--color-surface); display: flex; flex-direction: column; gap: 14px; }
+.plan.featured { border-color: var(--color-accent); box-shadow: 0 0 0 1px var(--color-accent); }
+.plan h3 { font-size: 18px; display: flex; align-items: center; gap: 8px; }
+.price { font-size: 36px; font-weight: 600; letter-spacing: -0.03em; line-height: 1; }
+.price small { font-size: 15px; font-weight: 400; letter-spacing: 0; color: var(--color-text-muted); }
+.plan ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; font-size: 15px; color: var(--color-text-muted); }
+.plan li { display: grid; grid-template-columns: 18px 1fr; gap: 8px; }
+.plan li .icon { margin-top: 3px; width: 16px; height: 16px; color: var(--color-success); }
+.plan .actions { margin-top: auto; padding-top: 6px; }
+.plans-note { margin-top: 16px; max-width: 920px; font-size: 14px; color: var(--color-text-muted); }
+@media (max-width: 760px) { .plans { grid-template-columns: 1fr; } }
+
+/* hero: what's new, and where the download goes */
+.eyebrow { display: inline-flex; align-items: center; gap: 8px; margin-bottom: 20px; padding: 4px 12px 4px 4px; border: 1px solid var(--color-border); border-radius: 999px; background: var(--color-surface); font-size: 13.5px; color: var(--color-text-muted); }
+.eyebrow:hover { border-color: var(--color-border-strong); color: var(--color-text); }
+.eyebrow .tag { color: var(--color-accent); background: var(--color-app-accent-soft); }
+.meta a { text-decoration: underline; text-underline-offset: 2px; }
+.meta a:hover { color: var(--color-text); }
+.meta + .meta { margin-top: 4px; }
+
 /* faq */
 .faq { margin-top: 32px; border-top: 1px solid var(--color-border); max-width: 760px; }
 .faq details { border-bottom: 1px solid var(--color-border); }
@@ -556,7 +596,7 @@ section.block { padding: 96px 0 0; }
 .faq details p { padding: 0 32px 20px 0; color: var(--color-text-muted); }
 
 /* footer */
-.site-footer { margin-top: 112px; border-top: 1px solid var(--color-border-subtle); padding: 32px 0 calc(32px + env(safe-area-inset-bottom, 0px)); font-size: 14px; color: var(--color-text-muted); }
+.site-footer { margin-top: 96px; border-top: 1px solid var(--color-border-subtle); padding: 32px 0 calc(32px + env(safe-area-inset-bottom, 0px)); font-size: 14px; color: var(--color-text-muted); }
 .site-footer .wrap { display: flex; flex-wrap: wrap; align-items: center; gap: 16px 28px; }
 .site-footer nav { display: flex; flex-wrap: wrap; gap: 8px 20px; margin-left: auto; }
 .site-footer a:hover { color: var(--color-text); }
@@ -567,7 +607,7 @@ section.block { padding: 96px 0 0; }
 <script defer src="/_vercel/insights/script.js"></script>
 <script type="application/ld+json">{"@context": "https://schema.org", "@type": "SoftwareApplication", "name": "SayQL", "alternateName": "SayQL Community Edition", "description": "Ask your database in plain English: SayQL writes the SQL and runs it read-only. Free, open-source text-to-SQL for PostgreSQL, MySQL, SQLite and SQL Server.", "url": "https://sayql.dev/", "image": "https://sayql.dev/og.png", "applicationCategory": "DeveloperApplication", "operatingSystem": "macOS, Windows, Linux", "downloadUrl": "https://github.com/dithzz/sayql-releases/releases/latest", "license": "https://www.apache.org/licenses/LICENSE-2.0", "isAccessibleForFree": true, "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}, "author": {"@type": "Person", "name": "Adith L S", "url": "https://github.com/dithzz"}, "sameAs": ["https://github.com/dithzz/sayql"]}</script>
 <script type="application/ld+json">{"@context": "https://schema.org", "@type": "WebSite", "name": "SayQL", "url": "https://sayql.dev/"}</script>
-<!-- faq-jsonld --><script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "What is SayQL?", "acceptedAnswer": {"@type": "Answer", "text": "A free, open-source desktop app that turns plain English into SQL (text-to-SQL) for PostgreSQL, MySQL, SQLite and SQL Server. It knows your schema and runs queries read-only."}}, {"@type": "Question", "name": "Do I need to know SQL?", "acceptedAnswer": {"@type": "Answer", "text": "No. The SQL is always in front of you, so you’ll pick it up along the way."}}, {"@type": "Question", "name": "What does the AI see?", "acceptedAnswer": {"@type": "Answer", "text": "Your question and your table and column names. When a query fails, the SQL and the error too. Never the rows in your tables, unless you turn on agent mode for a connection, and then only what you allow for it. With Ollama or LM Studio, nothing leaves your computer."}}, {"@type": "Question", "name": "Can it break my database?", "acceptedAnswer": {"@type": "Answer", "text": "Queries run read-only, and the database enforces it too. An UPDATE or DELETE always stops for your confirmation first."}}, {"@type": "Question", "name": "What does it cost?", "acceptedAnswer": {"@type": "Answer", "text": "SayQL is free. You pay your AI provider for what you use, with your own key, or nothing with a local model. SayQL for teams, a server your company runs for shared connections and an audit log, is free for 30 days and paid after that."}}, {"@type": "Question", "name": "Why does my computer warn me on first launch?", "acceptedAnswer": {"@type": "Answer", "text": "Early-access builds aren’t code-signed with Apple or Microsoft yet. Confirm the first launch once and it opens normally after that. Updates are signed with SayQL’s own key."}}]}</script><!-- /faq-jsonld -->
+<!-- faq-jsonld --><script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "What is SayQL?", "acceptedAnswer": {"@type": "Answer", "text": "A free, open-source desktop app that turns plain English into SQL (text-to-SQL) for PostgreSQL, MySQL, SQLite and SQL Server. It knows your schema and runs queries read-only."}}, {"@type": "Question", "name": "Do I need to know SQL?", "acceptedAnswer": {"@type": "Answer", "text": "No. The SQL is always in front of you, so you’ll pick it up along the way."}}, {"@type": "Question", "name": "What does the AI see?", "acceptedAnswer": {"@type": "Answer", "text": "Your question and your table and column names. When a query fails, the SQL and the error too. Never the rows in your tables, unless you turn on agent mode for a connection, and then only what you allow for it. With Ollama or LM Studio, nothing leaves your computer."}}, {"@type": "Question", "name": "Can it break my database?", "acceptedAnswer": {"@type": "Answer", "text": "Queries run read-only, and the database enforces it too. An UPDATE or DELETE always stops for your confirmation first."}}, {"@type": "Question", "name": "What does it cost?", "acceptedAnswer": {"@type": "Answer", "text": "SayQL is free. You pay your AI provider for what you use, with your own key, or nothing with a local model. SayQL for teams, a server your company runs for shared connections and an audit log, is free for 30 days, then $149 a month for up to 10 people."}}, {"@type": "Question", "name": "Can I use SayQL without an AI key?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. Run a model on your computer with Ollama or LM Studio, at no cost, or use SayQL AI credits: prepaid Claude from SayQL, with no Anthropic account. With credits, your question and table names go through SayQL to Anthropic, and SayQL keeps only token counts."}}, {"@type": "Question", "name": "Where does my data go with SayQL for teams?", "acceptedAnswer": {"@type": "Answer", "text": "Nowhere near us. The server runs on your machines: passwords, queries and the audit log stay there, and the licence is checked offline. The one exception is SayQL AI credits, if your admin chooses them: AI requests then pass through SayQL on their way to Anthropic, and only token counts are kept."}}, {"@type": "Question", "name": "What happens when the trial ends?", "acceptedAnswer": {"@type": "Answer", "text": "Queries on team connections pause until an admin pastes a licence key on the admin page. Nothing is deleted, and everyone’s own SayQL keeps working as before."}}, {"@type": "Question", "name": "Why does my computer warn me on first launch?", "acceptedAnswer": {"@type": "Answer", "text": "Early-access builds aren’t code-signed with Apple or Microsoft yet. Confirm the first launch once and it opens normally after that. Updates are signed with SayQL’s own key."}}]}</script><!-- /faq-jsonld -->
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -620,6 +660,7 @@ section.block { padding: 96px 0 0; }
       <a href="#features">Features</a>
       <a href="#demo">Demo</a>
       <a href="#teams">Teams</a>
+      <a href="#pricing">Pricing</a>
       <a href="/docs/">Docs</a>
     </nav>
     <div class="nav-end">
@@ -636,13 +677,15 @@ section.block { padding: 96px 0 0; }
 <main>
 <section class="hero">
   <div class="wrap">
+    <a class="eyebrow" href="#teams"><span class="tag">New</span>SayQL for teams: one command, free for 30 days</a>
     <h1>Say what you need. <span>It knows your schema.</span></h1>
     <p class="lede">The safe way to query production databases, without being a SQL expert.</p>
     <div class="actions">
-      <a class="btn btn-primary btn-lg" href="/download/"><svg class="icon"><use href="#i-download"/></svg>Download for free</a>
+      <a class="btn btn-primary btn-lg" href="/download/" data-dl="auto"><svg class="icon"><use href="#i-download"/></svg><span data-dl-label>Download for free</span></a>
       <a class="btn btn-lg" href="https://github.com/dithzz/sayql"><svg class="icon"><use href="#i-github"/></svg>View on GitHub</a>
     </div>
-    <p class="meta">macOS, Windows and Linux · Open source, Apache 2.0<span data-downloads hidden> · <span data-downloads-count></span> downloads</span></p>
+    <p class="meta"><span data-dl-meta>macOS, Windows and Linux</span> · Open source, Apache 2.0<span data-downloads hidden> · <span data-downloads-count></span> downloads</span><span data-stars hidden> · <a href="https://github.com/dithzz/sayql/stargazers">★ <span data-stars-count></span> on GitHub</a></span></p>
+    <p class="meta" data-dl-other hidden></p>
 
     <div class="app window" id="hero-demo" role="img" aria-label="Demo: SayQL turns a plain-English question and the /pii-safe skill into SQL as you type, then runs it read-only; with /agent it investigates a question in read-only steps and answers with the queries behind it">
       <div class="titlebar"><div class="lights"><i></i><i></i><i></i></div>SayQL</div>
@@ -802,13 +845,13 @@ section.block { padding: 96px 0 0; }
       <article class="card b-2">
         <div class="card-text">
           <h3>Any AI, or a local one</h3>
-          <p>Bring your own key, or run a model with Ollama or LM Studio.</p>
+          <p>Bring your own key, run a model with Ollama or LM Studio, or use SayQL AI credits: Claude without an Anthropic account.</p>
         </div>
         <div class="app mini" id="demo-ai" role="img" aria-label="Demo: choosing an AI provider in SayQL">
           <div class="providers">
             <div class="prov" data-p><b>Anthropic Claude <span class="badge rec">Recommended</span></b><span>Tuned for SayQL.</span></div>
             <div class="prov" data-p><b>OpenAI</b><span>GPT models with your key.</span></div>
-            <div class="prov" data-p><b>Google Gemini</b><span>Gemini with an AI Studio key.</span></div>
+            <div class="prov" data-p><b>SayQL AI credits</b><span>Prepaid Claude, no account.</span></div>
             <div class="prov" data-p><b>Ollama <span class="badge local">On this computer</span></b><span>Nothing leaves your machine.</span></div>
           </div>
           <div class="fieldset">
@@ -908,11 +951,11 @@ section.block { padding: 96px 0 0; }
         <p>SayQL Community Edition is free for personal and commercial use. No account, no telemetry.</p>
       </div>
       <div class="actions">
-        <a class="btn btn-primary btn-lg" href="/download/">macOS</a>
-        <a class="btn btn-lg" href="/download/">Windows</a>
-        <a class="btn btn-lg" href="/download/">Linux</a>
+        <a class="btn btn-primary btn-lg" href="/download/" data-dl="mac">macOS</a>
+        <a class="btn btn-lg" href="/download/" data-dl="windows">Windows</a>
+        <a class="btn btn-lg" href="/download/" data-dl="linux">Linux</a>
       </div>
-      <p class="small">Linux: .AppImage, .deb or .rpm. Early-access builds aren’t code-signed yet, so confirm the first launch once (<a href="/docs/install/">how</a>). Updates are signed.</p>
+      <p class="small"><span data-version hidden>Version <span data-version-number></span>. </span>The macOS button is for Apple silicon; <a href="/download/" data-dl="mac-intel">Intel Macs use this one</a>. Linux: .AppImage, or <a href="/download/">.deb and .rpm</a>. Early-access builds aren’t code-signed yet, so confirm the first launch once (<a href="/docs/install/">how</a>). Updates are signed.</p>
     </div>
     <blockquote class="note">
       <p>“I knew what I wanted to ask my databases, but not always how to write it. So I built SayQL, and made it free.”</p>
@@ -933,6 +976,22 @@ section.block { padding: 96px 0 0; }
         <li><svg class="icon"><use href="#i-scroll"/></svg><div><strong>Every query on record</strong><span>An audit log of who asked what, kept on your server.</span></div></li>
         <li><svg class="icon"><use href="#i-lock"/></svg><div><strong>Rules the AI can't cross</strong><span>You decide what agent mode may see and which columns are never sent. Nobody can loosen it.</span></div></li>
       </ul>
+      <div class="app admin-mock" role="img" aria-label="The SayQL server's admin page: the audit log lists who ran which query, from where, and a refused UPDATE">
+        <div class="titlebar"><div class="lights"><i></i><i></i><i></i></div>sayql.acme.com/admin<span class="tag">Your server</span></div>
+        <div class="admin-tabs"><span>Overview</span><span>Connections</span><span>People</span><span class="on">Audit log</span><span>AI</span></div>
+        <div class="grid">
+          <table>
+            <thead><tr><th>When</th><th>Who</th><th>Source</th><th>Status</th><th>Query</th></tr></thead>
+            <tbody>
+              <tr><td>09:42</td><td>ana@acme.com</td><td>Ask</td><td><span class="st ok">OK</span></td><td class="sql">SELECT country, COUNT(*) FROM customers…</td></tr>
+              <tr><td>09:40</td><td>raj@acme.com</td><td>Agent</td><td><span class="st ok">OK</span></td><td class="sql">SELECT date(created_at), COUNT(*) FROM orders…</td></tr>
+              <tr class="refused"><td>09:37</td><td>sam@acme.com</td><td>Editor</td><td><span class="st no">Refused</span></td><td class="sql">UPDATE orders SET status = 'shipped'…</td></tr>
+              <tr><td>09:31</td><td>ana@acme.com</td><td>Ask</td><td><span class="st ok">OK</span></td><td class="sql">SELECT plan, SUM(mrr) FROM subscriptions…</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="admin-foot">Every query, allowed or refused. Results are never stored.</div>
+      </div>
       <p class="small">The desktop app stays free and open source. Paid plans add control for teams; nothing free ever moves behind a paywall (<a href="https://github.com/dithzz/sayql#how-sayql-is-funded">our principles</a>).</p>
     </div>
     <div class="team-side">
@@ -945,7 +1004,7 @@ section.block { padding: 96px 0 0; }
         <li>Add a database. The page shows the SQL for a read-only login.</li>
         <li>Invite your team. Each link opens the SayQL app and signs them in.</li>
       </ol>
-      <p class="small">Up to 10 people, no card or licence key needed. Give it a domain and HTTPS is set up for you. When you're ready to buy, email <a href="mailto:hello@azenvoc.com">hello@azenvoc.com</a>. <a href="/docs/teams/#set-up-a-team-server">Setup guide</a></p>
+      <p class="small">Up to 10 people, no card or licence key needed. Give it a domain and HTTPS is set up for you. No company AI key? Use SayQL AI credits. <a href="/docs/teams/#set-up-a-team-server">Setup guide</a></p>
     </div>
     <form class="waitlist" id="waitlist" novalidate>
       <h3>Want news, or help setting up?</h3>
@@ -969,6 +1028,45 @@ section.block { padding: 96px 0 0; }
     </div>
   </div>
 </section>
+
+<section class="block" id="pricing">
+  <div class="wrap">
+    <div class="head">
+      <h2>Pricing</h2>
+      <p>Free for you. Paid when your team needs control.</p>
+    </div>
+    <div class="plans">
+      <article class="plan">
+        <h3>Community</h3>
+        <div class="price">$0 <small>forever</small></div>
+        <ul>
+          <li><svg class="icon"><use href="#i-check"/></svg>Everything one person needs, at work too</li>
+          <li><svg class="icon"><use href="#i-check"/></svg>Ask box, agent mode, skills, MCP and voice</li>
+          <li><svg class="icon"><use href="#i-check"/></svg>Your own AI key, a local model, or SayQL AI credits</li>
+          <li><svg class="icon"><use href="#i-check"/></svg>Open source, Apache 2.0</li>
+        </ul>
+        <div class="actions"><a class="btn btn-lg" href="#download">Download</a></div>
+      </article>
+      <article class="plan featured">
+        <h3>Team</h3>
+        <div class="price">$149 <small>a month, up to 10 people</small></div>
+        <ul>
+          <li><svg class="icon"><use href="#i-check"/></svg>Shared connections, no passwords on laptops</li>
+          <li><svg class="icon"><use href="#i-check"/></svg>Audit log of every query, allowed or refused</li>
+          <li><svg class="icon"><use href="#i-check"/></svg>Admin rules for what the AI may see</li>
+          <li><svg class="icon"><use href="#i-check"/></svg>One company AI key with monthly limits</li>
+          <li><svg class="icon"><use href="#i-check"/></svg>Runs on your servers; your data never reaches us</li>
+        </ul>
+        <div class="actions">
+          <a class="btn btn-primary btn-lg" href="#teams">Try free for 30 days</a>
+          <a class="btn btn-lg" href="mailto:hello@azenvoc.com?subject=SayQL%20for%20teams">Buy</a>
+        </div>
+      </article>
+    </div>
+    <p class="plans-note">No card for the trial. To buy, email <a href="mailto:hello@azenvoc.com">hello@azenvoc.com</a>; you get a licence key to paste on your admin page. SayQL AI credits are prepaid and optional, charged at Anthropic's prices plus a small margin.</p>
+  </div>
+</section>
+
 <section class="block" id="faq">
   <div class="wrap">
     <div class="head"><h2>Questions</h2></div>
@@ -991,7 +1089,19 @@ section.block { padding: 96px 0 0; }
       </details>
       <details>
         <summary>What does it cost?<svg class="icon"><use href="#i-plus"/></svg></summary>
-        <p>SayQL is free. You pay your AI provider for what you use, with your own key, or nothing with a local model. SayQL for teams, a server your company runs for shared connections and an audit log, is free for 30 days and paid after that.</p>
+        <p>SayQL is free. You pay your AI provider for what you use, with your own key, or nothing with a local model. SayQL for teams, a server your company runs for shared connections and an audit log, is free for 30 days, then $149 a month for up to 10 people.</p>
+      </details>
+      <details>
+        <summary>Can I use SayQL without an AI key?<svg class="icon"><use href="#i-plus"/></svg></summary>
+        <p>Yes. Run a model on your computer with Ollama or LM Studio, at no cost, or use SayQL AI credits: prepaid Claude from SayQL, with no Anthropic account. With credits, your question and table names go through SayQL to Anthropic, and SayQL keeps only token counts.</p>
+      </details>
+      <details>
+        <summary>Where does my data go with SayQL for teams?<svg class="icon"><use href="#i-plus"/></svg></summary>
+        <p>Nowhere near us. The server runs on your machines: passwords, queries and the audit log stay there, and the licence is checked offline. The one exception is SayQL AI credits, if your admin chooses them: AI requests then pass through SayQL on their way to Anthropic, and only token counts are kept.</p>
+      </details>
+      <details>
+        <summary>What happens when the trial ends?<svg class="icon"><use href="#i-plus"/></svg></summary>
+        <p>Queries on team connections pause until an admin pastes a licence key on the admin page. Nothing is deleted, and everyone’s own SayQL keeps working as before.</p>
       </details>
       <details>
         <summary>Why does my computer warn me on first launch?<svg class="icon"><use href="#i-plus"/></svg></summary>
@@ -1453,7 +1563,7 @@ section.block { padding: 96px 0 0; }
     var STATES = [
       ["Anthropic Claude API key", "Saved in Keychain", KEYCHAIN],
       ["OpenAI API key", "Saved in Keychain", KEYCHAIN],
-      ["Google Gemini API key", "Saved in Keychain", KEYCHAIN],
+      ["Credit key", "Saved in Keychain", "Prepaid from SayQL. Requests go through SayQL to Anthropic."],
       ["Ollama address", "http://localhost:11434", "No key needed. Nothing leaves your machine."]
     ];
     function select(i) {
@@ -1466,37 +1576,114 @@ section.block { padding: 96px 0 0; }
     }, function () { select(0); });
   })();
 
-  /* download count
-   * Installer downloads across all published releases, from GitHub's public API.
-   * Update packages and signatures aren't counted. Hidden below MIN_DOWNLOADS. */
+  /* downloads: count, current version and direct installer links
+   * From GitHub's public API, cached for an hour (60 unauthenticated requests an hour per visitor).
+   * The count covers installers only, not update packages or signatures, and is hidden below
+   * MIN_DOWNLOADS. Without the API (offline, rate-limited) every button keeps going to /download/. */
   var RELEASES_API = "https://api.github.com/repos/dithzz/sayql-releases/releases?per_page=100";
+  var REPO_API = "https://api.github.com/repos/dithzz/sayql";
   var MIN_DOWNLOADS = 100;
+  var MIN_STARS = 25;
   var INSTALLER = /\.(dmg|exe|msi|AppImage|deb|rpm)$/i;
-  var CACHE_KEY = "sayql-site-downloads";
+  var CACHE_KEY = "sayql-site-releases";
+  var BUILDS = {
+    mac: { match: /_aarch64\.dmg$/, label: "macOS", note: "Apple silicon" },
+    "mac-intel": { match: /_x64\.dmg$/, label: "macOS", note: "Intel" },
+    windows: { match: /_x64-setup\.exe$/, label: "Windows", note: "64-bit" },
+    linux: { match: /_amd64\.AppImage$/, label: "Linux", note: ".AppImage" }
+  };
 
-  function showDownloads(n) {
-    if (!(n >= MIN_DOWNLOADS)) return;
-    document.querySelectorAll("[data-downloads-count]").forEach(function (el) { el.textContent = n.toLocaleString("en-US"); });
-    document.querySelectorAll("[data-downloads]").forEach(function (el) { el.hidden = false; });
+  function cache(key, fetcher, use) {
+    try {
+      var hit = JSON.parse(localStorage.getItem(key) || "null");
+      if (hit && Date.now() - hit.at < 3600 * 1000) return use(hit.v);
+    } catch (e) {}
+    if (!window.fetch) return;
+    fetcher().then(function (v) {
+      try { localStorage.setItem(key, JSON.stringify({ v: v, at: Date.now() })); } catch (e) {}
+      use(v);
+    }).catch(function () {});
   }
-  try {
-    var cached = JSON.parse(localStorage.getItem(CACHE_KEY) || "null");
-    // GitHub allows 60 unauthenticated requests an hour per visitor; an hour's cache is plenty.
-    if (cached && Date.now() - cached.at < 3600 * 1000) { showDownloads(cached.n); return; }
-  } catch (e) {}
-  if (!window.fetch) return;
-  fetch(RELEASES_API, { headers: { Accept: "application/vnd.github+json" } })
-    .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
-    .then(function (releases) {
-      var n = 0;
+  function getJson(url) {
+    return fetch(url, { headers: { Accept: "application/vnd.github+json" } }).then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); });
+  }
+
+  /* Which build this visitor wants. Browsers that say so tell Intel Macs apart; others get Apple silicon. */
+  function detect() {
+    var ua = navigator.userAgent || "", p = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || "";
+    if (/android|iphone|ipad|ipod/i.test(ua)) return Promise.resolve(null);
+    if (/mac/i.test(p)) {
+      var uad = navigator.userAgentData;
+      if (uad && uad.getHighEntropyValues) {
+        return uad.getHighEntropyValues(["architecture"]).then(function (v) { return v.architecture === "x86" ? "mac-intel" : "mac"; }, function () { return "mac"; });
+      }
+      return Promise.resolve("mac");
+    }
+    if (/win/i.test(p)) return Promise.resolve("windows");
+    if (/linux/i.test(p)) return Promise.resolve("linux");
+    return Promise.resolve(null);
+  }
+
+  cache(CACHE_KEY, function () {
+    return getJson(RELEASES_API).then(function (releases) {
+      var n = 0, latest = null;
       releases.forEach(function (rel) {
         if (rel.draft) return;
+        if (!latest && !rel.prerelease) latest = rel;
         (rel.assets || []).forEach(function (a) { if (INSTALLER.test(a.name)) n += a.download_count || 0; });
       });
-      try { localStorage.setItem(CACHE_KEY, JSON.stringify({ n: n, at: Date.now() })); } catch (e) {}
-      showDownloads(n);
-    })
-    .catch(function () { /* offline or rate-limited: no count */ });
+      var links = {};
+      if (latest) {
+        Object.keys(BUILDS).forEach(function (k) {
+          (latest.assets || []).forEach(function (a) { if (BUILDS[k].match.test(a.name)) links[k] = a.browser_download_url; });
+        });
+      }
+      return { n: n, version: latest ? latest.tag_name.replace(/^v/, "") : null, links: links };
+    });
+  }, function (v) {
+    if (v.n >= MIN_DOWNLOADS) {
+      document.querySelectorAll("[data-downloads-count]").forEach(function (el) { el.textContent = v.n.toLocaleString("en-US"); });
+      document.querySelectorAll("[data-downloads]").forEach(function (el) { el.hidden = false; });
+    }
+    if (v.version) {
+      document.querySelectorAll("[data-version-number]").forEach(function (el) { el.textContent = v.version; });
+      document.querySelectorAll("[data-version]").forEach(function (el) { el.hidden = false; });
+    }
+    // The download section's buttons go straight to each installer.
+    document.querySelectorAll("[data-dl]").forEach(function (a) {
+      var k = a.getAttribute("data-dl");
+      if (v.links[k]) a.href = v.links[k];
+    });
+    // The hero button: this visitor's installer, named, with the version.
+    detect().then(function (k) {
+      var hero = document.querySelector('[data-dl="auto"]');
+      if (!k || !v.links[k] || !hero) return;
+      hero.href = v.links[k];
+      hero.querySelector("[data-dl-label]").textContent = "Download for " + BUILDS[k].label;
+      document.querySelector("[data-dl-meta]").textContent = "Version " + v.version + " · " + BUILDS[k].note;
+      var other = document.querySelector("[data-dl-other]"), alt = k === "mac" ? "mac-intel" : k === "mac-intel" ? "mac" : null;
+      other.textContent = "";
+      if (alt && v.links[alt]) {
+        var a = document.createElement("a");
+        a.href = v.links[alt];
+        a.textContent = alt === "mac-intel" ? "Intel Mac?" : "Apple silicon Mac?";
+        other.append(a, " · ");
+      }
+      var all = document.createElement("a");
+      all.href = "/download/";
+      all.textContent = "Other systems and formats";
+      other.append(all);
+      other.hidden = false;
+    });
+  });
+
+  cache("sayql-site-stars", function () {
+    return getJson(REPO_API).then(function (repo) { return repo.stargazers_count; });
+  }, function (stars) {
+    if (!(stars >= MIN_STARS)) return;
+    document.querySelectorAll("[data-stars-count]").forEach(function (el) { el.textContent = stars.toLocaleString("en-US"); });
+    document.querySelectorAll("[data-stars]").forEach(function (el) { el.hidden = false; });
+  });
 })();
 </script>
 </body>
