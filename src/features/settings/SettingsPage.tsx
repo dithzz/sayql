@@ -50,7 +50,13 @@ interface Draft {
 const draftOf = (p: AiProvider): Draft => ({ baseUrl: p.baseUrl, typingModel: p.typingModel, expertModel: p.expertModel, apiKey: "" });
 
 /** Where the question and schema go, in one sentence. Local providers say so in their note. */
+/** SayQL AI credits: Claude through SayQL's service, with a prepaid credit key. */
+const SAYQL_CREDITS = "sayql";
+
 function privacyNote(p: AiProvider): string {
+  if (p.id === SAYQL_CREDITS) {
+    return "Your question and table and column names go through SayQL to Anthropic, never the data in your tables. SayQL keeps only token counts.";
+  }
   const to = p.key === "optional" ? "your server" : p.label;
   return `Your question and table and column names are sent to ${to}, never the data in your tables.`;
 }
@@ -168,7 +174,11 @@ export function SettingsPage({ settings, onClose, onSaved, onShowSetup, skills, 
               </Field>
 
               {provider.key !== "none" && (
-                <Field label={`${provider.label} API key`} optional={provider.key === "optional"} hint={`Stored in your system keychain. ${privacyNote(provider)}`}>
+                <Field
+                  label={provider.id === SAYQL_CREDITS ? "Credit key" : `${provider.label} API key`}
+                  optional={provider.key === "optional"}
+                  hint={`${provider.id === SAYQL_CREDITS ? "From SayQL (hello@azenvoc.com). " : ""}Stored in your system keychain. ${privacyNote(provider)}`}
+                >
                   {(id) => (
                     <TextInput
                       id={id}
@@ -184,13 +194,15 @@ export function SettingsPage({ settings, onClose, onSaved, onShowSetup, skills, 
 
               {provider.api === "anthropic" ? (
                 <>
-                  <Field
-                    label="Workspace ID"
-                    optional
-                    hint="Only for API keys that aren't tied to a workspace. Use the workspace's ID from the Claude Console, not its name."
-                  >
-                    {(id) => <TextInput id={id} mono value={workspaceId} placeholder="wrkspc_…" onChange={(e) => setWorkspaceId(e.target.value)} />}
-                  </Field>
+                  {provider.id !== SAYQL_CREDITS && (
+                    <Field
+                      label="Workspace ID"
+                      optional
+                      hint="Only for API keys that aren't tied to a workspace. Use the workspace's ID from the Claude Console, not its name."
+                    >
+                      {(id) => <TextInput id={id} mono value={workspaceId} placeholder="wrkspc_…" onChange={(e) => setWorkspaceId(e.target.value)} />}
+                    </Field>
+                  )}
                   <Field label="Model while typing" hint="Writes SQL as you type. A fast model keeps it feeling instant.">
                     {(id) => <Select id={id} value={draft.typingModel} onChange={(v) => update({ typingModel: v })} options={claudeModels} />}
                   </Field>

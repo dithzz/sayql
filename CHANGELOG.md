@@ -3,6 +3,13 @@
 All notable changes to SayQL are listed here. Downloads are on the
 [releases page](https://github.com/dithzz/sayql-releases/releases).
 
+## 0.4.3 (2026-10-27)
+
+- **SayQL AI credits:** a new AI provider in **Settings → AI provider** for Claude without an Anthropic account.
+  Paste a prepaid credit key from SayQL (it starts with `sqlc_`); SayQL checks it before saving. Requests go
+  through SayQL's service to Anthropic and are charged to your credit; SayQL keeps only token counts, never
+  your questions or the answers. When the credit runs out, SayQL says so.
+
 ## 0.4.2 (2026-10-27)
 
 - **Easier to join your team:** paste the whole invite link into **Settings → Team → Sign in** and it fills in the

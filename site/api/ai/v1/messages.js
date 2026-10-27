@@ -20,8 +20,11 @@ const PRICES = {
   // Haiku 5.5's price rises for prompts over 100K tokens.
   "claude-haiku-5-5": { input: 0.1, output: 0.5, cacheRead: 0.01, long: { over: 100_000, input: 0.5, output: 2.5, cacheRead: 0.05 } },
 };
-// Request fields that add costs this endpoint doesn't meter, or change which model answers.
-const REFUSED_FIELDS = ["speed", "fallbacks", "mcp_servers", "container", "service_tier", "inference_geo"];
+// Request fields that add costs this endpoint doesn't meter.
+const REFUSED_FIELDS = ["speed", "mcp_servers", "container", "service_tier", "inference_geo"];
+// Request fields dropped before forwarding: `fallbacks` would let another model answer at its own
+// price (the SayQL app asks for it on Opus and Sonnet). Without it a rare refusal just ends the reply.
+const DROPPED_FIELDS = ["fallbacks"];
 
 export const config = { runtime: "nodejs" };
 
@@ -55,15 +58,19 @@ export async function POST(request) {
   }
   const maxTokens = Number(body.max_tokens);
   if (!(maxTokens > 0 && maxTokens <= 128_000)) return error(400, "invalid_request_error", "Set max_tokens (1 to 128000).");
+  for (const f of DROPPED_FIELDS) delete body[f];
+  const forward = JSON.stringify(body);
 
   // Upper estimate: every input byte a token written to the 1-hour cache, and max_tokens of output.
-  const hold = micro(cost(price, { input: 0, write5m: 0, write1h: raw.byteLength, read: 0, output: maxTokens }) * MARGIN);
+  const hold = micro(cost(price, { input: 0, write5m: 0, write1h: Buffer.byteLength(forward), read: 0, output: maxTokens }) * MARGIN);
   const keyHash = crypto.createHash("sha256").update(key).digest("hex");
   const reserved = await rpc(db, "ai_reserve", { p_key_sha256: keyHash, p_amount: hold });
   if (!Array.isArray(reserved) || !reserved.length) {
-    const known = await rpc(db, "ai_reserve", { p_key_sha256: keyHash, p_amount: 0 });
-    if (!Array.isArray(known) || !known.length) return error(401, "authentication_error", "That SayQL AI credit key isn't valid or was turned off.");
-    return error(402, "billing_error", "Your team's SayQL AI credit has run out. Ask your admin to top it up.");
+    const known = await rpc(db, "ai_account_status", { p_key_sha256: keyHash });
+    if (!Array.isArray(known) || !known.length || !known[0].active) {
+      return error(401, "authentication_error", "That SayQL AI credit key isn't valid or was turned off.");
+    }
+    return error(402, "billing_error", "This SayQL AI credit has run out.");
   }
   const account = reserved[0].account_id;
 
@@ -77,7 +84,7 @@ export async function POST(request) {
         "anthropic-version": request.headers.get("anthropic-version") || "2023-06-01",
         accept: request.headers.get("accept") || "application/json",
       },
-      body: raw,
+      body: forward,
     });
   } catch (e) {
     await settle(db, account, hold, body.model, null);

@@ -215,10 +215,13 @@ pub async fn list_models(
     if p.api == Api::Anthropic {
         // Claude's models are fixed; this checks the key so a typo is caught before it's saved.
         let key = api_key.map(|k| k.trim().to_string()).filter(|k| !k.is_empty()).or_else(|| secrets::api_key(p.id));
-        let key = key.ok_or_else(|| AppError::User("Paste your Claude API key first.".into()))?;
-        let workspace = valid_workspace_id(&state.store.settings()?.workspace_id)?;
+        let key = key.ok_or_else(|| AppError::User(format!("Paste your {} key first.", p.label)))?;
+        let saved = state.store.settings()?;
+        // Only Anthropic keys can need a workspace ID; SayQL credit keys never do.
+        let workspace = if p.id == ai::ANTHROPIC { valid_workspace_id(&saved.workspace_id)? } else { String::new() };
         let http = state.http.clone();
-        ai::check_claude_key(&http, &key, Some(workspace.as_str()).filter(|w| !w.is_empty())).await?;
+        let base = address(p, &saved.provider_settings(p.id));
+        ai::check_claude_key(&http, &base, &key, Some(workspace.as_str()).filter(|w| !w.is_empty())).await?;
         return Ok(ai::MODELS.iter().map(|(id, _)| id.to_string()).collect());
     }
     let typed = ai::clean_base_url(&base_url).map_err(AppError::User)?;

@@ -33,7 +33,13 @@ pub fn endpoint(s: &Settings) -> AppResult<Endpoint> {
     Ok(match p.api {
         Api::Anthropic => Endpoint::Anthropic {
             api_key: key.unwrap_or_default(),
-            workspace_id: Some(valid_workspace_id(&s.workspace_id)?).filter(|w| !w.is_empty()),
+            // A workspace ID belongs to Anthropic keys; SayQL credit keys have none.
+            workspace_id: if p.id == super::ANTHROPIC {
+                Some(valid_workspace_id(&s.workspace_id)?).filter(|w| !w.is_empty())
+            } else {
+                None
+            },
+            base: url,
         },
         Api::OpenAi => Endpoint::OpenAi { label: p.label, base_url: url, api_key: key },
     })
@@ -99,6 +105,17 @@ mod tests {
         let mut s = Settings { provider: "custom".into(), ..Default::default() };
         s.set_provider_settings("custom", ProviderSettings { typing_model: "gpt-x".into(), ..Default::default() });
         assert!(endpoint(&s).err().unwrap().to_string().contains("base URL"));
+    }
+
+    #[test]
+    fn sayql_credits_start_on_claudes_models_and_ask_for_a_credit_key() {
+        let s = Settings { provider: crate::ai::SAYQL_CREDITS.into(), workspace_id: "wrkspc_x".into(), ..Default::default() };
+        let p = s.provider_settings(crate::ai::SAYQL_CREDITS);
+        assert_eq!((p.typing_model.as_str(), p.expert_model.as_str()), ("claude-haiku-5-5", "claude-opus-5-5"));
+        assert_eq!(address(provider("sayql").unwrap(), &p), "https://sayql.dev/api/ai");
+        // No key saved in the test keychain: the message names the credits, not a model.
+        let e = endpoint(&s).err().unwrap().to_string();
+        assert!(e.contains("SayQL AI credits") && !e.contains("model"), "{e}");
     }
 
     #[test]

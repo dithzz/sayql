@@ -109,7 +109,17 @@ impl Settings {
                 agent_model: self.agent_model.clone(),
             }
         } else {
-            self.providers.get(id).cloned().unwrap_or_default()
+            let mut p = self.providers.get(id).cloned().unwrap_or_default();
+            // SayQL AI credits serve Claude, so they start on Claude's default models.
+            if id == crate::ai::SAYQL_CREDITS {
+                if p.typing_model.is_empty() {
+                    p.typing_model = default_typing_model();
+                }
+                if p.expert_model.is_empty() {
+                    p.expert_model = default_expert_model();
+                }
+            }
+            p
         }
     }
 
