@@ -229,7 +229,22 @@ p { text-wrap: pretty; }
 @media (max-width: 520px) { .nav-links { display: none; } }
 
 /* hero */
-.hero { padding: 88px 0 0; }
+.hero { padding: 88px 0 0; position: relative; isolation: isolate; overflow: clip; }
+/* Hero background: a faint dot grid that fades out downwards, and a soft glow in the logo's blue
+ * behind the app window. Both follow the theme through the text and accent colors. */
+.hero::before, .hero::after { content: ""; position: absolute; z-index: -1; pointer-events: none; }
+.hero::before {
+  inset: 0;
+  background-image: radial-gradient(color-mix(in srgb, var(--color-text) 11%, transparent) 1px, transparent 1.5px);
+  background-size: 22px 22px;
+  background-position: center top;
+  -webkit-mask-image: radial-gradient(ellipse 75% 60% at 50% 22%, #000 25%, transparent 75%);
+  mask-image: radial-gradient(ellipse 75% 60% at 50% 22%, #000 25%, transparent 75%);
+}
+.hero::after {
+  left: 50%; top: 360px; width: min(1700px, 170vw); height: 900px; transform: translateX(-50%);
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--color-accent) 24%, transparent), transparent 85%);
+}
 .hero h1 { font-size: clamp(36px, 6vw, 60px); line-height: 1.05; letter-spacing: -0.035em; }
 .hero h1 span { display: block; color: var(--color-text-muted); }
 .hero .lede { margin-top: 20px; max-width: 34em; font-size: 19px; color: var(--color-text-muted); }
@@ -688,7 +703,7 @@ section.block { padding: 80px 0 0; }
 <main>
 <section class="hero">
   <div class="wrap">
-    <a class="eyebrow" href="#teams"><span class="tag">New</span>SayQL for teams<span class="long">: one command, free for 30 days</span></a>
+    <a class="eyebrow" href="#teams"><span class="tag">New</span><span>SayQL for teams<span class="long">: one command, free for 30 days</span></span></a>
     <h1>Say what you need. <span>It knows your schema.</span></h1>
     <p class="lede">The safe way to query production databases, without being a SQL expert.</p>
     <div class="actions">
