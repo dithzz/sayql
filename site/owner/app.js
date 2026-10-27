@@ -59,7 +59,7 @@
   }
 
   function gate(label, have, need) {
-    var g = el("div", null, "gate"), bar = el("div", null, "bar"), fill = el("span");
+    var g = el("div", null, "gate"), bar = el("div", null, "meter"), fill = el("span");
     fill.style.width = Math.min(100, Math.round((have / need) * 100)) + "%";
     bar.append(fill);
     g.append(el("div", label), bar, el("div", have + " of " + need, "small muted"));
@@ -120,7 +120,7 @@
       var day = new Date(Date.now() - i * DAY).toISOString().slice(0, 10);
       var bar = el("span");
       bar.style.height = Math.max(2, Math.round(((byDay[day] || 0) / max) * 64)) + "px";
-      bar.style.opacity = byDay[day] ? "1" : "0.15";
+      if (!byDay[day]) bar.className = "none";
       bar.title = day + ": " + (byDay[day] || 0);
       chart.append(bar);
     }
@@ -143,11 +143,11 @@
     show("loading", true);
     err("error", "");
     return api("data").then(function (d) {
-      show("loading", false); show("signin", false); show("app", true); show("signout", true);
+      show("loading", false); show("signin-view", false); show("app", true); show("signout", true);
       render(d);
     }, function (e) {
       show("loading", false);
-      if (e.status === 401) { show("app", false); show("signout", false); show("signin", true); }
+      if (e.status === 401) { show("app", false); show("signout", false); show("signin-view", true); }
       else err("error", e.message);
     });
   }
