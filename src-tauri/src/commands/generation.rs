@@ -2,6 +2,7 @@ use crate::ai::endpoint::endpoint;
 use crate::ai::{self, GenRequest, Task, context::schema_text};
 use crate::error::{AppError, AppResult};
 use crate::state::{AppState, Target};
+use crate::team::ai::source_of;
 use tauri::{AppHandle, State};
 
 /// Starts streaming SQL for `question`; results arrive as `ai://` events tagged with `req_id`.
@@ -22,7 +23,7 @@ pub fn generate_sql(
     skill: Option<String>,
 ) -> AppResult<()> {
     let notes = state.store.notes_text(&id, database.as_deref());
-    let live = state.schema(&Target::new(id, database))?;
+    let live = state.schema(&Target::new(id.clone(), database))?;
     let skill = match skill {
         None => None,
         Some(slug) => Some(
@@ -32,10 +33,16 @@ pub fn generate_sql(
         ),
     };
     let settings = state.store.settings()?;
+    // A team connection with team AI goes through the team server; everything else as before.
+    let own = endpoint(&settings);
+    let (endpoint, model) = match state.team_ai_route(&id, source_of(&task), own.is_ok()) {
+        Some((route, ai)) => (route, if task.needs_expert() { ai.default_model() } else { ai.fast_model() }),
+        None => (own?, settings.provider_settings(&settings.provider).model(task.needs_expert()).to_string()),
+    };
     let request = GenRequest {
         req_id,
-        endpoint: endpoint(&settings)?,
-        model: settings.provider_settings(&settings.provider).model(task.needs_expert()).to_string(),
+        endpoint,
+        model,
         dialect: live.schema.dialect.clone(),
         schema_text: schema_text(&live.schema, &live.schema_text, &question, &task, focus_tables.as_deref().unwrap_or(&[])) + &notes,
         question,

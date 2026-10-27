@@ -66,6 +66,9 @@ pub struct Settings {
     /// native or text), so a model without tool calling isn't asked again.
     #[serde(default)]
     pub tool_modes: BTreeMap<String, crate::ai::agent::model::ToolMode>,
+    /// The SayQL Team server signed in to, if any; the token is in the keychain.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub team: Option<crate::team::TeamAccount>,
 }
 
 /// How SayQL uses one AI provider.
@@ -146,6 +149,7 @@ impl Default for Settings {
             agent_model: String::new(),
             agent: agent::AgentSettings::default(),
             tool_modes: BTreeMap::new(),
+            team: None,
         }
     }
 }
@@ -178,6 +182,7 @@ pub struct Skill {
     pub instruction: String,
 }
 
+#[derive(Clone)]
 pub struct Store {
     dir: PathBuf,
 }

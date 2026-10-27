@@ -43,5 +43,5 @@ export function useAgentAccess(connectionId: string | null): AgentAccess | null 
 /** The setting as the hint under the Ask box says it. */
 export function describeAccess(a: AgentAccess): string {
   const results = { off: "no values", counts: "counts and summaries only", rows: "up to 20 masked rows" }[a.results];
-  return `Results to AI: ${results}${a.askBeforeSend && a.results !== "off" ? " · Ask before send" : ""}`;
+  return `Results to AI: ${results}${a.askBeforeSend && a.results !== "off" ? " · Ask before send" : ""}${a.team ? " · Team rules apply" : ""}`;
 }

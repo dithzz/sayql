@@ -10,6 +10,8 @@ export interface HandoffActions {
   openTab: (target: Target, init: NewTab) => void;
   /** Opens a saved script (or shows its open tab); false when there's no such script. */
   openScript: (id: string) => boolean;
+  /** Shows "Sign in to your team", filled in from an invite link. Never signs in on its own. */
+  openTeamSignIn: (server: string, code: string) => void;
   notify: (text: string) => void;
 }
 
@@ -37,6 +39,10 @@ export function draftToConnection(d: ConnectionDraft): ConnectionConfig {
 
 /** Shows work handed over by an AI app, for the person to review and act on. */
 export function applyHandoff(h: Handoff, a: HandoffActions): void {
+  if (h.type === "teamJoin") {
+    a.openTeamSignIn(h.server, h.code);
+    return;
+  }
   const note = handoffNote(h.source);
   if (h.type === "newConnection") {
     a.openConnectionDialog(draftToConnection(h), note);

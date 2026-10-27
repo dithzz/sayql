@@ -1,10 +1,12 @@
 use crate::ai::agent::model::{Llm, ToolMode};
 use crate::ai::agent::run::{self, Event, Io, Reply, RunInput};
 use crate::ai::endpoint::endpoint;
-use crate::ai::{Api, Endpoint};
+use crate::ai::Api;
 use crate::error::{AppError, AppResult};
 use crate::state::{AgentRun, AppState, Target};
 use crate::store::agent::{AgentAccess, Note};
+use crate::team::{self, Source, TeamRules};
+use serde::Serialize;
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter, Manager, State};
 use tokio_util::sync::CancellationToken;
@@ -34,27 +36,32 @@ pub async fn start_agent(
     if question.is_empty() {
         return Err("Type a question first.".into());
     }
-    let mut access = state.store.agent_access(&id)?;
+    if state.team_connection(&id).is_some_and(|c| c.agent_off()) {
+        return Err(team::AGENT_OFF.into());
+    }
+    let mut access = effective_access(&state, &id)?.access;
     if !access.enabled {
         return Err("Agent mode is off for this connection. Turn it on in its agent settings first.".into());
     }
     let target = Target::new(id.clone(), database.clone());
     let live = state.schema(&target)?;
-    let pool = state.target_pool(&target).await?;
+    let pool = state.target_pool(&target).await?.with_context(Source::Agent, Some(question.clone()));
     let mut settings = state.store.settings()?;
-    let endpoint = endpoint(&settings)?;
+    let own = endpoint(&settings);
+    let team_ai = state.team_ai_route(&id, "agent", own.is_ok());
     // Auto mode: no stop for the plan or before each send. What the AI may see (the results
     // setting, masking, never-send columns) stays as set; questions with two meanings still ask.
     if auto == Some(true) {
         settings.agent.skip_plan = true;
         access.ask_before_send = false;
     }
-    let model = settings.provider_settings(&settings.provider).agent().to_string();
-    let mode_key = format!("{}/{model}", settings.provider);
-    let mode = match &endpoint {
-        Endpoint::Anthropic { .. } => ToolMode::Native,
-        Endpoint::OpenAi { .. } => settings.tool_modes.get(&mode_key).copied().unwrap_or(ToolMode::Native),
+    // A team connection with team AI runs on the team's default model, through the team server.
+    let (endpoint, model, provider) = match team_ai {
+        Some((route, ai)) => (route, ai.default_model(), "team".to_string()),
+        None => (own?, settings.provider_settings(&settings.provider).agent().to_string(), settings.provider.clone()),
     };
+    let mode_key = format!("{provider}/{model}");
+    let mode = if endpoint.is_openai() { settings.tool_modes.get(&mode_key).copied().unwrap_or(ToolMode::Native) } else { ToolMode::Native };
     let skill = match skill {
         None => None,
         Some(slug) => Some(
@@ -90,7 +97,6 @@ pub async fn start_agent(
     let emitter = app.clone();
     let mut io = Io { emit: Arc::new(move |e: Event| { let _ = emitter.emit(EVENT, e); }), replies: rx, stop };
     let http = state.http.clone();
-    let provider = settings.provider.clone();
     tauri::async_runtime::spawn(async move {
         let mut llm = Llm::Remote { http, endpoint, model, mode };
         let outcome = run::run(&mut llm, &pool, input, &mut io).await;
@@ -120,16 +126,42 @@ pub fn reply_agent(state: State<'_, AppState>, run_id: String, reply: Reply) -> 
     state.reply_agent(&run_id, reply).then_some(()).ok_or_else(|| "This run has already ended.".into())
 }
 
-#[tauri::command]
-pub fn agent_access(state: State<'_, AppState>, id: String) -> AppResult<AgentAccess> {
-    state.store.agent_access(&id)
+/// A connection's agent access as it applies, and on a team connection the admin's rules,
+/// which the UI shows as "Set by your team admin".
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AccessView {
+    #[serde(flatten)]
+    access: AgentAccess,
+    team: Option<TeamRules>,
+}
+
+/// The person's choices with the team admin's rules on top, on a team connection.
+fn effective_access(state: &AppState, id: &str) -> AppResult<AccessView> {
+    let own = state.store.agent_access(id)?;
+    Ok(match state.team_connection(id).map(|c| c.rules()) {
+        Some(rules) => AccessView { access: team::apply_rules(own, &rules), team: Some(rules) },
+        None if id.starts_with(team::ID_PREFIX) => return Err(team::SIGNED_OUT.into()),
+        None => AccessView { access: own, team: None },
+    })
 }
 
 #[tauri::command]
-pub fn save_agent_access(state: State<'_, AppState>, id: String, access: AgentAccess) -> AppResult<AgentAccess> {
-    state.store.connection(&id)?;
+pub fn agent_access(state: State<'_, AppState>, id: String) -> AppResult<AccessView> {
+    effective_access(&state, &id)
+}
+
+/// Saves the person's choices. On a team connection the results setting can't go above the
+/// admin's, and the admin's never-send columns aren't saved (they're always added back).
+#[tauri::command]
+pub fn save_agent_access(state: State<'_, AppState>, id: String, access: AgentAccess) -> AppResult<AccessView> {
+    state.check_connection(&id)?;
+    let access = match state.team_connection(&id) {
+        Some(c) => team::own_access(access, &c.rules()),
+        None => access,
+    };
     state.store.save_agent_access(&id, access)?;
-    state.store.agent_access(&id)
+    effective_access(&state, &id)
 }
 
 #[tauri::command]
@@ -140,7 +172,7 @@ pub fn list_notes(state: State<'_, AppState>, id: String, database: Option<Strin
 /// Saves a database note: new (empty `id`) or edited.
 #[tauri::command]
 pub fn save_note(state: State<'_, AppState>, note: Note) -> AppResult<Note> {
-    state.store.connection(&note.connection_id)?;
+    state.check_connection(&note.connection_id)?;
     let id = if note.id.is_empty() { uuid::Uuid::new_v4().to_string() } else { note.id.clone() };
     let database = note.database.clone().filter(|d| !d.trim().is_empty());
     state.store.save_note(Note { id, database, ..note })

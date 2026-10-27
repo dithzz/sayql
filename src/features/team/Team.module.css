@@ -1,0 +1,68 @@
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.lead {
+  margin: 0;
+  font-size: var(--font-size-md);
+  color: var(--color-text-muted);
+  line-height: 1.5;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-accent);
+  font: inherit;
+  font-size: var(--font-size-md);
+  cursor: pointer;
+}
+.link:hover {
+  text-decoration: underline;
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--space-1) var(--space-4);
+  margin: 0;
+  font-size: var(--font-size-md);
+}
+.facts dt {
+  color: var(--color-text-muted);
+}
+.facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.usage {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: var(--space-1);
+}
+.bar {
+  display: block;
+  width: 100%;
+  max-width: 240px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--color-border);
+  overflow: hidden;
+}
+.fill {
+  display: block;
+  height: 100%;
+  background: var(--color-accent);
+}

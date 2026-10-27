@@ -13,6 +13,8 @@ export interface AgentAccessDialogProps {
   onClose: () => void;
 }
 
+const RANK: Record<AgentResults, number> = { off: 0, counts: 1, rows: 2 };
+
 const RESULTS: { value: AgentResults; label: string; detail: string }[] = [
   {
     value: "off",
@@ -37,7 +39,11 @@ export function AgentAccessDialog({ connectionName, provider, access, onSave, on
   const [results, setResults] = useState<AgentResults>(access.results);
   // Ask before send starts on for cloud providers, off for ones on this computer.
   const [ask, setAsk] = useState(first ? !provider.local : access.askBeforeSend);
-  const [neverSend, setNeverSend] = useState(access.neverSend.join("\n"));
+  // On a team connection the admin's rules win: results no higher than theirs, their columns always kept.
+  const team = access.team ?? null;
+  const adminColumn = (c: string) => !!team?.neverSend.some((t) => t.toLowerCase() === c.toLowerCase());
+  const allowed = (r: AgentResults) => !team || RANK[r] <= RANK[team.maxResults];
+  const [neverSend, setNeverSend] = useState(access.neverSend.filter((c) => !adminColumn(c)).join("\n"));
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -83,10 +89,20 @@ export function AgentAccessDialog({ connectionName, provider, access, onSave, on
         </p>
         <div role="radiogroup" aria-label="Results sent to the AI" className={styles.options}>
           {RESULTS.map((r) => (
-            <label key={r.value} className={cx(styles.option, results === r.value && styles.chosen)}>
-              <input type="radio" name="results" value={r.value} checked={results === r.value} onChange={() => setResults(r.value)} />
+            <label key={r.value} className={cx(styles.option, results === r.value && styles.chosen, !allowed(r.value) && styles.locked)}>
+              <input
+                type="radio"
+                name="results"
+                value={r.value}
+                checked={results === r.value}
+                disabled={!allowed(r.value)}
+                onChange={() => setResults(r.value)}
+              />
               <span>
-                <strong>{r.label}</strong>
+                <strong>
+                  {r.label}
+                  {!allowed(r.value) && <span className={styles.admin}> · Set by your team admin</span>}
+                </strong>
                 <span className={styles.detail}>{r.detail}</span>
               </span>
             </label>
@@ -94,7 +110,13 @@ export function AgentAccessDialog({ connectionName, provider, access, onSave, on
         </div>
         {goesOut && <Alert tone="warning">{goesOut}</Alert>}
         <Checkbox label="Ask before each send (shows exactly what would go, with Send and Skip)" checked={ask} onChange={setAsk} />
-        <Field label="Never send these columns" hint="One per line, as column or table.column. Queries that use them are refused." optional>
+        {team && team.neverSend.length > 0 && (
+          <p className={styles.detail}>
+            Set by your team admin, never sent: <span className={styles.adminColumns}>{team.neverSend.join(", ")}</span>. Your team's
+            server also leaves them out of results.
+          </p>
+        )}
+        <Field label={team?.neverSend.length ? "Also never send these columns" : "Never send these columns"} hint="One per line, as column or table.column. Queries that use them are refused." optional>
           {(id) => (
             <textarea id={id} className={styles.textarea} rows={3} value={neverSend} onChange={(e) => setNeverSend(e.target.value)} placeholder={"patients.notes\ndiagnosis"} />
           )}

@@ -77,7 +77,7 @@ mod tests {
                 assert_eq!(base_url, "http://localhost:11434/v1");
                 assert!(api_key.is_none());
             }
-            Endpoint::Anthropic { .. } => panic!("expected an OpenAI-compatible endpoint"),
+            _ => panic!("expected an OpenAI-compatible endpoint"),
         }
     }
 
@@ -90,7 +90,7 @@ mod tests {
         );
         match endpoint(&s).unwrap() {
             Endpoint::OpenAi { base_url, .. } => assert_eq!(base_url, "http://box:11434/v1"),
-            Endpoint::Anthropic { .. } => panic!("expected an OpenAI-compatible endpoint"),
+            _ => panic!("expected an OpenAI-compatible endpoint"),
         }
     }
 

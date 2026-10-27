@@ -1,11 +1,15 @@
-use crate::db::{self, Kind, QueryResult};
+use crate::db::{self, DbPool, Kind, QueryResult};
 use crate::error::{AppError, AppResult};
 use crate::state::{AppState, Target};
+use crate::team::Source;
 use tauri::State;
 
 /// Runs one statement. Statements that change data fail with `WRITE_CONFIRM` unless
 /// `allow_write` is set; the UI asks the person and calls again. `cancel_query(run_id)` stops it.
+/// On a team connection the query goes to the team server, tagged with `source` (`ask` or
+/// `editor`) and the `question` it answers, and only read-only statements are sent.
 #[tauri::command]
+#[allow(clippy::too_many_arguments)]
 pub async fn run_query(
     state: State<'_, AppState>,
     id: String,
@@ -13,9 +17,17 @@ pub async fn run_query(
     sql: String,
     allow_write: bool,
     run_id: Option<String>,
+    source: Option<Source>,
+    question: Option<String>,
 ) -> AppResult<QueryResult> {
     let pool = state.open_pool(&Target::new(id, database))?;
-    let read_only = write_gate(&sql, pool.kind(), allow_write)?;
+    let pool = pool.with_context(source.unwrap_or_default(), question);
+    // A team connection never writes, so there's nothing to confirm: every statement goes to the
+    // team server, which refuses writes and records the attempt in its audit log.
+    let read_only = match pool {
+        DbPool::Team(_) => true,
+        _ => write_gate(&sql, pool.kind(), allow_write)?,
+    };
     let Some(run_id) = run_id else { return db::run_query(&pool, &sql, read_only).await };
     let cancel = state.start_query(&run_id);
     let out = db::run_query_with(&pool, &sql, read_only, db::MAX_ROWS, &cancel).await;

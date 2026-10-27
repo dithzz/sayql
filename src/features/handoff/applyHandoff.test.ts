@@ -21,6 +21,7 @@ function actions(connections: ConnectionConfig[] = [demo]) {
     openConnectionDialog: vi.fn(),
     openTab: vi.fn(),
     openScript: vi.fn((id: string) => id === "s1"),
+    openTeamSignIn: vi.fn(),
     notify: vi.fn(),
   } satisfies HandoffActions;
 }
@@ -83,6 +84,14 @@ describe("applyHandoff", () => {
     applyHandoff({ source: "Claude", type: "openScript", scriptId: "gone" }, a);
     expect(a.notify).toHaveBeenCalledWith(expect.stringContaining("script"));
     expect(a.openTab).not.toHaveBeenCalled();
+  });
+
+  it("opens the team sign-in dialog from an invite link, and nothing else", () => {
+    const a = actions();
+    applyHandoff({ source: null, type: "teamJoin", server: "https://sayql.acme.internal", code: "ABCD" }, a);
+    expect(a.openTeamSignIn).toHaveBeenCalledWith("https://sayql.acme.internal", "ABCD");
+    expect(a.openTab).not.toHaveBeenCalled();
+    expect(a.openConnectionDialog).not.toHaveBeenCalled();
   });
 
   it("names the AI app", () => {

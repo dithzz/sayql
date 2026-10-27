@@ -14,6 +14,8 @@ pub(crate) mod redact;
 #[cfg(test)]
 pub(crate) use redact::database_error as mask_database_error;
 mod sse;
+#[cfg(test)]
+mod team_tests;
 
 pub use models::{DEFAULT_EXPERT_MODEL, DEFAULT_TYPING_MODEL, MODELS, is_known};
 pub use prompt::Task;
@@ -33,6 +35,39 @@ const EVENT_RESET: &str = "ai://reset";
 pub enum Endpoint {
     Anthropic { api_key: String, workspace_id: Option<String> },
     OpenAi { label: &'static str, base_url: String, api_key: Option<String> },
+    /// A team connection with team AI: through the team server, with the team token.
+    Team(crate::team::ai::TeamAi),
+}
+
+impl Endpoint {
+    /// Speaks the OpenAI-compatible API (tool calling may need the text protocol).
+    pub fn is_openai(&self) -> bool {
+        match self {
+            Endpoint::OpenAi { .. } => true,
+            Endpoint::Team(t) => t.api == Api::OpenAi,
+            Endpoint::Anthropic { .. } => false,
+        }
+    }
+
+    /// The Claude client's access for a Claude endpoint.
+    pub(crate) fn claude(&self) -> Option<anthropic::Access<'_>> {
+        match self {
+            Endpoint::Anthropic { api_key, workspace_id } => Some(anthropic::Access::Key { api_key, workspace_id: workspace_id.as_deref() }),
+            Endpoint::Team(t) if t.api == Api::Anthropic => Some(anthropic::Access::Team(t)),
+            _ => None,
+        }
+    }
+
+    /// The OpenAI-compatible client's service for any other endpoint.
+    pub(crate) fn openai(&self) -> Option<openai::Service<'_>> {
+        match self {
+            Endpoint::OpenAi { label, base_url, api_key } => Some(openai::Service { label, base_url, api_key: api_key.as_deref(), team: None }),
+            Endpoint::Team(t) if t.api == Api::OpenAi => {
+                Some(openai::Service { label: "your team's AI", base_url: &t.base, api_key: Some(&t.token), team: Some(t) })
+            }
+            _ => None,
+        }
+    }
 }
 
 pub struct GenRequest {
@@ -122,14 +157,10 @@ impl<'a> Output<'a> {
 /// Streams SQL for one question. Emits `ai://delta` chunks, then exactly one `ai://done`.
 pub async fn stream_sql(app: AppHandle, http: reqwest::Client, r: GenRequest) {
     let mut out = Output::new(Sink::App(&app), r.req_id);
-    let result = match &r.endpoint {
-        Endpoint::Anthropic { api_key, workspace_id } => {
-            anthropic::run(&mut out, &http, api_key, workspace_id.as_deref(), &r).await
-        }
-        Endpoint::OpenAi { label, base_url, api_key } => {
-            let svc = openai::Service { label, base_url, api_key: api_key.as_deref() };
-            openai::run(&mut out, &http, &svc, &r).await
-        }
+    let result = match (r.endpoint.claude(), r.endpoint.openai()) {
+        (Some(access), _) => anthropic::run(&mut out, &http, &access, &r).await,
+        (None, Some(svc)) => openai::run(&mut out, &http, &svc, &r).await,
+        (None, None) => Err("This AI provider isn't supported.".into()),
     };
     let (error, cache_read_tokens) = match result {
         Ok(cached) => (None, cached),
@@ -146,5 +177,5 @@ pub async fn check_claude_key(http: &reqwest::Client, api_key: &str, workspace_i
 
 /// The models an OpenAI-compatible service offers; also checks its key and URL.
 pub async fn list_models(http: &reqwest::Client, label: &str, base_url: &str, api_key: Option<&str>) -> AppResult<Vec<String>> {
-    openai::list_models(http, &openai::Service { label, base_url, api_key }).await
+    openai::list_models(http, &openai::Service { label, base_url, api_key, team: None }).await
 }

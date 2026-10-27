@@ -42,6 +42,11 @@ pub async fn run_query_with(
     if sql.is_empty() {
         return Err("Nothing to run.".into());
     }
+    // A team server checks every statement itself and records refused ones in its audit log,
+    // so a write goes there to be refused rather than being stopped here.
+    if let DbPool::Team(t) = pool {
+        return t.query(sql, cap, cancel).await;
+    }
     if read_only && !super::is_read_only(sql, pool.kind()) {
         return Err("This statement can change data, so it can't run in read-only mode.".into());
     }
@@ -161,6 +166,7 @@ pub async fn run_query_with(
             out?
         }
         DbPool::Ms(p) => Box::pin(run_mssql(p, sql, read_only, cap, cancel)).await?,
+        DbPool::Team(t) => return t.query(sql, cap, cancel).await,
     };
     res.elapsed_ms = start.elapsed().as_millis();
     Ok(res)
@@ -227,7 +233,7 @@ macro_rules! collect_fn {
                 }
             }
             let rows_affected = if columns.is_empty() { affected } else { None };
-            Ok(QueryResult { columns, rows, rows_affected, truncated, elapsed_ms: 0 })
+            Ok(QueryResult { columns, rows, rows_affected, truncated, elapsed_ms: 0, withheld: vec![] })
         }
     };
 }
@@ -272,7 +278,7 @@ async fn run_mssql(pool: &MssqlPool, sql: &str, read_only: bool, cap: usize, can
         let udts = first.first().map(|r| udt_columns(r.columns())).unwrap_or_default();
         let udts = udts.into_iter().map(|c| (c, kept.iter().map(|row| udt_bytes(row, c)).collect())).collect();
         let rows_affected = if columns.is_empty() { Some(affected) } else { None };
-        let mut res = QueryResult { columns, rows, rows_affected, truncated, elapsed_ms: 0 };
+        let mut res = QueryResult { columns, rows, rows_affected, truncated, elapsed_ms: 0, withheld: vec![] };
         show_udts(pool, sql, &mut res, udts).await;
         return Ok(res);
     }
@@ -428,7 +434,7 @@ async fn collect_mssql(client: &mut MssqlClient, sql: &str, cap: usize) -> AppRe
             values.push(udt_bytes(&row, *c));
         }
     }
-    Ok((QueryResult { columns, rows, rows_affected: None, truncated, elapsed_ms: 0 }, udts))
+    Ok((QueryResult { columns, rows, rows_affected: None, truncated, elapsed_ms: 0, withheld: vec![] }, udts))
 }
 
 #[cfg(test)]

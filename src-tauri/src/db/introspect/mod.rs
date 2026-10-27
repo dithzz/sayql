@@ -16,6 +16,7 @@ pub async fn introspect(pool: &DbPool, kind: Kind) -> AppResult<Schema> {
         DbPool::My(p) => mysql::introspect(p).await?,
         DbPool::Lite(p) => sqlite::introspect(&p.ro).await?,
         DbPool::Ms(p) => mssql::introspect(p).await?,
+        DbPool::Team(t) => return t.schema().await,
     };
     Ok(Schema { dialect: kind.dialect().to_string(), tables })
 }

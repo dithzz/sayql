@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { QUERY_CANCELLED, commands, type Dialect, type Target } from "../../api";
+import { QUERY_CANCELLED, commands, type Dialect, type QuerySource, type Target } from "../../api";
 import { useLatest } from "../../hooks/useLatest";
 import { splitForRun } from "../../lib/sqlStatements";
 import { targetKey } from "../connections";
@@ -12,15 +12,25 @@ export interface QueryRunner {
   total: number;
   /** The database error that stopped the last run, if any. */
   error: string | null;
+  /** That error is a team server refusing by its rules, which no AI fix can help with. */
+  refused: boolean;
   running: boolean;
   /** A data-changing statement waiting for the user's confirmation. */
   pendingWrite: string | null;
-  /** Runs `sql`, split into statements the way `dialect` reads it. */
-  run: (sql: string, dialect?: Dialect) => void;
+  /**
+   * Runs `sql`, split into statements the way `dialect` reads it. `context` says where it came
+   * from (the Ask box and its question, or the editor), for a team server's audit log.
+   */
+  run: (sql: string, dialect?: Dialect, context?: QueryContext) => void;
   /** Stops the running statement on the server; later statements of the run don't start. */
   cancel: () => void;
   confirmWrite: () => void;
   cancelWrite: () => void;
+}
+
+export interface QueryContext {
+  source: QuerySource;
+  question?: string;
 }
 
 /**
@@ -63,7 +73,7 @@ export function useQueryRunner(target: Target | null, onFailure?: (sql: string, 
   }, [key]);
 
   const run = useCallback(
-    async (sql: string, dialect?: Dialect) => {
+    async (sql: string, dialect?: Dialect, context?: QueryContext) => {
       const statements = splitForRun(sql, dialect);
       if (!target || statements.length === 0) return;
       const id = ++runId.current;
@@ -80,7 +90,7 @@ export function useQueryRunner(target: Target | null, onFailure?: (sql: string, 
           const sid = crypto.randomUUID();
           statementId.current = sid;
           try {
-            return await commands.runQuery(target, s, allowWrite, sid);
+            return await commands.runQuery(target, s, allowWrite, sid, context?.source, context?.question);
           } finally {
             if (statementId.current === sid) statementId.current = null;
           }
@@ -96,7 +106,7 @@ export function useQueryRunner(target: Target | null, onFailure?: (sql: string, 
       if (id !== runId.current) return;
       setRunning(false);
       const last = out[out.length - 1];
-      if (statements.length === 1 && last?.error && last.error !== QUERY_CANCELLED) failure.current?.(last.sql, last.error);
+      if (statements.length === 1 && last?.error && last.error !== QUERY_CANCELLED && !last.refused) failure.current?.(last.sql, last.error);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [target, failure],
@@ -106,6 +116,7 @@ export function useQueryRunner(target: Target | null, onFailure?: (sql: string, 
     outcomes,
     total,
     error: outcomes.find((o) => o.error)?.error ?? null,
+    refused: !!outcomes.find((o) => o.error)?.refused,
     running,
     pendingWrite,
     run,

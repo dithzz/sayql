@@ -77,6 +77,8 @@ pub enum DbPool {
     My(MySqlPool),
     Lite(LitePools),
     Ms(MssqlPool),
+    /// A SayQL Team connection: queries go to the team server, never to the database directly.
+    Team(crate::team::TeamPool),
 }
 
 impl DbPool {
@@ -86,6 +88,16 @@ impl DbPool {
             DbPool::My(_) => Kind::Mysql,
             DbPool::Lite(_) => Kind::Sqlite,
             DbPool::Ms(_) => Kind::Mssql,
+            DbPool::Team(t) => t.kind,
+        }
+    }
+
+    /// Tags queries on a team connection with where they came from and the question asked,
+    /// for the team server's audit log. Other pools are unchanged.
+    pub fn with_context(self, source: crate::team::Source, question: Option<String>) -> DbPool {
+        match self {
+            DbPool::Team(t) => DbPool::Team(crate::team::TeamPool { source, question, ..t }),
+            other => other,
         }
     }
 }
@@ -106,6 +118,9 @@ pub struct QueryResult {
     pub rows_affected: Option<u64>,
     pub truncated: bool,
     pub elapsed_ms: u128,
+    /// Columns a team server left out because its admin marked them never send.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub withheld: Vec<String>,
 }
 
 #[cfg(test)]

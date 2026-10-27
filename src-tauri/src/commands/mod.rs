@@ -10,5 +10,6 @@ pub mod query;
 pub mod scripts;
 pub mod settings;
 pub mod skills;
+pub mod team;
 pub mod updates;
 pub mod voice;

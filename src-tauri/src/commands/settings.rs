@@ -26,6 +26,8 @@ pub struct SettingsView {
     /// Claude's models; other providers list theirs on request (`list_models`).
     models: Vec<ModelOption>,
     providers: Vec<ProviderView>,
+    /// The SayQL Team server signed in to, if any.
+    team: Option<crate::team::TeamAccount>,
 }
 
 #[derive(Serialize)]
@@ -67,6 +69,7 @@ pub fn settings_view(s: &Settings) -> SettingsView {
         ai_ready: endpoint(s).is_ok(),
         onboarded: s.onboarded,
         workspace_id: s.workspace_id.clone(),
+        team: s.team.clone(),
         models: ai::MODELS.iter().map(|(id, label)| ModelOption { id, label }).collect(),
         providers: ai::PROVIDERS
             .iter()

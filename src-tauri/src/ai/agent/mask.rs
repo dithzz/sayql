@@ -791,7 +791,7 @@ mod tests {
     use serde_json::json;
 
     fn result(columns: &[&str], rows: Vec<Vec<Value>>) -> QueryResult {
-        QueryResult { columns: columns.iter().map(|c| c.to_string()).collect(), rows, rows_affected: None, truncated: false, elapsed_ms: 1 }
+        QueryResult { columns: columns.iter().map(|c| c.to_string()).collect(), rows, rows_affected: None, truncated: false, elapsed_ms: 1, withheld: vec![] }
     }
 
     /// Planted personal data, each under a column name that gives it away and again under

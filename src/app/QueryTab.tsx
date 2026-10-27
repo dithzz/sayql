@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Wand2 } from "lucide-react";
-import { QUERY_CANCELLED, commands, type QueryResult, type Schema, type Settings, type Skill } from "../api";
+import { QUERY_CANCELLED, commands, type QueryResult, type Schema, type Settings, type Skill, type TeamAiStatus } from "../api";
+import { teamAiDestination } from "../features/team";
 import { Button, SplitPane } from "../components/ui";
 import {
   AgentAccessDialog,
@@ -52,12 +53,17 @@ export interface QueryTabProps {
   onSettingsChange: (s: Settings) => void;
   /** Shows a message in the banner, e.g. when switching models fails. */
   onNotice: (message: string) => void;
+  /** Team AI, when this tab's connection is a team connection and the team provides AI. */
+  teamAi?: TeamAiStatus | null;
 }
 
 /** One editor tab: Ask bar and SQL editor above, results below, bound to the tab's database. */
 export function QueryTab(props: QueryTabProps) {
   const { tab, active, label, schema, settings, modelNames, onChange, onOpenSettings, skills, onCreateSkill, onSave } = props;
   const askRef = useRef<HTMLTextAreaElement>(null);
+  // On a team connection with team AI, the team's AI answers: no personal key needed.
+  const teamAi = props.teamAi ?? null;
+  const aiReady = settings.aiReady || !!teamAi;
   const setSql = (sql: string) => onChange({ sql });
   const lastRun = tab.lastRun ?? null;
   const focusEnabled = tab.focusEnabled ?? true;
@@ -76,7 +82,7 @@ export function QueryTab(props: QueryTabProps) {
    */
   const aiWroteSql = useRef(!tab.origin);
   const query = useQueryRunner(tab.target, (sql, error) => {
-    if (ranSelection.current || autoFixUsed.current || !aiWroteSql.current || !settings.aiReady || !generation.question.trim()) return;
+    if (ranSelection.current || autoFixUsed.current || !aiWroteSql.current || !aiReady || !generation.question.trim()) return;
     autoFixUsed.current = true;
     generation.fix(sql, error);
   });
@@ -87,8 +93,11 @@ export function QueryTab(props: QueryTabProps) {
     ranSelection.current = false;
     setWidened(null);
     // Follow-ups see the question without its "/command".
-    onChange({ lastRun: sql.trim() ? { question: parseCommand(question, skills).rest, sql } : null });
-    query.run(sql, schema?.dialect);
+    const asked = parseCommand(question, skills).rest;
+    onChange({ lastRun: sql.trim() ? { question: asked, sql } : null });
+    // On a team connection, the team server's audit log records the question the SQL answers.
+    const fromAsk = (task !== "manual" || aiWroteSql.current) && !!asked.trim();
+    query.run(sql, schema?.dialect, fromAsk ? { source: "ask", question: asked } : { source: "editor" });
   };
 
   const generation = useSqlGeneration({
@@ -96,7 +105,7 @@ export function QueryTab(props: QueryTabProps) {
     slot: tab.id,
     schema,
     typingModel: `${settings.provider}:${settings.typingModel}`,
-    aiReady: settings.aiReady,
+    aiReady,
     initialQuestion: tab.question,
     previous: lastRun,
     // Hidden picks stay selected but don't reach the AI.
@@ -142,7 +151,7 @@ export function QueryTab(props: QueryTabProps) {
       setPicked(null);
       agent.start(question, { focusTables: focusEnabled ? (tab.focusTables ?? []) : [], skill, followUp });
     };
-    if (!settings.aiReady) return onOpenSettings();
+    if (!aiReady) return onOpenSettings();
     if (!access?.enabled) return setAccessDialog({ then: go });
     go();
   };
@@ -159,7 +168,7 @@ export function QueryTab(props: QueryTabProps) {
   useEffect(() => {
     if (!rowsLost || !step?.sql || reread[rereadKey]) return;
     setReread((r) => ({ ...r, [rereadKey]: { result: null, error: null } }));
-    commands.runQuery(tab.target, step.sql, false).then(
+    commands.runQuery(tab.target, step.sql, false, undefined, "agent").then(
       (result) => setReread((r) => ({ ...r, [rereadKey]: { result, error: null } })),
       (e) => setReread((r) => ({ ...r, [rereadKey]: { result: null, error: errorText(e) } })),
     );
@@ -191,7 +200,7 @@ export function QueryTab(props: QueryTabProps) {
     if (!r) return run();
     ranSelection.current = true;
     setWidened(r.expanded ? { range: r.range, count: statementRanges(r.sql, schema?.dialect).length } : null);
-    query.run(r.sql, schema?.dialect);
+    query.run(r.sql, schema?.dialect, { source: "editor" });
   };
 
   /** ↵ in the Ask box: /explain, /fix and /improve work on the editor's SQL; anything else runs. */
@@ -247,7 +256,7 @@ export function QueryTab(props: QueryTabProps) {
   };
 
   const busy = generation.status.kind === "writing";
-  const canUseAi = settings.aiReady && !!schema;
+  const canUseAi = aiReady && !!schema;
   const autoFixFailed = autoFixUsed.current && !busy && !!query.error;
 
   return (
@@ -302,6 +311,7 @@ export function QueryTab(props: QueryTabProps) {
                   onChange={props.onSettingsChange}
                   onError={props.onNotice}
                   onOpenSettings={onOpenSettings}
+                  team={teamAi}
                 />
               ),
               agentStarters: agentStarters(schema),
@@ -342,7 +352,7 @@ export function QueryTab(props: QueryTabProps) {
             }
             errorAction={
               // The AI rewrites one whole query, so a selection or a script is left to the person.
-              canUseAi && !ranSelection.current && query.total === 1 && query.error !== QUERY_CANCELLED && (
+              canUseAi && !ranSelection.current && query.total === 1 && query.error !== QUERY_CANCELLED && !query.refused && (
                 <Button
                   size="sm"
                   variant="ghost"
@@ -421,7 +431,7 @@ export function QueryTab(props: QueryTabProps) {
       {active && accessDialog && access && (
         <AgentAccessDialog
           connectionName={label}
-          provider={{ label: provider?.label ?? settings.provider, local: provider?.local ?? false }}
+          provider={teamAi ? teamAiDestination(teamAi) : { label: provider?.label ?? settings.provider, local: provider?.local ?? false }}
           access={access}
           onSave={async (a) => {
             const saved = await saveAgentAccess(tab.target.connectionId, a);
