@@ -258,7 +258,9 @@ Ideas and votes are welcome in [Discussions](https://github.com/dithzz/sayql/dis
 ## How SayQL is funded
 
 SayQL is made by one person. The app is free and will stay that way; teams that need control can pay for
-[SayQL for teams](https://sayql.dev/#teams), a server they run themselves. These promises hold either way:
+[SayQL for teams](https://sayql.dev/#teams), a server they run themselves (free for 30 days: run
+`curl -fsSL https://sayql.dev/install | sh` on a machine with Docker; see the
+[setup guide](https://sayql.dev/docs/teams/#set-up-a-team-server)). These promises hold either way:
 
 1. **Single-user stays free.** Everything one person needs to ask, run, fix and export works in this app,
    forever, including at work and including agent mode.
