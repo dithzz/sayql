@@ -519,6 +519,23 @@ section.block { padding: 96px 0 0; }
 .note { margin: 0; padding: 4px 0 4px 24px; border-left: 2px solid var(--color-border); color: var(--color-text-muted); }
 .note footer { margin-top: 12px; font-size: 14px; color: var(--color-text-subtle); }
 @media (max-width: 760px) { .free { grid-template-columns: 1fr; gap: 32px; } }
+.teams { display: grid; grid-template-columns: 1.1fr 1fr; gap: 48px; align-items: start; }
+.team-points { margin: 28px 0 0; padding: 0; list-style: none; display: grid; gap: 18px; }
+.team-points li { display: grid; grid-template-columns: 20px 1fr; gap: 12px; }
+.team-points .icon { margin-top: 3px; color: var(--color-accent); }
+.team-points strong { display: block; font-weight: 500; }
+.team-points span { color: var(--color-text-muted); }
+.waitlist { padding: 24px; border: 1px solid var(--color-border); border-radius: var(--radius-lg); background: var(--color-surface); display: grid; gap: 14px; }
+.waitlist h3 { font-size: 18px; }
+.waitlist label { display: grid; gap: 6px; font-size: 14px; color: var(--color-text-muted); }
+.waitlist input, .waitlist select { height: 40px; padding: 0 12px; border: 1px solid var(--color-border-strong); border-radius: var(--radius-md); background: var(--color-page); color: var(--color-text); font: inherit; font-size: 15px; width: 100%; }
+.waitlist input:focus, .waitlist select:focus { outline: 2px solid var(--color-accent); outline-offset: 1px; }
+.waitlist .btn { justify-self: start; }
+.waitlist .hp { position: absolute; left: -9999px; }
+.waitlist .small { margin-top: 0; }
+.waitlist-status { min-height: 1.4em; font-size: 14px; color: var(--color-text-muted); }
+.waitlist-status.ok { color: var(--color-text); }
+@media (max-width: 760px) { .teams { grid-template-columns: 1fr; gap: 32px; } }
 
 /* faq */
 .faq { margin-top: 32px; border-top: 1px solid var(--color-border); max-width: 760px; }
@@ -593,6 +610,7 @@ section.block { padding: 96px 0 0; }
     <nav class="nav-links" aria-label="Main">
       <a href="#features">Features</a>
       <a href="#demo">Demo</a>
+      <a href="#teams">Teams</a>
       <a href="/docs/">Docs</a>
     </nav>
     <div class="nav-end">
@@ -894,6 +912,41 @@ section.block { padding: 96px 0 0; }
   </div>
 </section>
 
+<section class="block" id="teams">
+  <div class="wrap teams">
+    <div>
+      <div class="head">
+        <h2>SayQL for teams</h2>
+        <p>Let analysts, support and product get answers from production, with the controls your security lead needs. It runs on your own servers, so your data never reaches us.</p>
+      </div>
+      <ul class="team-points">
+        <li><svg class="icon"><use href="#i-key"/></svg><div><strong>Shared connections</strong><span>Your team queries the databases you choose. Nobody sees the password.</span></div></li>
+        <li><svg class="icon"><use href="#i-scroll"/></svg><div><strong>Every query on record</strong><span>An audit log of who asked what, kept on your server.</span></div></li>
+        <li><svg class="icon"><use href="#i-lock"/></svg><div><strong>Rules the AI can't cross</strong><span>You decide what agent mode may see and which columns are never sent. Nobody can loosen it.</span></div></li>
+      </ul>
+      <p class="small">The desktop app stays free and open source. Paid plans add control for teams; nothing free ever moves behind a paywall (<a href="https://github.com/dithzz/sayql#how-sayql-is-funded">our principles</a>).</p>
+    </div>
+    <form class="waitlist" id="waitlist" novalidate>
+      <h3>Join the waitlist</h3>
+      <label>Work email<input type="email" name="email" autocomplete="email" required placeholder="you@company.com"></label>
+      <label>Interested in<select name="interest">
+        <option value="team">SayQL for my team</option>
+        <option value="gateway">Safe database access for our AI agents</option>
+        <option value="both">Both</option>
+      </select></label>
+      <label>Team size<select name="size">
+        <option value="1-9">1 to 9 people</option>
+        <option value="10-49">10 to 49</option>
+        <option value="50-249">50 to 249</option>
+        <option value="250+">250 or more</option>
+      </select></label>
+      <input class="hp" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
+      <button class="btn btn-primary btn-lg" type="submit">Join the waitlist</button>
+      <p class="waitlist-status" id="waitlist-status" role="status"></p>
+      <p class="small">We only email you about SayQL for teams. Unsubscribe any time.</p>
+    </form>
+  </div>
+</section>
 <section class="block" id="faq">
   <div class="wrap">
     <div class="head"><h2>Questions</h2></div>
@@ -935,6 +988,7 @@ section.block { padding: 96px 0 0; }
       <a href="https://github.com/dithzz/sayql-releases/releases">Changelog</a>
       <a href="https://github.com/dithzz/sayql">GitHub</a>
       <a href="https://github.com/dithzz/sayql/issues/new">Feedback</a>
+      <a href="mailto:hello@azenvoc.com">Contact</a>
       <a href="https://github.com/dithzz/sayql-releases/blob/main/PRIVACY.md">Privacy</a>
       <a href="https://github.com/dithzz/sayql/blob/main/LICENSE">License</a>
     </nav>
@@ -947,6 +1001,24 @@ section.block { padding: 96px 0 0; }
   var root = document.documentElement;
   var reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+  /* waitlist */
+  var wl = document.getElementById("waitlist"), wlStatus = document.getElementById("waitlist-status");
+  wl.addEventListener("submit", function (e) {
+    e.preventDefault();
+    var email = wl.email.value.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { wlStatus.className = "waitlist-status"; wlStatus.textContent = "Please enter a valid email."; wl.email.focus(); return; }
+    var btn = wl.querySelector("button");
+    btn.disabled = true; wlStatus.className = "waitlist-status"; wlStatus.textContent = "Joining…";
+    fetch("/api/waitlist", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: email, interest: wl.interest.value, size: wl.size.value, website: wl.website.value }) })
+      .then(function (r) { return r.json().catch(function () { return {}; }).then(function (b) { return { ok: r.ok, body: b }; }); })
+      .then(function (res) {
+        if (res.ok) { wl.reset(); wlStatus.className = "waitlist-status ok"; wlStatus.textContent = "You're on the list. We'll be in touch."; }
+        else { wlStatus.textContent = (res.body && res.body.error) || "That didn't work. Please try again later."; }
+      })
+      .catch(function () { wlStatus.textContent = "That didn't work. Please try again later."; })
+      .then(function () { btn.disabled = false; });
+  });
   /* theme */
   document.getElementById("theme").addEventListener("click", function () {
     var current = root.getAttribute("data-theme") || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
