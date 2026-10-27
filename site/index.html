@@ -373,8 +373,8 @@ p { text-wrap: pretty; }
 .dbtn.focus { box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-app-accent) 45%, transparent); }
 .dbtn.danger { background: var(--color-danger); border-color: var(--color-danger); color: #fff; }
 
-.providers { padding: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.prov { border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: 8px 10px; transition: border-color 200ms, background 200ms, box-shadow 200ms; min-width: 0; }
+.providers { padding: 10px 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.prov { border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: 6px 9px; transition: border-color 200ms, background 200ms, box-shadow 200ms; min-width: 0; }
 .prov b { font-size: 12.5px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .prov span { display: block; font-size: 11.5px; color: var(--color-text-muted); margin-top: 2px; }
 .prov.on { border-color: var(--color-app-accent); background: var(--color-app-accent-soft); box-shadow: 0 0 0 1px var(--color-app-accent); }
@@ -587,6 +587,16 @@ section.block { padding: 80px 0 0; }
 .meta a:hover { color: var(--color-text); }
 .meta + .meta { margin-top: 4px; }
 
+/* closing band */
+.closing-card { display: flex; align-items: center; justify-content: space-between; gap: 24px 40px; flex-wrap: wrap; padding: 36px 40px; border: 1px solid var(--color-border); border-radius: var(--radius-card); background: var(--color-surface); }
+.closing-card h2 { font-size: clamp(24px, 3vw, 30px); line-height: 1.2; }
+.closing-card p { margin-top: 8px; color: var(--color-text-muted); }
+.closing-card .actions { margin-top: 0; }
+@media (max-width: 560px) { .closing-card { padding: 28px 24px; } }
+.small.tight { margin-top: 4px; }
+.free .small { max-width: 44em; }
+@media (max-width: 520px) { .eyebrow .long { display: none; } }
+
 /* faq */
 .faq { margin-top: 32px; border-top: 1px solid var(--color-border); max-width: 760px; }
 .faq details { border-bottom: 1px solid var(--color-border); }
@@ -678,7 +688,7 @@ section.block { padding: 80px 0 0; }
 <main>
 <section class="hero">
   <div class="wrap">
-    <a class="eyebrow" href="#teams"><span class="tag">New</span>SayQL for teams: one command, free for 30 days</a>
+    <a class="eyebrow" href="#teams"><span class="tag">New</span>SayQL for teams<span class="long">: one command, free for 30 days</span></a>
     <h1>Say what you need. <span>It knows your schema.</span></h1>
     <p class="lede">The safe way to query production databases, without being a SQL expert.</p>
     <div class="actions">
@@ -846,7 +856,7 @@ section.block { padding: 80px 0 0; }
       <article class="card b-2">
         <div class="card-text">
           <h3>Any AI, or a local one</h3>
-          <p>Bring your own key, run a model with Ollama or LM Studio, or use SayQL AI credits: Claude without an Anthropic account.</p>
+          <p>Your own key, a local model, or SayQL AI credits.</p>
         </div>
         <div class="app mini" id="demo-ai" role="img" aria-label="Demo: choosing an AI provider in SayQL">
           <div class="providers">
@@ -912,8 +922,8 @@ section.block { padding: 80px 0 0; }
         <p>Passwords and API keys are never stored in files.</p>
       </div>
       <div class="fact">
-        <h3><svg class="icon"><use href="#i-monitor"/></svg>No server in between</h3>
-        <p>A desktop app that connects straight to your database.</p>
+        <h3><svg class="icon"><use href="#i-monitor"/></svg>Straight to your database</h3>
+        <p>A desktop app that connects directly. Nothing goes through a SayQL server.</p>
       </div>
       <div class="fact">
         <h3><svg class="icon"><use href="#i-table"/></svg>Scripts, step by step</h3>
@@ -956,7 +966,8 @@ section.block { padding: 80px 0 0; }
         <a class="btn btn-lg" href="/download/" data-dl="windows">Windows</a>
         <a class="btn btn-lg" href="/download/" data-dl="linux">Linux</a>
       </div>
-      <p class="small"><span data-version hidden>Version <span data-version-number></span>. </span>The macOS button is for Apple silicon; <a href="/download/" data-dl="mac-intel">Intel Macs use this one</a>. Linux: .AppImage, or <a href="/download/">.deb and .rpm</a>. Early-access builds aren’t code-signed yet, so confirm the first launch once (<a href="/docs/install/">how</a>). Updates are signed.</p>
+      <p class="small"><span data-version hidden>Version <span data-version-number></span> · </span>macOS for Apple silicon (<a href="/download/" data-dl="mac-intel">Intel</a>) · Linux .AppImage (<a href="/download/">.deb, .rpm</a>)</p>
+      <p class="small tight">Not code-signed yet: confirm the first launch once (<a href="/docs/install/">how</a>). Updates are signed.</p>
     </div>
     <blockquote class="note">
       <p>“I knew what I wanted to ask my databases, but not always how to write it. So I built SayQL, and made it free.”</p>
@@ -1116,12 +1127,29 @@ section.block { padding: 80px 0 0; }
     </div>
   </div>
 </section>
+
+<section class="block closing">
+  <div class="wrap">
+    <div class="closing-card">
+      <div>
+        <h2>Ask your database something.</h2>
+        <p>Free for you, on macOS, Windows and Linux. Free for 30 days for your team.</p>
+      </div>
+      <div class="actions">
+        <a class="btn btn-primary btn-lg" href="#download"><svg class="icon"><use href="#i-download"/></svg>Download SayQL</a>
+        <a class="btn btn-lg" href="#teams">Try SayQL for teams</a>
+      </div>
+    </div>
+  </div>
+</section>
 </main>
 
 <footer class="site-footer">
   <div class="wrap">
     <a class="brand" href="/"><svg class="wordmark" width="45" height="20" aria-hidden="true"><use href="#i-wordmark"/></svg></a>
     <nav aria-label="Footer">
+      <a href="#teams">Teams</a>
+      <a href="#pricing">Pricing</a>
       <a href="/docs/">Docs</a>
       <a href="https://github.com/dithzz/sayql-releases/releases">Changelog</a>
       <a href="https://github.com/dithzz/sayql">GitHub</a>
@@ -1565,12 +1593,12 @@ section.block { padding: 80px 0 0; }
   (function () {
     var el = document.getElementById("demo-ai");
     var cards = el.querySelectorAll("[data-p]"), label = el.querySelector("[data-label]"), field = el.querySelector("[data-field]"), help = el.querySelector("[data-help]");
-    var KEYCHAIN = "Stored in your system keychain, never in a file.";
+    var KEYCHAIN = "Stored in your system keychain.";
     var STATES = [
       ["Anthropic Claude API key", "Saved in Keychain", KEYCHAIN],
       ["OpenAI API key", "Saved in Keychain", KEYCHAIN],
-      ["Credit key", "Saved in Keychain", "Prepaid from SayQL. Requests go through SayQL to Anthropic."],
-      ["Ollama address", "http://localhost:11434", "No key needed. Nothing leaves your machine."]
+      ["Credit key", "Saved in Keychain", "Prepaid. Goes via SayQL to Anthropic."],
+      ["Ollama address", "http://localhost:11434", "No key. Nothing leaves your machine."]
     ];
     function select(i) {
       cards.forEach(function (c, j) { c.classList.toggle("on", i === j); });
