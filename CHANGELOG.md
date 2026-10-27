@@ -3,7 +3,7 @@
 All notable changes to SayQL are listed here. Downloads are on the
 [releases page](https://github.com/dithzz/sayql-releases/releases).
 
-## Unreleased
+## 0.4.0 (2026-10-27)
 
 - **Sign in to your team (SayQL Team, preview):** in **Settings → Team**, sign in to your company's SayQL server
   with an invite code, or open a `sayql://team-join` invite link, which fills in the dialog for you to confirm.
