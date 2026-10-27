@@ -9,7 +9,7 @@
 # Settings, without the questions: SAYQL_DOMAIN, SAYQL_DIR (default ~/sayql), SAYQL_ADMIN_EMAIL.
 set -eu
 
-VERSION=0.2.3
+VERSION=0.2.4
 IMAGE="ghcr.io/azenvoc/sayql-server:$VERSION"
 CADDY_IMAGE="caddy:2.10"
 DIR="${SAYQL_DIR:-$HOME/sayql}"
