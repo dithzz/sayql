@@ -5,7 +5,8 @@ import type { ConnectionConfig, Settings, TeamAccount, TeamAiStatus, TeamStatus 
 import { ModelPicker } from "../settings/ModelPicker";
 import { DatabaseNavigator } from "../navigator/DatabaseNavigator";
 import { TeamSection } from "./TeamSection";
-import { TEAMS_URL, licenceText } from "./teamText";
+import { TEAMS_URL, licenceText, parseInviteLink } from "./teamText";
+import { TeamSignInDialog } from "./TeamSignInDialog";
 import { useTeamConnections } from "./useTeamConnections";
 
 // Every command a team feature could send; a signed-out app must call none of them.
@@ -85,6 +86,59 @@ describe("SayQL Team", () => {
 
   it("says when the server has no licence", () => {
     expect(licenceText({ ...info, licensed: false })).toContain("No valid licence");
+  });
+
+  it("names a server's built-in trial plainly", () => {
+    expect(licenceText({ ...info, plan: "trial", licensee: "Free trial", expires: "2026-11-26" })).toBe(
+      "Free trial · 3 of 10 seats · until 2026-11-26",
+    );
+  });
+
+  it("reads both kinds of invite link, and nothing else", () => {
+    const want = { server: "https://sayql.acme.test", code: "ABCD-EFGH" };
+    expect(parseInviteLink("https://sayql.dev/join#server=https://sayql.acme.test&code=ABCD-EFGH")).toEqual(want);
+    expect(parseInviteLink(" https://sayql.dev/join/#server=https%3A%2F%2Fsayql.acme.test&code=ABCD-EFGH ")).toEqual(want);
+    expect(parseInviteLink("sayql://team-join?server=https%3A%2F%2Fsayql.acme.test&code=ABCD-EFGH")).toEqual(want);
+    for (const other of ["https://sayql.acme.test", "ABCD-EFGH", "https://sayql.dev/join#server=https://a.test", "https://x.test/?server=a&code=b"]) {
+      expect(parseInviteLink(other)).toBeNull();
+    }
+  });
+
+  it("a pasted invite link fills the server and the code, and asks to check the server", () => {
+    render(<TeamSignInDialog onSignedIn={vi.fn()} onClose={vi.fn()} />);
+    expect(screen.queryByText(/An invite link asks you to sign in/)).toBeNull();
+    const [server, code] = screen.getAllByRole("textbox") as HTMLInputElement[];
+    fireEvent.change(server, { target: { value: "https://sayql.dev/join#server=https://sayql.acme.test&code=ABCD-EFGH" } });
+    expect(server.value).toBe("https://sayql.acme.test");
+    expect(code.value).toBe("ABCD-EFGH");
+    expect(screen.getByText(/An invite link asks you to sign in/)).toBeTruthy();
+    expect(teamSignIn).not.toHaveBeenCalled();
+  });
+
+  it("signed out, offers a quiet way to sign in that can be hidden", () => {
+    localStorage.clear();
+    const onTeamSignIn = vi.fn();
+    const nav = (signIn?: () => void) => (
+      <DatabaseNavigator
+        connections={[conn("c1", "Local")]}
+        activeId={null} databases={{}} databaseName={null} schema={null} loading={false}
+        onOpen={vi.fn()} onOpenDatabase={vi.fn()} onAdd={vi.fn()} onEdit={vi.fn()} onDeleteConnection={vi.fn()} onRefresh={vi.fn()}
+        onPreviewTable={vi.fn()} onNewTab={vi.fn()} onOpenSql={vi.fn()} selectedTables={[]} onSelectTables={vi.fn()}
+        scripts={[]} onOpenScript={vi.fn()} onDeleteScript={vi.fn()} notes={[]}
+        onEditNote={vi.fn()} onDeleteNote={vi.fn()} onAgentSettings={vi.fn()} onTeamSignIn={signIn}
+      />
+    );
+    const { rerender } = render(nav(onTeamSignIn));
+    fireEvent.click(screen.getByText("Have a team invite? Sign in"));
+    expect(onTeamSignIn).toHaveBeenCalledTimes(1);
+    // Signed in: no hint.
+    rerender(nav(undefined));
+    expect(screen.queryByText("Have a team invite? Sign in")).toBeNull();
+    // Hidden: stays hidden.
+    rerender(nav(onTeamSignIn));
+    fireEvent.click(screen.getByRole("button", { name: "Hide" }));
+    expect(screen.queryByText("Have a team invite? Sign in")).toBeNull();
+    expect(onTeamSignIn).toHaveBeenCalledTimes(1);
   });
 
   it("lists team connections in their own group, with no edit or delete", () => {

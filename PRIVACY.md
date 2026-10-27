@@ -44,6 +44,15 @@ If you join the SayQL for teams waitlist, the website stores the email, interest
 (not your IP address), and uses them only to contact you about SayQL for teams. To be removed, email
 hello@azenvoc.com.
 
+A SayQL for teams server's admin page offers an optional **Tell SayQL about your trial** form. Only if
+the admin fills it in and clicks Send, their browser sends the company, email and team size they typed,
+and the server's version number, to sayql.dev, which stores them (not the IP address) and uses them
+only to help with the trial. The server itself never contacts SayQL. To be removed, email
+hello@azenvoc.com.
+
+Running the installer (`sayql.dev/install`) adds one to a count of installs per day. Nothing else
+about the request is kept.
+
 ## Feedback
 
 **Feedback** in the status bar opens a short form, then a pre-filled public GitHub issue in your browser.

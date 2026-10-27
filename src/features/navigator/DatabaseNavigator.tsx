@@ -24,6 +24,7 @@ import {
   Type,
   Users,
   Wand2,
+  X,
 } from "lucide-react";
 import type { ConnectionConfig, DatabaseList, DbNote, Schema, Table } from "../../api";
 import { ContextMenu, IconButton, Panel, Spinner, TextInput, TreeRow, useContextMenu, type MenuEntry } from "../../components/ui";
@@ -68,6 +69,8 @@ export interface DatabaseNavigatorProps {
   onDeleteNote: (note: DbNote) => void;
   /** Agent mode's settings for a connection: what it may send to the AI. */
   onAgentSettings: (c: ConnectionConfig) => void;
+  /** Opens "Sign in to your team"; set only while not signed in to a team. */
+  onTeamSignIn?: () => void;
 }
 
 /** A saved script as listed in the navigator. */
@@ -90,6 +93,7 @@ export function DatabaseNavigator(p: DatabaseNavigatorProps) {
   const [filter, setFilter] = useState("");
   /** Saved scripts: only the open database's, or all of them. */
   const [scriptsShown, setScriptsShown] = usePersistentState<"here" | "all">("sayql.scriptsShown", "here");
+  const [teamHintHidden, setTeamHintHidden] = usePersistentState("sayql.teamHintHidden", false);
   const anyHere = p.scripts.some((s) => s.here);
   const shownScripts = scriptsShown === "all" ? p.scripts : p.scripts.filter((s) => s.here);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
@@ -416,6 +420,19 @@ export function DatabaseNavigator(p: DatabaseNavigatorProps) {
         {own.map(renderConnection)}
         {own.length === 0 && team.length === 0 && (
           <TreeRow depth={0} label={<span className={styles.message}>No connections yet</span>} />
+        )}
+        {/* Where team connections would be: a quiet way in for someone who lost their invite link. */}
+        {team.length === 0 && p.onTeamSignIn && !teamHintHidden && (
+          <div role="group" className={styles.scripts}>
+            <TreeRow
+              depth={0}
+              icon={<Users size={14} />}
+              label={<span className={styles.message}>Have a team invite? Sign in</span>}
+              title="Sign in to your company's SayQL server to use the database connections your team shares."
+              actions={<IconButton icon={X} label="Hide" size="sm" onClick={() => setTeamHintHidden(true)} />}
+              onClick={p.onTeamSignIn}
+            />
+          </div>
         )}
         {team.length > 0 && (
           <div role="group" className={styles.scripts}>

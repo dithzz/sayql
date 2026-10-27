@@ -525,6 +525,15 @@ section.block { padding: 96px 0 0; }
 .team-points .icon { margin-top: 3px; color: var(--color-accent); }
 .team-points strong { display: block; font-weight: 500; }
 .team-points span { color: var(--color-text-muted); }
+.team-side { display: grid; gap: 20px; min-width: 0; }
+.install { padding: 24px; border: 1px solid var(--color-accent); border-radius: var(--radius-lg); background: var(--color-surface); display: grid; gap: 12px; }
+.install h3 { font-size: 18px; }
+.install p, .install ol { margin: 0; color: var(--color-text-muted); }
+.install ol { padding-left: 20px; display: grid; gap: 6px; font-size: 14px; }
+.install .small { margin-top: 0; }
+.install-cmd { display: flex; align-items: center; gap: 8px; padding: 6px 6px 6px 12px; border: 1px solid var(--color-border-strong); border-radius: var(--radius-md); background: var(--color-page); }
+.install-cmd code { flex: 1; min-width: 0; overflow-x: auto; white-space: nowrap; font: 400 13px/1.6 var(--font-mono); color: var(--color-text); }
+.btn-sm { height: 28px; padding: 0 10px; font-size: 13px; }
 .waitlist { padding: 24px; border: 1px solid var(--color-border); border-radius: var(--radius-lg); background: var(--color-surface); display: grid; gap: 14px; }
 .waitlist h3 { font-size: 18px; }
 .waitlist label { display: grid; gap: 6px; font-size: 14px; color: var(--color-text-muted); }
@@ -558,7 +567,7 @@ section.block { padding: 96px 0 0; }
 <script defer src="/_vercel/insights/script.js"></script>
 <script type="application/ld+json">{"@context": "https://schema.org", "@type": "SoftwareApplication", "name": "SayQL", "alternateName": "SayQL Community Edition", "description": "Ask your database in plain English: SayQL writes the SQL and runs it read-only. Free, open-source text-to-SQL for PostgreSQL, MySQL, SQLite and SQL Server.", "url": "https://sayql.dev/", "image": "https://sayql.dev/og.png", "applicationCategory": "DeveloperApplication", "operatingSystem": "macOS, Windows, Linux", "downloadUrl": "https://github.com/dithzz/sayql-releases/releases/latest", "license": "https://www.apache.org/licenses/LICENSE-2.0", "isAccessibleForFree": true, "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}, "author": {"@type": "Person", "name": "Adith L S", "url": "https://github.com/dithzz"}, "sameAs": ["https://github.com/dithzz/sayql"]}</script>
 <script type="application/ld+json">{"@context": "https://schema.org", "@type": "WebSite", "name": "SayQL", "url": "https://sayql.dev/"}</script>
-<!-- faq-jsonld --><script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "What is SayQL?", "acceptedAnswer": {"@type": "Answer", "text": "A free, open-source desktop app that turns plain English into SQL (text-to-SQL) for PostgreSQL, MySQL, SQLite and SQL Server. It knows your schema and runs queries read-only."}}, {"@type": "Question", "name": "Do I need to know SQL?", "acceptedAnswer": {"@type": "Answer", "text": "No. The SQL is always in front of you, so you’ll pick it up along the way."}}, {"@type": "Question", "name": "What does the AI see?", "acceptedAnswer": {"@type": "Answer", "text": "Your question and your table and column names. When a query fails, the SQL and the error too. Never the rows in your tables, unless you turn on agent mode for a connection, and then only what you allow for it. With Ollama or LM Studio, nothing leaves your computer."}}, {"@type": "Question", "name": "Can it break my database?", "acceptedAnswer": {"@type": "Answer", "text": "Queries run read-only, and the database enforces it too. An UPDATE or DELETE always stops for your confirmation first."}}, {"@type": "Question", "name": "What does it cost?", "acceptedAnswer": {"@type": "Answer", "text": "SayQL is free. You pay your AI provider for what you use, with your own key, or nothing with a local model."}}, {"@type": "Question", "name": "Why does my computer warn me on first launch?", "acceptedAnswer": {"@type": "Answer", "text": "Early-access builds aren’t code-signed with Apple or Microsoft yet. Confirm the first launch once and it opens normally after that. Updates are signed with SayQL’s own key."}}]}</script><!-- /faq-jsonld -->
+<!-- faq-jsonld --><script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "What is SayQL?", "acceptedAnswer": {"@type": "Answer", "text": "A free, open-source desktop app that turns plain English into SQL (text-to-SQL) for PostgreSQL, MySQL, SQLite and SQL Server. It knows your schema and runs queries read-only."}}, {"@type": "Question", "name": "Do I need to know SQL?", "acceptedAnswer": {"@type": "Answer", "text": "No. The SQL is always in front of you, so you’ll pick it up along the way."}}, {"@type": "Question", "name": "What does the AI see?", "acceptedAnswer": {"@type": "Answer", "text": "Your question and your table and column names. When a query fails, the SQL and the error too. Never the rows in your tables, unless you turn on agent mode for a connection, and then only what you allow for it. With Ollama or LM Studio, nothing leaves your computer."}}, {"@type": "Question", "name": "Can it break my database?", "acceptedAnswer": {"@type": "Answer", "text": "Queries run read-only, and the database enforces it too. An UPDATE or DELETE always stops for your confirmation first."}}, {"@type": "Question", "name": "What does it cost?", "acceptedAnswer": {"@type": "Answer", "text": "SayQL is free. You pay your AI provider for what you use, with your own key, or nothing with a local model. SayQL for teams, a server your company runs for shared connections and an audit log, is free for 30 days and paid after that."}}, {"@type": "Question", "name": "Why does my computer warn me on first launch?", "acceptedAnswer": {"@type": "Answer", "text": "Early-access builds aren’t code-signed with Apple or Microsoft yet. Confirm the first launch once and it opens normally after that. Updates are signed with SayQL’s own key."}}]}</script><!-- /faq-jsonld -->
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -926,8 +935,20 @@ section.block { padding: 96px 0 0; }
       </ul>
       <p class="small">The desktop app stays free and open source. Paid plans add control for teams; nothing free ever moves behind a paywall (<a href="https://github.com/dithzz/sayql#how-sayql-is-funded">our principles</a>).</p>
     </div>
+    <div class="team-side">
+    <div class="install">
+      <h3>Try it free for 30 days</h3>
+      <p>On any machine with Docker that can reach your database, run:</p>
+      <div class="install-cmd"><code id="install-cmd">curl -fsSL https://sayql.dev/install | sh</code><button class="btn btn-sm" type="button" id="install-copy">Copy</button></div>
+      <ol>
+        <li>Open the admin link it prints.</li>
+        <li>Add a database. The page shows the SQL for a read-only login.</li>
+        <li>Invite your team. Each link opens the SayQL app and signs them in.</li>
+      </ol>
+      <p class="small">Up to 10 people, no card or licence key needed. Give it a domain and HTTPS is set up for you. When you're ready to buy, email <a href="mailto:hello@azenvoc.com">hello@azenvoc.com</a>. <a href="/docs/teams/#set-up-a-team-server">Setup guide</a></p>
+    </div>
     <form class="waitlist" id="waitlist" novalidate>
-      <h3>Join the waitlist</h3>
+      <h3>Want news, or help setting up?</h3>
       <label>Work email<input type="email" name="email" autocomplete="email" required placeholder="you@company.com"></label>
       <label>Interested in<select name="interest">
         <option value="team">SayQL for my team</option>
@@ -941,10 +962,11 @@ section.block { padding: 96px 0 0; }
         <option value="250+">250 or more</option>
       </select></label>
       <input class="hp" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
-      <button class="btn btn-primary btn-lg" type="submit">Join the waitlist</button>
+      <button class="btn btn-lg" type="submit">Keep me posted</button>
       <p class="waitlist-status" id="waitlist-status" role="status"></p>
       <p class="small">We only email you about SayQL for teams. Unsubscribe any time.</p>
     </form>
+    </div>
   </div>
 </section>
 <section class="block" id="faq">
@@ -969,7 +991,7 @@ section.block { padding: 96px 0 0; }
       </details>
       <details>
         <summary>What does it cost?<svg class="icon"><use href="#i-plus"/></svg></summary>
-        <p>SayQL is free. You pay your AI provider for what you use, with your own key, or nothing with a local model.</p>
+        <p>SayQL is free. You pay your AI provider for what you use, with your own key, or nothing with a local model. SayQL for teams, a server your company runs for shared connections and an audit log, is free for 30 days and paid after that.</p>
       </details>
       <details>
         <summary>Why does my computer warn me on first launch?<svg class="icon"><use href="#i-plus"/></svg></summary>
@@ -1001,6 +1023,15 @@ section.block { padding: 96px 0 0; }
   var root = document.documentElement;
   var reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+  /* install command */
+  var ic = document.getElementById("install-copy");
+  ic.addEventListener("click", function () {
+    var text = document.getElementById("install-cmd").textContent;
+    var done = function (label) { ic.textContent = label; setTimeout(function () { ic.textContent = "Copy"; }, 1500); };
+    if (navigator.clipboard) navigator.clipboard.writeText(text).then(function () { done("Copied"); }, function () { done("Select it"); });
+    else done("Select it");
+  });
+
   /* waitlist */
   var wl = document.getElementById("waitlist"), wlStatus = document.getElementById("waitlist-status");
   wl.addEventListener("submit", function (e) {
@@ -1008,12 +1039,12 @@ section.block { padding: 96px 0 0; }
     var email = wl.email.value.trim();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { wlStatus.className = "waitlist-status"; wlStatus.textContent = "Please enter a valid email."; wl.email.focus(); return; }
     var btn = wl.querySelector("button");
-    btn.disabled = true; wlStatus.className = "waitlist-status"; wlStatus.textContent = "Joining…";
+    btn.disabled = true; wlStatus.className = "waitlist-status"; wlStatus.textContent = "Saving…";
     fetch("/api/waitlist", { method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email: email, interest: wl.interest.value, size: wl.size.value, website: wl.website.value }) })
       .then(function (r) { return r.json().catch(function () { return {}; }).then(function (b) { return { ok: r.ok, body: b }; }); })
       .then(function (res) {
-        if (res.ok) { wl.reset(); wlStatus.className = "waitlist-status ok"; wlStatus.textContent = "You're on the list. We'll be in touch."; }
+        if (res.ok) { wl.reset(); wlStatus.className = "waitlist-status ok"; wlStatus.textContent = "Thanks. We'll be in touch."; }
         else { wlStatus.textContent = (res.body && res.body.error) || "That didn't work. Please try again later."; }
       })
       .catch(function () { wlStatus.textContent = "That didn't work. Please try again later."; })

@@ -2,10 +2,24 @@
 <p class="lead">With SayQL for teams, your company runs its own SayQL server. It holds the team's database connections, so nobody needs the database passwords, and it keeps an audit log of every query.</p>
 <div class="callout"><svg><use href="#i-info"/></svg><p><b>Not using a team?</b> Nothing changes. Without signing in, SayQL never contacts a team server and works exactly as before.</p></div>
 
+<h2>Set up a team server</h2>
+<p>For the person setting up SayQL for a team. You need a machine with Docker that can reach your database. On it, run:</p>
+<pre><code>curl -fsSL https://sayql.dev/install | sh</code></pre>
+<ul>
+  <li>It asks for a domain, such as <code>sayql.yourcompany.com</code>. Point it at that machine and open ports 80 and 443, and HTTPS is set up for you. Press Enter instead to try it on that machine first.</li>
+  <li>It prints a one-time admin page link. Open it: you're signed in as the admin.</li>
+  <li>On the admin page, under <b>Connections</b>, add a database. The form shows the SQL to create a read-only login for it; run that first. Click <b>Test</b>.</li>
+  <li>Under <b>People</b>, invite your team and click <b>Copy message</b>: the link and what to do, ready for email or chat. The link opens SayQL, or helps them download it first (below).</li>
+  <li>To use the team's databases in SayQL yourself, click <b>Open SayQL with this account</b> on the admin page's <b>Overview</b>.</li>
+  <li>Every new server is free for 30 days, for up to 10 people. To buy, email <a href="mailto:hello@azenvoc.com">hello@azenvoc.com</a>; paste the licence key you receive on the admin page's <b>Overview</b>. Nothing restarts and nothing is lost.</li>
+</ul>
+<p>Your data stays on your network: the server runs there, and the licence is checked offline. To update, run the same command again.</p>
+
 <h2>Sign in</h2>
 <ul>
-  <li>Your team admin sends you an invite: a server address and an invite code, or a link that starts with <code>sayql://team-join</code>.</li>
-  <li>Open <b>Settings → Team</b>, click <b>Sign in</b>, and enter the server and the code. An invite link opens the same dialog filled in; check the server is your company's, then click <b>Sign in</b>. Nothing is sent before you do.</li>
+  <li>Your team admin sends you an invite link, usually starting with <code>https://sayql.dev/join</code>. Open it and click <b>Open in SayQL</b>; if you don't have SayQL yet, the page links to the download. The server and code stay in the link: sayql.dev never sees them.</li>
+  <li>SayQL opens <b>Sign in to your team</b> filled in. Check the server is your company's, then click <b>Sign in</b>. Nothing is sent before you do.</li>
+  <li>No link to click? Open <b>Settings → Team → Sign in</b> (or <b>Have a team invite? Sign in</b> in the Database Navigator) and paste the whole link, or enter the server and the code.</li>
   <li>An invite code works once and expires after 7 days. Your sign-in is kept in your system keychain.</li>
   <li><b>Settings → Team</b> shows the server, your email and the team's plan and licence. <b>Sign out</b> ends the sign-in on the server and removes it from this computer.</li>
 </ul>

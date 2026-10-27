@@ -3,6 +3,14 @@
 All notable changes to SayQL are listed here. Downloads are on the
 [releases page](https://github.com/dithzz/sayql-releases/releases).
 
+## 0.4.2 (2026-10-27)
+
+- **Easier to join your team:** paste the whole invite link into **Settings → Team → Sign in** and it fills in the
+  server and the code. Links of the new `https://sayql.dev/join#…` kind work too.
+- **A way in from the navigator:** while you're not signed in to a team, the Database Navigator shows
+  **Have a team invite? Sign in**. Hide it with its × if you don't need it.
+- A team server on its free trial now shows as **Free trial** in **Settings → Team**.
+
 ## 0.4.1 (2026-10-27)
 
 The first release with SayQL for teams. (There is no 0.4.0 release: its tag was made too early.)
