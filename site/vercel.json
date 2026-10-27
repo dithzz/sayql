@@ -1,5 +1,6 @@
 {
   "rewrites": [{ "source": "/install", "destination": "/api/install" }],
+  "functions": { "api/ai/v1/messages.js": { "maxDuration": 300 } },
   "headers": [
     {
       "source": "/install.sh",
