@@ -382,6 +382,7 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
               onEditNote={(note) => setDialog({ kind: "note", note })}
               onDeleteNote={(note) => void commands.deleteNote(note.id).then(() => setNotesVersion((v) => v + 1))}
               onAgentSettings={(connection) => setDialog({ kind: "agentAccess", connection })}
+              onTeamSignIn={settings.team ? undefined : () => setDialog({ kind: "teamSignIn", server: "", code: "", key: crypto.randomUUID() })}
             />
           }
           second={
@@ -625,7 +626,7 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
           key={dialog.key}
           server={dialog.server}
           code={dialog.code}
-          fromLink
+          fromLink={!!dialog.server}
           onClose={() => setDialog(null)}
           onSignedIn={(account) => {
             setDialog(null);

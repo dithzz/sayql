@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Join your team on SayQL</title>
+<meta name="robots" content="noindex">
+<meta name="referrer" content="no-referrer">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<!-- The invite (server and code) is in the URL fragment: browsers never send it to sayql.dev, and
+     this page sends it nowhere. No analytics here. -->
+<style>
+  :root {
+    --page: #f6f7f9; --surface: #ffffff; --border: #d6dae0; --border-strong: #b9c0ca;
+    --text: #1d2125; --muted: #56606b; --subtle: #8a939d; --accent: #1f6feb; --accent-hover: #1a5fd0;
+    --warn-bg: #fdf3dc; --warn: #7a5200;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --page: #17191d; --surface: #1e2126; --border: #2f343b; --border-strong: #464d57;
+      --text: #e2e5e9; --muted: #a2aab4; --subtle: #79828d; --accent: #4a8dff; --accent-hover: #6aa2ff;
+      --warn-bg: #352a10; --warn: #f0c060;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; background: var(--page); color: var(--text);
+    font: 16px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
+    display: grid; place-items: center; padding: 32px 16px; }
+  main { width: 100%; max-width: 520px; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 28px; }
+  .brand { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 14px; margin-bottom: 20px; }
+  .brand img { width: 22px; height: 22px; }
+  h1 { font-size: 22px; line-height: 1.3; margin: 0 0 8px; font-weight: 600; }
+  p { margin: 0 0 12px; color: var(--muted); }
+  .server { font: 500 15px/1.4 "SF Mono", Menlo, Consolas, monospace; color: var(--text); word-break: break-all; }
+  ol { margin: 20px 0; padding: 0; list-style: none; display: grid; gap: 16px; counter-reset: step; }
+  ol li { display: grid; grid-template-columns: 28px 1fr; gap: 12px; counter-increment: step; }
+  ol li::before { content: counter(step); width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--border-strong);
+    display: grid; place-items: center; font-size: 13px; color: var(--muted); }
+  ol strong { display: block; font-weight: 500; margin-bottom: 6px; }
+  .btn { display: inline-flex; align-items: center; justify-content: center; height: 40px; padding: 0 16px;
+    border-radius: 8px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--text);
+    font: 500 15px/1 inherit; font-family: inherit; text-decoration: none; cursor: pointer; }
+  .btn:hover { border-color: var(--muted); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+  .small { font-size: 13px; color: var(--subtle); margin: 8px 0 0; }
+  details { margin-top: 20px; border-top: 1px solid var(--border); padding-top: 16px; }
+  summary { cursor: pointer; color: var(--muted); font-size: 14px; }
+  .field { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
+  .field span { width: 56px; font-size: 13px; color: var(--subtle); flex: none; }
+  .field input { flex: 1; min-width: 0; height: 34px; padding: 0 10px; border: 1px solid var(--border); border-radius: 6px;
+    background: var(--page); color: var(--text); font: 13px "SF Mono", Menlo, Consolas, monospace; }
+  .field button { height: 34px; padding: 0 10px; border-radius: 6px; border: 1px solid var(--border-strong);
+    background: var(--surface); color: var(--text); font: inherit; font-size: 13px; cursor: pointer; }
+  .warn { background: var(--warn-bg); color: var(--warn); border-radius: 8px; padding: 12px 14px; }
+  a { color: var(--accent); }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <div class="brand"><img src="/favicon.svg" alt="">SayQL</div>
+
+  <section id="invite" hidden>
+    <h1>You're invited to your team's SayQL</h1>
+    <p>Your team runs its own SayQL server at</p>
+    <p class="server" id="server"></p>
+    <p>Only continue if you expected an invite from your company.</p>
+
+    <ol>
+      <li><div>
+        <strong>Open the invite in SayQL</strong>
+        <a class="btn primary" id="open" href="#">Open in SayQL</a>
+        <p class="small">SayQL asks you to confirm the server, then click <b>Sign in</b>.</p>
+      </div></li>
+      <li><div>
+        <strong>Nothing opened? Install SayQL first</strong>
+        <a class="btn" href="/download/">Download SayQL</a>
+        <p class="small">Free and open source, for macOS, Windows and Linux. After installing, come back to this page and click <b>Open in SayQL</b> again.</p>
+      </div></li>
+    </ol>
+
+    <details>
+      <summary>Sign in by hand instead</summary>
+      <p class="small">In SayQL, open <b>Settings → Team → Sign in</b> and enter:</p>
+      <div class="field"><span>Server</span><input id="server-field" readonly><button type="button" data-copy="server-field">Copy</button></div>
+      <div class="field"><span>Code</span><input id="code-field" readonly><button type="button" data-copy="code-field">Copy</button></div>
+      <p class="small">The code works once and expires 7 days after it was created.</p>
+    </details>
+  </section>
+
+  <section id="broken" hidden>
+    <h1>This invite link is incomplete</h1>
+    <p class="warn">The link should end with <code>#server=…&amp;code=…</code>. Copy the whole link from the message you received, or ask your team admin to send it again.</p>
+    <p>New to SayQL? <a href="/">See what it is</a> or <a href="/download/">download it</a>.</p>
+  </section>
+</main>
+
+<script>
+(function () {
+  var params = new URLSearchParams(location.hash.slice(1));
+  var server = (params.get("server") || "").trim();
+  var code = (params.get("code") || "").trim();
+  var ok = false;
+  try {
+    var u = new URL(server);
+    ok = (u.protocol === "https:" || u.protocol === "http:") && /^[A-Za-z0-9-]{4,64}$/.test(code);
+  } catch (e) {}
+  if (!ok) { document.getElementById("broken").hidden = false; return; }
+
+  document.getElementById("server").textContent = server;
+  document.getElementById("server-field").value = server;
+  document.getElementById("code-field").value = code;
+  document.getElementById("open").href =
+    "sayql://team-join?server=" + encodeURIComponent(server) + "&code=" + encodeURIComponent(code);
+  document.getElementById("invite").hidden = false;
+
+  var buttons = document.querySelectorAll("[data-copy]");
+  for (var i = 0; i < buttons.length; i++) {
+    buttons[i].addEventListener("click", function (e) {
+      var b = e.currentTarget, input = document.getElementById(b.getAttribute("data-copy"));
+      var done = function (label) { b.textContent = label; setTimeout(function () { b.textContent = "Copy"; }, 1500); };
+      if (navigator.clipboard) navigator.clipboard.writeText(input.value).then(function () { done("Copied"); }, function () { input.select(); done("Select it"); });
+      else { input.select(); done("Select it"); }
+    });
+  }
+})();
+</script>
+</body>
+</html>

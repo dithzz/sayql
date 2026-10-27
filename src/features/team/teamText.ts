@@ -7,7 +7,8 @@ export const TEAMS_URL = "https://sayql.dev/#teams";
 export function licenceText(s: TeamServerInfo): string {
   if (!s.licensed) return "No valid licence: queries can't run until your team admin adds one";
   const plan = s.plan ? s.plan[0].toUpperCase() + s.plan.slice(1) : "Team";
-  const parts = [`${plan} plan${s.licensee ? ` for ${s.licensee}` : ""}`];
+  // A server without a key runs its built-in trial, licensed to "Free trial".
+  const parts = [s.licensee === "Free trial" ? "Free trial" : `${plan} plan${s.licensee ? ` for ${s.licensee}` : ""}`];
   if (s.users != null && s.userLimit != null) parts.push(`${s.users} of ${s.userLimit} seats`);
   if (s.expires) parts.push(`until ${s.expires}`);
   return parts.join(" · ");
@@ -34,6 +35,24 @@ export function teamAiName(ai: TeamAiStatus): string {
 /** Team AI applies (on, with a model to use). */
 export function teamAiOn(ai: TeamAiStatus | null | undefined): ai is TeamAiStatus {
   return !!ai?.enabled && !!ai.provider && !!ai.defaultModel;
+}
+
+/**
+ * A whole invite link pasted where the server goes: `https://sayql.dev/join#server=…&code=…` or
+ * `sayql://team-join?server=…&code=…`. Null for anything else.
+ */
+export function parseInviteLink(text: string): { server: string; code: string } | null {
+  const t = text.trim();
+  const query = t.startsWith("sayql://team-join?")
+    ? t.slice("sayql://team-join?".length)
+    : /^https?:\/\/[^#]*\/join\/?#/.test(t)
+      ? t.slice(t.indexOf("#") + 1)
+      : null;
+  if (query == null) return null;
+  const p = new URLSearchParams(query);
+  const server = p.get("server")?.trim();
+  const code = p.get("code")?.trim();
+  return server && code ? { server, code } : null;
 }
 
 /** The host of a server address, for "sign in to sayql.acme.internal". */
