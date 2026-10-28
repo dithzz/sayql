@@ -25,6 +25,8 @@
 <p>Below that, <b>Agent activity</b> lists what AI apps ran through SayQL on this computer: when, which app, the connection, the SQL, and whether it ran (with the row count) or was refused and why. It keeps the SQL and counts, never rows, in a file in SayQL's folder; <b>Clear the log</b> deletes it.</p>
 <p>Each app SayQL has seen is listed with a <b>Block</b> button. A blocked app is refused everything until you click <b>Allow</b>. Apps give their own name when they connect, so a block stops an app like Cursor, not software on your computer that pretends to be another app.</p>
 
+<div class="callout tip"><svg><use href="#i-info"/></svg><p><b>For a company,</b> govern agents centrally instead: on a <a href="/docs/teams/#govern-your-ai-agents">SayQL server</a>, an admin gives each agent its own key, the databases, tables and rows it may read, and what it may see. Private columns are withheld on the server, and every agent query is in the team's audit log.</p></div>
+
 <h2>Set it up</h2>
 <p>Open <b>Settings → AI apps (MCP)</b>. It shows the exact command and config for your install:</p>
 <ul>

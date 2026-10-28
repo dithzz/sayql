@@ -1,4 +1,4 @@
-<!-- order: 23 | slug: safe-production-queries | title: Let your team query production safely | group: Guides | description: Let your team query production safely in plain English. Support, ops, PMs and analysts get answers while SayQL runs read-only by default. -->
+<!-- order: 23 | slug: safe-production-queries | title: Let your team query production safely | group: Guides | description: Let your team, and their AI agents, query production safely. Read-only by default; agents get counts, not rows, unless you allow more. -->
 <p class="lead">SayQL lets your team query production safely. Support, ops, PMs and analysts ask in plain English, without being SQL experts.</p>
 
 <h2>Get started</h2>
@@ -16,4 +16,10 @@
   <li><b>SQL Server</b> has no read-only mode, so reads run in a transaction that's always rolled back. For production, give people a login that can only read (<code>db_datareader</code>).</li>
 </ul>
 <div class="callout tip"><svg><use href="#i-info"/></svg><p>The AI sees table and column names, types, keys, enum values and row estimates, never your table rows, unless you turn on <a href="/docs/agent-mode/">agent mode</a> for the connection. Results show up to 5,000 rows. For production, keep agent mode Off or at counts only, and connect with a read-only login.</p></div>
+<h2>AI agents on production</h2>
+<p>Claude Code, Cursor and other AI agents can query through SayQL too, under the same read-only rules:</p>
+<ul>
+  <li><b>On one computer:</b> in <b>Settings → AI apps (MCP)</b>, choose per connection what agents get back. The default is counts and summaries, not rows. <b>Agent activity</b> shows what each one ran, and you can block an app. See <a href="/docs/mcp/">MCP for AI apps</a>.</li>
+  <li><b>For a team:</b> on a <a href="/docs/teams/#govern-your-ai-agents">SayQL server</a>, give each agent its own key and only the databases, tables and rows it needs (for example <code>orders</code> where <code>tenant_id = 42</code>). Never-send columns are withheld on the server, and every agent query, refusals included, is in the audit log.</li>
+</ul>
 <p>More in <a href="/docs/running-queries/">Run queries safely</a> and <a href="/docs/privacy/">Privacy and data</a>.</p>
