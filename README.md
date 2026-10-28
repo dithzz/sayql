@@ -9,7 +9,7 @@
 
 ### Let agents into your database. Not your data.
 
-SayQL sits between AI agents and your database.<br>
+The governance layer between AI agents and your databases.<br>
 They get your schema and the numbers they need, not your rows, unless you say so.
 
 [![Latest release](https://img.shields.io/github/v/release/dithzz/sayql-releases?label=release&color=1f6feb)](https://github.com/dithzz/sayql-releases/releases/latest)
