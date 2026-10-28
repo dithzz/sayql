@@ -8,4 +8,6 @@ export { describeAccess, saveAgentAccess, useAgentAccess } from "./useAgentAcces
 export { setAgentAuto, useAgentAuto } from "./agentAuto";
 export { agentStarters } from "./starters";
 export { NoteDialog } from "./NoteDialog";
+export { NoteSuggestions } from "./NoteSuggestions";
+export { SUGGESTIONS_CHANGED, suggestionFor, useNoteSuggestions } from "./useNoteSuggestions";
 export { AgentSettingsSection } from "./AgentSettingsSection";

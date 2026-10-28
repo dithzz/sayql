@@ -67,6 +67,10 @@ export interface DatabaseNavigatorProps {
   /** Edits a note, or (`null`) adds one to the open database. */
   onEditNote: (note: DbNote | null) => void;
   onDeleteNote: (note: DbNote) => void;
+  /** Notes AI apps suggested for the open database, waiting for the person. */
+  suggestedNotes?: number;
+  /** Opens the suggested notes to accept or dismiss. */
+  onReviewSuggestions?: () => void;
   /** Agent mode's settings for a connection: what it may send to the AI. */
   onAgentSettings: (c: ConnectionConfig) => void;
   /** Opens "Sign in to your team"; set only while not signed in to a team. */
@@ -296,17 +300,27 @@ export function DatabaseNavigator(p: DatabaseNavigatorProps) {
       <>
         {renderFolder(`${key}:tables`, "Tables", tables, depth)}
         {renderFolder(`${key}:views`, "Views", views, depth)}
-        {p.notes.length > 0 && (
+        {(p.notes.length > 0 || !!p.suggestedNotes) && (
           <div role="group">
             <TreeRow
               depth={depth}
               expanded={!collapsed.has(`${key}:notes`)}
               icon={<StickyNote size={14} />}
               label="Notes"
-              meta={p.notes.length}
+              meta={p.notes.length || undefined}
               title="Facts about this database that the Ask box, agent mode and MCP use"
               onClick={() => setCollapsed((s) => toggle(s, `${key}:notes`))}
             />
+            {!!p.suggestedNotes && (
+              <TreeRow
+                depth={depth + 1}
+                icon={<Sparkles size={13} className={styles.suggested} />}
+                label={<span className={styles.suggested}>Suggested by AI apps</span>}
+                meta={<span className={styles.badge}>{p.suggestedNotes}</span>}
+                title="Notes Claude Code, Cursor or another AI app suggested over MCP. Review them to accept or dismiss."
+                onClick={p.onReviewSuggestions}
+              />
+            )}
             {!collapsed.has(`${key}:notes`) &&
               p.notes.map((n) => (
                 <TreeRow

@@ -22,6 +22,7 @@ const COMMANDS = [
   "install_update", "save_settings", "finish_onboarding", "list_models", "voice_status", "voice_download",
   "voice_cancel_download", "voice_delete_model", "voice_start", "voice_stop", "voice_cancel",
   "agent_access", "save_agent_access", "start_agent", "reply_agent", "stop_agent", "list_notes", "save_note", "delete_note",
+  "list_note_suggestions", "accept_note_suggestion", "dismiss_note_suggestion",
   "save_agent_settings", "choose_model", "team_sign_in", "team_status", "team_sign_out", "team_connections", "team_ai",
 ];
 
@@ -46,6 +47,8 @@ describe("mock backend", () => {
       stop_agent: { runId: "r1" },
       choose_model: { provider: "anthropic", model: "claude-sonnet-5-5", purpose: "agent" },
       set_mcp_app_blocked: { name: "Cursor", blocked: true },
+      accept_note_suggestion: { id: "sug-1" },
+      dismiss_note_suggestion: { id: "sug-2" },
       save_note: { note: { id: "", connectionId: "demo", database: null, text: "status 'paid' = not shipped", updatedAt: 0 } },
     };
     for (const cmd of COMMANDS) {

@@ -5,6 +5,7 @@ pub mod agent;
 pub mod apps;
 pub mod secrets;
 pub mod skills;
+pub mod suggestions;
 
 use crate::db::ConnConfig;
 use crate::error::{AppError, AppResult};

@@ -2,7 +2,7 @@
 // for design work without the Rust backend. Never loaded inside the Tauri app.
 import { emit } from "@tauri-apps/api/event";
 import { mockIPC } from "@tauri-apps/api/mocks";
-import type { AgentAccess, AgentReply, AgentStep, AiProvider, Bootstrap, DbNote, QueryResult, Schema, Settings, Skill, Table } from "../api";
+import type { AgentAccess, AgentReply, AgentStep, AiProvider, Bootstrap, DbNote, NoteSuggestion, QueryResult, Schema, Settings, Skill, Table } from "../api";
 import { EXAMPLE_SKILLS, skillError } from "../features/skills";
 import { version } from "../../package.json";
 import { isReadOnly } from "./readOnly";
@@ -321,6 +321,21 @@ const agentAccess = new Map<string, AgentAccess>(
   VIDEO ? [["demo", { enabled: true, results: "counts", apps: "counts", askBeforeSend: false, neverSend: [] }]] : [],
 );
 let notes: DbNote[] = [];
+// Notes AI apps suggested over MCP, waiting in the navigator and Settings → AI apps (MCP).
+let suggestions: NoteSuggestion[] = VIDEO
+  ? [
+      { id: "sug-1", connectionId: "demo", database: null, app: "Claude Code", createdAt: Date.now() - 20_000,
+        text: "Refunds are orders.status = 'refunded'; there is no refunds table",
+        evidence: "Checked api/orders/refund.ts (commit 4f2c1a9): it sets orders.status; describe_schema lists no refunds table." },
+    ]
+  : [
+      { id: "sug-1", connectionId: "demo", database: null, app: "Claude Code", createdAt: Date.now() - 120_000,
+        text: "reviews.rating is 1 to 5; 0 means the review was removed",
+        evidence: "api/reviews/moderate.ts sets rating = 0 on removal (commit 9b1e2d4, 2026-09-14); a CHECK in the migration allows 0 to 5." },
+      { id: "sug-2", connectionId: "demo", database: null, app: "Cursor", createdAt: Date.now() - 900_000,
+        text: "categories.parent_id is unused since the flat category redesign; ignore it",
+        evidence: "No reads of parent_id in web/ or api/ since commit 51c0e7a (2026-06-02)." },
+    ];
 const waiting = new Map<string, (r: AgentReply) => void>();
 const stopped = new Set<string>();
 
@@ -335,6 +350,7 @@ const mcpActivity = VIDEO
       { at: Date.now() - 600_000, app: "Cursor", tool: "run_query", connectionId: "demo", connection: "Demo store (SQLite)", sql: "DELETE FROM orders WHERE status = 'cancelled'", status: "refused", detail: "could change data", maySee: "counts" },
     ]
   : [
+      { at: Date.now() - 30_000, app: "Claude Code", tool: "suggest_note", connectionId: "demo", connection: "Demo store (SQLite)", sql: "", status: "ok", detail: "reviews.rating is 1 to 5; 0 means the review was removed" },
       { at: Date.now() - 60_000, app: "Claude Code", tool: "run_query", connectionId: "demo", connection: "Demo store (SQLite)", sql: "SELECT country, COUNT(*) FROM customers GROUP BY country", status: "ok", rows: 12, maySee: "counts" },
       { at: Date.now() - 240_000, app: "Cursor", tool: "run_query", connectionId: "demo", connection: "Demo store (SQLite)", sql: "SELECT email FROM customers", status: "refused", detail: "never-send column email", maySee: "counts" },
       { at: Date.now() - 600_000, app: "Claude Code", tool: "run_query", connectionId: "demo", connection: "Demo store (SQLite)", sql: "DELETE FROM orders WHERE id = 7", status: "refused", detail: "could change data", maySee: "counts" },
@@ -474,6 +490,19 @@ export function installMockBackend() {
         }
         case "delete_note":
           notes = notes.filter((n) => n.id !== a.id);
+          return null;
+        case "list_note_suggestions":
+          return suggestions;
+        case "accept_note_suggestion": {
+          const s = suggestions.find((x) => x.id === a.id);
+          if (!s) return Promise.reject("This suggestion is no longer waiting.");
+          const saved: DbNote = { id: crypto.randomUUID(), connectionId: s.connectionId, database: s.database, text: s.text, updatedAt: Date.now() };
+          notes = [...notes, saved];
+          suggestions = suggestions.filter((x) => x.id !== a.id);
+          return saved;
+        }
+        case "dismiss_note_suggestion":
+          suggestions = suggestions.filter((x) => x.id !== a.id);
           return null;
         case "save_agent_settings":
           Object.assign(settings, { agentModel: a.agentModel, agent: a.agent });

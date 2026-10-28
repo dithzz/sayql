@@ -153,7 +153,7 @@ impl Store {
         self.write(ACCESS_FILE, &all)
     }
 
-    /// Forgets a deleted connection's agent access and notes.
+    /// Forgets a deleted connection's agent access, notes and suggested notes.
     pub fn forget_agent(&self, connection_id: &str) -> AppResult<()> {
         let mut all: BTreeMap<String, AgentAccess> = self.read(ACCESS_FILE)?;
         if all.remove(connection_id).is_some() {
@@ -165,7 +165,7 @@ impl Store {
         if notes.len() != before {
             self.write(NOTES_FILE, &notes)?;
         }
-        Ok(())
+        self.forget_note_suggestions(connection_id)
     }
 
     pub fn all_notes(&self) -> AppResult<Vec<Note>> {

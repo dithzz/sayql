@@ -2,6 +2,7 @@
 //! keep the same safety rules. Schema search, the write refusal, and queries that SayQL
 //! stops on the server when they run too long.
 
+use crate::db::usage::Stats;
 use crate::db::{self, DbPool, QueryResult};
 use crate::schema::{self, Schema, Table};
 use std::time::Duration;
@@ -55,34 +56,51 @@ pub async fn run_limited_with(pool: &DbPool, sql: &str, cap: usize, limit: Durat
 /// The schema as compact text: everything when small, else the tables matching `search`,
 /// else just the table names with a hint to search.
 pub fn describe(schema: &Schema, search: Option<&str>) -> String {
+    describe_with(schema, search, &Stats::None)
+}
+
+/// `describe` with each table's usage from the database's statistics (see db/usage.rs)
+/// after it, and one line saying what period the figures cover.
+pub fn describe_with(schema: &Schema, search: Option<&str>, usage: &Stats) -> String {
     let words: Vec<String> = search.unwrap_or("").split_whitespace().map(str::to_lowercase).collect();
     let matches = |t: &Table| {
         words.iter().any(|w| {
             t.qualified_name().to_lowercase().contains(w) || t.columns.iter().any(|c| c.name.to_lowercase().contains(w))
         })
     };
+    let with_usage = |t: &Table, text: String| match usage.line(t) {
+        Some(u) => format!("{text} usage: {u}"),
+        None => text,
+    };
+    let render = |t: &Table| with_usage(t, schema::render_table(t, &schema.dialect));
     let header = format!("Dialect: {}. {} tables and views.", schema.dialect, schema.tables.len());
+    // What the usage figures are and the period they cover, before the tables.
+    let about = usage.header().map(|h| format!("{h}\n")).unwrap_or_default();
     if !words.is_empty() {
-        let found: Vec<String> = schema.tables.iter().filter(|t| matches(t)).map(|t| schema::render_table(t, &schema.dialect)).collect();
+        let found: Vec<String> = schema.tables.iter().filter(|t| matches(t)).map(render).collect();
         return if found.is_empty() {
             format!("{header}\nNo table or column matches {:?}. Try other words, or omit `search` for the table list.", words.join(" "))
         } else {
-            format!("{header} Showing {} matching:\n{}", found.len(), found.join("\n"))
+            format!("{header} Showing {} matching:\n{about}{}", found.len(), found.join("\n"))
         };
     }
-    let full = schema::render_full(schema);
-    if full.len() <= FULL_SCHEMA_CHARS {
-        return format!("{header}\n{full}");
+    // Whether it fits is judged without the usage, so usage never hides columns.
+    if schema::render_full(schema).len() <= FULL_SCHEMA_CHARS {
+        let full: Vec<String> = schema.tables.iter().map(render).collect();
+        return format!("{header}\n{about}{}", full.join("\n"));
     }
     let names: Vec<String> = schema
         .tables
         .iter()
-        .map(|t| match t.row_estimate {
-            Some(n) => format!("{} (~{n} rows)", schema::render_name(t, &schema.dialect)),
-            None => schema::render_name(t, &schema.dialect),
+        .map(|t| {
+            let name = match t.row_estimate {
+                Some(n) => format!("{} (~{n} rows)", schema::render_name(t, &schema.dialect)),
+                None => schema::render_name(t, &schema.dialect),
+            };
+            with_usage(t, name)
         })
         .collect();
-    format!("{header} Too large to describe in full; call again with `search` words for columns.\n{}", names.join("\n"))
+    format!("{header} Too large to describe in full; call again with `search` words for columns.\n{about}{}", names.join("\n"))
 }
 
 #[cfg(test)]
@@ -112,6 +130,27 @@ mod tests {
         assert!(describe(&s, Some("nothing")).contains("No table or column matches"));
         let all = describe(&s, None);
         assert!(all.contains("dbo.Person") && all.contains("dbo.Account"), "{all}");
+    }
+
+    #[test]
+    fn describe_adds_usage_after_each_table() {
+        use crate::db::usage::{Stats, UNAVAILABLE, parse};
+        let s = Schema { dialect: "SQL Server".into(), tables: vec![table("Person", &["ID"]), table("Account", &["ID"])] };
+        let r = QueryResult {
+            columns: ["started", "schema_name", "table_name", "reads", "writes"].map(String::from).to_vec(),
+            rows: vec![vec![serde_json::json!("2026-10-01T00:00:00"), serde_json::json!("dbo"), serde_json::json!("Person"), serde_json::json!(50_000), serde_json::json!(3)]],
+            rows_affected: None,
+            truncated: false,
+            elapsed_ms: 1,
+            withheld: vec![],
+        };
+        let out = describe_with(&s, None, &parse(crate::db::Kind::Mssql, &r));
+        assert!(out.contains("since the server started on 2026-10-01"), "{out}");
+        assert!(out.contains("usage: 50.0k reads, 3 writes"), "{out}");
+        assert!(out.lines().any(|l| l.starts_with("dbo.Account") && l.ends_with("usage: no reads or writes")), "{out}");
+        let found = describe_with(&s, Some("person"), &Stats::Unavailable);
+        assert!(found.contains(UNAVAILABLE) && !found.contains("Account"), "{found}");
+        assert_eq!(describe_with(&s, None, &Stats::None), describe(&s, None));
     }
 
     #[test]
