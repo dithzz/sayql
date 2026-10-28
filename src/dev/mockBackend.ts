@@ -473,6 +473,7 @@ function auditAgents(): AuditAgent[] {
 }
 const auditFolders = new Map<string, string>([["pg", "/Users/you/code/analytics"]]);
 const auditStops = new Set<string>();
+let auditModel = "sonnet";
 
 /** A scripted audit: schema, searches, reads, two suggestions, a summary. */
 async function mockAuditRun(runId: string, connectionId: string, database: string | null) {
@@ -508,7 +509,8 @@ async function mockAuditRun(runId: string, connectionId: string, database: strin
   return done({
     outcome: "ok",
     suggested,
-    summary: "I suggested 2 notes: what a refunded order is, and what a 0 rating means. I couldn't check git history in this run, so I left out when legacy_orders stopped being used.",
+    summary:
+      "## Audit of `analytics`\n\n**2 suggestions are waiting in SayQL.** Nothing is saved until you accept it.\n\n### What I found\n\n- `orders.status` 'refunded' is set by `api/orders/refund.ts`; there is no refunds table.\n- `reviews.rating` is 1 to 5; **0** means the review was removed.\n\n### What I couldn't check\n\n1. I couldn't run `git log`, so I left out when `legacy_orders` stopped being used.\n2. Usage figures cover only the last stats reset.",
   });
 }
 
@@ -623,6 +625,11 @@ export function installMockBackend() {
           void mockAuditRun(a.runId as string, a.id as string, (a.database as string | null) ?? null);
           return null;
         }
+        case "audit_model":
+          return auditModel;
+        case "set_audit_model":
+          auditModel = a.model as string;
+          return null;
         case "cancel_audit":
           auditStops.add(a.runId as string);
           return null;

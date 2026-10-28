@@ -14,3 +14,4 @@ export { ErrorBoundary } from "./ErrorBoundary";
 export { ContextMenu, useContextMenu } from "./ContextMenu";
 export type { MenuEntry, MenuPosition } from "./ContextMenu";
 export { BrandMark, Wordmark } from "./BrandMark";
+export { Markdown } from "./Markdown";

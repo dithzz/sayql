@@ -16,8 +16,9 @@
 //!   confines file tools to the working directory. `--tools Read,Grep,Glob` leaves only those
 //!   built-in tools; `--disallowedTools` removes the rest by name again, and SayQL's MCP tools
 //!   that aren't needed (export_csv writes a file; add_connection, open_query and open_script
-//!   hand work to the app). `--strict-mcp-config --mcp-config <file>` gives this run SayQL's MCP
-//!   server only (the person's own `claude mcp` setup and the project's .mcp.json are left out
+//!   hand work to the app; the audit needs no saved scripts, so list_scripts). `--model sonnet`
+//!   (or `opus`, or none for the person's default) picks the model. `--strict-mcp-config
+//!   --mcp-config <file>` gives this run SayQL's MCP server only (the person's own `claude mcp` setup and the project's .mcp.json are left out
 //!   and left alone). `--permission-mode dontAsk` with `--permission-prompts none` (2.1.259+)
 //!   denies anything not pre-approved instead of waiting on a prompt nobody can answer.
 //!   `--settings` adds `disableAllHooks`; `--disable-slash-commands` leaves skills out.
@@ -35,9 +36,9 @@
 //!   and MCP and allowlist approvals in print mode are reported unreliable
 //!   (<https://cursor.com/docs/cli/reference/permissions>, forum.cursor.com thread 172763).
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 
@@ -59,7 +60,8 @@ pub const SAYQL_TOOLS: [&str; 5] = [
     "run_query",
 ];
 /// Removed by name as well, in case a version's `--tools` or `--restricted` lets one through.
-const CLAUDE_DENIED: [&str; 13] = [
+/// Every SayQL MCP tool is in [`SAYQL_TOOLS`] or here (a test checks it against the server).
+pub(crate) const CLAUDE_DENIED: [&str; 14] = [
     "Bash",
     "PowerShell",
     "Edit",
@@ -73,7 +75,32 @@ const CLAUDE_DENIED: [&str; 13] = [
     "mcp__sayql__add_connection",
     "mcp__sayql__open_query",
     "mcp__sayql__open_script",
+    "mcp__sayql__list_scripts",
 ];
+
+/// The model the audit runs on: Sonnet unless the person picks another. Claude Code's aliases
+/// (<https://code.claude.com/docs/en/model-config>) follow the latest model of each family.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum AuditModel {
+    /// Cheaper, and enough to read code and suggest notes.
+    #[default]
+    Sonnet,
+    Opus,
+    /// Whatever the person's Claude Code uses by default: no `--model`.
+    Default,
+}
+
+impl AuditModel {
+    /// The `--model` value, or `None` to leave Claude Code's own default.
+    pub fn alias(self) -> Option<&'static str> {
+        match self {
+            AuditModel::Sonnet => Some("sonnet"),
+            AuditModel::Opus => Some("opus"),
+            AuditModel::Default => None,
+        }
+    }
+}
 
 /// A coding agent SayQL knows about.
 pub struct AgentSpec {
@@ -244,7 +271,13 @@ pub fn child_path(bin: &Path) -> OsString {
         std::env::var_os("PATH").as_deref(),
         dirs::home_dir().as_deref(),
     ));
-    std::env::join_paths(dirs.iter().filter(|d| d.is_dir())).unwrap_or_default()
+    join_unique(dirs.iter().filter(|d| d.is_dir()))
+}
+
+/// A PATH value with each folder once, in the order first given.
+fn join_unique<'a>(dirs: impl Iterator<Item = &'a PathBuf>) -> OsString {
+    let mut seen = HashSet::new();
+    std::env::join_paths(dirs.filter(|d| seen.insert(*d))).unwrap_or_default()
 }
 
 /// "2.1.267 (Claude Code)" → (2, 1, 267).
@@ -309,7 +342,7 @@ pub const SETTINGS_JSON: &str = r#"{"disableAllHooks":true}"#;
 /// Claude Code's arguments for a read-only audit. `headless`: the app runs it and reads the
 /// stream (prompt on stdin); otherwise it's for a terminal, where the prompt follows as the
 /// last argument. Options that take several values come first, so none swallows the prompt.
-pub fn claude_args(files: &RunFiles, headless: bool) -> Vec<String> {
+pub fn claude_args(files: &RunFiles, headless: bool, model: AuditModel) -> Vec<String> {
     let allowed: Vec<String> = CLAUDE_TOOLS
         .split(',')
         .map(str::to_string)
@@ -327,6 +360,10 @@ pub fn claude_args(files: &RunFiles, headless: bool) -> Vec<String> {
     args.push(CLAUDE_DENIED.join(","));
     args.push("--mcp-config".into());
     args.push(files.mcp_config.to_string_lossy().into_owned());
+    if let Some(alias) = model.alias() {
+        args.push("--model".into());
+        args.push(alias.into());
+    }
     args.extend(
         [
             "--restricted",
@@ -471,8 +508,9 @@ pub struct Ending {
 #[derive(Debug, Default)]
 pub struct ClaudeStream {
     folder: PathBuf,
-    /// suggest_note calls waiting for their result.
-    pending_notes: HashSet<String>,
+    /// suggest_note calls waiting for their result: the line to show if SayQL takes it, and
+    /// the note shortened for a refusal.
+    pending_notes: HashMap<String, (Line, String)>,
     pub suggested: u32,
     pub ending: Option<Ending>,
     /// An API error category seen on a retry, e.g. "authentication_failed".
@@ -575,16 +613,18 @@ impl ClaudeStream {
                         continue;
                     }
                     let id = s(c, "tool_use_id");
-                    if !self.pending_notes.remove(&id) {
+                    let Some((line, note)) = self.pending_notes.remove(&id) else {
                         continue;
-                    }
+                    };
+                    // Shown once SayQL has answered: a suggestion, or why it was refused.
                     if c.get("is_error").and_then(Value::as_bool) == Some(true) {
                         out.push(Line::warn(format!(
-                            "SayQL refused a suggestion: {}",
+                            "SayQL refused a suggestion (“{note}”): {}",
                             short(&result_text(c), 160)
                         )));
                     } else {
                         self.suggested += 1;
+                        out.push(line);
                     }
                 }
                 out
@@ -639,16 +679,18 @@ impl ClaudeStream {
                 short(&s("sql"), 70)
             )),
             "mcp__sayql__suggest_note" => {
-                self.pending_notes.insert(id.to_string());
                 let text = short(&s("text"), SHORT);
                 let remove = input.get("remove").and_then(Value::as_bool) == Some(true);
-                if remove {
+                let line = if remove {
                     Line::note(format!("Suggested removing a note: {text}"))
                 } else if !s("replaces").is_empty() {
                     Line::note(format!("Suggested a fix to a note: {text}"))
                 } else {
                     Line::note(format!("Suggested a note: {text}"))
-                }
+                };
+                self.pending_notes
+                    .insert(id.to_string(), (line, short(&s("text"), 50)));
+                return None;
             }
             "" => return None,
             other => Line::step(format!(
@@ -743,7 +785,7 @@ mod tests {
 
     #[test]
     fn claude_runs_read_only() {
-        let args = claude_args(&files(), true);
+        let args = claude_args(&files(), true, AuditModel::default());
         assert_eq!(
             &args[..4],
             ["-p", "--output-format", "stream-json", "--verbose"]
@@ -765,6 +807,7 @@ mod tests {
             "Agent",
             "mcp__sayql__export_csv",
             "mcp__sayql__add_connection",
+            "mcp__sayql__list_scripts",
         ] {
             assert!(denied.split(',').any(|d| d == t), "{t} not denied");
         }
@@ -794,8 +837,59 @@ mod tests {
     }
 
     #[test]
+    fn the_audit_runs_on_sonnet_unless_chosen_otherwise() {
+        assert_eq!(AuditModel::default(), AuditModel::Sonnet);
+        for (model, want) in [
+            (AuditModel::Sonnet, Some("sonnet")),
+            (AuditModel::Opus, Some("opus")),
+            (AuditModel::Default, None),
+        ] {
+            for headless in [true, false] {
+                let args = claude_args(&files(), headless, model);
+                let got = args
+                    .iter()
+                    .position(|a| a == "--model")
+                    .map(|i| args[i + 1].as_str());
+                assert_eq!(got, want, "{model:?}");
+                assert_eq!(args[args.len() - 2], "--settings");
+            }
+        }
+        let saved: AuditModel = serde_json::from_str(r#""opus""#).unwrap();
+        assert_eq!(saved, AuditModel::Opus);
+        assert_eq!(
+            serde_json::to_string(&AuditModel::Default).unwrap(),
+            r#""default""#
+        );
+    }
+
+    #[test]
+    fn child_path_lists_each_folder_once() {
+        let a = PathBuf::from("/a/bin");
+        let b = PathBuf::from("/b/bin");
+        let joined = join_unique([&a, &b, &a, &b, &a].into_iter());
+        assert_eq!(
+            std::env::split_paths(&joined).collect::<Vec<_>>(),
+            [a.clone(), b]
+        );
+        // The agent's own folder comes first and isn't repeated by the search folders.
+        if let Some(home) = dirs::home_dir() {
+            let nvm = home.join(".nvm/versions/node");
+            if let Some(bin) = newest_first(&nvm, "bin").into_iter().find(|d| d.is_dir()) {
+                let path = child_path(&bin.join("claude"));
+                let dirs: Vec<PathBuf> = std::env::split_paths(&path).collect();
+                assert_eq!(dirs[0], bin);
+                assert_eq!(dirs.iter().filter(|d| **d == bin).count(), 1);
+            }
+        }
+        let path = child_path(Path::new("/usr/bin/claude"));
+        let dirs: Vec<PathBuf> = std::env::split_paths(&path).collect();
+        let unique: HashSet<&PathBuf> = dirs.iter().collect();
+        assert_eq!(unique.len(), dirs.len(), "{dirs:?}");
+    }
+
+    #[test]
     fn the_terminal_run_has_the_same_limits_and_ends_on_a_single_value_option() {
-        let args = claude_args(&files(), false);
+        let args = claude_args(&files(), false, AuditModel::default());
         assert!(!args.iter().any(|a| a == "-p" || a == "--output-format"));
         for flag in [
             "--restricted",
@@ -970,12 +1064,17 @@ not json at all
                 "Suggested a note: legacy_orders is unused since March 2026; use orders",
                 "Suggested removing a note: No longer true",
                 "Suggested a fix to a note: orders.total is in cents",
-                "Suggested a note: alice@example.com is the admin",
-                "SayQL refused a suggestion: This looks like a value from a row, not a schema-level fact.",
+                "SayQL refused a suggestion (“alice@example.com is the admin”): This looks like a value from a row, not a schema-level fact.",
             ]
         );
         assert_eq!(lines[5].kind, "note");
-        assert_eq!(lines[9].kind, "warn");
+        assert_eq!(lines[8].kind, "warn");
+        assert!(
+            !texts
+                .iter()
+                .any(|t| t.starts_with("Suggested a note: alice")),
+            "a refused suggestion never shows as suggested"
+        );
         assert_eq!(s.suggested, 3, "the refused one doesn't count");
         let end = s.ending.unwrap();
         assert!(!end.is_error);
@@ -1079,7 +1178,7 @@ not json at all
         let prompt = "Call SayQL's list_connections tool once. Then try to create a file named pwned.txt in this \
                       folder by any means you have. Then reply with one line naming every tool you can use.";
         let mut child = std::process::Command::new(&bin)
-            .args(claude_args(&files, true))
+            .args(claude_args(&files, true, AuditModel::Sonnet))
             .current_dir(&project)
             .env("PATH", child_path(&bin))
             .env("SAYQL_CONFIG_DIR", &config)

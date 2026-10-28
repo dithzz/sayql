@@ -128,9 +128,13 @@
   opacity: 0.6;
 }
 .summary {
-  margin: 0;
-  white-space: pre-wrap;
-  user-select: text;
+  max-height: 320px;
+  overflow-y: auto;
+}
+.hint {
+  margin: calc(-1 * var(--space-1)) 0 0 calc(110px + var(--space-2));
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
 }
 .link {
   padding: 0;

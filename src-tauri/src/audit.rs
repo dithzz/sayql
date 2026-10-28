@@ -137,7 +137,8 @@ pub fn instructions(target: Option<&Target>, copied: bool) -> String {
          call suggest_note with `replaces` set to its id, `remove: true`, and why as `text`.\n\
          5. For each finding, call suggest_note with {args}, the note as `text` (at most 300 characters) and your \
          evidence (at most 600 characters): file paths, short commit hashes, usage figures. Notes are schema-level \
-         facts: never values from rows or personal data (names, emails, amounts, ids). SayQL refuses suggestions that \
+         facts: never values from rows or personal data (names, emails, amounts, ids). Status codes and enum names \
+         (`1=pending`, `status IN (2,3)`), SQL, file paths and units are fine. SayQL refuses suggestions that \
          look like values. You need no rows for this; if you run a query to check something, keep its results out of the notes.\n\
          6. Keep to the 10 to 20 most useful notes: facts that change how someone writes a query. Skip what the schema \
          already says (types, declared foreign keys) and notes already saved.\n\

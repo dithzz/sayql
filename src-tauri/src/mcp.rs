@@ -1316,6 +1316,36 @@ mod tests {
     use super::*;
     use tokio_util::sync::CancellationToken;
 
+    /// "Audit with Claude Code" allows or denies every tool this server offers by name, so a
+    /// new tool can't slip into the run unlisted.
+    #[test]
+    fn the_audit_allows_or_denies_every_tool() {
+        use crate::audit_runner::{CLAUDE_DENIED, SAYQL_TOOLS};
+        let offered: Vec<String> = SayqlServer::tool_router()
+            .list_all()
+            .into_iter()
+            .map(|t| format!("mcp__sayql__{}", t.name))
+            .collect();
+        assert!(offered.len() >= 10, "{offered:?}");
+        let allowed: Vec<String> = SAYQL_TOOLS
+            .iter()
+            .map(|t| format!("mcp__sayql__{t}"))
+            .collect();
+        for tool in &offered {
+            let a = allowed.contains(tool);
+            let d = CLAUDE_DENIED.contains(&tool.as_str());
+            assert!(a ^ d, "{tool}: allowed {a}, denied {d}");
+        }
+        for listed in allowed.iter().map(String::as_str).chain(
+            CLAUDE_DENIED
+                .iter()
+                .copied()
+                .filter(|t| t.starts_with("mcp__")),
+        ) {
+            assert!(offered.iter().any(|t| t == listed), "{listed} isn't a tool");
+        }
+    }
+
     fn add_params(args: Value) -> Result<AddConnectionParams, serde_json::Error> {
         serde_json::from_value(args)
     }

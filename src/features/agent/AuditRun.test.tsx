@@ -34,6 +34,11 @@ const startAudit = vi.fn((_run: string, _agent: string, _id: string, _db: string
 const cancelAudit = vi.fn((_run: string) => Promise.resolve());
 const openAuditInTerminal = vi.fn((_agent: string, _id: string, _db: string | null, _folder: string) => Promise.resolve());
 const openUrl = vi.fn();
+let savedModel = "opus";
+const setAuditModel = vi.fn((m: string) => {
+  savedModel = m;
+  return Promise.resolve();
+});
 
 vi.mock("@tauri-apps/plugin-opener", () => ({ openUrl: (u: string) => openUrl(u) }));
 vi.mock("../../api", async (orig) => ({
@@ -46,6 +51,8 @@ vi.mock("../../api", async (orig) => ({
     cancelAudit: (r: string) => cancelAudit(r),
     openAuditInTerminal: (a: string, i: string, d: string | null, f: string) => openAuditInTerminal(a, i, d, f),
     auditPrompt: () => Promise.resolve("Audit the database"),
+    auditModel: () => Promise.resolve(savedModel),
+    setAuditModel: (m: string) => setAuditModel(m),
   },
   subscribeToAudit: (h: (e: AuditEvent) => void) => {
     emit = h;
@@ -110,14 +117,45 @@ it("needs a folder, then streams progress and ends with the suggestions to revie
   expect(screen.getByText("Reading src/db/orders.ts")).toBeTruthy();
   expect(screen.queryByText("Not this run")).toBeNull();
   expect(screen.getByRole("button", { name: "Cancel" })).toBeTruthy();
-  act(() => emit({ type: "done", runId, outcome: "ok", suggested: 6, summary: "I suggested 6 notes.", error: null }));
+  act(() =>
+    emit({
+      type: "done",
+      runId,
+      outcome: "ok",
+      suggested: 6,
+      summary: "## Audit\n\nI suggested **6 notes**.\n\n- `orders.status` codes\n- see [docs](https://example.com)\n\n<img src=x onerror=alert(1)>",
+      error: null,
+    }),
+  );
   expect(screen.getByText("6 notes suggested.")).toBeTruthy();
-  expect(screen.getByText("I suggested 6 notes.")).toBeTruthy();
+  // The summary is Markdown, rendered as elements: never as HTML.
+  expect(screen.getByRole("heading", { name: "Audit" })).toBeTruthy();
+  expect(screen.getByText("6 notes").tagName).toBe("STRONG");
+  expect(screen.getByText("orders.status").tagName).toBe("CODE");
+  fireEvent.click(screen.getByRole("link", { name: "docs" }));
+  expect(openUrl).toHaveBeenCalledWith("https://example.com");
+  expect(document.querySelector("img")).toBeNull();
+  expect(screen.getByText("<img src=x onerror=alert(1)>")).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "Review suggestions" }));
   expect(onClose).toHaveBeenCalled();
   expect(onReview).toHaveBeenCalled();
   expect(changed).toHaveBeenCalled();
   window.removeEventListener(SUGGESTIONS_CHANGED, changed);
+});
+
+it("runs on the saved model, Sonnet by default, and remembers a new choice", async () => {
+  folder = "/Users/me/code/shop";
+  savedModel = "opus";
+  setAuditModel.mockClear();
+  render(<AuditDialog target={target} onClose={() => {}} />);
+  const select = (await screen.findByRole("combobox", { name: "Model for the audit" })) as HTMLSelectElement;
+  await waitFor(() => expect(select.value).toBe("opus"));
+  expect([...select.options].map((o) => o.text)).toEqual(["Sonnet (cheaper)", "Opus", "My Claude Code default"]);
+  expect(screen.getByText(/counts against your own Claude plan/)).toBeTruthy();
+  fireEvent.change(select, { target: { value: "sonnet" } });
+  await waitFor(() => expect(setAuditModel).toHaveBeenCalledWith("sonnet"));
+  expect(select.value).toBe("sonnet");
+  expect(screen.getByText(/Sonnet is cheaper/)).toBeTruthy();
 });
 
 it("cancels a run, and shows why one couldn't start", async () => {

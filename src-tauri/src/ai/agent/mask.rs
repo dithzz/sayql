@@ -1404,7 +1404,7 @@ fn word_kind(s: &str) -> Option<&'static str> {
     }
 }
 
-fn is_email(s: &str) -> bool {
+pub(crate) fn is_email(s: &str) -> bool {
     let Some((local, domain)) = s.split_once('@') else {
         return false;
     };
@@ -1418,7 +1418,7 @@ fn is_email(s: &str) -> bool {
 }
 
 /// `123-45-6789`.
-fn is_ssn(s: &str) -> bool {
+pub(crate) fn is_ssn(s: &str) -> bool {
     let parts: Vec<&str> = s.split('-').collect();
     parts.len() == 3
         && parts
@@ -1428,7 +1428,7 @@ fn is_ssn(s: &str) -> bool {
 }
 
 /// 13 to 19 digits, optionally grouped by spaces or dashes, passing the Luhn check.
-fn is_card(s: &str) -> bool {
+pub(crate) fn is_card(s: &str) -> bool {
     if !s
         .chars()
         .all(|c| c.is_ascii_digit() || c == ' ' || c == '-')
@@ -1456,7 +1456,7 @@ fn is_card(s: &str) -> bool {
 
 /// 10 to 15 digits, or 7 or more after a leading `+`, with phone separators. Not dates,
 /// and not decimal numbers.
-fn is_phone(s: &str) -> bool {
+pub(crate) fn is_phone(s: &str) -> bool {
     if !s
         .chars()
         .all(|c| c.is_ascii_digit() || " +-().".contains(c))
@@ -1493,7 +1493,7 @@ fn has_date(s: &str) -> bool {
 
 /// Opaque identifiers and secrets: UUIDs, hashes, API keys, JWTs. 16 or more characters with
 /// no spaces, letters and at least four digits. Not timestamps.
-fn is_long_id(s: &str) -> bool {
+pub(crate) fn is_long_id(s: &str) -> bool {
     s.chars().count() >= 16
         && s.chars()
             .all(|c| c.is_ascii_alphanumeric() || "-_.+/=:".contains(c))

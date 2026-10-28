@@ -4,6 +4,7 @@ import type {
   AgentReply,
   AgentSettings,
   AuditAgent,
+  AuditModel,
   AuditRun,
   Bootstrap,
   DbNote,
@@ -136,6 +137,9 @@ export const commands = {
   startAudit: (runId: string, agent: string, connectionId: string, database: string | null, folder: string) =>
     invoke<void>("start_audit", { runId, agent, id: connectionId, database, folder }),
   cancelAudit: (runId: string) => invoke<void>("cancel_audit", { runId }),
+  /** The model audits run on (Sonnet until the person picks another). */
+  auditModel: () => invoke<AuditModel>("audit_model"),
+  setAuditModel: (model: AuditModel) => invoke<void>("set_audit_model", { model }),
   /** Opens the system terminal in `folder` running the same read-only audit interactively. */
   openAuditInTerminal: (agent: string, connectionId: string, database: string | null, folder: string) =>
     invoke<void>("open_audit_in_terminal", { agent, id: connectionId, database, folder }),

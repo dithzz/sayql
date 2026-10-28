@@ -269,6 +269,9 @@ export interface AuditAgent {
   installUrl: string;
 }
 
+/** The model an audit runs on; mirrors `audit_runner::AuditModel`. "default" is the person's own Claude Code default. */
+export type AuditModel = "sonnet" | "opus" | "default";
+
 /** Progress of an audit run, as `audit://event`; mirrors `commands::audit::AuditEvent`. */
 export type AuditEvent =
   | { type: "line"; runId: string; kind: "step" | "note" | "warn"; text: string }

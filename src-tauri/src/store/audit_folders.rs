@@ -1,11 +1,21 @@
 //! The project folder an audit last ran in, per connection, so "Audit with…" opens on it
-//! again. Only the path is kept; nothing is read from the folder here.
+//! again, and the model the audit runs on. Only the path is kept; nothing is read from the
+//! folder here.
 
 use super::Store;
+use crate::audit_runner::AuditModel;
 use crate::error::AppResult;
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
 const FILE: &str = "audit-folders.json";
+const PREFS: &str = "audit-settings.json";
+
+#[derive(Default, Serialize, Deserialize)]
+struct AuditPrefs {
+    #[serde(default)]
+    model: AuditModel,
+}
 
 impl Store {
     /// The folder last used to audit this connection, if it's still a folder.
@@ -25,6 +35,17 @@ impl Store {
         }
         all.insert(connection_id.to_string(), folder.to_string());
         self.write(FILE, &all)
+    }
+
+    /// The model "Audit with Claude Code" runs on (Sonnet until the person picks another).
+    pub fn audit_model(&self) -> AppResult<AuditModel> {
+        Ok(self.read::<AuditPrefs>(PREFS)?.model)
+    }
+
+    pub fn set_audit_model(&self, model: AuditModel) -> AppResult<()> {
+        let mut prefs: AuditPrefs = self.read(PREFS)?;
+        prefs.model = model;
+        self.write(PREFS, &prefs)
     }
 
     /// Forgets a deleted connection's folder.
@@ -56,6 +77,20 @@ mod tests {
         assert_eq!(s.audit_folder("c2").unwrap(), None, "a folder that's gone");
         s.forget_agent("c1").unwrap();
         assert_eq!(s.audit_folder("c1").unwrap(), None);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn remembers_the_audit_model() {
+        let dir = std::env::temp_dir().join(format!("sayql-audit-model-{}", uuid::Uuid::new_v4()));
+        let s = Store::new(dir.clone());
+        assert_eq!(s.audit_model().unwrap(), AuditModel::Sonnet);
+        s.set_audit_model(AuditModel::Default).unwrap();
+        assert_eq!(s.audit_model().unwrap(), AuditModel::Default);
+        assert_eq!(
+            Store::new(dir.clone()).audit_model().unwrap(),
+            AuditModel::Default
+        );
         let _ = std::fs::remove_dir_all(dir);
     }
 }

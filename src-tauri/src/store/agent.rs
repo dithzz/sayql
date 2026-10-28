@@ -1,6 +1,6 @@
 //! What agent mode may do on each connection, the run limits, and database notes.
 
-use super::Store;
+use super::{Store, note_values};
 use crate::error::{AppError, AppResult};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -326,7 +326,8 @@ fn clean_access(a: AgentAccess) -> AppResult<AgentAccess> {
 }
 
 /// The note tidied up, or why it can't be saved. A note that looks like it holds a value
-/// from the data (an email, a phone number, a masked token) is refused.
+/// from the data is refused, by the same check for every note: saved by the person,
+/// suggested by agent mode, or suggested by an AI app (see [`super::note_values`]).
 pub fn clean_note(text: &str) -> AppResult<String> {
     let text = text.trim().to_string();
     if text.is_empty() {
@@ -335,12 +336,13 @@ pub fn clean_note(text: &str) -> AppResult<String> {
     if text.chars().count() > MAX_NOTE {
         return Err(format!("Keep a note to {MAX_NOTE} characters.").into());
     }
-    if text.contains('‹')
-        || crate::ai::agent::mask::value_kind(&serde_json::Value::String(text.clone())).is_some()
-    {
-        return Err("A note describes the database, not the data in it. Remove the value (an email, a phone, card or \
-                    ID number, an IP address or a masked token) from it."
-            .into());
+    if let Some(what) = note_values::note_value(&text) {
+        return Err(format!(
+            "A note describes the database, not the data in it, and this one holds {what}. {}; {}.",
+            note_values::ALLOWED,
+            note_values::REFUSED
+        )
+        .into());
     }
     Ok(text)
 }

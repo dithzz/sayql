@@ -7,6 +7,7 @@
 
 use super::Store;
 use super::agent::{Note, clean_note};
+use super::note_values::{ALLOWED, REFUSED, note_value};
 use crate::error::AppResult;
 use serde::{Deserialize, Serialize};
 
@@ -73,77 +74,15 @@ fn clean_evidence(text: &str) -> AppResult<String> {
     if text.chars().count() > MAX_EVIDENCE {
         return Err(format!("Keep the evidence to {MAX_EVIDENCE} characters.").into());
     }
-    if text.contains('‹')
-        || crate::ai::agent::mask::value_kind(&serde_json::Value::String(text.clone())).is_some()
-    {
-        return Err("The evidence looks like it holds a value from the data (an email, number, name or long id). \
-                    Describe what you checked instead, and use short commit hashes."
-            .into());
+    if let Some(what) = note_value(&text) {
+        return Err(format!(
+            "The evidence holds {what}. Describe what you checked; {}; {}.",
+            ALLOWED.to_lowercase(),
+            REFUSED
+        )
+        .into());
     }
     Ok(text)
-}
-
-/// Words that start with a capital and aren't a person's name.
-const NOT_NAMES: &[&str] = &[
-    "january",
-    "february",
-    "march",
-    "april",
-    "may",
-    "june",
-    "july",
-    "august",
-    "september",
-    "october",
-    "november",
-    "december",
-    "monday",
-    "tuesday",
-    "wednesday",
-    "thursday",
-    "friday",
-    "saturday",
-    "sunday",
-    "sayql",
-    "postgres",
-    "postgresql",
-    "mysql",
-    "sqlite",
-    "sql",
-    "server",
-];
-
-/// What in an AI app's suggested note looks like a value from rows, beyond what `clean_note`
-/// refuses: a number of five or more digits or with thousands separators (an amount, an id),
-/// or two capitalised words in a row (a person's name). Dates like 2026-03-12 are fine.
-fn looks_like_value(text: &str) -> Option<&'static str> {
-    let mut run = 0;
-    let chars: Vec<char> = text.chars().collect();
-    for (i, c) in chars.iter().enumerate() {
-        if c.is_ascii_digit() {
-            run += 1;
-            if run >= 5 {
-                return Some("a long number");
-            }
-        } else if *c == ',' && run > 0 && chars.get(i + 1).is_some_and(char::is_ascii_digit) {
-            return Some("a number");
-        } else {
-            run = 0;
-        }
-    }
-    let title = |w: &str| {
-        let w = w.trim_matches(|c: char| !c.is_alphabetic());
-        let mut cs = w.chars();
-        cs.next().is_some_and(char::is_uppercase)
-            && w.chars().count() >= 2
-            && cs.all(char::is_lowercase)
-            && !NOT_NAMES.contains(&w.to_lowercase().as_str())
-    };
-    let words: Vec<&str> = text.split_whitespace().collect();
-    words
-        .windows(2)
-        .any(|w| title(w[0]) && title(w[1]))
-        .then_some("what looks like a person's name")
 }
 
 impl Store {
@@ -178,13 +117,6 @@ impl Store {
     ) -> AppResult<NoteSuggestion> {
         let text = clean_note(text)?;
         let evidence = clean_evidence(evidence)?;
-        if let Some(what) = looks_like_value(&text).or_else(|| looks_like_value(&evidence)) {
-            return Err(format!(
-                "A suggested note describes the database, not the data in it, and this one holds {what}. Describe the \
-                 fact without values from rows (no names, amounts or long numbers)."
-            )
-            .into());
-        }
         let database = database
             .map(str::trim)
             .filter(|d| !d.is_empty())
@@ -466,6 +398,54 @@ mod tests {
         let keep = change("unused", Change::Remove(&note.id)).unwrap();
         s.dismiss_note_suggestion(&keep.id).unwrap();
         assert_eq!(s.notes("c1", Some("shop")).unwrap().len(), 1);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// The real audit of 2026-10-28: six schema facts were refused. Now they go through
+    /// suggest_note, and the same check saves them as notes; real values from rows don't.
+    #[test]
+    fn audit_facts_pass_and_row_values_dont_everywhere() {
+        use crate::store::note_values::tests::REFUSED_IN_THE_REAL_RUN;
+        let (dir, s) = store();
+        for (i, (text, evidence)) in REFUSED_IN_THE_REAL_RUN.iter().enumerate() {
+            let sug = s
+                .suggest_note("c1", None, text, evidence, "Claude Code")
+                .unwrap_or_else(|e| panic!("{text}: {e}"));
+            assert_eq!(&sug.text, text);
+            // The person's own notes and agent mode's suggestions use the same check.
+            clean_note(text).unwrap();
+            s.save_note(Note {
+                id: format!("n{i}"),
+                connection_id: "c2".into(),
+                database: None,
+                text: text.to_string(),
+                updated_at: 0,
+            })
+            .unwrap();
+        }
+        for value in [
+            "owner is dana@example.com",
+            "call +1 555 014 2233",
+            "test card 4111 1111 1111 1111",
+            "tenant 550e8400-e29b-41d4-a716-446655440000",
+            "the admin is John Smith",
+            "Priya Raman owns orders",
+            "customer 1234567 is special",
+        ] {
+            let e = s
+                .suggest_note("c3", None, value, "", "Claude Code")
+                .unwrap_err()
+                .to_string();
+            assert!(e.contains("describes the database"), "{value}: {e}");
+            assert!(
+                s.suggest_note("c3", None, "orders.vip is a flag", value, "Claude Code")
+                    .unwrap_err()
+                    .to_string()
+                    .contains("The evidence holds"),
+                "{value}"
+            );
+            assert!(clean_note(value).is_err(), "{value}");
+        }
         let _ = std::fs::remove_dir_all(dir);
     }
 

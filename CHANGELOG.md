@@ -5,6 +5,26 @@ All notable changes to SayQL are listed here. Downloads are on the
 
 ## Unreleased
 
+### Fixes from a real "Audit with Claude Code" run
+
+- **Suggested notes can hold codes and file names again.** The check for values from rows refused schema facts
+  the audit asks for: `1=Pending, 2=Paid`, `status IN (2,3)`, `divide by 100` and
+  `migrations/2026_03_01_merge_orders_legacy.sql`. Small numbers and enum codes, capitalised enum and status
+  words, SQL, file paths with dates or digits in them, short commit hashes, dates and units now pass. Still
+  refused: emails, phone, card, ID and account (IBAN) numbers, IP addresses, UUIDs and other long ids or keys,
+  standalone numbers of six or more digits or with thousands separators, money amounts with a currency symbol,
+  and people's names (two capitalised words in prose that aren't enum, schema or product words, or a common first
+  name and a surname). The same check now covers notes you write, agent mode's suggestions and `suggest_note`,
+  and the refusal says what's fine and what isn't.
+- **The audit runs on Sonnet by default.** **Model** in the audit dialog picks Sonnet (the default, cheaper),
+  Opus or your Claude Code default, and is remembered. It still uses your own Claude plan.
+- **The run panel shows a suggestion once SayQL has taken it.** A refused one shows only as refused, with the
+  start of its text, instead of first as suggested.
+- **The audit's closing summary is formatted:** headings, lists, bold and code show as such.
+- `list_scripts` is denied to the audit run by name, like the other tools it doesn't need, and a test checks
+  that every SayQL tool is either allowed or denied.
+- The PATH SayQL gives Claude Code lists each folder once.
+
 ### Audit: teach SayQL your database
 
 - **The `audit` prompt.** SayQL's MCP server now offers a prompt, `audit` (`/mcp__sayql__audit` in Claude Code,

@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AlertTriangle, Check, Copy, FolderOpen, Lightbulb, ScanSearch, SquareTerminal } from "lucide-react";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { commands, subscribeToAudit, type AuditAgent, type AuditEvent, type ConnectionConfig } from "../../api";
-import { Alert, Button, Dialog, Select, Spinner } from "../../components/ui";
+import { commands, subscribeToAudit, type AuditAgent, type AuditEvent, type AuditModel, type ConnectionConfig } from "../../api";
+import { Alert, Button, Dialog, Markdown, Select, Spinner } from "../../components/ui";
 import { cx } from "../../lib/cx";
 import { errorText } from "../../lib/errors";
 import { AUDITS_CHANGED, copyAuditPrompt, type AuditTarget } from "./audit";
@@ -89,6 +89,12 @@ export interface AuditDialogProps {
   onClose: () => void;
 }
 
+const MODELS: { value: AuditModel; label: string }[] = [
+  { value: "sonnet", label: "Sonnet (cheaper)" },
+  { value: "opus", label: "Opus" },
+  { value: "default", label: "My Claude Code default" },
+];
+
 function elapsed(ms: number): string {
   const s = Math.floor(ms / 1000);
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
@@ -105,6 +111,7 @@ export function AuditDialog({ target, connections = [], onReview, onClose }: Aud
   const database = target && target.connectionId === connectionId ? target.database : null;
   const connectionName = target?.connectionId === connectionId ? target.name : (local.find((c) => c.id === connectionId)?.name ?? "");
   const [folder, setFolder] = useState<string | null>(null);
+  const [model, setModel] = useState<AuditModel>("sonnet");
   const [phase, setPhase] = useState<"setup" | "running" | "done">("setup");
   const [lines, setLines] = useState<Line[]>([]);
   const [done, setDone] = useState<Done | null>(null);
@@ -130,6 +137,26 @@ export function AuditDialog({ target, connections = [], onReview, onClose }: Aud
       live = false;
     };
   }, [connectionId]);
+
+  useEffect(() => {
+    let live = true;
+    Promise.resolve()
+      .then(() => commands.auditModel())
+      .then(
+        (m) => live && m && setModel(m),
+        () => undefined,
+      );
+    return () => {
+      live = false;
+    };
+  }, []);
+
+  const chooseModel = (m: AuditModel) => {
+    setModel(m);
+    void Promise.resolve()
+      .then(() => commands.setAuditModel(m))
+      .catch((e) => setError(errorText(e)));
+  };
 
   useEffect(() => {
     const unlisten = subscribeToAudit((e) => {
@@ -296,6 +323,22 @@ export function AuditDialog({ target, connections = [], onReview, onClose }: Aud
                       <Select aria-label="Coding agent" value={agent.id} options={ready.map((a) => ({ value: a.id, label: a.label }))} onChange={setAgentId} />
                     </label>
                   )}
+                  {agent.id === "claude" && (
+                    <>
+                      <div className={styles.field}>
+                        <span className={styles.label}>Model</span>
+                        <Select aria-label="Model for the audit" value={model} options={MODELS} onChange={chooseModel} />
+                      </div>
+                      <p className={styles.hint}>
+                        {model === "sonnet"
+                          ? "Sonnet is cheaper and does this job well. "
+                          : model === "opus"
+                            ? "Opus is slower and uses more of your plan. "
+                            : "Whatever model your Claude Code uses by default. "}
+                        The run counts against your own Claude plan.
+                      </p>
+                    </>
+                  )}
                   <div className={styles.field}>
                     <span className={styles.label}>Project folder</span>
                     <div className={styles.folder}>
@@ -399,7 +442,7 @@ function Result({ done, onReview }: { done: Done; onReview?: () => void }) {
             "Done: no notes suggested."
           )}
         </Alert>
-        {done.summary && <p className={styles.summary}>{done.summary}</p>}
+        {done.summary && <Markdown className={styles.summary} text={done.summary} onLink={(u) => void openUrl(u)} />}
       </>
     );
   }

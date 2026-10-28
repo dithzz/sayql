@@ -3,7 +3,7 @@
 //! opens the same run in a terminal instead. See src/audit_runner.rs for what's enforced.
 
 use crate::audit::{self, Target};
-use crate::audit_runner::{self as runner, AgentSpec, ClaudeStream, RunFiles};
+use crate::audit_runner::{self as runner, AgentSpec, AuditModel, ClaudeStream, RunFiles};
 use crate::commands::settings::mcp_binary;
 use crate::error::{AppError, AppResult};
 use crate::state::AppState;
@@ -157,6 +157,18 @@ pub async fn choose_audit_folder(
     Ok(Some(path))
 }
 
+/// The model audits run on.
+#[tauri::command]
+pub fn audit_model(state: State<'_, AppState>) -> AppResult<AuditModel> {
+    state.store.audit_model()
+}
+
+/// Remembers the model audits run on.
+#[tauri::command]
+pub fn set_audit_model(state: State<'_, AppState>, model: AuditModel) -> AppResult<()> {
+    state.store.set_audit_model(model)
+}
+
 /// Everything a run needs, checked before anything starts.
 struct Prepared {
     spec: &'static AgentSpec,
@@ -167,6 +179,7 @@ struct Prepared {
     prompt: String,
     files: RunFiles,
     dir: PathBuf,
+    model: AuditModel,
 }
 
 async fn prepare(
@@ -258,6 +271,7 @@ async fn prepare(
         prompt,
         files,
         dir,
+        model: state.store.audit_model().unwrap_or_default(),
     })
 }
 
@@ -321,7 +335,7 @@ pub async fn start_audit(
 ) -> AppResult<()> {
     let p = prepare(&state, &agent, &id, database.as_deref(), &folder, true).await?;
     let mut cmd = tokio::process::Command::new(&p.bin);
-    cmd.args(runner::claude_args(&p.files, true))
+    cmd.args(runner::claude_args(&p.files, true, p.model))
         .current_dir(&p.folder)
         .env("PATH", runner::child_path(&p.bin))
         // Started from inside a Claude Code session (a dev build), it would refuse to nest.
@@ -488,7 +502,7 @@ pub async fn open_audit_in_terminal(
     folder: String,
 ) -> AppResult<()> {
     let p = prepare(&state, &agent, &id, database.as_deref(), &folder, false).await?;
-    let args = runner::claude_args(&p.files, false);
+    let args = runner::claude_args(&p.files, false, p.model);
     let prompt = p.dir.join("prompt.txt");
     std::fs::write(&prompt, &p.prompt)?;
     let path_var = runner::child_path(&p.bin);
