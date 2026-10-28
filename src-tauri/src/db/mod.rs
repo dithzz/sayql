@@ -9,6 +9,7 @@ mod demo;
 mod execute;
 mod introspect;
 mod mssql_pool;
+pub mod usage;
 
 pub use classify::is_read_only;
 pub use connect::connect;

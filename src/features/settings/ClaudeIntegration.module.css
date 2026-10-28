@@ -114,3 +114,16 @@
   text-overflow: ellipsis;
   font-family: var(--font-mono);
 }
+
+.count {
+  display: inline-block;
+  min-width: 18px;
+  padding: 0 6px;
+  border-radius: 9px;
+  background: var(--color-accent);
+  color: var(--color-text-on-accent);
+  font-size: var(--font-size-xs);
+  line-height: 18px;
+  text-align: center;
+  vertical-align: middle;
+}

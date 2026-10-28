@@ -12,6 +12,7 @@ import type {
   McpActivity,
   McpApp,
   McpSetup,
+  NoteSuggestion,
   QueryResult,
   QuerySource,
   TeamAccount,
@@ -77,6 +78,11 @@ export const commands = {
   /** Creates the note when `id` is empty; refuses notes that hold values from the data. */
   saveNote: (note: DbNote) => invoke<DbNote>("save_note", { note }),
   deleteNote: (id: string) => invoke<void>("delete_note", { id }),
+  /** Notes AI apps suggested over MCP, on every connection, oldest first. */
+  listNoteSuggestions: () => invoke<NoteSuggestion[]>("list_note_suggestions"),
+  /** Saves the suggestion as a note (the usual note checks apply) and removes it. */
+  acceptNoteSuggestion: (id: string) => invoke<DbNote>("accept_note_suggestion", { id }),
+  dismissNoteSuggestion: (id: string) => invoke<void>("dismiss_note_suggestion", { id }),
   /** From the Ask box: switch to a ready provider and use `model` for typing (Quick) or agent mode. */
   chooseModel: (provider: string, model: string, purpose: "typing" | "agent") =>
     invoke<Settings>("choose_model", { provider, model, purpose }),

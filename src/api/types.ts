@@ -223,6 +223,21 @@ export interface DbNote {
   updatedAt: number;
 }
 
+/** A note an AI app suggested over MCP, waiting for the person to accept or dismiss it. */
+export interface NoteSuggestion {
+  id: string;
+  connectionId: string;
+  database: string | null;
+  /** The note as it would be saved. */
+  text: string;
+  /** Why the app thinks it's true. */
+  evidence: string;
+  /** The AI app's name, e.g. "Claude Code". */
+  app: string;
+  /** Milliseconds since the Unix epoch. */
+  createdAt: number;
+}
+
 export interface AgentUsage {
   input: number;
   cached: number;

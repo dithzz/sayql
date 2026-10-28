@@ -223,7 +223,13 @@ Three more tools hand work to you in SayQL instead of doing it:
 - `open_script` opens one of your saved scripts, unrun.
 
 `describe_schema` includes the database notes you saved, so the app knows what codes mean and how tables
-relate. Columns you marked **never send** in a connection's agent settings stay private over MCP too: queries
+relate. It also shows each table's usage from the database's own statistics (reads, writes, last write, and the
+period they cover, since counters reset on restart or failover and differ per replica), so the app can tell a
+live table from an abandoned one: counts and dates only, never row values. SQLite keeps no such statistics.
+
+With `suggest_note`, an AI app can suggest a note (a schema-level fact, never row values) along with the
+evidence it checked. It is saved only when you **Accept** it, under **Notes → Suggested by AI apps** in the
+navigator or in **Settings → AI apps (MCP)**; **Dismiss** drops it. Columns you marked **never send** in a connection's agent settings stay private over MCP too: queries
 naming them are refused and their values are withheld. The AI app writes the SQL itself, so MCP never uses
 your SayQL AI key; SQL it opens in SayQL isn't fixed automatically by SayQL's AI either.
 

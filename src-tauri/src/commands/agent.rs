@@ -5,6 +5,7 @@ use crate::ai::Api;
 use crate::error::{AppError, AppResult};
 use crate::state::{AgentRun, AppState, Target};
 use crate::store::agent::{AgentAccess, Note};
+use crate::store::suggestions::NoteSuggestion;
 use crate::team::{self, Source, TeamRules};
 use serde::Serialize;
 use std::sync::Arc;
@@ -181,4 +182,21 @@ pub fn save_note(state: State<'_, AppState>, note: Note) -> AppResult<Note> {
 #[tauri::command]
 pub fn delete_note(state: State<'_, AppState>, id: String) -> AppResult<()> {
     state.store.delete_note(&id)
+}
+
+/// Notes AI apps suggested over MCP, waiting for the person (all connections, oldest first).
+#[tauri::command]
+pub fn list_note_suggestions(state: State<'_, AppState>) -> AppResult<Vec<NoteSuggestion>> {
+    state.store.note_suggestions()
+}
+
+/// Saves a suggested note as an ordinary note.
+#[tauri::command]
+pub fn accept_note_suggestion(state: State<'_, AppState>, id: String) -> AppResult<Note> {
+    state.store.accept_note_suggestion(&id)
+}
+
+#[tauri::command]
+pub fn dismiss_note_suggestion(state: State<'_, AppState>, id: String) -> AppResult<()> {
+    state.store.dismiss_note_suggestion(&id)
 }

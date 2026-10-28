@@ -4,6 +4,7 @@ import { commands, type ConnectionConfig, type McpSetup } from "../../api";
 import { Alert, Button } from "../../components/ui";
 import { AgentActivity } from "./AgentActivity";
 import { AppAccessList } from "./AppAccessList";
+import { SuggestedNotes } from "./SuggestedNotes";
 import styles from "./ClaudeIntegration.module.css";
 
 function CopyBlock({ label, text }: { label: string; text: string }) {
@@ -59,6 +60,7 @@ export function ClaudeIntegration({ connections }: { connections: ConnectionConf
       <CopyBlock label="Claude Code — run in a terminal" text={`claude mcp add --scope user sayql -- "${setup.path}"`} />
       <CopyBlock label="Claude Desktop — merge into claude_desktop_config.json" text={desktopConfig} />
       <AppAccessList connections={connections} />
+      <SuggestedNotes connections={connections} />
       <AgentActivity />
     </div>
   );

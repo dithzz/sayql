@@ -8,7 +8,7 @@
 //!
 //! (README.md shows how to start throwaway containers for these.)
 //!
-//! The Postgres test drops and recreates the schemas `sayql_it` and `sayql_it_inv`;
+//! The Postgres tests drop and recreate the schemas `sayql_it`, `sayql_it_inv` and `sayql_usage_it`;
 //! the MySQL and SQL Server tests drop and recreate the database `sayql_it`.
 //! Nothing else is touched.
 
@@ -110,6 +110,43 @@ async fn query_within(pool: &DbPool, sql: &str, read_only: bool) -> QueryResult 
         .await
         .unwrap_or_else(|_| panic!("{sql}: still waiting after 10 s"))
         .unwrap_or_else(|e| panic!("{sql}: {e}"))
+}
+
+/// Usage statistics (db/usage.rs) read from real servers: on Postgres a table's writes and the
+/// period show up; elsewhere the statistics are read or said to be unavailable, never an error.
+#[tokio::test]
+async fn usage_statistics_from_real_servers() {
+    if let Some(t) = env_target("SAYQL_TEST_PG_URL") {
+        let db = if t.database.is_empty() { "postgres".to_string() } else { t.database.clone() };
+        let pool = open(Kind::Postgres, &t, &db).await;
+        exec(&pool, "DROP SCHEMA IF EXISTS sayql_usage_it CASCADE; CREATE SCHEMA sayql_usage_it; \
+                     CREATE TABLE sayql_usage_it.busy (id int PRIMARY KEY); CREATE TABLE sayql_usage_it.idle (id int); \
+                     INSERT INTO sayql_usage_it.busy SELECT generate_series(1, 25);")
+            .await;
+        let schema = introspect(&pool, Kind::Postgres).await.expect("introspect");
+        // Postgres publishes a session's counters shortly after its transaction ends.
+        let mut out = String::new();
+        for _ in 0..40 {
+            out = crate::readonly::describe_with(&schema, Some("sayql_usage_it"), &usage::read(&pool).await);
+            if out.contains("25 writes") {
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+        }
+        assert!(out.contains("own statistics, since"), "{out}");
+        assert!(out.lines().any(|l| l.starts_with("sayql_usage_it.busy") && l.contains("25 writes")), "{out}");
+        assert!(out.lines().any(|l| l.starts_with("sayql_usage_it.idle") && l.contains("0 writes")), "{out}");
+        exec(&pool, "DROP SCHEMA sayql_usage_it CASCADE").await;
+    }
+    for (var, kind) in [("SAYQL_TEST_MYSQL_URL", Kind::Mysql), ("SAYQL_TEST_MSSQL_URL", Kind::Mssql)] {
+        let Some(t) = env_target(var) else { continue };
+        let pool = open(kind, &t, &t.database).await;
+        let stats = usage::read(&pool).await;
+        assert!(matches!(stats, usage::Stats::Known(_) | usage::Stats::Unavailable), "{kind:?}: {stats:?}");
+        if let usage::Stats::Known(u) = &stats {
+            assert!(u.since.is_some() || kind == Kind::Mysql, "{kind:?}: {u:?}");
+        }
+    }
 }
 
 /// A confirmed statement commits, and the session state it leaves (SET, USE, locks) doesn't

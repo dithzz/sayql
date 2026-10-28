@@ -3,6 +3,24 @@
 All notable changes to SayQL are listed here. Downloads are on the
 [releases page](https://github.com/dithzz/sayql-releases/releases).
 
+## 0.4.4 (unreleased)
+
+- **Table usage in `describe_schema`:** AI apps using SayQL over MCP now see, after each table, how much it is
+  used according to the database's own statistics: reads and writes (PostgreSQL `pg_stat_user_tables`, SQL Server
+  index usage, MySQL `performance_schema`), the last write, and the period the counters cover ("since
+  2026-01-01", "since the server started on …"), so they can tell a live table from an abandoned one. Counts and
+  dates only, never row values. One extra query per describe, with a 5-second limit; if the statistics can't be
+  read, one line says so. SQLite keeps no such statistics.
+- **AI apps suggest notes, you accept them:** a new MCP tool, `suggest_note`, lets Claude Code, Cursor and other
+  apps suggest a database note (a schema-level fact such as "orders_legacy is unused; use orders_v2") with the
+  evidence they checked. Nothing is saved until you accept it: suggestions wait under **Notes → Suggested by AI
+  apps** in the navigator and in **Settings → AI apps (MCP) → Suggested notes**, with the app's name, the note and
+  the evidence, and **Accept** / **Dismiss**. Accepted notes work like your own: the Ask box, agent mode and
+  every AI app see them. Suggestions that look like values from the data are refused, and each one is in the
+  agent activity log.
+- Over MCP, notes now follow the connection's default database when `database` is omitted, as in the app, so
+  notes saved in SayQL on a server connection reach `describe_schema`.
+
 ## 0.4.3 (2026-10-27)
 
 - **SayQL AI credits:** a new AI provider in **Settings → AI provider** for Claude without an Anthropic account.

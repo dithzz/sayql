@@ -93,10 +93,14 @@ export function AgentActivity() {
                     <td>
                       {STATUS[e.status]}
                       {e.status === "ok" && e.rows != null && ` · ${e.rows} ${e.rows === 1 ? "row" : "rows"}`}
-                      {e.detail && <span className={styles.detail}> · {e.detail}</span>}
+                      {e.detail && !(e.tool === "suggest_note" && e.status === "ok") && <span className={styles.detail}> · {e.detail}</span>}
                     </td>
                     <td className={styles.sql} title={e.sql}>
-                      {e.tool === "export_csv" ? `CSV export: ${e.sql}` : e.sql || e.tool}
+                      {e.tool === "export_csv"
+                        ? `CSV export: ${e.sql}`
+                        : e.tool === "suggest_note"
+                          ? `Suggested a note${e.status === "ok" && e.detail ? `: ${e.detail}` : ""}`
+                          : e.sql || e.tool}
                     </td>
                   </tr>
                 ))}

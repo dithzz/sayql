@@ -8,7 +8,7 @@
 use crate::ai::agent::mask::Masker;
 use crate::db::{self, Kind, QueryResult};
 use crate::handoff::{self, Action, Handoff, ScriptRef};
-use crate::readonly::{DEFAULT_ROWS, MAX_ROWS, WRITE_REFUSED, describe, run_limited};
+use crate::readonly::{DEFAULT_ROWS, MAX_ROWS, WRITE_REFUSED, describe_with, run_limited};
 use crate::schema::Schema;
 use crate::state::{AppState, Target};
 use crate::store::agent::{AgentAccess, AppResults};
@@ -45,7 +45,11 @@ opens SQL in a new SayQL tab for the user to review and run (use it for statemen
 list_scripts shows the user's saved scripts; open_script opens one in SayQL. export_csv saves a read-only \
 query's rows (up to 100,000) to a CSV file in the user's Downloads folder without returning them. \
 describe_schema includes notes the user saved about the database (what codes mean, how tables relate); \
-trust them. Some columns may be marked never to send to AI: queries naming them are refused, so leave them out. \
+trust them. It also shows each table's usage from the database's own statistics (reads, writes, last write, \
+and the period they cover), so you can tell a live table from an abandoned one. When you learn a lasting \
+schema-level fact (a table is unused and replaced, what a status code means, how two tables relate), call \
+suggest_note with the note and your evidence: notes describe the database, never row values or personal data, \
+and a suggestion only becomes a note when the user accepts it in SayQL. Some columns may be marked never to send to AI: queries naming them are refused, so leave them out. \
 The user chooses, per connection, what you may see of results (`ai_may_see` in list_connections): `off` (row \
 counts and column names only), `counts` (the default: row counts and per-column summaries, no row values), \
 `masked` (rows, with likely personal data replaced by tokens such as ‹email-1›, which can't be used in later \
@@ -77,6 +81,20 @@ struct SchemaParams {
     database: Option<String>,
     /// Space-separated words; only tables whose name or columns contain one are described.
     search: Option<String>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+struct SuggestNoteParams {
+    /// A connection id from list_connections.
+    connection_id: String,
+    /// Database on the server (from list_databases). Omit for the connection's default.
+    database: Option<String>,
+    /// The note, at most 300 characters: a schema-level fact, e.g. "orders_legacy is unused since
+    /// March 2026; use orders_v2". Never values from rows or personal data.
+    text: String,
+    /// Why it's true, at most 600 characters: what you checked, e.g. "no references in api/ since
+    /// commit a1b2c3 (2026-03-12); describe_schema usage: 0 writes since 2026-01-01".
+    evidence: String,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -187,6 +205,16 @@ impl SayqlServer {
     async fn describe_schema(&self, Parameters(p): Parameters<SchemaParams>, ctx: RequestContext<RoleServer>) -> Result<String, String> {
         self.gate(&ctx, "describe_schema")?;
         self.describe(p).await
+    }
+
+    #[tool(description = "Suggest a note about a database for the user to approve: a lasting schema-level fact that \
+                          helps later questions (a table is unused and replaced, what a code means, how tables \
+                          relate), with the evidence you checked. Never row values or personal data: notes \
+                          that look like values are refused. It waits in SayQL until the user accepts it; \
+                          accepted notes appear in describe_schema for every later session and AI app.")]
+    async fn suggest_note(&self, Parameters(p): Parameters<SuggestNoteParams>, ctx: RequestContext<RoleServer>) -> Result<String, String> {
+        let app = self.gate(&ctx, "suggest_note")?;
+        self.suggest(&app, p)
     }
 
     #[tool(description = "Run one read-only SQL statement. Returns what the user lets AI apps see on this \
@@ -469,9 +497,53 @@ impl SayqlServer {
     }
 
     async fn describe(&self, p: SchemaParams) -> Result<String, String> {
-        let notes = self.state.store.notes_text(&p.connection_id, p.database.as_deref().filter(|d| !d.trim().is_empty()));
+        let notes = self.state.store.notes_text(&p.connection_id, self.notes_database(&p.connection_id, p.database.as_deref()).as_deref());
+        let target = Target::new(p.connection_id.clone(), p.database.clone());
         let schema = self.schema(&p.connection_id, p.database).await?;
-        Ok(describe(&schema, p.search.as_deref()) + &notes)
+        // Counts and dates from the database's statistics; none when it keeps none or they can't be read.
+        let usage = match self.state.target_pool(&target).await {
+            Ok(pool) => db::usage::read(&pool).await,
+            Err(_) => db::usage::Stats::None,
+        };
+        Ok(describe_with(&schema, p.search.as_deref(), &usage) + &notes)
+    }
+
+    /// The database notes are kept under: the one named, else the connection's default, as the
+    /// app saves them (its tabs name the default database), so both see the same notes.
+    fn notes_database(&self, connection_id: &str, database: Option<&str>) -> Option<String> {
+        match database.map(str::trim).filter(|d| !d.is_empty()) {
+            Some(d) => Some(d.to_string()),
+            None => self.state.store.connection(connection_id).ok().map(|c| c.database.trim().to_string()).filter(|d| !d.is_empty()),
+        }
+    }
+
+    /// Stores a suggested note for the user to accept or dismiss, and logs it.
+    fn suggest(&self, app: &str, p: SuggestNoteParams) -> Result<String, String> {
+        let conn = self.state.store.connection(&p.connection_id).map_err(|_| {
+            format!("No saved connection has id {:?}; use one from list_connections.", p.connection_id)
+        })?;
+        let mut log = Activity { connection_id: conn.id.clone(), connection: conn.name.clone(), ..Activity::new(app, "suggest_note") };
+        let result = self
+            .state
+            .store
+            .suggest_note(&conn.id, self.notes_database(&conn.id, p.database.as_deref()).as_deref(), &p.text, &p.evidence, app)
+            .map(|_| {
+                format!(
+                    "Suggested the note for {:?}. It waits in SayQL until the user accepts it; once accepted it \
+                     appears in describe_schema.",
+                    conn.name
+                )
+            })
+            .map_err(|e| e.to_string());
+        match &result {
+            Ok(_) => log.detail = Some(p.text.trim().chars().take(160).collect()),
+            Err(e) => {
+                log.status = "refused".into();
+                log.detail = Some(e.chars().take(160).collect());
+            }
+        }
+        let _ = self.state.store.log_app_activity(log);
+        result
     }
 
     /// Runs a read-only query for an AI app and returns what the connection lets it see.
@@ -759,6 +831,60 @@ mod tests {
         assert_eq!(client_label(&info("Zed")).as_deref(), Some("Zed"));
     }
 
+    #[test]
+    fn suggested_notes_wait_for_the_user_and_are_logged() {
+        let dir = std::env::temp_dir().join(format!("sayql-mcp-suggest-{}", uuid::Uuid::new_v4()));
+        let state = AppState::new(dir.clone(), dir.clone()).unwrap();
+        let cfg = db::ConnConfig {
+            id: "c1".into(),
+            name: "Shop".into(),
+            kind: Kind::Sqlite,
+            host: String::new(),
+            port: None,
+            database: String::new(),
+            user: String::new(),
+            file: "/tmp/none.sqlite".into(),
+            ssl: false,
+            trust_cert: false,
+        };
+        let pg = db::ConnConfig { id: "pg".into(), kind: Kind::Postgres, database: "shop".into(), file: String::new(), ..cfg.clone() };
+        state.store.save_connections(&[cfg, pg]).unwrap();
+        let server = SayqlServer::new(state);
+        // Without `database`, notes go under the connection's default database, where the app keeps them.
+        let on_pg = SuggestNoteParams { connection_id: "pg".into(), database: None, text: "status 3 = cancelled".into(), evidence: String::new() };
+        server.suggest("Cursor", on_pg).unwrap();
+        let s = server.state.store.note_suggestions().unwrap().remove(0);
+        assert_eq!(s.database.as_deref(), Some("shop"));
+        server.state.store.dismiss_note_suggestion(&s.id).unwrap();
+        server.state.store.clear_app_activity().unwrap();
+        let p = |text: &str, evidence: &str| SuggestNoteParams {
+            connection_id: "c1".into(),
+            database: None,
+            text: text.into(),
+            evidence: evidence.into(),
+        };
+        let ok = server.suggest("Claude Code", p("orders_legacy is unused since March; use orders_v2", "0 writes since 2026-01-01")).unwrap();
+        assert!(ok.contains("until the user accepts"), "{ok}");
+        let store = &server.state.store;
+        assert!(store.notes_text("c1", None).is_empty(), "not a note yet");
+        let waiting = store.note_suggestions().unwrap();
+        assert_eq!((waiting.len(), waiting[0].app.as_str()), (1, "Claude Code"));
+
+        assert!(server.suggest("Claude Code", p("orders_legacy is unused since March; use orders_v2", "")).unwrap_err().contains("already suggested"));
+        assert!(server.suggest("Cursor", p("the owner is dana@example.com", "")).is_err());
+        assert!(server.suggest("Cursor", SuggestNoteParams { connection_id: "nope".into(), ..p("x", "") }).unwrap_err().contains("list_connections"));
+
+        let log = store.app_activity(10).unwrap();
+        assert_eq!(log.len(), 3, "an unknown connection isn't logged");
+        assert_eq!((log[2].tool.as_str(), log[2].status.as_str(), log[2].connection.as_str()), ("suggest_note", "ok", "Shop"));
+        assert_eq!(log[2].detail.as_deref(), Some("orders_legacy is unused since March; use orders_v2"));
+        assert_eq!(log[0].status, "refused");
+
+        store.accept_note_suggestion(&waiting[0].id).unwrap();
+        assert!(store.notes_text("c1", None).contains("orders_legacy is unused"), "accepted notes reach describe_schema");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
     /// 1000 rows, 0..999, in SQL every supported server runs.
     const THOUSAND: &str = "SELECT a.d * 100 + b.d * 10 + c.d AS v FROM \
         (SELECT 0 AS d UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) a CROSS JOIN \
@@ -812,6 +938,12 @@ mod tests {
                 .await
                 .unwrap();
             assert!(schema.starts_with(&format!("Dialect: {}.", kind.dialect())), "{schema}");
+            // Usage from the database's statistics: nothing for SQLite; for servers, the period or why not.
+            if kind == Kind::Sqlite {
+                assert!(!schema.contains("usage") && !schema.contains("Usage"), "{schema}");
+            } else {
+                assert!(schema.contains("statistics"), "{kind:?}: {schema}");
+            }
             if kind == Kind::Sqlite {
                 // A table added while the server runs shows up in the next describe_schema.
                 let pool = server.state.target_pool(&Target::default_of(&cfg.id)).await.unwrap();
