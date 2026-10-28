@@ -3,7 +3,7 @@
 All notable changes to SayQL are listed here. Downloads are on the
 [releases page](https://github.com/dithzz/sayql-releases/releases).
 
-## 0.4.5 (unreleased)
+## 0.4.5 (2026-10-28)
 
 ### Security: AI apps (MCP) and agent mode
 
