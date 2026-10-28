@@ -10,7 +10,7 @@ import type {
   GenerationTask,
   Handoff,
   McpActivity,
-  McpApp,
+  McpApps,
   McpSetup,
   NoteSuggestion,
   QueryResult,
@@ -111,8 +111,11 @@ export const commands = {
 
   mcpSetup: () => invoke<McpSetup>("mcp_setup"),
   mcpActivity: (limit?: number) => invoke<McpActivity[]>("mcp_activity", { limit }),
-  mcpApps: () => invoke<McpApp[]>("mcp_apps"),
-  setMcpAppBlocked: (name: string, blocked: boolean) => invoke<McpApp[]>("set_mcp_app_blocked", { name, blocked }),
+  mcpApps: () => invoke<McpApps>("mcp_apps"),
+  setMcpAppBlocked: (name: string, blocked: boolean) => invoke<McpApps>("set_mcp_app_blocked", { name, blocked }),
+  approveMcpApp: (name: string) => invoke<McpApps>("approve_mcp_app", { name }),
+  /** Turning it on approves the apps already seen that aren't blocked. */
+  setMcpOnlyApproved: (on: boolean) => invoke<McpApps>("set_mcp_only_approved", { on }),
   clearMcpActivity: () => invoke<void>("clear_mcp_activity"),
   /** Handoffs from AI apps waiting to be shown (see the `handoff://new` event). */
   takeHandoffs: () => invoke<Handoff[]>("take_handoffs"),

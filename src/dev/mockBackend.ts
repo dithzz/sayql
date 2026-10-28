@@ -342,6 +342,8 @@ const stopped = new Set<string>();
 /** A scripted agent run on the demo store: plan, two steps, an optional Send/Skip pause, a cited answer. */
 // What AI apps did over MCP, for Settings → AI apps.
 const mcpBlocked = new Set<string>();
+const mcpApproved = new Set<string>();
+let mcpOnlyApproved = false;
 // The video's log matches its terminal scene: Claude Code gets a count, then is refused a private column.
 const mcpActivity = VIDEO
   ? [
@@ -355,13 +357,18 @@ const mcpActivity = VIDEO
       { at: Date.now() - 150_000, app: "Cursor", tool: "run_query", connectionId: "demo", connection: "Demo store (SQLite)", sql: "SELECT c.country, strftime('%Y-%m', o.ordered_at) AS month, COUNT(DISTINCT o.id) AS orders, ROUND(SUM(oi.quantity * oi.unit_price), 2) AS revenue FROM orders o JOIN customers c ON c.id = o.customer_id JOIN order_items oi ON oi.order_id = o.id WHERE o.status = 'paid' AND o.ordered_at >= date('now', '-6 months') GROUP BY c.country, month ORDER BY month DESC, revenue DESC", status: "ok", rows: 48, maySee: "counts" },
       { at: Date.now() - 240_000, app: "Cursor", tool: "run_query", connectionId: "demo", connection: "Demo store (SQLite)", sql: "SELECT email FROM customers", status: "refused", detail: "never-send column email", maySee: "counts" },
       { at: Date.now() - 600_000, app: "Claude Code", tool: "run_query", connectionId: "demo", connection: "Demo store (SQLite)", sql: "DELETE FROM orders WHERE id = 7", status: "refused", detail: "could change data", maySee: "counts" },
+      // Refused while only approved apps were let in; it waits for approval.
+      { at: Date.now() - 900_000, app: "Windsurf", tool: "list_connections", connectionId: "", connection: "", sql: "", status: "refused", detail: "not approved" },
     ];
 function mcpApps() {
-  const names = new Set([...mcpActivity.map((e) => e.app), ...mcpBlocked]);
-  return [...names].map((name) => {
+  const names = new Set([...mcpActivity.map((e) => e.app), ...mcpBlocked, ...mcpApproved]);
+  const apps = [...names].map((name) => {
     const mine = mcpActivity.filter((e) => e.app === name);
-    return { name, blocked: mcpBlocked.has(name), queries: mine.length, lastUsed: mine.length ? Math.max(...mine.map((e) => e.at)) : null };
+    const queries = mine.filter((e) => e.tool === "run_query" || e.tool === "export_csv").length;
+    return { name, blocked: mcpBlocked.has(name), approved: mcpApproved.has(name), queries, lastUsed: mine.length ? Math.max(...mine.map((e) => e.at)) : null };
   });
+  apps.sort((x, y) => (y.lastUsed ?? 0) - (x.lastUsed ?? 0) || x.name.localeCompare(y.name));
+  return { onlyApproved: mcpOnlyApproved, apps };
 }
 
 async function mockAgentRun(runId: string, question: string, access: AgentAccess, auto: boolean) {
@@ -572,9 +579,21 @@ export function installMockBackend() {
         case "set_mcp_app_blocked": {
           const name = String(a.name);
           if (a.blocked) mcpBlocked.add(name);
-          else mcpBlocked.delete(name);
+          else {
+            mcpBlocked.delete(name);
+            mcpApproved.add(name);
+          }
           return mcpApps();
         }
+        case "approve_mcp_app":
+          mcpApproved.add(String(a.name));
+          return mcpApps();
+        case "set_mcp_only_approved":
+          // Turning it on approves the apps already seen that aren't blocked, like the backend.
+          if (a.on && !mcpOnlyApproved)
+            for (const e of mcpActivity) if (e.detail !== "not approved" && !mcpBlocked.has(e.app)) mcpApproved.add(e.app);
+          mcpOnlyApproved = !!a.on;
+          return mcpApps();
         case "clear_mcp_activity":
           mcpActivity.length = 0;
           return null;

@@ -56,6 +56,12 @@ An end-to-end test of what AI apps can get through SayQL found ways around its l
   - **Activity:** the log at full width, filtered by app, connection or refused queries only. Click a row for its
     full SQL and details. Still the SQL and row counts, never rows; **Clear the log** asks first, as before.
   - **Suggestions:** notes AI apps suggested, with **Accept** and **Dismiss**, and how many are waiting on the tab.
+- **Only allow apps I've approved:** a new setting at the top of **Access → Apps**. When it's on, an app you
+  haven't approved is refused every tool (and told to ask you to approve it), logged as refused (*not approved*)
+  and listed as **Waiting for approval** with **Approve** and **Block**. Turning it on approves the apps already
+  listed that aren't blocked, so the ones you use keep working. Blocked still wins over approved. Apps are
+  recognised by the name they report, so this keeps out unknown apps but isn't a security boundary against
+  software that lies about its name. Off by default; existing settings carry over unchanged.
 - **Suggested notes waiting** are counted on **AI apps** in the Settings sidebar and on the settings (gear) button,
   which then opens straight to **AI apps → Suggestions**.
 - **Never-send columns are picked, not typed:** a searchable list of your tables and columns, with likely

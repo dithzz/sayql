@@ -89,6 +89,8 @@ pub fn run() {
             settings::mcp_activity,
             settings::mcp_apps,
             settings::set_mcp_app_blocked,
+            settings::approve_mcp_app,
+            settings::set_mcp_only_approved,
             settings::clear_mcp_activity,
             updates::check_update,
             updates::install_update,

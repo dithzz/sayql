@@ -372,12 +372,20 @@ export interface McpActivity {
   maySee?: AppResults | null;
 }
 
-/** An AI app in the activity log or on the blocked list. */
+/** An AI app in the activity log, or on the blocked or approved list. */
 export interface McpApp {
   name: string;
   blocked: boolean;
+  /** On the approved list; what counts while only approved apps are let in. */
+  approved: boolean;
   queries: number;
   lastUsed?: number | null;
+}
+
+/** The AI apps, and whether only the ones the user approved are let in. */
+export interface McpApps {
+  onlyApproved: boolean;
+  apps: McpApp[];
 }
 
 /** A query saved from a tab; mirrors `store::Script` in src-tauri/src/store/mod.rs. */

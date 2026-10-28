@@ -1,4 +1,5 @@
-//! What AI apps did over MCP (the activity log) and which apps the person blocked.
+//! What AI apps did over MCP (the activity log), which apps the person blocked and, when they
+//! only let in apps they approved, which ones they approved.
 //!
 //! The log is JSON Lines, appended by the MCP server (`sayql-mcp`, one process per AI app) and
 //! read by the app. One small `write` per line in append mode keeps lines whole when two AI apps
@@ -23,6 +24,8 @@ const MAX_SQL: usize = 4000;
 const QUERY_TOOLS: &[&str] = &["run_query", "export_csv"];
 /// What an AI app that doesn't say its name is called.
 pub const UNKNOWN_APP: &str = "Unknown app";
+/// The `detail` logged when an app was refused for not being approved.
+pub const NOT_APPROVED: &str = "not approved";
 
 /// One thing an AI app did, or tried, over MCP.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -70,21 +73,51 @@ impl Activity {
     }
 }
 
-/// An AI app SayQL has seen, or that the person blocked.
+/// An AI app SayQL has seen, or that the person blocked or approved.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AppSummary {
     pub name: String,
     pub blocked: bool,
+    /// On the approved list (what counts while only approved apps are let in).
+    pub approved: bool,
     /// Queries and exports in the log.
     pub queries: usize,
+    /// When it last asked for anything, refused or not.
     pub last_used: Option<u64>,
 }
 
+/// The apps, and whether only approved ones are let in.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AppList {
+    pub only_approved: bool,
+    pub apps: Vec<AppSummary>,
+}
+
+/// What [`Store::app_gate`] decided for one app.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AppGate {
+    Allowed,
+    Blocked,
+    /// Only approved apps are let in, and this one isn't approved.
+    NotApproved,
+}
+
+/// mcp-apps.json. Every field defaults, so an older file (only `blocked`) reads as "any app
+/// that isn't blocked may connect".
 #[derive(Debug, Default, Serialize, Deserialize)]
 struct Apps {
     #[serde(default)]
     blocked: Vec<String>,
+    #[serde(default)]
+    only_approved: bool,
+    #[serde(default)]
+    approved: Vec<String>,
+}
+
+fn has(list: &[String], app: &str) -> bool {
+    list.iter().any(|b| b.eq_ignore_ascii_case(app))
 }
 
 impl Store {
@@ -150,54 +183,113 @@ impl Store {
     /// Whether the person blocked `app` (by the name the app reports). An unreadable list is
     /// an error, never "not blocked".
     pub fn is_app_blocked(&self, app: &str) -> AppResult<bool> {
-        Ok(self
-            .read::<Apps>(APPS_FILE)?
-            .blocked
-            .iter()
-            .any(|b| b.eq_ignore_ascii_case(app)))
+        Ok(has(&self.read::<Apps>(APPS_FILE)?.blocked, app))
     }
 
+    /// Whether `app` (by the name it reports) may use SayQL. Blocked wins over approved. An
+    /// unreadable file is an error, never "allowed".
+    pub fn app_gate(&self, app: &str) -> AppResult<AppGate> {
+        let apps: Apps = self.read(APPS_FILE)?;
+        Ok(if has(&apps.blocked, app) {
+            AppGate::Blocked
+        } else if apps.only_approved && !has(&apps.approved, app) {
+            AppGate::NotApproved
+        } else {
+            AppGate::Allowed
+        })
+    }
+
+    /// Blocks or allows an app. Allowing one also approves it: the person chose to let it in.
     pub fn set_app_blocked(&self, app: &str, blocked: bool) -> AppResult<()> {
         let mut apps: Apps = self.read(APPS_FILE)?;
         apps.blocked.retain(|b| !b.eq_ignore_ascii_case(app));
         if blocked {
             apps.blocked.push(app.to_string());
+        } else if !has(&apps.approved, app) {
+            apps.approved.push(app.to_string());
         }
         self.write(APPS_FILE, &apps)
     }
 
-    /// Every app in the log or on the blocked list, most recently used first.
-    pub fn app_summaries(&self) -> AppResult<Vec<AppSummary>> {
-        let mut by_name: BTreeMap<String, AppSummary> = BTreeMap::new();
-        for a in self.app_activity(usize::MAX)? {
-            // Reads (list_*, describe_schema) and hand-offs are logged too; count queries.
-            if !QUERY_TOOLS.contains(&a.tool.as_str()) {
-                continue;
+    /// Adds an app to the approved list. A blocked app stays blocked.
+    pub fn approve_app(&self, app: &str) -> AppResult<()> {
+        let mut apps: Apps = self.read(APPS_FILE)?;
+        if !has(&apps.approved, app) {
+            apps.approved.push(app.to_string());
+        }
+        self.write(APPS_FILE, &apps)
+    }
+
+    /// Turns "only allow apps I've approved" on or off. Turning it on approves every app in the
+    /// log that isn't blocked, so the apps in use now keep working. An app that was only ever
+    /// refused for not being approved (while the mode was on before) stays waiting.
+    pub fn set_only_approved_apps(&self, on: bool) -> AppResult<()> {
+        let mut apps: Apps = self.read(APPS_FILE)?;
+        if on && !apps.only_approved {
+            for a in self.app_activity(usize::MAX)? {
+                if a.detail.as_deref() != Some(NOT_APPROVED)
+                    && !has(&apps.blocked, &a.app)
+                    && !has(&apps.approved, &a.app)
+                {
+                    apps.approved.push(a.app);
+                }
             }
-            let s = by_name.entry(a.app.clone()).or_insert(AppSummary {
-                name: a.app.clone(),
-                blocked: false,
-                queries: 0,
-                last_used: None,
-            });
-            s.queries += 1;
+        }
+        apps.only_approved = on;
+        self.write(APPS_FILE, &apps)
+    }
+
+    /// Every app in the log, blocked or approved, most recently seen first, and the mode.
+    pub fn app_summaries(&self) -> AppResult<AppList> {
+        let mut by_name: BTreeMap<String, AppSummary> = BTreeMap::new();
+        let summary = |name: &str| AppSummary {
+            name: name.to_string(),
+            blocked: false,
+            approved: false,
+            queries: 0,
+            last_used: None,
+        };
+        for a in self.app_activity(usize::MAX)? {
+            let s = by_name
+                .entry(a.app.clone())
+                .or_insert_with(|| summary(&a.app));
             s.last_used = s.last_used.max(Some(a.at));
+            // Reads (list_*, describe_schema) and hand-offs are logged too; count queries.
+            if QUERY_TOOLS.contains(&a.tool.as_str()) {
+                s.queries += 1;
+            }
         }
         let apps: Apps = self.read(APPS_FILE)?;
         for b in &apps.blocked {
             by_name
                 .entry(b.clone())
-                .or_insert(AppSummary {
-                    name: b.clone(),
-                    blocked: true,
-                    queries: 0,
-                    last_used: None,
-                })
+                .or_insert_with(|| summary(b))
                 .blocked = true;
+        }
+        for a in &apps.approved {
+            // Matched without case, like the gate, so "cursor" approves "Cursor".
+            match by_name
+                .values_mut()
+                .find(|s| s.name.eq_ignore_ascii_case(a))
+            {
+                Some(s) => s.approved = true,
+                None => {
+                    by_name.insert(
+                        a.clone(),
+                        AppSummary {
+                            approved: true,
+                            ..summary(a)
+                        },
+                    );
+                }
+            }
         }
         let mut list: Vec<AppSummary> = by_name.into_values().collect();
         list.sort_by(|a, b| b.last_used.cmp(&a.last_used).then(a.name.cmp(&b.name)));
-        Ok(list)
+        Ok(AppList {
+            only_approved: apps.only_approved,
+            apps: list,
+        })
     }
 }
 
@@ -264,12 +356,15 @@ mod tests {
             .unwrap();
         s.set_app_blocked("Cursor", true).unwrap();
         assert!(s.is_app_blocked("cursor").unwrap() && !s.is_app_blocked("Claude Code").unwrap());
-        let apps = s.app_summaries().unwrap();
+        let list = s.app_summaries().unwrap();
+        assert!(!list.only_approved);
+        let apps = list.apps;
         assert_eq!(
             apps[0],
             AppSummary {
                 name: "Claude Code".into(),
                 blocked: false,
+                approved: false,
                 queries: 2,
                 last_used: Some(9)
             }
@@ -279,6 +374,7 @@ mod tests {
             AppSummary {
                 name: "Cursor".into(),
                 blocked: true,
+                approved: false,
                 queries: 0,
                 last_used: None
             }
@@ -294,12 +390,86 @@ mod tests {
         std::fs::write(dir.join(APPS_FILE), r#"{"blocked": ["Cursor""#).unwrap();
         let s = s.without_repair();
         assert!(s.is_app_blocked("Claude Code").is_err());
+        assert!(s.app_gate("Claude Code").is_err(), "never read as allowed");
         assert!(s.set_app_blocked("Cursor", false).is_err());
+        assert!(s.approve_app("Cursor").is_err());
+        assert!(s.set_only_approved_apps(true).is_err());
         assert_eq!(
             std::fs::read_to_string(dir.join(APPS_FILE)).unwrap(),
             r#"{"blocked": ["Cursor""#,
             "the file is left for the app to repair"
         );
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn an_older_apps_file_reads_as_any_app_allowed() {
+        let (s, dir) = store();
+        assert_eq!(s.app_gate("Cursor").unwrap(), AppGate::Allowed);
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join(APPS_FILE), r#"{"blocked": ["Cursor"]}"#).unwrap();
+        assert_eq!(s.app_gate("Claude Code").unwrap(), AppGate::Allowed);
+        assert_eq!(s.app_gate("cursor").unwrap(), AppGate::Blocked);
+        assert!(!s.app_summaries().unwrap().only_approved);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn only_approved_apps_round_trips_and_approves_the_apps_in_use() {
+        let (s, dir) = store();
+        s.log_app_activity(entry("Claude Code", 1, "SELECT 1"))
+            .unwrap();
+        s.log_app_activity(Activity::new("Cursor", "list_connections"))
+            .unwrap();
+        s.set_app_blocked("Cursor", true).unwrap();
+        s.set_only_approved_apps(true).unwrap();
+        // Seen and not blocked: approved. Blocked: still blocked, not approved. New: waits.
+        assert_eq!(s.app_gate("claude code").unwrap(), AppGate::Allowed);
+        assert_eq!(s.app_gate("Cursor").unwrap(), AppGate::Blocked);
+        assert_eq!(s.app_gate("Zed").unwrap(), AppGate::NotApproved);
+        let list = s.app_summaries().unwrap();
+        assert!(list.only_approved);
+        let by = |n: &str| list.apps.iter().find(|a| a.name == n).unwrap().clone();
+        assert!(by("Claude Code").approved && !by("Claude Code").blocked);
+        assert!(by("Cursor").blocked && !by("Cursor").approved);
+        assert_eq!(by("Cursor").queries, 0, "reads aren't counted as queries");
+        assert!(by("Cursor").last_used.is_some(), "but the app is listed");
+
+        // The saved file keeps all of it.
+        let saved: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(dir.join(APPS_FILE)).unwrap()).unwrap();
+        assert_eq!(saved["only_approved"], true);
+        assert_eq!(saved["approved"], serde_json::json!(["Claude Code"]));
+
+        // Blocked wins over approved.
+        s.approve_app("Cursor").unwrap();
+        assert_eq!(s.app_gate("Cursor").unwrap(), AppGate::Blocked);
+        s.approve_app("Zed").unwrap();
+        assert_eq!(s.app_gate("Zed").unwrap(), AppGate::Allowed);
+        s.set_app_blocked("Zed", true).unwrap();
+        assert_eq!(s.app_gate("Zed").unwrap(), AppGate::Blocked);
+        // Allowing a blocked app lets it in, approved.
+        s.set_app_blocked("Zed", false).unwrap();
+        assert_eq!(s.app_gate("Zed").unwrap(), AppGate::Allowed);
+
+        // Off: anything not blocked is let in; the approved list is kept for next time.
+        s.set_only_approved_apps(false).unwrap();
+        assert_eq!(s.app_gate("Windsurf").unwrap(), AppGate::Allowed);
+        assert_eq!(s.app_gate("Cursor").unwrap(), AppGate::Blocked);
+        s.log_app_activity(Activity {
+            status: "refused".into(),
+            detail: Some(NOT_APPROVED.into()),
+            ..Activity::new("Cline", "run_query")
+        })
+        .unwrap();
+        s.set_only_approved_apps(true).unwrap();
+        assert_eq!(s.app_gate("Windsurf").unwrap(), AppGate::NotApproved);
+        assert_eq!(
+            s.app_gate("Cline").unwrap(),
+            AppGate::NotApproved,
+            "an app that was only ever refused isn't approved by turning the mode on"
+        );
+        assert_eq!(s.app_gate("Zed").unwrap(), AppGate::Allowed);
         let _ = std::fs::remove_dir_all(dir);
     }
 }

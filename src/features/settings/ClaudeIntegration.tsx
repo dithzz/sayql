@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import { Check, ChevronRight, Copy } from "lucide-react";
-import { commands, type ConnectionConfig, type McpApp, type McpSetup } from "../../api";
+import { commands, type ConnectionConfig, type McpApps, type McpSetup } from "../../api";
 import { Alert, Button } from "../../components/ui";
 import { cx } from "../../lib/cx";
 import { errorText } from "../../lib/errors";
@@ -86,7 +86,7 @@ function ConnectApp({ setup, open, onToggle }: { setup: McpSetup | null; open: b
 /** The Access tab: which apps connected, what they get back per connection, and setting up a new app. */
 function AccessTab({ connections, provider }: { connections: ConnectionConfig[]; provider: { label: string; local: boolean } }) {
   const [setup, setSetup] = useState<McpSetup | null>(null);
-  const [apps, setApps] = useState<McpApp[] | null>(null);
+  const [apps, setApps] = useState<McpApps | null>(null);
   const [error, setError] = useState<string | null>(null);
   // Open while no app has connected yet (or the server can't be found); closed once one has.
   const [connectOpen, setConnectOpen] = useState<boolean | null>(null);
@@ -98,11 +98,11 @@ function AccessTab({ connections, provider }: { connections: ConnectionConfig[];
         if (!live) return;
         setSetup(s);
         setApps(a);
-        setConnectOpen((open) => open ?? (a.length === 0 || !s?.exists || !!s.appimage));
+        setConnectOpen((open) => open ?? (a.apps.length === 0 || !s?.exists || !!s.appimage));
       },
       (e) => {
         if (!live) return;
-        setApps([]);
+        setApps({ onlyApproved: false, apps: [] });
         setError(errorText(e));
         setConnectOpen((open) => open ?? true);
       },
@@ -112,14 +112,19 @@ function AccessTab({ connections, provider }: { connections: ConnectionConfig[];
     };
   }, []);
 
-  const toggle = (app: McpApp) => {
+  const update = (change: Promise<McpApps>) => {
     setError(null);
-    commands.setMcpAppBlocked(app.name, !app.blocked).then(setApps, (e) => setError(errorText(e)));
+    change.then(setApps, (e) => setError(errorText(e)));
   };
 
   return (
     <>
-      <AppsList apps={apps} onToggle={toggle} />
+      <AppsList
+        list={apps}
+        onBlock={(app, blocked) => update(commands.setMcpAppBlocked(app.name, blocked))}
+        onApprove={(app) => update(commands.approveMcpApp(app.name))}
+        onOnlyApproved={(on) => update(commands.setMcpOnlyApproved(on))}
+      />
       {error && <Alert tone="danger">{error}</Alert>}
       <AppAccessList connections={connections} provider={provider} />
       {connectOpen !== null && <ConnectApp setup={setup} open={connectOpen} onToggle={() => setConnectOpen(!connectOpen)} />}

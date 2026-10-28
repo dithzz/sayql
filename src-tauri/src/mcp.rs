@@ -15,7 +15,7 @@ use crate::readonly::{
 use crate::schema::Schema;
 use crate::state::{AppState, Target};
 use crate::store::agent::{AgentAccess, AppResults};
-use crate::store::apps::{Activity, UNKNOWN_APP};
+use crate::store::apps::{Activity, AppGate, NOT_APPROVED, UNKNOWN_APP};
 use rmcp::handler::server::{router::tool::ToolRouter, wrapper::Parameters};
 use rmcp::model::{Implementation, ServerCapabilities, ServerConfig};
 use rmcp::service::RequestContext;
@@ -977,13 +977,18 @@ impl SayqlServer {
         .to_string())
     }
 
-    /// The calling AI app's name, refused when the user blocked it (and the attempt logged).
+    /// The calling AI app's name, refused when the user blocked it or, when they only let in
+    /// apps they approved, hasn't approved it (and the attempt logged).
     fn gate(&self, ctx: &RequestContext<RoleServer>, tool: &str) -> Result<String, String> {
         let app = ctx
             .peer
             .peer_info()
             .and_then(|i| client_label(&i.client_info))
             .unwrap_or_else(|| UNKNOWN_APP.into());
+        self.gate_app(app, tool)
+    }
+
+    fn gate_app(&self, app: String, tool: &str) -> Result<String, String> {
         let refuse = |detail: &str| {
             let _ = self.state.store.log_app_activity(Activity {
                 status: "refused".into(),
@@ -992,23 +997,29 @@ impl SayqlServer {
             });
         };
         // Settings that can't be read fail closed: nothing runs until the app repairs them.
-        let blocked = self
+        let gate = self
             .state
             .store
             .agent_access_readable()
-            .and_then(|_| self.state.store.is_app_blocked(&app));
-        match blocked {
+            .and_then(|_| self.state.store.app_gate(&app));
+        match gate {
             Err(_) => {
                 refuse("settings unreadable");
                 Err(SETTINGS_UNREADABLE.into())
             }
-            Ok(true) => {
+            Ok(AppGate::Blocked) => {
                 refuse("app blocked");
                 Err(format!(
                     "The user has blocked {app} from using SayQL. They can allow it again in SayQL under Settings → AI apps → Access."
                 ))
             }
-            Ok(false) => Ok(app),
+            Ok(AppGate::NotApproved) => {
+                refuse(NOT_APPROVED);
+                Err(format!(
+                    "SayQL only lets in AI apps the user has approved. Ask them to approve {app} in SayQL under Settings → AI apps → Access."
+                ))
+            }
+            Ok(AppGate::Allowed) => Ok(app),
         }
     }
 
@@ -1465,6 +1476,59 @@ mod tests {
             .filter(|e| e.file_name().to_string_lossy().contains("corrupt"))
             .collect();
         assert!(others.is_empty(), "nothing moved aside");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn the_gate_lets_in_only_what_the_user_allows() {
+        let dir = std::env::temp_dir().join(format!("sayql-mcp-gate-{}", uuid::Uuid::new_v4()));
+        let mut state = AppState::new(dir.clone(), dir.clone()).unwrap();
+        state.store = state.store.without_repair();
+        let server = SayqlServer::new(state);
+        let store = &server.state.store;
+        let gate = |app: &str| server.gate_app(app.to_string(), "run_query");
+
+        // Off (the default): anything not blocked.
+        assert_eq!(gate("Zed").unwrap(), "Zed");
+        store
+            .log_app_activity(Activity::new("Zed", "run_query"))
+            .unwrap();
+        store.set_app_blocked("Cursor", true).unwrap();
+        assert!(gate("Cursor").unwrap_err().contains("blocked Cursor"));
+
+        // On: Zed was seen, so it's approved; a new app waits.
+        store.set_only_approved_apps(true).unwrap();
+        assert_eq!(gate("Zed").unwrap(), "Zed");
+        assert_eq!(
+            gate("Windsurf").unwrap_err(),
+            "SayQL only lets in AI apps the user has approved. Ask them to approve Windsurf in SayQL under Settings → AI apps → Access."
+        );
+        let last = &store.app_activity(1).unwrap()[0];
+        assert_eq!(
+            (
+                last.app.as_str(),
+                last.status.as_str(),
+                last.detail.as_deref()
+            ),
+            ("Windsurf", "refused", Some("not approved"))
+        );
+        let list = store.app_summaries().unwrap();
+        let w = list.apps.iter().find(|a| a.name == "Windsurf").unwrap();
+        assert!(list.only_approved && !w.approved && !w.blocked);
+        store.approve_app("Windsurf").unwrap();
+        assert_eq!(gate("Windsurf").unwrap(), "Windsurf");
+
+        // Blocked wins over approved.
+        store.approve_app("Cursor").unwrap();
+        assert!(gate("Cursor").unwrap_err().contains("blocked Cursor"));
+
+        // A corrupt apps file still refuses everything, approved or not, and stays put.
+        std::fs::write(dir.join("mcp-apps.json"), r#"{"only_approved": tr"#).unwrap();
+        assert_eq!(gate("Zed").unwrap_err(), SETTINGS_UNREADABLE);
+        assert_eq!(
+            std::fs::read_to_string(dir.join("mcp-apps.json")).unwrap(),
+            r#"{"only_approved": tr"#
+        );
         let _ = std::fs::remove_dir_all(dir);
     }
 
