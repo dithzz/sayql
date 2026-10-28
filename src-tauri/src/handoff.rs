@@ -238,6 +238,24 @@ pub fn connection_draft(
     if kind == Kind::Sqlite && draft.file.is_empty() {
         return Err("`file` (the SQLite database file path) is required for sqlite.".into());
     }
+    // A URL or `user:password@host` in a field would carry a password into the link.
+    if draft.host.contains("://")
+        || draft.host.contains('@')
+        || draft.host.contains('/')
+        || draft.host.chars().any(char::is_whitespace)
+    {
+        return Err(
+            "`host` is only the server's name or IP address (for SQL Server, `host,port` also works): not a URL, \
+             and never a user or password."
+                .into(),
+        );
+    }
+    if draft.user.contains(':') || draft.user.contains("://") || draft.database.contains("://") {
+        return Err(
+            "`user` and `database` are plain names: never a URL or a password. The user types the password in SayQL."
+                .into(),
+        );
+    }
     Ok(draft)
 }
 

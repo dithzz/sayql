@@ -208,9 +208,13 @@ use the connections you saved in SayQL: `list_connections`, `list_databases`, `d
 
 **You choose what the app gets back**, per connection, in **Settings → AI apps (MCP)**: nothing but row counts,
 counts and column summaries (the default: no row values), rows with likely personal data masked, or all rows
-(in pages of 100 by default, 1,000 at most). Below all rows, values quoted in database errors are masked too.
+(in pages of 100 by default, 1,000 at most). Below all rows, database errors come as a fixed description,
+without the values they can quote. Columns you mark **never send** are refused in any form (named, a whole row as
+JSON or text, `*` in a subquery, renamed through an alias list; on PostgreSQL also through views). The levels keep
+rows from reaching an AI app by accident; a determined agent can still learn facts from counts, so never send is
+the firm line.
 
-- `list_scripts` lists your saved scripts, with their SQL.
+- `list_scripts` lists your saved scripts, with as much of their SQL as the connection's setting allows.
 - `export_csv` saves a read-only query's rows (up to 100,000) to a new CSV in your Downloads folder, on
   connections where you allow all rows. The rows aren't sent to the app, only the file path.
 

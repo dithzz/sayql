@@ -141,7 +141,7 @@ fn task_message(question: &str, task: &Task) -> String {
              the corrected query for the request. Keep everything that was not part of the problem.",
             tagged("request", request),
             tagged("failed_query", sql),
-            tagged("database_error", &super::redact::database_error(error))
+            tagged("database_error", &super::redact::database_error(error, sql))
         ),
         Task::Improve { sql } => format!(
             "{}\n\n{}\n\nReview this query against the request and the schema: joins, filters, date logic, grouping, \
@@ -233,7 +233,7 @@ mod tests {
         };
         let m = user_message("add a user", &t, None);
         assert!(
-            m.contains("Duplicate entry '…' for key 'users.email'") && !m.contains("ann@"),
+            m.contains("Duplicate entry '…' for key '…'") && !m.contains("ann@"),
             "{m}"
         );
         assert!(t.needs_expert());

@@ -5,7 +5,6 @@
 use super::mask::{Masker, ResultSummary};
 use super::model::{Block, Llm, Msg, Role, ToolMode, Turn, Usage};
 use super::{checks, prompt, tools};
-use crate::ai::redact;
 use crate::db::{self, DbPool, Kind, QueryResult};
 use crate::readonly;
 use crate::schema::{self, Schema, Table};
@@ -201,6 +200,8 @@ struct Run<'a> {
     results: Vec<QueryResult>,
     /// SQL the model checked with explain_query, which may then read a big table in full.
     explained: Vec<String>,
+    /// Result positions of the last checked query that hold never-send values (see never_send.rs).
+    withheld: Vec<usize>,
     /// The answer's claims about all rows were sent back once to be checked.
     reviewed: bool,
     turns: u32,
@@ -233,6 +234,7 @@ pub async fn run(llm: &mut Llm, pool: &DbPool, mut input: RunInput, io: &mut Io)
         steps: Vec::new(),
         results: Vec::new(),
         explained: Vec::new(),
+        withheld: Vec::new(),
         reviewed: false,
         turns: 0,
         queries: 0,
@@ -743,7 +745,18 @@ impl Run<'_> {
 
     /// The SQL with real values in place of tokens, if it may run: one read-only statement
     /// that names no never-send column.
-    fn real_sql(&self, sql: &str) -> Result<String, String> {
+    async fn real_sql(&mut self, sql: &str) -> Result<String, String> {
+        let real = self.real_sql_text(sql)?;
+        // Never-send columns in any form (whole rows, renames, views on Postgres), and functions
+        // that read server files: see never_send.rs.
+        let guard = crate::never_send::check(self.pool, &real, &self.input.access.never_send)
+            .await
+            .map_err(|f| self.masker.remask_text(&f.safe))?;
+        self.withheld = guard.withheld;
+        Ok(real)
+    }
+
+    fn real_sql_text(&self, sql: &str) -> Result<String, String> {
         let kind = self.input.kind;
         let real = self.masker.unmask_sql(sql, kind)?;
         if checks::statements(&real) > 1 {
@@ -754,22 +767,18 @@ impl Run<'_> {
         if !team && !db::is_read_only(&real, kind) {
             return Err(readonly::AGENT_WRITE_REFUSED.into());
         }
-        if let Some(col) = self.masker.names_never_send(&real) {
-            return Err(format!(
-                "This query uses the column {col}, which the person marked never send on this connection. Leave it out \
-                 entirely (also from WHERE and COUNT)."
-            ));
-        }
         Ok(real)
     }
 
     async fn run_sql(&mut self, sql: &str) -> Result<QueryResult, String> {
         let secs = Duration::from_secs(self.input.limits.query_seconds);
-        let r = readonly::run_limited_with(self.pool, sql, ROWS_READ, secs, &self.io.stop).await;
-        // Database messages can quote values; the model gets them masked.
-        r.map_err(|e| match e.as_str() {
+        let r = readonly::run_limited_checked(self.pool, sql, ROWS_READ, secs, &self.io.stop).await;
+        // Database messages can quote values; the model gets a fixed message for the kind of
+        // error (see ai/redact.rs).
+        r.map_err(|e| match e.full.as_str() {
             crate::team::WRITE_REFUSED => readonly::AGENT_WRITE_REFUSED.to_string(),
-            _ => self.masker.remask_text(&redact::database_error(&e)),
+            readonly::STOPPED => readonly::STOPPED.to_string(),
+            _ => self.masker.remask_text(&e.safe),
         })
     }
 
@@ -787,7 +796,7 @@ impl Run<'_> {
             );
             return Ok(self.end_step(i, Err(msg), "sent the refusal"));
         }
-        let real = self.real_sql(sql);
+        let real = self.real_sql(sql).await;
         let i = self.new_step(
             tools::QUERY,
             purpose,
@@ -820,6 +829,7 @@ impl Run<'_> {
         let checks = checks::join_fan_out(&real, &self.input.schema);
         // A personal column under another name ("full_name AS creator") is masked like the column.
         self.masker.learn_aliases(&real);
+        self.masker.withhold_positions(&self.withheld);
         let (payload, summary) = self.payload(&r);
         self.fill_step(i, &r, checks.clone());
         let (payload, summary) = self.maybe_skip(i, &r, payload, summary).await?;
@@ -881,6 +891,15 @@ impl Run<'_> {
             "SELECT COUNT(*) AS total_rows, COUNT(*) - COUNT({c}) AS nulls, COUNT(DISTINCT {c}) AS distinct_values, \
              MIN({c}) AS min_value, MAX({c}) AS max_value FROM {t}"
         );
+        // A never-send column isn't profiled at all.
+        let never = crate::never_send::entries(&self.input.access.never_send);
+        let dialect = crate::never_send::dialect(self.input.kind);
+        if let Err(e) = crate::never_send::check_text(&stats, &never, dialect, false) {
+            let i = self.new_step(tools::PROFILE, text, None);
+            return Ok(self.end_step(i, Err(e), "sent the refusal"));
+        }
+        // Which never-send entries apply follows the table profiled.
+        self.masker.learn_aliases(&stats);
         let i = self.new_step(tools::PROFILE, text, Some(format!("{stats};\n{top}")));
         self.queries += 1;
         let (stats_r, top_r) = match (self.run_sql(&stats).await, self.run_sql(&top).await) {
@@ -960,7 +979,7 @@ impl Run<'_> {
     /// Runs a query whose first column holds what to show; the model gets tokens, never values.
     async fn show_sql(&mut self, sql: &str) -> Result<(String, bool), Stop> {
         let text = "Looking up a value to show you".to_string();
-        let real = self.real_sql(sql);
+        let real = self.real_sql(sql).await;
         let i = self.new_step(
             tools::SHOW,
             text,
@@ -1089,7 +1108,7 @@ impl Run<'_> {
     }
 
     async fn explain(&mut self, sql: &str) -> (String, bool) {
-        let real = self.real_sql(sql);
+        let real = self.real_sql(sql).await;
         let i = self.new_step(
             tools::EXPLAIN,
             "Checking the query plan".into(),
