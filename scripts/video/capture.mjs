@@ -282,12 +282,12 @@ caption("Every answer cites the queries behind it");
 await sleep(5200);
 log("end");
 
-// Off camera: Settings → AI apps (MCP), scrolled to what AI apps may see.
-await click(await rect('button[aria-label="Settings"]'), { glide: 0 });
-await click(await waitFor("button", "AI apps (MCP)"), { glide: 0 });
-await waitForText("What AI apps may see");
-await waitForText("never-send column email");
-await page.evaluate(() => [...document.querySelectorAll("h3")].find((h) => h.textContent === "What AI apps may see").scrollIntoView({ block: "start" }));
+// Off camera: Settings → AI apps, Access tab, scrolled to the connections. With a suggested note
+// waiting, the gear's label counts it and it opens on the Suggestions tab, hence the prefix match.
+await click(await rect('button[aria-label^="Settings"]'), { glide: 0 });
+await click(await waitFor('[role="tab"]', "Access"), { glide: 0 });
+await waitForText("What AI apps get back");
+await page.evaluate(() => [...document.querySelectorAll("h3")].find((h) => h.textContent === "Connections").scrollIntoView({ block: "start" }));
 await sleep(800);
 
 // 4. Guardrails: what AI apps may see, what they ran, and blocking one.
@@ -300,7 +300,7 @@ const section = (title) =>
     const r = el.getBoundingClientRect();
     return { x: r.x, y: r.y, w: r.width, h: r.height };
   }, title);
-cam(await section("What AI apps may see"), { maxZoom: 1.7, pad: 30 });
+cam(await section("Connections"), { maxZoom: 1.7, pad: 30 });
 caption("You choose what AI apps may see");
 await sleep(900);
 // A native select's menu doesn't show in a screencast, so the cursor points at it and the
@@ -316,17 +316,18 @@ for (const v of ["off", "masked", "all", "counts"]) {
   }, v);
   await sleep(v === "counts" ? 1000 : 850);
 }
-cam(await section("Agent activity"), { maxZoom: 1.6, pad: 30 });
+await click(await waitFor('[role="tab"]', "Activity"));
+await waitForText("never-send column email");
+await sleep(400);
+cam(await rect('[role="tabpanel"] table'), { maxZoom: 1.6, pad: 30 });
 caption("See what each app ran, and what was refused");
 await sleep(3000);
+await click(await waitFor('[role="tab"]', "Access"));
+await waitForText("What AI apps get back");
+cam(await section("Apps"), { maxZoom: 1.7, pad: 30 });
 caption("Don't trust an app? Block it.");
-const block = await page.evaluate(() => {
-  const row = [...document.querySelectorAll("li")].find((li) => li.textContent.startsWith("Cursor"));
-  const r = row.querySelector("button").getBoundingClientRect();
-  return { x: r.x, y: r.y, w: r.width, h: r.height };
-});
-await click(block);
-await waitForText("· Blocked");
+await click(await waitFor("button", "Block Cursor"));
+await waitFor("button", "Allow Cursor");
 await sleep(1800);
 log("end");
 

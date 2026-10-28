@@ -4,7 +4,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import type { DbNote, NoteSuggestion } from "../../api";
 import { SuggestedNotes } from "../settings/SuggestedNotes";
 import { NoteSuggestions } from "./NoteSuggestions";
-import { SUGGESTIONS_CHANGED, suggestionFor } from "./useNoteSuggestions";
+import { SUGGESTIONS_CHANGED, suggestionFor, useNoteSuggestions } from "./useNoteSuggestions";
 
 let waiting: NoteSuggestion[] = [];
 const saved: DbNote[] = [];
@@ -28,6 +28,12 @@ vi.mock("../../api", async (orig) => ({
 
 afterEach(cleanup);
 
+/** Settings → AI apps → Suggestions, with the list from the hook, as SettingsPage passes it. */
+function Suggestions() {
+  const api = useNoteSuggestions();
+  return <SuggestedNotes connections={[{ id: "c1", name: "Shop" } as never]} {...api} />;
+}
+
 const suggestion = (id: string, text: string, app = "Claude Code"): NoteSuggestion => ({
   id,
   connectionId: "c1",
@@ -42,7 +48,7 @@ it("shows the app, note and evidence, and accepts or dismisses", async () => {
   waiting = [suggestion("s1", "orders_legacy is unused; use orders_v2"), suggestion("s2", "status 3 = cancelled", "Cursor")];
   const changed = vi.fn();
   window.addEventListener(SUGGESTIONS_CHANGED, changed);
-  render(<SuggestedNotes connections={[{ id: "c1", name: "Shop" } as never]} />);
+  render(<Suggestions />);
 
   expect(await screen.findByText("orders_legacy is unused; use orders_v2")).toBeTruthy();
   expect(screen.getAllByText(/no references in api\//)).toHaveLength(2);
@@ -55,8 +61,9 @@ it("shows the app, note and evidence, and accepts or dismisses", async () => {
   expect(changed).toHaveBeenCalled();
 
   fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
-  // The section goes away once nothing is waiting.
-  await waitFor(() => expect(screen.queryByText("Suggested notes")).toBeNull());
+  // Once nothing is waiting, the tab says so and still explains what suggestions are.
+  expect(await screen.findByText("No suggested notes are waiting.")).toBeTruthy();
+  expect(screen.getByText(/Nothing is saved until you accept it/)).toBeTruthy();
   expect(saved).toHaveLength(1);
   window.removeEventListener(SUGGESTIONS_CHANGED, changed);
 });

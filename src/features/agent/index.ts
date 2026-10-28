@@ -1,4 +1,5 @@
 export { AgentAccessDialog } from "./AgentAccessDialog";
+export { EntryLabel as NeverSendLabel, NeverSendPicker } from "./NeverSendPicker";
 export { AgentPanel } from "./AgentPanel";
 export { IDLE, forStorage, isActive } from "./agentRun";
 export type { AgentRunState } from "./agentRun";
@@ -10,4 +11,5 @@ export { agentStarters } from "./starters";
 export { NoteDialog } from "./NoteDialog";
 export { NoteSuggestions } from "./NoteSuggestions";
 export { SUGGESTIONS_CHANGED, suggestionFor, useNoteSuggestions } from "./useNoteSuggestions";
+export type { NoteSuggestionsApi } from "./useNoteSuggestions";
 export { AgentSettingsSection } from "./AgentSettingsSection";

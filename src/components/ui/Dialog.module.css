@@ -24,6 +24,9 @@
 .md {
   max-width: 540px;
 }
+.lg {
+  max-width: 720px;
+}
 
 .header {
   display: flex;

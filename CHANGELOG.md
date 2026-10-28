@@ -3,6 +3,20 @@
 All notable changes to SayQL are listed here. Downloads are on the
 [releases page](https://github.com/dithzz/sayql-releases/releases).
 
+## Unreleased
+
+- **Settings → AI apps, in tabs:** the page formerly called **AI apps (MCP)** is now **AI apps** (for Claude Code,
+  Cursor and other MCP apps), with three tabs:
+  - **Access:** each app that has connected, allowed or blocked, with when it was last seen; a compact table of
+    your connections with what AI apps get back (each level explained once, above the table) and the never-send
+    columns as chips, with **Edit** (the same list agent mode uses; editing it here doesn't turn agent mode on or
+    off); and **Connect an app**, the setup for Claude Code and Claude Desktop, open until an app has connected.
+  - **Activity:** the log at full width, filtered by app, connection or refused queries only. Click a row for its
+    full SQL and details. Still the SQL and row counts, never rows; **Clear the log** asks first, as before.
+  - **Suggestions:** notes AI apps suggested, with **Accept** and **Dismiss**, and how many are waiting on the tab.
+- **Suggested notes waiting** are counted on **AI apps** in the Settings sidebar and on the settings (gear) button,
+  which then opens straight to **AI apps → Suggestions**.
+
 ## 0.4.4 (2026-10-28)
 
 - **Table usage in `describe_schema`:** AI apps using SayQL over MCP now see, after each table, how much it is

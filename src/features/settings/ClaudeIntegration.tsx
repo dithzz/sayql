@@ -1,11 +1,26 @@
-import { useEffect, useState } from "react";
-import { Check, Copy } from "lucide-react";
-import { commands, type ConnectionConfig, type McpSetup } from "../../api";
+import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
+import { Check, ChevronRight, Copy } from "lucide-react";
+import { commands, type ConnectionConfig, type McpApp, type McpSetup } from "../../api";
 import { Alert, Button } from "../../components/ui";
+import { cx } from "../../lib/cx";
+import { errorText } from "../../lib/errors";
+import type { NoteSuggestionsApi } from "../agent";
 import { AgentActivity } from "./AgentActivity";
 import { AppAccessList } from "./AppAccessList";
+import { AppsList } from "./AppsList";
 import { SuggestedNotes } from "./SuggestedNotes";
 import styles from "./ClaudeIntegration.module.css";
+
+export type AiAppsTab = "access" | "activity" | "suggestions";
+
+const TABS: { id: AiAppsTab; label: string }[] = [
+  { id: "access", label: "Access" },
+  { id: "activity", label: "Activity" },
+  { id: "suggestions", label: "Suggestions" },
+];
+
+/** The tab last open, so coming back to Settings → AI apps in this session lands on it. */
+let lastTab: AiAppsTab = "access";
 
 function CopyBlock({ label, text }: { label: string; text: string }) {
   const [copied, setCopied] = useState(false);
@@ -27,41 +42,169 @@ function CopyBlock({ label, text }: { label: string; text: string }) {
   );
 }
 
-/** How to let Claude Code / Claude Desktop query the saved connections through MCP, and what they may see. */
-export function ClaudeIntegration({ connections }: { connections: ConnectionConfig[] }) {
-  const [setup, setSetup] = useState<McpSetup | null>(null);
-  useEffect(() => {
-    commands.mcpSetup().then(setSetup, () => setSetup(null));
-  }, []);
-  if (!setup) return null;
+/** How to add SayQL to Claude Code or Claude Desktop, in a section that opens and closes. */
+function ConnectApp({ setup, open, onToggle }: { setup: McpSetup | null; open: boolean; onToggle: () => void }) {
+  const bodyId = useId();
+  const desktopConfig = setup && JSON.stringify({ mcpServers: { sayql: { command: setup.path } } }, null, 2);
+  return (
+    <section className={styles.group}>
+      <button type="button" className={styles.disclosure} aria-expanded={open} aria-controls={bodyId} onClick={onToggle}>
+        <ChevronRight size={14} className={cx(styles.chevron, open && styles.chevronOpen)} />
+        <span className={styles.heading}>Connect an app</span>
+      </button>
+      {open && (
+        <div id={bodyId} className={styles.groupBody}>
+          <p className={styles.intro}>
+            Add SayQL to an AI app once. It can also fill in a new connection, or open SQL or a saved script here, for you to
+            finish. Passwords and writes never go through MCP.
+          </p>
+          {setup && !setup.exists && (
+            <Alert tone="warning">
+              The MCP server isn&apos;t next to SayQL. Building from source? Run `cargo build --bin sayql-mcp` in src-tauri.
+            </Alert>
+          )}
+          {setup?.exists && setup.appimage && (
+            <Alert tone="warning">
+              The AppImage opens from a new folder each time, so this path stops working after SayQL restarts. Install the
+              .deb or .rpm to use MCP.
+            </Alert>
+          )}
+          {setup && desktopConfig ? (
+            <>
+              <CopyBlock label="Claude Code — run in a terminal" text={`claude mcp add --scope user sayql -- "${setup.path}"`} />
+              <CopyBlock label="Claude Desktop — merge into claude_desktop_config.json" text={desktopConfig} />
+            </>
+          ) : (
+            <p className={styles.detail}>Couldn&apos;t find the MCP server&apos;s path.</p>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
 
-  const desktopConfig = JSON.stringify({ mcpServers: { sayql: { command: setup.path } } }, null, 2);
+/** The Access tab: which apps connected, what they get back per connection, and setting up a new app. */
+function AccessTab({ connections, provider }: { connections: ConnectionConfig[]; provider: { label: string; local: boolean } }) {
+  const [setup, setSetup] = useState<McpSetup | null>(null);
+  const [apps, setApps] = useState<McpApp[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  // Open while no app has connected yet (or the server can't be found); closed once one has.
+  const [connectOpen, setConnectOpen] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    let live = true;
+    Promise.all([commands.mcpSetup().catch(() => null), commands.mcpApps()]).then(
+      ([s, a]) => {
+        if (!live) return;
+        setSetup(s);
+        setApps(a);
+        setConnectOpen((open) => open ?? (a.length === 0 || !s?.exists || !!s.appimage));
+      },
+      (e) => {
+        if (!live) return;
+        setApps([]);
+        setError(errorText(e));
+        setConnectOpen((open) => open ?? true);
+      },
+    );
+    return () => {
+      live = false;
+    };
+  }, []);
+
+  const toggle = (app: McpApp) => {
+    setError(null);
+    commands.setMcpAppBlocked(app.name, !app.blocked).then(setApps, (e) => setError(errorText(e)));
+  };
+
+  return (
+    <>
+      <AppsList apps={apps} onToggle={toggle} />
+      {error && <Alert tone="danger">{error}</Alert>}
+      <AppAccessList connections={connections} provider={provider} />
+      {connectOpen !== null && <ConnectApp setup={setup} open={connectOpen} onToggle={() => setConnectOpen(!connectOpen)} />}
+    </>
+  );
+}
+
+export interface ClaudeIntegrationProps {
+  connections: ConnectionConfig[];
+  /** Where agent mode sends results, for the agent settings opened from here. */
+  provider: { label: string; local: boolean };
+  /** Notes AI apps suggested, waiting; the same list the sidebar and the top bar count. */
+  suggestions: NoteSuggestionsApi;
+  /** The tab to open on; otherwise the one open last in this session. */
+  tab?: AiAppsTab;
+}
+
+/** Settings → AI apps: what AI apps over MCP may see and did, and the notes they suggested, in three tabs. */
+export function ClaudeIntegration({ connections, provider, suggestions, tab: initial }: ClaudeIntegrationProps) {
+  const [tab, setTabState] = useState<AiAppsTab>(initial ?? lastTab);
+  const setTab = (t: AiAppsTab) => {
+    lastTab = t;
+    setTabState(t);
+  };
+  useEffect(() => {
+    if (initial) {
+      lastTab = initial;
+      setTabState(initial);
+    }
+  }, [initial]);
+
+  const base = useId();
+  const tabRefs = useRef<Record<AiAppsTab, HTMLButtonElement | null>>({ access: null, activity: null, suggestions: null });
+  // Arrow keys, Home and End move between tabs, as in any tab list.
+  const onKeyDown = (e: KeyboardEvent) => {
+    const i = TABS.findIndex((t) => t.id === tab);
+    const next =
+      e.key === "ArrowRight" ? (i + 1) % TABS.length
+      : e.key === "ArrowLeft" ? (i - 1 + TABS.length) % TABS.length
+      : e.key === "Home" ? 0
+      : e.key === "End" ? TABS.length - 1
+      : -1;
+    if (next < 0) return;
+    e.preventDefault();
+    setTab(TABS[next].id);
+    tabRefs.current[TABS[next].id]?.focus();
+  };
+  const waiting = suggestions.suggestions.length;
+
   return (
     <div className={styles.section}>
       <p className={styles.intro}>
         Let Claude, Cursor or any other MCP app list your connections, read schemas and run <strong>read-only</strong>{" "}
         queries. You choose, per connection, what it gets back: by default counts and summaries, not your rows.
       </p>
-      <p className={styles.intro}>
-        It can also fill in a new connection, or open SQL or a saved script here, for you to finish. Passwords and
-        writes never go through MCP.
-      </p>
-      {!setup.exists && (
-        <Alert tone="warning">
-          The MCP server isn&apos;t next to SayQL. Building from source? Run `cargo build --bin sayql-mcp` in src-tauri.
-        </Alert>
-      )}
-      {setup.exists && setup.appimage && (
-        <Alert tone="warning">
-          The AppImage opens from a new folder each time, so this path stops working after SayQL restarts. Install the
-          .deb or .rpm to use MCP.
-        </Alert>
-      )}
-      <CopyBlock label="Claude Code — run in a terminal" text={`claude mcp add --scope user sayql -- "${setup.path}"`} />
-      <CopyBlock label="Claude Desktop — merge into claude_desktop_config.json" text={desktopConfig} />
-      <AppAccessList connections={connections} />
-      <SuggestedNotes connections={connections} />
-      <AgentActivity />
+      <div className={styles.tabs} role="tablist" aria-label="AI apps" onKeyDown={onKeyDown}>
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            ref={(el) => {
+              tabRefs.current[t.id] = el;
+            }}
+            id={`${base}-${t.id}-tab`}
+            type="button"
+            role="tab"
+            aria-selected={tab === t.id}
+            aria-controls={`${base}-${t.id}-panel`}
+            tabIndex={tab === t.id ? 0 : -1}
+            className={cx(styles.tab, tab === t.id && styles.tabActive)}
+            onClick={() => setTab(t.id)}
+          >
+            {t.label}
+            {t.id === "suggestions" && waiting > 0 && (
+              <span className={styles.count} aria-label={`${waiting} waiting`}>
+                {waiting}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+      <div id={`${base}-${tab}-panel`} role="tabpanel" aria-labelledby={`${base}-${tab}-tab`} className={styles.panel}>
+        {tab === "access" && <AccessTab connections={connections} provider={provider} />}
+        {tab === "activity" && <AgentActivity />}
+        {tab === "suggestions" && <SuggestedNotes connections={connections} {...suggestions} />}
+      </div>
     </div>
   );
 }

@@ -11,9 +11,11 @@ export interface TopBarProps {
   schema: Schema | null;
   onNewConnection: () => void;
   onOpenSettings: () => void;
+  /** Notes AI apps suggested, waiting; shown as a count on the settings button. */
+  pendingSuggestions?: number;
 }
 
-export function TopBar({ active, databaseName, schema, onNewConnection, onOpenSettings }: TopBarProps) {
+export function TopBar({ active, databaseName, schema, onNewConnection, onOpenSettings, pendingSuggestions = 0 }: TopBarProps) {
   return (
     <header className={styles.topbar}>
       <div className={styles.brand}>
@@ -33,7 +35,22 @@ export function TopBar({ active, databaseName, schema, onNewConnection, onOpenSe
       )}
       <span className={styles.spacer} />
       <ThemeToggle />
-      <IconButton icon={SettingsIcon} label="Settings" onClick={onOpenSettings} />
+      <span className={styles.settingsButton}>
+        <IconButton
+          icon={SettingsIcon}
+          label={
+            pendingSuggestions > 0
+              ? `Settings: ${pendingSuggestions} suggested ${pendingSuggestions === 1 ? "note" : "notes"} waiting`
+              : "Settings"
+          }
+          onClick={onOpenSettings}
+        />
+        {pendingSuggestions > 0 && (
+          <span className={styles.settingsBadge} aria-hidden="true">
+            {pendingSuggestions > 9 ? "9+" : pendingSuggestions}
+          </span>
+        )}
+      </span>
     </header>
   );
 }

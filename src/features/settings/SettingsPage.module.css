@@ -81,6 +81,26 @@
   margin: 0 auto;
   padding: var(--space-6) var(--space-6) 48px;
 }
+.wide {
+  max-width: 880px;
+}
+.subtitle {
+  margin: 2px 0 0;
+  font-size: var(--font-size-md);
+  color: var(--color-text-muted);
+}
+.navCount {
+  min-width: 18px;
+  margin-left: auto;
+  padding: 0 6px;
+  border-radius: 9px;
+  background: var(--color-accent);
+  color: var(--color-text-on-accent);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  line-height: 18px;
+  text-align: center;
+}
 .title {
   margin: var(--space-4) 0 0;
   font-size: var(--font-size-xl);

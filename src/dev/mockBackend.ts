@@ -321,7 +321,7 @@ const agentAccess = new Map<string, AgentAccess>(
   VIDEO ? [["demo", { enabled: true, results: "counts", apps: "counts", askBeforeSend: false, neverSend: [] }]] : [],
 );
 let notes: DbNote[] = [];
-// Notes AI apps suggested over MCP, waiting in the navigator and Settings → AI apps (MCP).
+// Notes AI apps suggested over MCP, waiting in the navigator and Settings → AI apps.
 let suggestions: NoteSuggestion[] = VIDEO
   ? [
       { id: "sug-1", connectionId: "demo", database: null, app: "Claude Code", createdAt: Date.now() - 20_000,
@@ -340,7 +340,7 @@ const waiting = new Map<string, (r: AgentReply) => void>();
 const stopped = new Set<string>();
 
 /** A scripted agent run on the demo store: plan, two steps, an optional Send/Skip pause, a cited answer. */
-// What AI apps did over MCP, for Settings → AI apps (MCP).
+// What AI apps did over MCP, for Settings → AI apps.
 const mcpBlocked = new Set<string>();
 // The video's log matches its terminal scene: Claude Code gets a count, then is refused a private column.
 const mcpActivity = VIDEO
@@ -352,6 +352,7 @@ const mcpActivity = VIDEO
   : [
       { at: Date.now() - 30_000, app: "Claude Code", tool: "suggest_note", connectionId: "demo", connection: "Demo store (SQLite)", sql: "", status: "ok", detail: "reviews.rating is 1 to 5; 0 means the review was removed" },
       { at: Date.now() - 60_000, app: "Claude Code", tool: "run_query", connectionId: "demo", connection: "Demo store (SQLite)", sql: "SELECT country, COUNT(*) FROM customers GROUP BY country", status: "ok", rows: 12, maySee: "counts" },
+      { at: Date.now() - 150_000, app: "Cursor", tool: "run_query", connectionId: "demo", connection: "Demo store (SQLite)", sql: "SELECT c.country, strftime('%Y-%m', o.ordered_at) AS month, COUNT(DISTINCT o.id) AS orders, ROUND(SUM(oi.quantity * oi.unit_price), 2) AS revenue FROM orders o JOIN customers c ON c.id = o.customer_id JOIN order_items oi ON oi.order_id = o.id WHERE o.status = 'paid' AND o.ordered_at >= date('now', '-6 months') GROUP BY c.country, month ORDER BY month DESC, revenue DESC", status: "ok", rows: 48, maySee: "counts" },
       { at: Date.now() - 240_000, app: "Cursor", tool: "run_query", connectionId: "demo", connection: "Demo store (SQLite)", sql: "SELECT email FROM customers", status: "refused", detail: "never-send column email", maySee: "counts" },
       { at: Date.now() - 600_000, app: "Claude Code", tool: "run_query", connectionId: "demo", connection: "Demo store (SQLite)", sql: "DELETE FROM orders WHERE id = 7", status: "refused", detail: "could change data", maySee: "counts" },
     ];

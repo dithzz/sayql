@@ -206,7 +206,7 @@ SayQL includes an MCP server, `sayql-mcp`, that lets Claude Code, Claude Desktop
 use the connections you saved in SayQL: `list_connections`, `list_databases`, `describe_schema` and
 `run_query`. It's read-only, with the same checks as the app. Passwords never go to the app.
 
-**You choose what the app gets back**, per connection, in **Settings → AI apps (MCP)**: nothing but row counts,
+**You choose what the app gets back**, per connection, in **Settings → AI apps → Access**: nothing but row counts,
 counts and column summaries (the default: no row values), rows with likely personal data masked, or all rows
 (in pages of 100 by default, 1,000 at most). Below all rows, values quoted in database errors are masked too.
 
@@ -229,13 +229,14 @@ live table from an abandoned one: counts and dates only, never row values. SQLit
 
 With `suggest_note`, an AI app can suggest a note (a schema-level fact, never row values) along with the
 evidence it checked. It is saved only when you **Accept** it, under **Notes → Suggested by AI apps** in the
-navigator or in **Settings → AI apps (MCP)**; **Dismiss** drops it. Columns you marked **never send** in a connection's agent settings stay private over MCP too: queries
+navigator or in **Settings → AI apps → Suggestions**; **Dismiss** drops it. Columns you marked **never send** in a connection's agent settings stay private over MCP too: queries
 naming them are refused and their values are withheld. The AI app writes the SQL itself, so MCP never uses
 your SayQL AI key; SQL it opens in SayQL isn't fixed automatically by SayQL's AI either.
 
 Passwords and writes never go through MCP.
 
-`sayql-mcp` ships inside the app: **Settings → AI apps (MCP)** shows the path and the setup for each AI app.
+`sayql-mcp` ships inside the app: **Settings → AI apps → Access → Connect an app** shows the path and the setup
+for each AI app. The **Activity** tab shows what each app ran (the SQL and row counts, never rows).
 
 > **Note:** on Linux, use the `.deb` or `.rpm` for MCP: the AppImage opens from a new folder each time, so the
 > path would change.

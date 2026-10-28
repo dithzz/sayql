@@ -12,7 +12,7 @@ export interface DialogProps {
   actions?: ReactNode;
   /** Content on the left of the footer (e.g. a destructive action). */
   secondaryActions?: ReactNode;
-  size?: "sm" | "md";
+  size?: "sm" | "md" | "lg";
 }
 
 /** Modal dialog. Closes on Escape or a click on the backdrop. */

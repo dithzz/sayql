@@ -350,7 +350,7 @@ To rename the app again:
 
 ## Shipping the MCP server (`sayql-mcp`)
 
-Settings → AI apps (MCP) points Claude at `sayql-mcp` next to the app's executable. Shipping it needs no extra
+Settings → AI apps points Claude at `sayql-mcp` next to the app's executable. Shipping it needs no extra
 step: `sayql-mcp` is a binary of the same crate (`src-tauri/src/bin/sayql-mcp.rs`), and `pnpm tauri build`
 bundles every binary in the crate next to the app (`SayQL.app/Contents/MacOS/` on macOS, `/usr/bin` in the Linux
 packages, the install folder on Windows) and signs it with the app. Don't also add it as an `externalBin` sidecar;

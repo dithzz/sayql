@@ -13,7 +13,7 @@ SayQL is a desktop app. It has no SayQL account, no SayQL server and no telemetr
   app's name, the note and its evidence, until you accept (it becomes a database note) or dismiss them. Notes and
   evidence that look like values from your data are refused.
 - **Agent activity:** what AI apps ran through SayQL over MCP (the app's name, the connection, the SQL and the
-  row count, never rows), in a file in SayQL's folder. **Clear the log** in Settings → AI apps (MCP) deletes it.
+  row count, never rows), in a file in SayQL's folder. **Clear the log** in Settings → AI apps → Activity deletes it.
 - **Voice input** is turned into text on your computer by a speech model (Whisper) that runs locally. Audio is
   kept in memory only while you talk, is never saved, and is never sent anywhere.
 

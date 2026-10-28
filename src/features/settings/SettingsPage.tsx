@@ -4,11 +4,11 @@ import { commands, type AiProvider, type ConnectionConfig, type Settings, type T
 import { Alert, Button, Field, Select, TextInput } from "../../components/ui";
 import { cx } from "../../lib/cx";
 import { errorText } from "../../lib/errors";
-import { AgentSettingsSection } from "../agent";
+import { AgentSettingsSection, type NoteSuggestionsApi } from "../agent";
 import { SkillsSection, type SkillsApi } from "../skills";
 import { TeamSection } from "../team";
 import { VoiceSection } from "../voice";
-import { ClaudeIntegration } from "./ClaudeIntegration";
+import { ClaudeIntegration, type AiAppsTab } from "./ClaudeIntegration";
 import { version } from "../../../package.json";
 import styles from "./SettingsPage.module.css";
 
@@ -19,7 +19,7 @@ const SECTIONS: { id: SettingsSection; label: string; icon: LucideIcon }[] = [
   { id: "agent", label: "Agent mode", icon: Bot },
   { id: "skills", label: "Skills", icon: ScrollText },
   { id: "voice", label: "Voice", icon: Mic },
-  { id: "mcp", label: "AI apps (MCP)", icon: Plug },
+  { id: "mcp", label: "AI apps", icon: Plug },
   { id: "team", label: "Team", icon: Users },
   { id: "about", label: "About", icon: Info },
 ];
@@ -35,6 +35,10 @@ export interface SettingsPageProps {
   skills: SkillsApi;
   /** The section to open on; defaults to the AI provider. */
   section?: SettingsSection;
+  /** With section "mcp": the AI apps tab to open on. */
+  aiAppsTab?: AiAppsTab;
+  /** Notes AI apps suggested, waiting: counted on "AI apps" and listed under its Suggestions tab. */
+  noteSuggestions: NoteSuggestionsApi;
   /** Opened from "Create skill…" in the Ask box: start a new skill. */
   createSkill?: boolean;
   /** Signed in to or out of a SayQL Team server. */
@@ -64,7 +68,19 @@ function privacyNote(p: AiProvider): string {
 }
 
 /** Full-window settings, with sections in a sidebar. Esc or Back returns to the workbench. */
-export function SettingsPage({ settings, connections, onClose, onSaved, onShowSetup, skills, section: initial = "ai", createSkill, onTeamChange }: SettingsPageProps) {
+export function SettingsPage({
+  settings,
+  connections,
+  onClose,
+  onSaved,
+  onShowSetup,
+  skills,
+  section: initial = "ai",
+  aiAppsTab,
+  noteSuggestions,
+  createSkill,
+  onTeamChange,
+}: SettingsPageProps) {
   const [section, setSection] = useState<SettingsSection>(initial);
   const [saved, setSaved] = useState(false);
   const [providerId, setProviderId] = useState(settings.provider);
@@ -85,6 +101,10 @@ export function SettingsPage({ settings, connections, onClose, onSaved, onShowSe
     setDrafts((d) => ({ ...d, [provider.id]: { ...d[provider.id], ...patch } }));
   };
   const claudeModels = settings.models.map((m) => ({ value: m.id, label: m.label }));
+  // Where agent mode sends results, for agent settings opened from AI apps (local connections only).
+  const current = settings.providers.find((p) => p.id === settings.provider);
+  const agentProvider = { label: current?.label ?? settings.provider, local: current?.local ?? false };
+  const waiting = noteSuggestions.suggestions.length;
   const found = models[provider.id];
 
   const chooseProvider = (id: string) => {
@@ -156,11 +176,16 @@ export function SettingsPage({ settings, connections, onClose, onSaved, onShowSe
             onClick={() => setSection(id)}
           >
             <Icon size={15} /> {label}
+            {id === "mcp" && waiting > 0 && (
+              <span className={styles.navCount} aria-label={`${waiting} suggested ${waiting === 1 ? "note" : "notes"} waiting`}>
+                {waiting}
+              </span>
+            )}
           </button>
         ))}
       </nav>
       <main className={styles.content}>
-        <div className={styles.inner}>
+        <div className={cx(styles.inner, section === "mcp" && styles.wide)}>
           {section === "ai" && (
             <>
               <h2 className={styles.title}>AI provider</h2>
@@ -309,8 +334,11 @@ export function SettingsPage({ settings, connections, onClose, onSaved, onShowSe
           )}
           {section === "mcp" && (
             <>
-              <h2 className={styles.title}>Use SayQL from AI apps (MCP)</h2>
-              <ClaudeIntegration connections={connections} />
+              <div>
+                <h2 className={styles.title}>AI apps</h2>
+                <p className={styles.subtitle}>Claude Code, Cursor and other MCP apps</p>
+              </div>
+              <ClaudeIntegration connections={connections} provider={agentProvider} suggestions={noteSuggestions} tab={aiAppsTab} />
             </>
           )}
           {section === "team" && (
