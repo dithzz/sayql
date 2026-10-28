@@ -1,5 +1,5 @@
-<!-- order: 15 | slug: teams | title: SayQL for teams | group: Using SayQL | description: Let your people and your AI query your databases, production included, with rules the AI can't cross and a record of every query, on a SayQL server your company runs. -->
-<p class="lead">SayQL for teams lets your people and your AI query your databases, production included, with rules the AI can't cross and a record of every query. Your company runs its own SayQL server: it holds the team's database connections, so nobody needs the database passwords, enforces what the AI may see, withholds the columns your admin marks never-send from everyone (their values never leave the server), and keeps an audit log of every query, from people and from agent mode.</p>
+<!-- order: 15 | slug: teams | title: SayQL for teams | group: Using SayQL | description: The governance layer for AI agents on your databases: each agent its own key and rules, private columns withheld on the server, and a record of every query, on a SayQL server your company runs. -->
+<p class="lead">SayQL for teams is the governance layer for AI agents on your databases, and for the people who use them. Each agent gets its own key, only the databases you choose and only the data you allow, and every query is on record. Your company runs its own SayQL server: it holds the team's database connections, so nobody needs the database passwords, enforces what the AI may see, withholds the columns your admin marks never-send from everyone (their values never leave the server), and keeps an audit log of every query, from people and from agent mode.</p>
 <div class="callout"><svg><use href="#i-info"/></svg><p><b>Not using a team?</b> Nothing changes. Without signing in, SayQL never contacts a team server and works exactly as before.</p></div>
 
 <h2>Set up a team server</h2>
@@ -14,6 +14,17 @@
   <li>Every new server is free for 30 days, for up to 10 people. To buy, email <a href="mailto:hello@azenvoc.com">hello@azenvoc.com</a>; paste the licence key you receive on the admin page's <b>Overview</b>. Nothing restarts and nothing is lost.</li>
 </ul>
 <p>Your data stays on your network: the server runs there, and the licence is checked offline. To update, run the same command again.</p>
+
+<h2>Govern your AI agents</h2>
+<p>For admins. Claude Code, Cursor and your own bots can query your databases through the server, over MCP, under rules you set per agent.</p>
+<ul>
+  <li>On the admin page, open <b>Agents</b> and click <b>Add agent</b>. Give it a name, tick the connections it may use, and choose what it gets back from a query: only the row count and column names, <b>counts and summaries</b> (the default: no row values), or all rows.</li>
+  <li>Copy what the page shows once: the <code>claude mcp add</code> command for Claude Code, or the config for Cursor and other MCP apps. They hold the agent's key, which starts with <code>sqa_</code>. The server keeps only a hash of it.</li>
+  <li>The agent can list its connections, read the schema and run read-only queries. Columns marked never send are refused and withheld on the server, and nothing can change data.</li>
+  <li>Every query an agent runs, or tries on a connection it isn't allowed, is in the <b>Audit log</b> under <code>agent: name</code>, with the source <b>Agent (MCP)</b>.</li>
+  <li>Change an agent's setting any time, or click <b>Revoke</b>: its key stops working at once.</li>
+</ul>
+<p>An agent sees what you allow wherever it runs, so choose all rows only for data you're happy to give that agent.</p>
 
 <h2>Sign in</h2>
 <ul>
