@@ -1,7 +1,9 @@
-// Records the explainer's scenes from the UI preview (vite + src/dev/mockBackend.ts in ?video mode).
+// Records the explainer's scenes from the UI preview (vite + src/dev/mockBackend.ts in ?video mode)
+// and from a throwaway team server's admin page (team-server.sh).
 //
 //   pnpm exec vite --port 1431 --strictPort        # in another terminal
-//   node scripts/video/capture.mjs [dark|light]
+//   scripts/video/team-server.sh                   # in another; a fresh one for each capture
+//   SAYQL_ADMIN_LINK=… SAYQL_TEAM_DB=… node scripts/video/capture.mjs [dark|light]
 //
 // Writes scripts/video/out/<theme>/frames/*.jpg (a 30 fps screencast at 2×) and timeline.json:
 // scene marks, camera targets (element rects, in CSS px), captions and cursor moves. render.mjs
@@ -28,14 +30,16 @@ await page.goto(URL);
 await page.evaluate(() => document.fonts.ready.then(() => true));
 await sleep(2500); // schema load and Monaco
 // Headless Chrome only sends screencast frames when something repaints: keep a 1px dot in
-// the corner changing (invisible in the video) so frames come steadily.
-await page.evaluate(() => {
-  const dot = document.createElement("div");
-  dot.style.cssText = "position:fixed;right:0;bottom:0;width:1px;height:1px;z-index:99999;pointer-events:none";
-  document.body.appendChild(dot);
-  let i = 0;
-  setInterval(() => (dot.style.background = `rgba(128,128,128,${(i++ % 2) * 0.02 + 0.01})`), 16);
-});
+// the corner changing (invisible in the video) so frames come steadily. Again after each page load.
+const keepRepainting = () =>
+  page.evaluate(() => {
+    const dot = document.createElement("div");
+    dot.style.cssText = "position:fixed;right:0;bottom:0;width:1px;height:1px;z-index:99999;pointer-events:none";
+    document.body.appendChild(dot);
+    let i = 0;
+    setInterval(() => (dot.style.background = `rgba(128,128,128,${(i++ % 2) * 0.02 + 0.01})`), 16);
+  });
+await keepRepainting();
 
 // ── Recording ──────────────────────────────────────────────────────────────
 const now = () => Date.now() / 1000;
@@ -183,7 +187,8 @@ const caption = (text) => log("caption", { text });
 const hideCursor = () => log("cursor", { hidden: true });
 
 // ── Storyboard ─────────────────────────────────────────────────────────────
-// 2. Ask: type the question, SQL streams in.
+// The order here is the capture's; render.mjs puts the scenes in the video's order.
+// 1. Ask: type the question, SQL streams in.
 scene("ask");
 cam(null);
 caption("Ask in plain English");
@@ -196,7 +201,7 @@ caption("SQL appears as you type. No waiting.");
 await waitForText("Haiku 5.5 · first SQL");
 await sleep(1400);
 
-// 3. Run it.
+// 1b. Run it.
 scene("run");
 cam(null);
 caption("It already knows your schema");
@@ -206,45 +211,7 @@ await sleep(400);
 cam(union(await results(), await askBar()), { maxZoom: 1.3 });
 await sleep(3800);
 
-// 4. Follow-up.
-scene("followup");
-cam(union(await askBar(), await editor()), { maxZoom: 1.55 });
-caption("Follow up in plain words");
-await focusAsk();
-await press("Escape");
-await sleep(500);
-await type("only Europe");
-await waitForText("Haiku 5.5 · first SQL");
-await sleep(900);
-await press("Enter");
-await waitForText("Lucas Bernard");
-await sleep(300);
-cam(union(await results(), await editor()), { maxZoom: 1.25 });
-await sleep(2200);
-
-// 5. A skill.
-scene("skill");
-cam(await askBar(), { maxZoom: 1.9 });
-caption("Skills: your rules, every time");
-await focusAsk();
-await press("Escape");
-await sleep(400);
-await type("/pii");
-await sleep(900);
-await press("Enter");
-await sleep(400);
-caption("/pii-safe: no email, phone or address");
-await type("new customers this month");
-await sleep(300);
-cam(union(await askBar(), await editor()), { maxZoom: 1.55 });
-await waitForText("Haiku 5.5 · first SQL");
-await sleep(700);
-await press("Enter");
-await waitForText("Lindqvist");
-cam(union(await results(), await editor()), { maxZoom: 1.25 });
-await sleep(2400);
-
-// 6. Safety: a change needs your OK.
+// 2. Safety: a change needs your OK.
 scene("safety");
 cam(union(await askBar(), await editor()), { maxZoom: 1.55 });
 caption("Changes always ask first");
@@ -264,24 +231,6 @@ await sleep(500);
 cam(null);
 await sleep(600);
 
-// 7. A failing query fixes itself.
-scene("fix");
-cam(union(await askBar(), await editor()), { maxZoom: 1.55 });
-caption("Errors fix themselves");
-hideCursor();
-await focusAsk();
-await press("Escape");
-await sleep(300);
-await type("Newest customers in Japan");
-await waitForText("Haiku 5.5 · first SQL");
-await sleep(600);
-await press("Enter");
-await waitForText("Fixing the query with");
-await sleep(200);
-await waitForText("Haruto");
-await sleep(400);
-cam(union(await results(), await askBar()), { maxZoom: 1.3 });
-await sleep(2200);
 log("end");
 
 // Off camera: an empty editor and a taller Agent view for the next scene.
@@ -302,7 +251,7 @@ await click(await waitFor('button[aria-label="Clear"]'), { glide: 0 });
 }
 await sleep(400);
 
-// 8. Agent mode: a question that needs several steps. In ?video mode agent mode is on for
+// 3. Agent mode: a question that needs several steps. In ?video mode agent mode is on for
 // the demo store with counts only, so it goes straight to the plan.
 scene("agent");
 cam(await askBar(), { maxZoom: 1.9 });
@@ -333,70 +282,195 @@ caption("Every answer cites the queries behind it");
 await sleep(5200);
 log("end");
 
-// Off camera: open the setup guide.
+// Off camera: Settings → AI apps (MCP), scrolled to what AI apps may see.
 await click(await rect('button[aria-label="Settings"]'), { glide: 0 });
-await click(await waitFor("button", "About"), { glide: 0 });
-await click(await waitFor("button", "Show the setup guide again"), { glide: 0 });
-await waitFor('[role="dialog"] ul');
+await click(await waitFor("button", "AI apps (MCP)"), { glide: 0 });
+await waitForText("What AI apps may see");
+await waitForText("never-send column email");
+await page.evaluate(() => [...document.querySelectorAll("h3")].find((h) => h.textContent === "What AI apps may see").scrollIntoView({ block: "start" }));
 await sleep(800);
 
-// 9. Privacy, in the guide's own words.
-scene("privacy");
-// The dialog from its title down to the end of the list.
-const guide = await waitFor('[role="dialog"]');
-const points = await waitFor('[role="dialog"] ul');
-cam({ ...guide, h: points.y + points.h - guide.y }, { maxZoom: 1.8, pad: 40 });
-caption("The Ask box never sends your data to AI");
-await sleep(3200);
-caption("It only sees your schema");
-await sleep(3000);
-cam(await waitFor('[role="dialog"]'), { maxZoom: 1.5, pad: 40 });
-await click(await waitFor("button", "Get started"));
-await waitFor('[role="radiogroup"]');
-await sleep(300);
-
-// 10. Any AI.
-scene("ai");
-cam(await waitFor('[role="dialog"]'), { maxZoom: 1.5, pad: 40 });
-caption("Use the AI you like");
-await sleep(900);
-for (const id of ["OpenAI", "Google Gemini", "Ollama"]) {
-  const card = await page.evaluate((label) => {
-    const el = [...document.querySelectorAll('[role="radio"]')].find((e) => e.textContent.startsWith(label));
+// 4. Guardrails: what AI apps may see, what they ran, and blocking one.
+scene("guard");
+const section = (title) =>
+  page.evaluate((title) => {
+    // The heading's section: its nearest ancestor with the list or table in it.
+    let el = [...document.querySelectorAll("h3")].find((h) => h.textContent === title).parentElement;
+    while (!el.querySelector("ul, table")) el = el.parentElement;
     const r = el.getBoundingClientRect();
     return { x: r.x, y: r.y, w: r.width, h: r.height };
-  }, id);
-  await click(card, { glide: 500 });
-  if (id === "Ollama") caption("Even fully local, with Ollama");
-  await sleep(id === "Ollama" ? 2200 : 800);
+  }, title);
+cam(await section("What AI apps may see"), { maxZoom: 1.7, pad: 30 });
+caption("You choose what AI apps may see");
+await sleep(900);
+// A native select's menu doesn't show in a screencast, so the cursor points at it and the
+// choices go through one by one, each with its description.
+const demoSelect = await waitFor('select[aria-label="What AI apps may see on Demo store (SQLite)"]');
+log("cursor", { x: demoSelect.x + demoSelect.w / 2, y: demoSelect.y + demoSelect.h / 2, dur: 0.6 });
+await sleep(800);
+for (const v of ["off", "masked", "all", "counts"]) {
+  await page.evaluate((v) => {
+    const s = document.querySelector('select[aria-label="What AI apps may see on Demo store (SQLite)"]');
+    s.value = v;
+    s.dispatchEvent(new Event("change", { bubbles: true }));
+  }, v);
+  await sleep(v === "counts" ? 1000 : 850);
 }
+cam(await section("Agent activity"), { maxZoom: 1.6, pad: 30 });
+caption("See what each app ran, and what was refused");
+await sleep(3000);
+caption("Don't trust an app? Block it.");
+const block = await page.evaluate(() => {
+  const row = [...document.querySelectorAll("li")].find((li) => li.textContent.startsWith("Cursor"));
+  const r = row.querySelector("button").getBoundingClientRect();
+  return { x: r.x, y: r.y, w: r.width, h: r.height };
+});
+await click(block);
+await waitForText("· Blocked");
+await sleep(1800);
 log("end");
 
-// Off camera: close the guide, open Settings → AI apps (MCP).
-await press("Escape");
-await sleep(400);
-if (await rect('[role="dialog"]')) await click(await rect("button", "Set up later"), { glide: 0 }).catch(() => {});
-await sleep(300);
-if (!(await rect("button", "AI apps (MCP)"))) await click(await rect('button[aria-label="Settings"]'), { glide: 0 });
-await click(await waitFor("button", "AI apps (MCP)"), { glide: 0 });
-await waitForText("Use SayQL from AI apps (MCP)");
+// ── Teams: the SayQL server's admin page ────────────────────────────────────
+// SAYQL_ADMIN_LINK is a throwaway server's one-time admin link (see team-server.sh), and
+// SAYQL_TEAM_DB the SQLite file it serves as "Shop".
+const adminLink = process.env.SAYQL_ADMIN_LINK;
+const teamDb = process.env.SAYQL_TEAM_DB;
+if (!adminLink || !teamDb) throw new Error("Set SAYQL_ADMIN_LINK and SAYQL_TEAM_DB: see scripts/video/team-server.sh.");
+const server = new globalThis.URL(adminLink).origin;
+await page.goto(adminLink);
+await waitFor("#view-app");
+await keepRepainting();
+const adminToken = await page.evaluate(() => sessionStorage.getItem("sayql_admin_token"));
+const api = async (method, path, body, token = adminToken) => {
+  const r = await fetch(server + path, {
+    method,
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", Accept: "application/json, text/event-stream" },
+    body: body && JSON.stringify(body),
+  });
+  if (!r.ok) throw new Error(`${method} ${path}: ${r.status} ${await r.text()}`);
+  return r.json();
+};
+// The database, with its private columns, and a person's question for the audit log.
+const shop = await api("POST", "/api/v1/admin/connections", {
+  name: "Shop", engine: "sqlite", path: teamDb, agent_access: "counts", never_send: ["customers.email", "payments.card_last4"], notes: "",
+});
+const maya = await api("POST", "/api/v1/admin/users", { email: "maya@example.com", name: "Maya", role: "member" });
+const mayaToken = (await api("POST", "/api/v1/auth/redeem", { code: maya.invite_code, device: "SayQL app" }, "")).token;
+await api("POST", `/api/v1/connections/${shop.id}/query`, {
+  sql: "SELECT COUNT(*) AS open_tickets FROM tickets WHERE status = 'open'", source: "ask", question: "How many tickets are open?",
+}, mayaToken);
+await page.evaluate(() => (location.hash = "agents"));
+await waitFor("#agent-add");
 await sleep(800);
 
-// 11. MCP.
-scene("mcp");
+// 6. Teams: an agent with its own key.
+scene("teams");
 cam(null);
-caption("Claude can query through SayQL");
-await sleep(1200);
-// The heading through the last setup block.
-const content = await page.evaluate(() => {
-  const top = [...document.querySelectorAll("main h2")].at(-1).getBoundingClientRect();
-  const end = [...document.querySelectorAll("main pre")].at(-1).getBoundingClientRect();
-  return { x: Math.min(top.x, end.x), y: top.y, w: Math.max(top.right, end.right) - Math.min(top.x, end.x), h: end.bottom - top.y };
+caption("On a team server, each agent gets its own key");
+await sleep(700);
+await click(await waitFor("#agent-add"));
+const agentDialog = await waitFor("#agent-dialog");
+cam(agentDialog, { maxZoom: 1.6, pad: 30 });
+await click(await waitFor('#agent-form input[name="name"]'), { glide: 450 });
+await type("Support bot");
+await sleep(300);
+await click(await waitFor("#agent-conns label"), { glide: 500 });
+await sleep(400);
+await click(await waitFor('#agent-form button[type="submit"]'), { glide: 500 });
+await waitFor("#agent-result");
+await sleep(300);
+{
+  // The dialog down to the Claude Code command.
+  const d = await waitFor("#agent-dialog");
+  const c = await waitFor("#agent-claude");
+  cam({ x: d.x, y: d.y, w: d.w, h: c.y + c.h - d.y + 16 }, { maxZoom: 1.7, pad: 30 });
+}
+caption("Its key, shown once, ready for Claude Code");
+await sleep(3200);
+const agentKey = await page.evaluate(() => document.getElementById("agent-key").value);
+await click(await waitFor("#agent-done"));
+await sleep(500);
+
+// 7. Its scope: two tables, and only tenant 42's rows of orders.
+scene("scope");
+caption("Only the tables and rows you choose");
+const scopeButton = await page.evaluate(() => {
+  const row = [...document.querySelectorAll("#agent-rows tr")].find((tr) => tr.textContent.startsWith("Support bot"));
+  const r = [...row.querySelectorAll("button")].find((b) => b.textContent === "Scope").getBoundingClientRect();
+  return { x: r.x, y: r.y, w: r.width, h: r.height };
 });
-cam(content, { maxZoom: 1.6, pad: 30 });
-await sleep(1800);
-caption("Read-only. Changes are refused.");
-await sleep(2400);
+await click(scopeButton);
+await waitFor('#scope-conns input[name="all"]');
+await sleep(300);
+cam(await waitFor("#scope-dialog"), { maxZoom: 1.6, pad: 30 });
+const box = (sel, text) =>
+  page.evaluate(
+    (sel, text) => {
+      const el = [...document.querySelectorAll(sel)].find((e) => e.offsetParent && (text === null || e.textContent.trim() === text));
+      const r = el.getBoundingClientRect();
+      return { x: r.x, y: r.y, w: r.width, h: r.height };
+    },
+    sel,
+    text,
+  );
+await click(await box("#scope-conns label.check", "All tables"), { glide: 500 });
+await sleep(300);
+await click(await box("#scope-conns .scope-tables label", "customers"), { glide: 450 });
+await click(await box("#scope-conns .scope-tables label", "orders"), { glide: 450 });
+await sleep(200);
+await click(await box("#scope-conns button.scope-add", null), { glide: 500 });
+await sleep(300);
+cam(await waitFor("#scope-dialog"), { maxZoom: 1.6, pad: 30 });
+// The pickers are native selects: the cursor points at each and the value is set.
+const pick = async (name, value) => {
+  const r = await waitFor(`#scope-conns [name="${name}"]`);
+  log("cursor", { x: r.x + r.w / 2, y: r.y + r.h / 2, dur: 0.45 });
+  await sleep(550);
+  log("click", { x: r.x + r.w / 2, y: r.y + r.h / 2 });
+  await page.evaluate(
+    (name, value) => {
+      const s = document.querySelector(`#scope-conns [name="${name}"]`);
+      s.value = value;
+      s.dispatchEvent(new Event("change", { bubbles: true }));
+    },
+    name,
+    value,
+  );
+  await sleep(400);
+};
+await pick("f-table", "orders");
+await pick("f-column", "tenant_id");
+await click(await waitFor('#scope-conns [name="f-value"]'), { glide: 450 });
+await type("42");
+await sleep(900);
+await click(await waitFor('#scope-form button[type="submit"]'), { glide: 500 });
+await waitForText("rows filtered");
+await sleep(300);
+cam(await waitFor("#tab-agents table"), { maxZoom: 1.6, pad: 40 });
+await sleep(1600);
+
+// Off camera: the agent at work over MCP, as Claude Code would call it.
+let rpc = 0;
+const mcp = (method, params) =>
+  fetch(server + "/mcp", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${agentKey}`, "Content-Type": "application/json", Accept: "application/json, text/event-stream" },
+    body: JSON.stringify({ jsonrpc: "2.0", id: ++rpc, method, params }),
+  }).then((r) => r.text());
+const call = (sql) => mcp("tools/call", { name: "run_query", arguments: { connection_id: shop.id, sql } });
+await mcp("initialize", { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "claude-code", version: "2.0" } });
+await call("SELECT COUNT(*) AS refunded, ROUND(AVG(total), 2) AS avg_total FROM orders WHERE status = 'refunded'");
+await call("SELECT c.email FROM customers c JOIN orders o ON o.customer_id = c.id WHERE o.status = 'refunded'");
+await call("SELECT COUNT(*) AS customers FROM customers WHERE plan = 'pro'");
+
+// 8. The audit log: people and agents, refusals too.
+scene("audit");
+caption("Every query, from people and agents, on record");
+await click(await box(".tab", "Audit log"));
+await waitForText("agent: Support bot");
+await sleep(400);
+cam(await waitFor("#tab-audit table"), { maxZoom: 1.5, pad: 30 });
+await sleep(3800);
 log("end");
 
 await sleep(300);

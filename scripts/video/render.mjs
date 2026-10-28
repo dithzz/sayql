@@ -1,12 +1,12 @@
 // Turns a capture (capture.mjs) into the videos: the app as a window on a brand background,
 // eased zoom and pan onto each camera target, a drawn cursor, captions and title/end cards.
 //
-//   node scripts/video/render.mjs [dark|light] [full|short|poster] [audio]
+//   node scripts/video/render.mjs [dark|light] [full|short|poster|stills] [audio|times]
 //
 // Frames are drawn by compositor.html in headless Chrome and piped to ffmpeg (H.264, 30 fps).
 // The music is the track in music.json (downloaded to its `file`), else music.py's original
 // one; MUSIC_FILE=path picks another, MUSIC=0 none. The full cut also carries the lines in
-// voiceover.json, from media/voiceover/<id>.wav (Kokoro's am_michael, from voiceover.py), or
+// voiceover.json, from media/voiceover/<id>.wav (recorded takes, or Kokoro's from voiceover.py), or
 // VO_DIR, or a macOS voice with VOICE set. "audio" redoes only the soundtrack. Cut points and
 // the voiceover script go to media/*-cuts.md.
 import { spawn, spawnSync } from "node:child_process";
@@ -34,37 +34,40 @@ const S = WIN.w / view.width; // CSS px → stage px
 // ── The edit ───────────────────────────────────────────────────────────────
 // Clips name capture scenes; `until` ends a clip at a later scene's start (or its "end" mark),
 // `trim` drops seconds from its start, `max` caps its length, `speed` > 1 plays it faster.
+// Cards are drawn by compositor.html; a card with `join` follows the previous one with no fade
+// (the terminal scenes), and `speed` plays its animation faster.
 const EDITS = {
   full: [
-    { card: "problem", dur: 4.9 },
-    { card: "audience", dur: 5.2 },
-    { card: "title", dur: 3.2 },
-    { scene: "ask", until: "followup" },
-    { scene: "followup", until: "skill" },
-    { scene: "skill", until: "safety" },
-    { scene: "safety", until: "fix" },
-    { scene: "fix" },
-    { scene: "agent" },
-    { scene: "privacy" },
-    { scene: "ai" },
-    { scene: "mcp" },
-    { card: "end", dur: 4.6 },
+    { card: "hook", dur: 5.8 },
+    { card: "title", dur: 4.8 },
+    { card: "agentCounts", dur: 10.2 },
+    { card: "agentRefused", dur: 7.5, join: true },
+    { scene: "guard", speed: 1.12 },
+    { scene: "ask", until: "safety", trim: 1.6, max: 8.9 },
+    { scene: "safety", trim: 0.3, max: 6.0 },
+    // Agent mode: the question and its plan, then the cited answer.
+    { scene: "agent", trim: 3.0, max: 5.2 },
+    { scene: "agent", trim: 13.1 },
+    { scene: "teams", until: "scope", speed: 1.5 },
+    { scene: "scope", until: "audit", speed: 1.5 },
+    { scene: "audit" },
+    { card: "end", dur: 5.4 },
   ],
   short: [
-    { card: "problem", dur: 2.6 },
-    { scene: "ask", until: "followup", speed: 1.35, trim: 1.2 },
-    { scene: "followup", until: "skill", speed: 1.55, trim: 0.6, max: 3.3 },
-    { card: "end", dur: 2.2 },
+    { card: "hook", dur: 3.0 },
+    { card: "agentCounts", dur: 5.6, speed: 1.75 },
+    { card: "agentRefused", dur: 4.0, speed: 1.75, join: true },
+    { card: "endShort", dur: 2.9 },
   ],
 };
-EDITS.poster = EDITS.full;
+EDITS.poster = EDITS.stills = EDITS.full;
 
 const sceneStart = (name) => events.find((e) => e.type === "scene" && e.name === name).t;
 /** The first scene or "end" mark after `t`. */
 const nextMark = (t) => events.find((e) => (e.type === "scene" || e.type === "end") && e.t > t + 1e-6).t;
 
 const items = EDITS[cut].map((it) => {
-  if (it.card) return { ...it, kind: "card" };
+  if (it.card) return { speed: 1, ...it, kind: "card" };
   const speed = it.speed ?? 1;
   const from = sceneStart(it.scene) + (it.trim ?? 0);
   let to = (it.until ? sceneStart(it.until) : nextMark(sceneStart(it.scene))) - (it.trimEnd ?? 0);
@@ -75,7 +78,7 @@ const items = EDITS[cut].map((it) => {
 let t = 0;
 items.forEach((it, i) => {
   const prev = items[i - 1];
-  it.contiguous = prev?.kind === "clip" && it.kind === "clip" && Math.abs(prev.to - it.from) < 0.05;
+  it.contiguous = (prev?.kind === "clip" && it.kind === "clip" && Math.abs(prev.to - it.from) < 0.05) || (it.join && prev?.kind === "card");
   it.start = i === 0 || it.contiguous ? t : t - XFADE;
   t = it.start + it.dur;
 });
@@ -183,7 +186,7 @@ function stateAt(t) {
     if (fadesOut) opacity = Math.min(opacity, fadeOut((it.dur - local) / XFADE));
     opacity = ease(Math.max(0, Math.min(1, opacity)));
     if (it.kind === "card") {
-      s.cards.push({ kind: it.card, opacity, rise: (1 - ease(Math.min(1, local / 0.8))) * 16, local });
+      s.cards.push({ kind: it.card, opacity, rise: it.contiguous ? 0 : (1 - ease(Math.min(1, local / 0.8))) * 16, local: local * it.speed });
       continue;
     }
     const ts = it.from + local * it.speed;
@@ -222,7 +225,7 @@ const duration = (file) => Number(run(FFMPEG.replace(/ffmpeg$/, "ffprobe"), ["-v
 function outputTime(line) {
   if (line.card) {
     const it = items.find((i) => i.card === line.card);
-    return it ? it.start + line.at : null;
+    return it ? it.start + line.at / it.speed : null;
   }
   const t = sceneStart(line.scene) + line.at;
   const it = items.find((i) => i.kind === "clip" && t >= i.from && t < i.to);
@@ -240,7 +243,8 @@ function voiceLines(work) {
     if (process.env.VOICE) {
       mkdirSync(join(work, "vo"), { recursive: true });
       l.file = join(work, "vo", `${l.id}.aiff`);
-      run("say", ["-v", process.env.VOICE, "-r", process.env.RATE ?? "178", "-o", l.file, l.text]);
+      // `speak` spells a line the way a macOS voice should say it ("Say Q L" for SayQL).
+      run("say", ["-v", process.env.VOICE, "-r", process.env.RATE ?? "178", "-o", l.file, l.speak ?? l.text]);
     } else if (existsSync(recorded)) l.file = recorded;
     if (l.file) {
       l.length = duration(l.file);
@@ -269,10 +273,18 @@ function soundtrack(video, music, voice, out) {
   run(FFMPEG, args);
 }
 
-if (cut === "poster") {
-  // The first question's SQL, streamed in, with its caption: just before it runs.
-  const ask = items.find((it) => it.scene === "ask");
-  const t = ask.start + (sceneStart("run") - 0.15 - ask.from) / ask.speed;
+if (cut === "stills") {
+  // Frames at the given output times, for checking an edit without rendering it:
+  //   node scripts/video/render.mjs dark stills 3,12.5,40   → out/dark/stills/<t>.jpg
+  mkdirSync(join(capture, "stills"), { recursive: true });
+  for (const t of (process.argv[4] ?? "").split(",").filter(Boolean).map(Number))
+    writeFileSync(join(capture, "stills", `${t.toFixed(1)}.jpg`), await shot(t));
+  for (const it of items) console.log(`${it.start.toFixed(1)}  ${it.card ?? it.scene} (${it.dur.toFixed(1)} s)`);
+  console.log(`${total.toFixed(1)} s; stills in ${join(capture, "stills")}`);
+  await page.close();
+} else if (cut === "poster") {
+  // Claude Code's question answered with counts, not rows, with its caption.
+  const t = items.find((it) => it.card === "agentCounts").start + 9.2;
   writeFileSync(join(root, "media", `explainer${suffix}-poster.png`), await shot(t, "png"));
   await page.close();
 } else {
@@ -303,8 +315,9 @@ if (cut === "poster") {
   }
   await page.close();
 
-  const firstClip = items.find((it) => it.kind === "clip");
-  const endCard = items.find((it) => it.card === "end");
+  // music.py's groove starts with the first scene after the hook and title cards.
+  const firstClip = items.find((it) => it.kind === "clip" || !["hook", "title"].includes(it.card));
+  const endCard = items.find((it) => it.card === "end" || it.card === "endShort");
   let music = null;
   const picked = JSON.parse(readFileSync(join(import.meta.dirname, "music.json"), "utf8"));
   let credit = "scripts/video/music.py's original track (no samples or licensed music)";

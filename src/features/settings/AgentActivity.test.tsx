@@ -32,7 +32,7 @@ it("lists what AI apps ran, refusals included, and blocks an app", async () => {
   render(<AgentActivity />);
   expect(await screen.findByText("SELECT email FROM customers")).toBeTruthy();
   expect(screen.getByText(/never-send column email/)).toBeTruthy();
-  expect(screen.getByText(/· 1 rows/)).toBeTruthy();
+  expect(screen.getByText(/· 1 row\b/)).toBeTruthy();
 
   fireEvent.click(screen.getAllByRole("button", { name: "Block" })[0]);
   await waitFor(() => expect(setMcpAppBlocked).toHaveBeenCalledWith("Cursor", true));

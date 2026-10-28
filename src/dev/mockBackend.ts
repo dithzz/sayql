@@ -327,11 +327,18 @@ const stopped = new Set<string>();
 /** A scripted agent run on the demo store: plan, two steps, an optional Send/Skip pause, a cited answer. */
 // What AI apps did over MCP, for Settings → AI apps (MCP).
 const mcpBlocked = new Set<string>();
-const mcpActivity = [
-  { at: Date.now() - 60_000, app: "Claude Code", tool: "run_query", connectionId: "demo", connection: "Demo store (SQLite)", sql: "SELECT country, COUNT(*) FROM customers GROUP BY country", status: "ok", rows: 12, maySee: "counts" },
-  { at: Date.now() - 240_000, app: "Cursor", tool: "run_query", connectionId: "demo", connection: "Demo store (SQLite)", sql: "SELECT email FROM customers", status: "refused", detail: "never-send column email", maySee: "counts" },
-  { at: Date.now() - 600_000, app: "Claude Code", tool: "run_query", connectionId: "demo", connection: "Demo store (SQLite)", sql: "DELETE FROM orders WHERE id = 7", status: "refused", detail: "could change data", maySee: "counts" },
-];
+// The video's log matches its terminal scene: Claude Code gets a count, then is refused a private column.
+const mcpActivity = VIDEO
+  ? [
+      { at: Date.now() - 30_000, app: "Claude Code", tool: "run_query", connectionId: "demo", connection: "Demo store (SQLite)", sql: "SELECT c.email FROM customers c JOIN orders o ON o.customer_id = c.id WHERE o.status = 'refunded'", status: "refused", detail: "never-send column email", maySee: "counts" },
+      { at: Date.now() - 75_000, app: "Claude Code", tool: "run_query", connectionId: "demo", connection: "Demo store (SQLite)", sql: "SELECT COUNT(*) AS refunded, COUNT(DISTINCT customer_id) AS customers FROM orders WHERE status = 'refunded' AND ordered_at >= '2026-10-01'", status: "ok", rows: 1, maySee: "counts" },
+      { at: Date.now() - 600_000, app: "Cursor", tool: "run_query", connectionId: "demo", connection: "Demo store (SQLite)", sql: "DELETE FROM orders WHERE status = 'cancelled'", status: "refused", detail: "could change data", maySee: "counts" },
+    ]
+  : [
+      { at: Date.now() - 60_000, app: "Claude Code", tool: "run_query", connectionId: "demo", connection: "Demo store (SQLite)", sql: "SELECT country, COUNT(*) FROM customers GROUP BY country", status: "ok", rows: 12, maySee: "counts" },
+      { at: Date.now() - 240_000, app: "Cursor", tool: "run_query", connectionId: "demo", connection: "Demo store (SQLite)", sql: "SELECT email FROM customers", status: "refused", detail: "never-send column email", maySee: "counts" },
+      { at: Date.now() - 600_000, app: "Claude Code", tool: "run_query", connectionId: "demo", connection: "Demo store (SQLite)", sql: "DELETE FROM orders WHERE id = 7", status: "refused", detail: "could change data", maySee: "counts" },
+    ];
 function mcpApps() {
   const names = new Set([...mcpActivity.map((e) => e.app), ...mcpBlocked]);
   return [...names].map((name) => {
