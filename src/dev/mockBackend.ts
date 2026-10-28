@@ -453,6 +453,18 @@ async function mockAgentRun(runId: string, question: string, access: AgentAccess
   void question;
 }
 
+/** `?os=windows` or `?os=linux` shows the MCP setup for that OS (macOS otherwise). */
+const MOCK_OS = new URLSearchParams(window.location.search).get("os");
+/**
+ * Coding agents that look installed: `?installed=cursor,vscode` lists them, `?agents=none` none;
+ * otherwise Claude Code, Cursor, VS Code, Codex and Claude Desktop.
+ */
+function installedCodingAgents(): string[] {
+  const list = new URLSearchParams(window.location.search).get("installed");
+  if (list !== null) return list.split(",").filter(Boolean);
+  return AGENTS === "none" ? [] : ["claude-code", "claude-desktop", "cursor", "vscode", "codex"];
+}
+
 /**
  * "Audit with…": `?agents=none` finds no coding agent, `?agents=old` an outdated Claude Code;
  * otherwise Claude Code is ready and Codex is found but not offered.
@@ -697,7 +709,17 @@ export function installMockBackend() {
         case "team_sign_in":
           return Promise.reject("Signing in to a team isn't available in the browser preview.");
         case "mcp_setup":
-          return { path: "/Applications/SayQL.app/Contents/MacOS/sayql-mcp", exists: true, appimage: false };
+          return MOCK_OS === "windows"
+            ? { path: "C:\\Program Files\\SayQL\\sayql-mcp.exe", exists: true, appimage: false, os: "windows" }
+            : MOCK_OS === "linux"
+              ? { path: "/usr/bin/sayql-mcp", exists: true, appimage: false, os: "linux" }
+              : { path: "/Applications/SayQL.app/Contents/MacOS/sayql-mcp", exists: true, appimage: false, os: "macos" };
+        case "installed_coding_agents":
+          return installedCodingAgents();
+        case "open_install_link":
+          // The browser preview can't open Cursor or VS Code; the real app asks the OS to.
+          console.info("open_install_link", a.url);
+          return null;
         case "mcp_activity":
           return mcpActivity;
         case "mcp_apps":

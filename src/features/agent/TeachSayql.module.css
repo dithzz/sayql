@@ -108,3 +108,15 @@
   font-size: var(--font-size-xs);
   color: var(--color-danger);
 }
+.link {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.chevron {
+  flex: none;
+  transition: transform 120ms ease;
+}
+.chevronOpen {
+  transform: rotate(90deg);
+}

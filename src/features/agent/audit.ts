@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { commands, type AuditRun } from "../../api";
+import { promptArgs } from "./agents";
 
 /** Days after which Settings suggests auditing a connection again. */
 export const AUDIT_STALE_DAYS = 30;
@@ -18,10 +19,7 @@ export interface AuditTarget {
  * the prompt's arguments in order (connection, then database), so a name with spaces goes by id.
  */
 export function auditCommand(target?: AuditTarget | null): string {
-  if (!target) return "/mcp__sayql__audit";
-  const connection = /\s/.test(target.name.trim()) || !target.name.trim() ? target.connectionId : target.name.trim();
-  const database = target.database && !/\s/.test(target.database) ? ` ${target.database}` : "";
-  return `/mcp__sayql__audit ${connection}${database}`;
+  return `/mcp__sayql__audit${promptArgs(target)}`;
 }
 
 /** When the connection was last audited (any of its databases), or null. */

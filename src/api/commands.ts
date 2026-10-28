@@ -116,6 +116,10 @@ export const commands = {
   teamAi: () => invoke<TeamAiStatus | null>("team_ai"),
 
   mcpSetup: () => invoke<McpSetup>("mcp_setup"),
+  /** Ids (from features/agent/agents.ts) of the coding agents that look installed; nothing is run to find them. */
+  installedCodingAgents: () => invoke<string[]>("installed_coding_agents"),
+  /** Opens Cursor's or VS Code's link that adds SayQL's MCP server (refuses any other link). */
+  openInstallLink: (url: string) => invoke<void>("open_install_link", { url }),
   mcpActivity: (limit?: number) => invoke<McpActivity[]>("mcp_activity", { limit }),
   mcpApps: () => invoke<McpApps>("mcp_apps"),
   setMcpAppBlocked: (name: string, blocked: boolean) => invoke<McpApps>("set_mcp_app_blocked", { name, blocked }),

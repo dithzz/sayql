@@ -402,6 +402,8 @@ export interface McpSetup {
   exists: boolean;
   /** Running from an AppImage, whose path changes on every launch. */
   appimage: boolean;
+  /** Which config paths and shell quoting the setup shows. */
+  os: "macos" | "windows" | "linux";
 }
 
 /** Something an AI app did, or tried, over MCP; mirrors `store::apps::Activity`. Holds SQL and counts, never rows. */

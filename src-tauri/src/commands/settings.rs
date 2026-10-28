@@ -328,6 +328,8 @@ pub struct McpSetup {
     /// True when running from an AppImage, which mounts at a new path on every launch,
     /// so a path given to an MCP app would stop working after a restart.
     appimage: bool,
+    /// "macos", "windows" or "linux": which config paths and shell quoting the setup shows.
+    os: &'static str,
 }
 
 /// Where the `sayql-mcp` binary is: next to the app's own executable.
@@ -349,7 +351,49 @@ pub fn mcp_setup() -> AppResult<McpSetup> {
         exists: path.exists(),
         path: path.to_string_lossy().into_owned(),
         appimage: std::env::var_os("APPIMAGE").is_some(),
+        os: std::env::consts::OS,
     })
+}
+
+/// The coding agents that look installed (ids from src/features/agent/agents.ts), to preselect
+/// one in the setup. Only checks for files; runs nothing.
+#[tauri::command]
+pub async fn installed_coding_agents() -> AppResult<Vec<&'static str>> {
+    tauri::async_runtime::spawn_blocking(crate::coding_agents::installed)
+        .await
+        .map_err(|e| AppError::User(format!("Could not look for coding agents: {e}")))
+}
+
+/// The install links SayQL may open: Cursor's and VS Code's own "add an MCP server" links.
+const INSTALL_LINKS: [&str; 2] = [
+    "cursor://anysphere.cursor-deeplink/mcp/install?",
+    "vscode:mcp/install?",
+];
+
+/// Whether `url` is one of the install links, with only URL-encoded text after it.
+pub(crate) fn install_link_ok(url: &str) -> bool {
+    INSTALL_LINKS.iter().any(|p| {
+        url.strip_prefix(p).is_some_and(|rest| {
+            !rest.is_empty()
+                && rest
+                    .chars()
+                    .all(|c| c.is_ascii_alphanumeric() || "%-_.~=&".contains(c))
+        })
+    })
+}
+
+/// Opens Cursor's or VS Code's link that adds SayQL's MCP server; the app asks before adding it.
+#[tauri::command]
+pub fn open_install_link(app: tauri::AppHandle, url: String) -> AppResult<()> {
+    use tauri_plugin_opener::OpenerExt;
+    if !install_link_ok(&url) {
+        return Err(AppError::User(
+            "SayQL only opens Cursor's and VS Code's MCP install links.".into(),
+        ));
+    }
+    app.opener()
+        .open_url(url, None::<&str>)
+        .map_err(|e| AppError::User(format!("Could not open the link: {e}")))
 }
 
 /// The newest entries in the activity log of AI apps using SayQL over MCP.
@@ -431,6 +475,26 @@ pub fn audit_prompt(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn only_cursor_and_vscode_install_links_open() {
+        assert!(install_link_ok(
+            "cursor://anysphere.cursor-deeplink/mcp/install?name=sayql&config=eyJjb21tYW5kIjoiL0EifQ%3D%3D"
+        ));
+        assert!(install_link_ok(
+            "vscode:mcp/install?%7B%22name%22%3A%22sayql%22%7D"
+        ));
+        assert!(!install_link_ok("vscode:mcp/install?"));
+        assert!(!install_link_ok(
+            "https://example.com/?vscode:mcp/install?x"
+        ));
+        assert!(!install_link_ok("vscode:extension/evil"));
+        assert!(!install_link_ok("vscode:mcp/install?{\"name\":\"x\"}"));
+        assert!(!install_link_ok(
+            "cursor://anysphere.cursor-deeplink/mcp/install?a b"
+        ));
+        assert!(!install_link_ok("file:///etc/passwd"));
+    }
 
     #[test]
     fn the_ask_box_switches_only_to_providers_that_are_ready() {

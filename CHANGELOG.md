@@ -5,6 +5,22 @@ All notable changes to SayQL are listed here. Downloads are on the
 
 ## Unreleased
 
+### Connect your coding agent, whichever it is
+
+- **Pick your coding agent.** **Teach SayQL this database** and **Settings → AI apps → Access → Connect an app**
+  now ask for **Your coding agent**: Claude Code, Cursor, VS Code (GitHub Copilot), Codex CLI, Gemini CLI, GitHub
+  Copilot CLI, opencode, Windsurf / Devin Desktop, Zed, Cline, Roo Code, Continue, Amp, JetBrains AI Assistant,
+  Claude Desktop, or any other MCP app. Each shows its own setup with the path to `sayql-mcp` filled in and quoted
+  for your shell: the command to run, **Open in Cursor** or **Open in VS Code** (their own install links, which ask
+  before adding SayQL), or the config to copy and the file it goes in.
+- **The right way to run the audit in it.** Claude Code keeps **Audit with Claude Code** and `/mcp__sayql__audit`.
+  VS Code shows `/mcp.sayql.audit`, opencode `/sayql:audit` and Gemini CLI `/audit`; Cursor and Continue say to
+  pick SayQL's audit from the `/` menu. Agents without documented MCP prompts get **Copy audit prompt** to paste
+  into their chat. Only Claude Code is started by SayQL, since it's the only one SayQL can keep read-only.
+- **A sensible first pick.** SayQL starts with the agent you picked last time, else the installed agent that last
+  connected over MCP, else one it finds installed (it checks for the app or command, and runs nothing), else the app
+  that last connected, else Claude Code. Step 1 says when the agent you picked is the one connected.
+
 ### Fixes from a real "Audit with Claude Code" run
 
 - **Suggested notes can hold codes and file names again.** The check for values from rows refused schema facts

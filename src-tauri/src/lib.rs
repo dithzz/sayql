@@ -3,6 +3,7 @@
 mod ai;
 mod audit;
 mod audit_runner;
+mod coding_agents;
 mod commands;
 mod db;
 mod error;
@@ -90,6 +91,8 @@ pub fn run() {
             settings::list_models,
             settings::finish_onboarding,
             settings::mcp_setup,
+            settings::installed_coding_agents,
+            settings::open_install_link,
             settings::mcp_activity,
             settings::mcp_apps,
             settings::set_mcp_app_blocked,
