@@ -294,20 +294,10 @@ p { text-wrap: pretty; }
 .chip .k { font-size: 11px; color: var(--color-text-muted); padding-left: 6px; border-left: 1px solid var(--color-border-subtle); }
 .topbar .end { margin-left: auto; display: flex; gap: 12px; color: var(--color-text-muted); }
 
-.body { display: grid; grid-template-columns: 236px minmax(0, 1fr); height: 600px; }
-.navigator { border-right: 1px solid var(--color-border); display: flex; flex-direction: column; min-width: 0; }
+.body { display: grid; grid-template-columns: minmax(0, 1fr); height: 520px; }
 .pane-h { height: 30px; flex: none; display: flex; align-items: center; gap: 6px; padding: 0 10px; font-weight: 600; font-size: 12.5px; border-bottom: 1px solid var(--color-border-subtle); white-space: nowrap; }
 .pane-h .end { margin-left: auto; display: flex; gap: 8px; color: var(--color-text-muted); font-weight: 400; align-items: center; }
-.filter { margin: 8px; height: 26px; display: flex; align-items: center; gap: 6px; padding: 0 8px; border: 1px solid var(--color-border); border-radius: var(--radius-md); color: var(--color-text-subtle); font-size: 12.5px; }
-.tree { font-size: 12.5px; }
-.row { height: 22px; display: flex; align-items: center; gap: 5px; padding-right: 10px; white-space: nowrap; overflow: hidden; transition: background 200ms; }
-.row .i { color: var(--color-text-muted); }
-.row .chev { width: 12px; height: 12px; color: var(--color-text-subtle); }
-.row.sel { background: var(--color-surface-selected); }
-.row .n { margin-left: auto; color: var(--color-text-subtle); font-size: 11.5px; }
-.row .mono { font-size: 12px; }
-.l0 { padding-left: 6px; } .l1 { padding-left: 20px; } .l2 { padding-left: 34px; }
-.app .k-sl { color: var(--color-kind-sqlite); } .app .k-pg { color: var(--color-kind-postgres); } .app .k-my { color: var(--color-kind-mysql); } .app .k-ms { color: var(--color-kind-mssql); }
+.app .k-sl { color: var(--color-kind-sqlite); } .app .k-pg { color: var(--color-kind-postgres); }
 
 .main { display: grid; grid-template-rows: 32px 34px auto auto minmax(0, 1fr) minmax(0, 1fr); min-width: 0; min-height: 0; overflow: hidden; }
 .main > * { min-width: 0; min-height: 0; }
@@ -377,9 +367,90 @@ p { text-wrap: pretty; }
 .statusbar .fb { display: inline-flex; align-items: center; gap: 5px; margin-right: 12px; }
 
 @media (max-width: 860px) {
-  .body { grid-template-columns: minmax(0, 1fr); height: 560px; }
-  .navigator, .topbar .ghost, .topbar .end, .hintbar .keys, .ed-h .sub, .ed-h .tool, .statusbar .end, .statusbar .cols { display: none; }
+  .body { height: 480px; }
+  .topbar .ghost, .topbar .end, .hintbar .keys, .ed-h .sub, .ed-h .tool, .statusbar .end, .statusbar .cols { display: none; }
 }
+
+/* hero: an agent session (left) beside SayQL's Agent activity (right). The terminal is dark in both themes. */
+.agents-demo {
+  --term-bg: #15171b; --term-bar: #1d2025; --term-line: rgba(255, 255, 255, 0.07); --term-user: #23272e;
+  --term-text: #dfe3e8; --term-dim: #949ba5; --term-faint: #5f6772;
+  --term-ok: #5fca7c; --term-no: #f2777e; --term-num: #8fbcff;
+  display: grid; grid-template-columns: minmax(0, 8fr) minmax(0, 7fr);
+}
+.ad-bar { height: 36px; flex: none; display: flex; align-items: center; gap: 10px; padding: 0 12px; font-weight: 600; font-size: 12.5px; white-space: nowrap; overflow: hidden; }
+.ad-bar .lights { position: static; margin-right: 4px; }
+.ad-term { display: flex; flex-direction: column; min-width: 0; background: var(--term-bg); color: var(--term-text); border-right: 1px solid var(--color-border); }
+.ad-term .ad-bar { background: var(--term-bar); color: var(--term-text); border-bottom: 1px solid var(--term-line); }
+.ad-cwd { margin-left: auto; font: 400 11.5px/1 var(--font-mono); color: var(--term-faint); }
+.ad-screen { height: 468px; overflow: hidden; padding: 14px 16px 16px; font: 400 12px/1.6 var(--font-mono); }
+.t { display: grid; grid-template-columns: 18px minmax(0, 1fr); opacity: 0; transform: translateY(3px); transition: opacity 220ms, transform 220ms; }
+.t.in { opacity: 1; transform: none; }
+.t .m { color: var(--term-faint); }
+.t b { font-weight: 600; }
+.t-user { margin-bottom: 4px; padding: 7px 10px 7px 8px; border-radius: var(--radius-md); background: var(--term-user); color: #fff; }
+.t-user .caret { background: var(--term-text); height: 13px; vertical-align: -2px; }
+.t-call, .t-say { margin-top: 10px; }
+.t-call .tx { display: flex; gap: 2px; min-width: 0; white-space: nowrap; }
+.t-call .args { min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--term-dim); }
+.t-call.run .m { color: var(--term-dim); animation: breathe 700ms ease-in-out infinite; }
+.t-call.ok .m { color: var(--term-ok); }
+.t-call.no .m { color: var(--term-no); }
+.t-out { padding-left: 4px; color: var(--term-dim); white-space: pre-wrap; }
+.t-no { color: var(--term-no); }
+.t-num { color: var(--term-num); }
+.t-say .m { color: var(--term-text); }
+.t-answer b { color: #fff; }
+.ad-sayql { display: flex; flex-direction: column; min-width: 0; background: var(--color-surface); }
+.ad-sayql .ad-bar { background: var(--color-surface-muted); border-bottom: 1px solid var(--color-border); color: var(--color-text-muted); }
+.ad-sayql .ad-bar .wordmark { color: var(--color-text); flex: none; }
+.ad-sayql .ad-bar span { padding-left: 10px; border-left: 1px solid var(--color-border-subtle); overflow: hidden; text-overflow: ellipsis; }
+.ad-conn { display: grid; justify-items: start; gap: 6px; padding: 12px 14px; border-bottom: 1px solid var(--color-border-subtle); }
+.ad-conn b { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+.ad-level { display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border-radius: 999px; background: var(--color-app-accent-soft); color: var(--color-app-accent); font-size: 11.5px; font-weight: 500; }
+.ad-level .i { width: 13px; height: 13px; }
+.ad-h { display: flex; align-items: center; padding: 12px 14px 8px; font-weight: 600; font-size: 12.5px; }
+.ad-h span { margin-left: auto; display: inline-flex; align-items: center; gap: 5px; font-weight: 400; color: var(--color-text-muted); }
+.ad-h .i { width: 13px; height: 13px; }
+.ad-log { margin: 0 14px; border: 1px solid var(--color-border-subtle); border-radius: var(--radius-md); }
+.ad-log table { width: 100%; table-layout: fixed; border-collapse: separate; border-spacing: 0; }
+.ad-log col.c-app { width: 96px; }
+.ad-log td:first-child { white-space: nowrap; } .ad-log col.c-res { width: 44%; }
+.ad-log th, .ad-log td { height: auto; padding: 5px 8px; font-size: 11.5px; line-height: 1.4; vertical-align: top; }
+.ad-log td { font-family: var(--font-sans); white-space: normal; }
+.ad-log td:last-child, .ad-log th:last-child { border-right: 0; }
+.ad-log tbody tr:last-child td { border-bottom: 0; }
+.ad-log td.sql { font-family: var(--font-mono); font-size: 11px; color: var(--color-text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ad-log tr.refused td { background: var(--color-danger-soft); }
+.ad-log .st { margin-right: 2px; }
+.ad-note { position: relative; margin: 12px 14px 14px; padding: 10px 12px; border: 1px solid var(--color-border); border-radius: var(--radius-lg); background: var(--color-surface); box-shadow: var(--shadow-raised); font-size: 12.5px; opacity: 0; transform: translateY(4px); transition: opacity 260ms, transform 260ms, border-color 260ms; }
+.ad-note.show { opacity: 1; transform: none; }
+.ad-note.saved { border-color: color-mix(in srgb, var(--color-success) 45%, var(--color-border)); }
+.ad-note-meta { font-size: 11.5px; color: var(--color-text-muted); }
+.ad-note-meta b { font-weight: 500; color: var(--color-text); }
+.ad-note p { margin-top: 4px; }
+.ad-note .ad-ev { margin-top: 2px; font-size: 11.5px; color: var(--color-text-subtle); }
+.ad-actions, .ad-saved { height: 28px; margin-top: 8px; display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+.ad-saved { display: none; justify-content: flex-start; gap: 6px; color: var(--color-success); font-weight: 500; }
+.ad-note.saved .ad-actions { display: none; }
+.ad-note.saved .ad-saved { display: flex; }
+.dbtn.primary { background: var(--color-app-accent); border-color: var(--color-app-accent); color: #fff; }
+.dbtn.press { animation: press 500ms ease-out; }
+.ad-accept { position: relative; display: inline-flex; }
+.ad-cursor { position: absolute; left: 50%; top: 55%; width: 15px; height: 19px; fill: #fff; stroke: #111; stroke-width: 1.2; stroke-linejoin: round; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3)); opacity: 0; transform: translate(70px, 46px); transition: transform 700ms cubic-bezier(0.3, 0.7, 0.3, 1), opacity 200ms; pointer-events: none; }
+.ad-note.aim .ad-cursor { opacity: 1; transform: none; }
+@media (max-width: 860px) {
+  .agents-demo { grid-template-columns: minmax(0, 1fr); }
+  .ad-term { border-right: 0; border-bottom: 1px solid var(--color-border); }
+  .ad-screen { height: 400px; padding: 12px; font-size: 11.5px; }
+}
+@media (max-width: 560px) {
+  .ad-cwd { display: none; }
+  .ad-log col.c-app, .ad-log th:first-child, .ad-log td:first-child { display: none; }
+  .ad-log col.c-res { width: 52%; }
+  .ad-screen { height: 440px; }
+}
+@media (prefers-reduced-motion: reduce) { .ad-screen { height: auto; } }
 
 /* small feature demos */
 .mini { height: 264px; margin: 20px 20px 0; border-bottom: 0; border-radius: var(--radius-lg) var(--radius-lg) 0 0; position: relative; display: flex; flex-direction: column; }
@@ -445,8 +516,7 @@ p { text-wrap: pretty; }
 
 /* agent mode: the plan, live steps and the cited answer, like the app's Agent view */
 .agent { overflow: hidden; padding: 8px 10px; display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; }
-.agent[hidden] { display: none; }
-.pill[hidden], .grid[hidden] { display: none; }
+.pill[hidden] { display: none; }
 .agent .ag-q { font-weight: 600; margin-bottom: 2px; }
 .ag-step { display: flex; align-items: center; gap: 7px; height: 22px; opacity: 0; transform: translateY(3px); transition: opacity 220ms, transform 220ms; white-space: nowrap; overflow: hidden; }
 .ag-step.in { opacity: 1; transform: none; }
@@ -535,7 +605,23 @@ section.block { padding: 80px 0 0; }
 .gov-btn { margin-left: auto; padding: 3px 9px; border-radius: 4px; color: var(--color-danger) !important; border: 1px solid transparent; }
 .gov-btn.allow { color: var(--color-text) !important; border-color: var(--color-border); background: var(--color-surface); }
 .feature-row .gov-mock { height: auto; }
-.gov-mock .grid td:nth-child(3) { white-space: nowrap; color: var(--color-text-muted); font-size: 11.5px; }
+.gov-see { padding: 12px 14px 14px; display: grid; gap: 10px; }
+.gov-see h4 { font-size: 12.5px; font-weight: 600; }
+.gov-conn { display: flex; align-items: flex-start; gap: 12px; }
+.gov-name { flex: 1; min-width: 0; display: grid; gap: 2px; font-size: 12.5px; }
+.gov-name span { color: var(--color-text-muted); font-size: 11.5px; }
+.gov-select { flex: none; display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 8px; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface); font-size: 12px; white-space: nowrap; }
+.gov-select .i { color: var(--color-text-subtle); }
+.gov-levels { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; padding: 2px; border-radius: var(--radius-md); background: var(--color-surface-muted); border: 1px solid var(--color-border-subtle); font-size: 11.5px; color: var(--color-text-muted); }
+.gov-levels span { display: flex; align-items: center; justify-content: center; gap: 4px; min-height: 26px; padding: 2px 6px; border-radius: var(--radius-sm); text-align: center; line-height: 1.2; }
+.gov-levels .on { background: var(--color-surface); color: var(--color-app-accent); font-weight: 500; box-shadow: var(--shadow-raised); }
+.gov-levels .on .i { width: 12px; height: 12px; }
+.gov-never { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 11.5px; color: var(--color-text-muted); }
+.gov-never .mono { font-size: 11px; color: var(--color-text); }
+@media (max-width: 560px) { .gov-conn { flex-direction: column; } .gov-levels { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+/* Ask in plain English: the workbench, in a feature row */
+.feature-row .ask-demo { box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 12px 32px -12px rgba(15, 23, 42, 0.14); }
+.ask-demo .statusbar .end { display: none; }
 .feature-rows { margin-top: 56px; display: grid; gap: 88px; }
 .feature-row { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 56px; align-items: center; }
 .feature-row:nth-child(even) { grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); }
@@ -732,14 +818,10 @@ section.block { padding: 80px 0 0; }
   <symbol id="i-sparkles" viewBox="0 0 24 24"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4M22 5h-4"/></symbol>
   <symbol id="i-play" viewBox="0 0 24 24"><path d="m6 3 14 9-14 9V3z"/></symbol>
   <symbol id="i-db" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/></symbol>
-  <symbol id="i-server" viewBox="0 0 24 24"><rect width="20" height="8" x="2" y="2" rx="2"/><rect width="20" height="8" x="2" y="14" rx="2"/><path d="M6 6h.01M6 18h.01"/></symbol>
   <symbol id="i-table" viewBox="0 0 24 24"><path d="M12 3v18"/><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18M3 15h18"/></symbol>
-  <symbol id="i-folder" viewBox="0 0 24 24"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></symbol>
   <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></symbol>
   <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
   <symbol id="i-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
-  <symbol id="i-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
-  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
   <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></symbol>
   <symbol id="i-settings" viewBox="0 0 24 24"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></symbol>
   <symbol id="i-file" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="m10 13-2 2 2 2M14 17l2-2-2-2"/></symbol>
@@ -788,54 +870,36 @@ section.block { padding: 80px 0 0; }
     <p class="meta"><span data-dl-meta>macOS, Windows and Linux</span> · Open source, Apache 2.0<span data-downloads hidden> · <span data-downloads-count></span> downloads</span><span data-stars hidden> · <a href="https://github.com/dithzz/sayql/stargazers">★ <span data-stars-count></span> on GitHub</a></span></p>
     <p class="meta" data-dl-other hidden></p>
 
-    <div class="app window" id="hero-demo" role="img" aria-label="Demo: SayQL turns a plain-English question and the /pii-safe skill into SQL as you type, then runs it read-only; with /agent it investigates a question in read-only steps and answers with the queries behind it">
-      <div class="titlebar"><div class="lights"><i></i><i></i><i></i></div>SayQL</div>
-      <div class="topbar">
-        <span class="logo"><svg class="wordmark" width="38" height="17" aria-hidden="true"><use href="#i-wordmark"/></svg></span>
-        <span class="ghost"><svg class="i"><use href="#i-plus"/></svg>New connection</span>
-        <span class="chip"><svg class="i k-sl"><use href="#i-db"/></svg>Demo store (SQLite)<span class="k">SQLite</span></span>
-        <span class="end"><svg class="i"><use href="#i-monitor"/></svg><svg class="i"><use href="#i-settings"/></svg></span>
+    <div class="app window agents-demo" id="hero-demo" role="img" aria-label="Demo: in Claude Code, an agent asks which tables are still in use and how many orders came in this month. Through SayQL it gets the schema with table usage and a count of this month's orders, is refused a column marked never send and an UPDATE because access is read-only, and suggests a note that waits until you accept it. Beside it, SayQL's Agent activity log for the Store connection, where results to AI apps are counts and summaries only, lists each query and why any was refused.">
+      <div class="ad-term">
+        <div class="ad-bar"><div class="lights"><i></i><i></i><i></i></div><span>Claude Code</span><span class="ad-cwd">~/store-api</span></div>
+        <div class="ad-screen" data-term></div>
       </div>
-      <div class="body">
-        <aside class="navigator">
-          <div class="pane-h"><svg class="i"><use href="#i-server"/></svg>Database Navigator<span class="end"><svg class="i"><use href="#i-plus"/></svg><svg class="i"><use href="#i-refresh"/></svg></span></div>
-          <div class="filter"><svg class="i"><use href="#i-search"/></svg>Filter tables and columns</div>
-          <div class="tree">
-            <div class="row l0"><svg class="chev i"><use href="#i-down"/></svg><svg class="i k-sl"><use href="#i-db"/></svg>Demo store (SQLite)<span class="n">SL</span></div>
-            <div class="row l1"><svg class="chev i"><use href="#i-down"/></svg><svg class="i"><use href="#i-folder"/></svg>Tables<span class="n">5</span></div>
-            <div class="row l2" data-t="categories"><svg class="chev i"><use href="#i-right"/></svg><svg class="i"><use href="#i-table"/></svg><span class="mono">categories</span><span class="n">8</span></div>
-            <div class="row l2" data-t="customers"><svg class="chev i"><use href="#i-right"/></svg><svg class="i"><use href="#i-table"/></svg><span class="mono">customers</span><span class="n">500</span></div>
-            <div class="row l2" data-t="order_items"><svg class="chev i"><use href="#i-right"/></svg><svg class="i"><use href="#i-table"/></svg><span class="mono">order_items</span><span class="n">7,500</span></div>
-            <div class="row l2" data-t="orders"><svg class="chev i"><use href="#i-right"/></svg><svg class="i"><use href="#i-table"/></svg><span class="mono">orders</span><span class="n">3,000</span></div>
-            <div class="row l2" data-t="products"><svg class="chev i"><use href="#i-right"/></svg><svg class="i"><use href="#i-table"/></svg><span class="mono">products</span><span class="n">120</span></div>
-            <div class="row l1"><svg class="chev i"><use href="#i-right"/></svg><svg class="i"><use href="#i-folder"/></svg>Views<span class="n">1</span></div>
-            <div class="row l0"><svg class="chev i"><use href="#i-right"/></svg><svg class="i k-pg"><use href="#i-server"/></svg>analytics@prod-replica<span class="n">PG</span></div>
-            <div class="row l0"><svg class="chev i"><use href="#i-right"/></svg><svg class="i k-my"><use href="#i-server"/></svg>shop@localhost<span class="n">MY</span></div>
-            <div class="row l0"><svg class="chev i"><use href="#i-right"/></svg><svg class="i k-ms"><use href="#i-server"/></svg>sales@azure<span class="n">MS</span></div>
+      <div class="ad-sayql">
+        <div class="ad-bar"><svg class="wordmark" width="38" height="17" aria-hidden="true"><use href="#i-wordmark"/></svg><span>Settings · AI apps (MCP)</span></div>
+        <div class="ad-conn">
+          <b><svg class="i k-pg"><use href="#i-db"/></svg>Store (PostgreSQL)</b>
+          <span class="ad-level"><svg class="i"><use href="#i-eye"/></svg>Results to AI apps: counts and summaries only</span>
+        </div>
+        <div class="ad-h">Agent activity<span><svg class="i"><use href="#i-refresh"/></svg>Refresh</span></div>
+        <div class="grid ad-log">
+          <table>
+            <colgroup><col class="c-app"><col class="c-res"><col></colgroup>
+            <thead><tr><th>App</th><th>Result</th><th>SQL</th></tr></thead>
+            <tbody data-log></tbody>
+          </table>
+        </div>
+        <div class="ad-note" data-note>
+          <div class="ad-note-meta">Suggested note · from <b>Claude Code</b> · Store</div>
+          <p>orders_legacy has had no reads or writes since Jan 1; use orders</p>
+          <p class="ad-ev">Evidence: describe_schema usage, 0 reads, 0 writes since 2026-01-01</p>
+          <div class="ad-actions" data-actions>
+            <span class="dbtn"><svg class="i"><use href="#i-x"/></svg>Dismiss</span>
+            <span class="ad-accept"><span class="dbtn primary" data-accept><svg class="i"><use href="#i-check"/></svg>Accept</span><svg class="ad-cursor" data-cursor viewBox="0 0 16 20" aria-hidden="true"><path d="M1 1v15l4-4 3 7 3-1.4-3-6.6h5.5z"/></svg></span>
           </div>
-        </aside>
-        <div class="main">
-          <div class="tabs"><div class="tab"><svg class="i k-sl"><use href="#i-file"/></svg>Demo store (SQLite)<span class="dot"></span></div><span class="plus"><svg class="i"><use href="#i-plus"/></svg></span></div>
-          <div class="ed-h"><svg class="i"><use href="#i-file"/></svg><b>SQL Editor</b><span class="sub">Demo store (SQLite)</span>
-            <span class="end"><svg class="i tool"><use href="#i-save"/></svg><span class="tool"><svg class="i"><use href="#i-wand"/></svg>Improve</span><span class="run-btn" data-run><svg class="i"><use href="#i-play"/></svg>Run <span class="kbd">⌘↵</span></span></span>
-          </div>
-          <div class="askbox" data-ask>
-            <div class="q-line" style="margin-top:0"><svg class="i spark"><use href="#i-sparkles"/></svg><span class="cmd-chip skill" data-chip hidden>/pii-safe</span><span class="cmd-chip agent-chip" data-agent-chip hidden>/agent</span><span class="q" data-q><span class="ph">Ask in plain English, or type / for commands</span></span><svg class="i mic end" aria-hidden="true"><use href="#i-mic"/></svg><span class="pill"><svg class="i"><use href="#i-table"/></svg><span data-pill>customers, orders</span><svg class="i"><use href="#i-eye"/></svg><svg class="i"><use href="#i-x"/></svg></span></div>
-          </div>
-          <div class="hintbar">
-            <span class="building" data-building hidden><svg class="i"><use href="#i-corner"/></svg>Building on your last query <span class="newq" data-newq>New query</span></span>
-            <span class="state" data-state>SQL appears in the editor as you type.</span>
-            <span class="keys"><span class="kbd">/</span> commands <span class="kbd">↵</span> run <span class="kbd">⇧↵</span> new line <span class="kbd">esc</span> clear</span>
-          </div>
-          <div class="editor"><div class="gutter" data-gutter>1</div><div class="code" data-code></div></div>
-          <div class="results">
-            <div class="pane-h"><svg class="i"><use href="#i-table"/></svg>Results <span class="sub" data-meta></span><span class="end"><svg class="i"><use href="#i-copy"/></svg>Copy as CSV</span></div>
-            <div class="grid" data-grid><div class="empty">Run a query to see rows here</div></div>
-            <div class="agent" data-agent hidden></div>
-          </div>
+          <div class="ad-saved" data-saved><svg class="i"><use href="#i-check"/></svg>Saved as a note</div>
         </div>
       </div>
-      <div class="statusbar"><span class="ok"><i></i>Connected · Demo store (SQLite)</span><span class="cols">6 tables · 25 columns</span><span class="end"><span class="fb"><svg class="i"><use href="#i-message"/></svg>Feedback</span><svg class="i"><use href="#i-sparkles"/></svg>Haiku 5.5 while typing · Opus 5.5 for fixes</span></div>
     </div>
   </div>
 </section>
@@ -886,23 +950,61 @@ section.block { padding: 80px 0 0; }
           <p>Claude Code, Cursor and other agents query through SayQL, read-only. By default they get counts and summaries, not your rows, and columns you mark private never reach them. See everything they ran, and block any app in one click.</p>
           <p class="fine">Free on your computer. For your whole company, <a href="#teams">SayQL for teams</a> gives each agent its own key and puts every query in one audit log.</p>
         </div>
-        <div class="app mini admin-mock gov-mock" role="img" aria-label="SayQL's AI apps settings: Claude Code is allowed and Cursor is blocked; the activity log shows a query that ran as counts, one refused for a private column, one refused because it could change data, and one from the blocked app">
+        <div class="app mini admin-mock gov-mock" role="img" aria-label="SayQL's AI apps settings: Claude Code is allowed and Cursor is blocked; per connection you choose what AI apps may see, from nothing to all rows, here counts and summaries on Store">
           <div class="titlebar"><div class="lights"><i></i><i></i><i></i></div>Settings · AI apps (MCP)</div>
           <div class="gov-apps">
-            <div class="gov-app"><b>Claude Code</b><span>24 queries · counts and summaries</span><span class="gov-btn">Block</span></div>
+            <div class="gov-app"><b>Claude Code</b><span>24 queries</span><span class="gov-btn">Block</span></div>
             <div class="gov-app"><b>Cursor</b><span class="gov-blocked">Blocked</span><span class="gov-btn allow">Allow</span></div>
           </div>
-          <div class="grid">
-            <table>
-              <thead><tr><th>When</th><th>App</th><th>Result</th><th>SQL</th></tr></thead>
-              <tbody>
-                <tr><td>10:42</td><td>Claude Code</td><td><span class="st ok">OK</span> 1 row</td><td class="sql">SELECT country, COUNT(*) FROM customers…</td></tr>
-                <tr class="refused"><td>10:41</td><td>Claude Code</td><td><span class="st no">Refused</span> private column</td><td class="sql">SELECT email FROM customers…</td></tr>
-                <tr class="refused"><td>10:39</td><td>Claude Code</td><td><span class="st no">Refused</span> could change data</td><td class="sql">DELETE FROM orders WHERE…</td></tr>
-                <tr class="refused"><td>10:30</td><td>Cursor</td><td><span class="st no">Refused</span> app blocked</td><td class="sql">list_connections</td></tr>
-              </tbody>
-            </table>
+          <div class="gov-see">
+            <h4>What AI apps may see</h4>
+            <div class="gov-conn">
+              <span class="gov-name"><b>Store (PostgreSQL)</b><span>Row counts and, per column, its type, nulls, distinct values, and min and max. No row values.</span></span>
+              <span class="gov-select">Counts and summaries<svg class="i"><use href="#i-down"/></svg></span>
+            </div>
+            <div class="gov-levels" aria-hidden="true">
+              <span>Nothing</span><span class="on"><svg class="i"><use href="#i-check"/></svg>Counts and summaries</span><span>Rows, masked</span><span>All rows</span>
+            </div>
+            <p class="gov-never"><svg class="i"><use href="#i-lock"/></svg>Always kept out, marked never send:<span class="mono">customers.email</span>, <span class="mono">customers.phone</span></p>
           </div>
+        </div>
+      </article>
+      <article class="feature-row">
+        <div class="feature-text">
+          <h3>Ask in plain English</h3>
+          <p>Type a question and the SQL writes itself in the editor as you type, then runs read-only. Follow up with “only Europe” and it builds on the last query.</p>
+          <p class="fine">The AI sees your question and table names, not your rows. Skills like <code>/pii-safe</code> keep contact details out of the SQL.</p>
+        </div>
+        <div class="app ask-demo" id="demo-ask" role="img" aria-label="Demo: SayQL turns a plain-English question and the /pii-safe skill into SQL as you type, runs it read-only, then builds on it with a follow-up">
+          <div class="titlebar"><div class="lights"><i></i><i></i><i></i></div>SayQL</div>
+          <div class="topbar">
+            <span class="logo"><svg class="wordmark" width="38" height="17" aria-hidden="true"><use href="#i-wordmark"/></svg></span>
+            <span class="ghost"><svg class="i"><use href="#i-plus"/></svg>New connection</span>
+            <span class="chip"><svg class="i k-sl"><use href="#i-db"/></svg>Demo store (SQLite)<span class="k">SQLite</span></span>
+            <span class="end"><svg class="i"><use href="#i-monitor"/></svg><svg class="i"><use href="#i-settings"/></svg></span>
+          </div>
+          <div class="body">
+            <div class="main">
+              <div class="tabs"><div class="tab"><svg class="i k-sl"><use href="#i-file"/></svg>Demo store (SQLite)<span class="dot"></span></div><span class="plus"><svg class="i"><use href="#i-plus"/></svg></span></div>
+              <div class="ed-h"><svg class="i"><use href="#i-file"/></svg><b>SQL Editor</b><span class="sub">Demo store (SQLite)</span>
+                <span class="end"><svg class="i tool"><use href="#i-save"/></svg><span class="tool"><svg class="i"><use href="#i-wand"/></svg>Improve</span><span class="run-btn" data-run><svg class="i"><use href="#i-play"/></svg>Run <span class="kbd">⌘↵</span></span></span>
+              </div>
+              <div class="askbox" data-ask>
+                <div class="q-line" style="margin-top:0"><svg class="i spark"><use href="#i-sparkles"/></svg><span class="cmd-chip skill" data-chip hidden>/pii-safe</span><span class="q" data-q><span class="ph">Ask in plain English, or type / for commands</span></span><svg class="i mic end" aria-hidden="true"><use href="#i-mic"/></svg><span class="pill"><svg class="i"><use href="#i-table"/></svg><span data-pill>customers, orders</span><svg class="i"><use href="#i-eye"/></svg><svg class="i"><use href="#i-x"/></svg></span></div>
+              </div>
+              <div class="hintbar">
+                <span class="building" data-building hidden><svg class="i"><use href="#i-corner"/></svg>Building on your last query <span class="newq" data-newq>New query</span></span>
+                <span class="state" data-state>SQL appears in the editor as you type.</span>
+                <span class="keys"><span class="kbd">/</span> commands <span class="kbd">↵</span> run <span class="kbd">⇧↵</span> new line <span class="kbd">esc</span> clear</span>
+              </div>
+              <div class="editor"><div class="gutter" data-gutter>1</div><div class="code" data-code></div></div>
+              <div class="results">
+                <div class="pane-h"><svg class="i"><use href="#i-table"/></svg>Results <span class="sub" data-meta></span><span class="end"><svg class="i"><use href="#i-copy"/></svg>Copy as CSV</span></div>
+                <div class="grid" data-grid><div class="empty">Run a query to see rows here</div></div>
+              </div>
+            </div>
+          </div>
+          <div class="statusbar"><span class="ok"><i></i>Connected · Demo store (SQLite)</span><span class="cols">6 tables · 25 columns</span><span class="end"><span class="fb"><svg class="i"><use href="#i-message"/></svg>Feedback</span><svg class="i"><use href="#i-sparkles"/></svg>Haiku 5.5 while typing · Opus 5.5 for fixes</span></div>
         </div>
       </article>
       <article class="feature-row">
@@ -1352,14 +1454,112 @@ section.block { padding: 80px 0 0; }
     box.innerHTML = AGENT.steps.map(function (s, i) { return agentStep(i, s, true); }).join("") + agentAnswer(true);
   }
 
-  /* ---------- hero: the workbench, with the app's built-in demo database ---------- */
+  /* ---------- hero: an agent works through SayQL, and SayQL's Agent activity shows what it ran ----------
+   * Only what the MCP server does: describe_schema (with table usage) isn't logged; run_query and
+   * suggest_note are. Refusal texts are the server's own. */
   (function () {
     var el = document.getElementById("hero-demo");
+    var term = el.querySelector("[data-term]"), log = el.querySelector("[data-log]"), note = el.querySelector("[data-note]"),
+        accept = el.querySelector("[data-accept]");
+    var PROMPT = "Which tables are still in use, and how many orders came in this month?";
+    var COUNT_SQL = "SELECT count(*) FROM orders WHERE created_at >= date_trunc('month', now())";
+    var EMAIL_SQL = "SELECT c.email, count(*) FROM orders_legacy o JOIN customers c ON c.id = o.customer_id GROUP BY c.email";
+    var UPDATE_SQL = "UPDATE orders_legacy SET archived = true";
+    var NOTE = "orders_legacy has had no reads or writes since Jan 1; use orders";
+    // Each tool call: what Claude Code shows, and the Agent activity row it adds (if any).
+    var STEPS = [
+      { tool: "describe_schema", args: "Store", out: ["Schema: 14 tables, usage since 2026-01-01", "orders         48.2k reads, 12.9k writes", "orders_legacy  0 reads, 0 writes"] },
+      { tool: "run_query", args: COUNT_SQL, out: ['1 row · summary: <span class="t-num">count = 1,284</span>'],
+        row: ["ok", "1 row", COUNT_SQL] },
+      { tool: "run_query", args: EMAIL_SQL, refused: "email is a column the user marked never to send to AI apps. Leave it out of the query.",
+        say: "Leaving email out. The usage counts already answer this.", row: ["no", "never-send column email", EMAIL_SQL] },
+      { tool: "run_query", args: UPDATE_SQL, refused: "SayQL's MCP access is read-only, and this statement could change data.",
+        say: "It's read-only, so I'll suggest a note instead.", row: ["no", "could change data", UPDATE_SQL] },
+      { tool: "suggest_note", args: NOTE, out: ["Saved as a suggestion. It becomes a note when the user accepts it in SayQL."],
+        row: ["ok", "", "Suggested a note: " + NOTE], note: true }
+    ];
+    var ANSWER = '<b>orders_legacy</b> looks unused: no reads or writes since Jan 1. <b>1,284</b> orders came in this month. I suggested a note about orders_legacy for you to accept in SayQL.';
+
+    log.innerHTML = STEPS.filter(function (s) { return s.row; }).map(function (s) {
+      var r = s.row;
+      return '<tr' + (r[0] === "no" ? ' class="refused"' : "") + '><td>Claude Code</td><td><span class="st ' + r[0] + '">' + (r[0] === "ok" ? "OK" : "Refused") + "</span>" +
+        (r[1] ? " " + esc(r[1]) : "") + '</td><td class="sql">' + esc(r[2]) + "</td></tr>";
+    }).join("");
+    var rows = log.querySelectorAll("tr");
+
+    function line(cls, mark, html) { return '<div class="t ' + cls + '"><span class="m">' + mark + "</span><span>" + html + "</span></div>"; }
+    function call(s, state) {
+      return '<div class="t t-call ' + state + '"><span class="m">●</span><span class="tx"><b>sayql · ' + s.tool + '</b><span class="args">(' + esc(s.args) + ")</span></span></div>";
+    }
+    function result(s) {
+      if (s.refused) return line("t-out", "⎿", '<span class="t-no">Refused:</span> ' + esc(s.refused));
+      return s.out.map(function (o, k) { return line("t-out", k ? "" : "⎿", s.tool === "run_query" ? o : esc(o)); }).join("");
+    }
+    function add(html, later) {
+      var box = document.createElement("div");
+      box.innerHTML = html;
+      var added = [].slice.call(box.children);
+      added.forEach(function (n) { term.appendChild(n); });
+      if (later) requestAnimationFrame(function () { added.forEach(function (n) { n.classList.add("in"); }); });
+      else added.forEach(function (n) { n.classList.add("in"); });
+      term.scrollTop = term.scrollHeight;
+      return added[0];
+    }
+    function setNote(state) { note.className = "ad-note" + (state ? " " + state : ""); }
+
+    function still() {
+      term.innerHTML = "";
+      add(line("t-user", "&gt;", esc(PROMPT)));
+      STEPS.forEach(function (s) {
+        add(call(s, s.refused ? "no" : "ok"));
+        add(result(s));
+        if (s.say) add(line("t-say", "●", esc(s.say)));
+      });
+      add(line("t-say t-answer", "●", ANSWER));
+      rows.forEach(function (r) { r.classList.add("in"); });
+      setNote("show saved");
+    }
+
+    demo(el, function (later, loop) {
+      term.innerHTML = "";
+      term.scrollTop = 0;
+      rows.forEach(function (r) { r.classList.remove("in"); });
+      setNote("");
+      accept.classList.remove("press");
+      var user = add(line("t-user", "&gt;", '<span class="caret"></span>'), true).lastElementChild;
+      var t = typeInto(user, PROMPT, 300, later);
+      later(function () { user.textContent = PROMPT; }, t + 150);
+      t += 700;
+      var r = 0;
+      STEPS.forEach(function (s) {
+        var row = s.row ? rows[r++] : null;
+        later(function () { add(call(s, "run"), true); }, t);
+        later(function () {
+          var c = term.querySelectorAll(".t-call");
+          c[c.length - 1].className = "t t-call in " + (s.refused ? "no" : "ok");
+          add(result(s), true);
+          if (row) row.classList.add("in");
+          if (s.note) setNote("show");
+        }, t + 800);
+        t += 1700;
+        if (s.say) { later(function () { add(line("t-say", "●", esc(s.say)), true); }, t - 300); t += 500; }
+      });
+      // The person accepts the suggestion in SayQL.
+      later(function () { setNote("show aim"); }, t - 400);
+      later(function () { accept.classList.remove("press"); void accept.offsetWidth; accept.classList.add("press"); }, t + 500);
+      later(function () { setNote("show saved"); }, t + 900);
+      later(function () { add(line("t-say t-answer", "●", ANSWER), true); }, t + 1300);
+      later(loop, t + 8500);
+    }, still);
+  })();
+
+  /* ---------- Ask in plain English: the workbench, with the app's built-in demo database ---------- */
+  (function () {
+    var el = document.getElementById("demo-ask");
     var $ = function (s) { return el.querySelector(s); };
     var ask = $("[data-ask]"), q = $("[data-q]"), code = $("[data-code]"), gutter = $("[data-gutter]"), grid = $("[data-grid]"),
-        meta = $("[data-meta]"), state = $("[data-state]"), building = $("[data-building]"), newq = $("[data-newq]"),
-        pill = $("[data-pill]"), run = $("[data-run]"), chip = $("[data-chip]"),
-        agentPane = $("[data-agent]"), agentChip = $("[data-agent-chip]"), resultsTitle = el.querySelector(".results .pane-h");
+        meta = $("[data-meta]"), state = $("[data-state]"), building = $("[data-building]"),
+        pill = $("[data-pill]"), run = $("[data-run]"), chip = $("[data-chip]");
 
     var TOP = "SELECT c.id AS customer_id,\n       c.first_name || ' ' || c.last_name AS customer,\n       c.country,\n       COUNT(DISTINCT o.id) AS orders,\n       ROUND(SUM(oi.quantity * oi.unit_price), 2) AS total_spend\nFROM customers c\nJOIN orders o ON o.customer_id = c.id\nJOIN order_items oi ON oi.order_id = o.id\nWHERE o.status NOT IN ('cancelled', 'refunded')\nGROUP BY c.id\nORDER BY total_spend DESC\nLIMIT 10;";
     var PEOPLE = [[214, "Ava Smith", "USA", 31, 18420.5], [87, "Liam Patel", "India", 27, 16935], [342, "Noah Garcia", "Spain", 26, 15210.75], [19, "Emma Kim", "South Korea", 24, 14388.2], [156, "Olivia Nguyen", "Australia", 22, 13702.4], [401, "Arjun Müller", "Germany", 21, 12950], [63, "Priya Rossi", "Italy", 20, 12118.65], [278, "Mateo Silva", "Brazil", 19, 11640.3], [125, "Sofia Haddad", "Canada", 18, 10987.1], [330, "Kenji Watanabe", "Japan", 17, 10402.85]];
@@ -1372,10 +1572,8 @@ section.block { padding: 80px 0 0; }
         sql: TOP.replace("\nGROUP BY", "\n  AND c.country IN ('Spain', 'Germany', 'Italy')\nGROUP BY"),
         cols: COLS, rows: PEOPLE.filter(function (r) { return /Spain|Germany|Italy/.test(r[2]); }), meta: "3 rows · 6 ms" },
       { tables: ["orders"], question: "how many orders in each status", sql: "SELECT status, COUNT(*) AS orders\nFROM orders\nGROUP BY status\nORDER BY orders DESC;",
-        cols: ["status", "orders"], rows: [["delivered", 2154], ["shipped", 389], ["processing", 201], ["cancelled", 152], ["refunded", 104]], meta: "5 rows · 4 ms" },
-      { tables: [], agent: true, question: AGENT.question }
+        cols: ["status", "orders"], rows: [["delivered", 2154], ["shipped", 389], ["processing", 201], ["cancelled", 152], ["refunded", 104]], meta: "5 rows · 4 ms" }
     ];
-    var RESULTS_TITLE = resultsTitle.innerHTML;
     var current = 0;
 
     function setSql(sql) {
@@ -1399,16 +1597,10 @@ section.block { padding: 80px 0 0; }
       grid.querySelectorAll("tbody tr").forEach(function (tr, i) { if (later) later(function () { tr.classList.add("in"); }, 35 * i); else tr.classList.add("in"); });
     }
     function setScene(s) {
-      el.querySelectorAll(".row[data-t]").forEach(function (r) { r.classList.toggle("sel", s.tables.indexOf(r.getAttribute("data-t")) >= 0); });
       pill.textContent = s.tables.join(", ");
       pill.parentNode.hidden = !s.tables.length;
       building.hidden = !s.followup;
       chip.hidden = !s.skill;
-      agentChip.hidden = !s.agent;
-      agentPane.hidden = !s.agent;
-      grid.hidden = !!s.agent;
-      resultsTitle.innerHTML = s.agent ? '<svg class="i"><use href="#i-sparkles"/></svg>Agent <span class="sub">step-by-step, read-only</span>' : RESULTS_TITLE;
-      if (!s.agent) meta = $("[data-meta]");
     }
     function done(s) {
       ask.classList.remove("live");
@@ -1420,18 +1612,6 @@ section.block { padding: 80px 0 0; }
     demo(el, function (later, loop) {
       var s = SCENES[current];
       setScene(s);
-      if (s.agent) {
-        setSql(""); agentPane.innerHTML = "";
-        ask.classList.add("live");
-        q.innerHTML = '<span class="caret"></span>';
-        state.className = "state"; state.textContent = "Results to AI: counts and summaries only";
-        var ta = typeInto(q, s.question, 600, later);
-        later(function () { ask.classList.remove("live"); q.textContent = s.question; state.className = "state ai"; state.innerHTML = "<i></i>Investigating with Opus 5.5…"; }, ta + 300);
-        var ea = playAgent(agentPane, later, ta + 600, setSql);
-        later(function () { state.className = "state"; state.innerHTML = '<svg class="i"><use href="#i-check"/></svg>Answered in 4 steps, nothing changed'; }, ea);
-        later(function () { current = (current + 1) % SCENES.length; loop(); }, ea + 6500);
-        return;
-      }
       if (!s.followup) { setSql(""); clearRows(); }
       ask.classList.add("live");
       q.innerHTML = '<span class="caret"></span>';
