@@ -168,6 +168,12 @@ impl Store {
         Ok(all.get(connection_id).cloned().unwrap_or_default())
     }
 
+    /// Whether the agent and AI app settings file can be read (it may be missing).
+    pub fn agent_access_readable(&self) -> AppResult<()> {
+        self.read::<BTreeMap<String, AgentAccess>>(ACCESS_FILE)
+            .map(|_| ())
+    }
+
     pub fn save_agent_access(&self, connection_id: &str, access: AgentAccess) -> AppResult<()> {
         let mut all: BTreeMap<String, AgentAccess> = self.read(ACCESS_FILE)?;
         all.insert(connection_id.to_string(), clean_access(access)?);
@@ -273,7 +279,9 @@ pub fn clean_note(text: &str) -> AppResult<String> {
     if text.contains('‹')
         || crate::ai::agent::mask::value_kind(&serde_json::Value::String(text.clone())).is_some()
     {
-        return Err("A note describes the database, not the data in it. Remove the value (an email, number or name) from it.".into());
+        return Err("A note describes the database, not the data in it. Remove the value (an email, a phone, card or \
+                    ID number, an IP address or a masked token) from it."
+            .into());
     }
     Ok(text)
 }

@@ -92,8 +92,8 @@ export function NeverSendPicker({ target, value, onChange, locked = [], label, a
       )}
       <BareNameInput onAdd={(name) => onChange(addEntries(value, [name]))} />
       <p className={styles.subtle}>
-        SayQL matches by column name: a column picked here is also kept out wherever a column of the same name appears. Queries
-        that use one are refused.
+        A picked column is kept out of that table only; a name added for every table is kept out wherever it appears.
+        Queries that use one are refused.
       </p>
     </div>
   );

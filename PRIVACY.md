@@ -12,8 +12,9 @@ SayQL is a desktop app. It has no SayQL account, no SayQL server and no telemetr
 - **Suggested notes:** notes AI apps suggest over MCP (`suggest_note`) wait in a file in SayQL's folder, with the
   app's name, the note and its evidence, until you accept (it becomes a database note) or dismiss them. Notes and
   evidence that look like values from your data are refused.
-- **Agent activity:** what AI apps ran through SayQL over MCP (the app's name, the connection, the SQL and the
-  row count, never rows), in a file in SayQL's folder. **Clear the log** in Settings → AI apps → Activity deletes it.
+- **Agent activity:** what AI apps did through SayQL over MCP (the app's name as it reports it, the tool, the
+  connection, the SQL and the row count, never rows; errors only as a fixed description, without the values a
+  database message can quote), in a file in SayQL's folder. **Clear the log** in Settings → AI apps → Activity deletes it.
 - **Voice input** is turned into text on your computer by a speech model (Whisper) that runs locally. Audio is
   kept in memory only while you talk, is never saved, and is never sent anywhere.
 
@@ -27,7 +28,7 @@ SayQL sends data only to services you configure, and only when you use them:
 | You ask in plain English | Your question; the database's table and column names, types, keys, enum values and row estimates; the current SQL for follow-ups, Explain, Fix and Improve; any skill you add | The AI provider you chose in Settings |
 | A query fails and SayQL fixes it | The query and the database's error message, with values from your rows masked | The AI provider you chose |
 | You use agent mode on a connection where you turned it on | Your question, the schema, saved database notes, the agent's queries and, depending on your setting for that connection, row counts only, counts and column summaries, or up to 20 rows per query with likely personal data masked | The AI provider you chose |
-| An AI app uses SayQL through MCP | The schemas and saved database notes, and what you allow it to see of query results on that connection: by default counts and summaries, no row values (never the values of columns you marked never send) | That AI app (for example Claude or Cursor) |
+| An AI app uses SayQL through MCP | The schemas and saved database notes, and what you allow it to see of query results on that connection: by default counts and summaries, no row values (never the values of columns you marked never send). Database errors below all rows as a fixed description, without the values they can quote | That AI app (for example Claude or Cursor) |
 | You sign in to a SayQL Team server and use a team connection | Your invite code (once), requests for team connections and their schemas, and your queries with the questions they answer and where they came from (Ask box, editor or agent mode) | Your company's SayQL server, at the address you entered |
 | You use the Ask box or agent mode on a team connection, when your team provides AI | Your question, the schema, saved database notes and, in agent mode if allowed, masked rows or summaries (what the AI provider would otherwise get), labelled with where it came from and the connection | Your company's SayQL server, which forwards it to your company's AI provider and keeps only token counts |
 | You turn on voice input, once | A download request for the speech model (about 82 MB), checked against a fixed SHA-256 before use. No audio is sent | Hugging Face (huggingface.co/ggerganov/whisper.cpp) |
@@ -40,6 +41,11 @@ When your team also provides AI (team AI), AI requests on team connections go to
 **SayQL AI credits** are the exception, and only if you or your team admin choose them. In the app (Settings → AI provider → SayQL AI credits), your AI requests go to SayQL's endpoint at `sayql.dev/api/ai` with your credit key, and on to Anthropic with SayQL's key. On a team server: instead of a company AI key, the team server then uses a prepaid SayQL credit key, and its AI provider is SayQL's endpoint at `sayql.dev/api/ai`. Those requests (the question, the schema and, in agent mode if allowed, masked rows) pass through SayQL's service on their way to Anthropic, with SayQL's own Anthropic key. SayQL stores the model and token counts of each request against your team's balance, never the prompt or the answer. Anthropic handles the request under its commercial terms.
 
 The Ask box never sends rows from your tables to an AI provider. Agent mode can, only on connections where you turn it on; it is off by default. Masking in agent mode is best effort: a free-text column can hold anything, so mark such columns "never send", or keep results to counts. With "Ask before each send", you see exactly what would go before it goes. With a local provider (Ollama or LM Studio), AI requests don't leave your computer.
+
+Over MCP, the counts-and-summaries default and masked rows keep your rows from reaching an AI app by accident,
+but a count or a sum is still a fact about your rows, and an agent set on it can turn a value into one (by
+counting rows `WHERE email LIKE 'a%'`). Columns marked "never send" are the firm line: SayQL refuses any query
+that could read them, in any form it can't rule out.
 
 ## The website
 

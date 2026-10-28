@@ -19,6 +19,8 @@ const APPS_FILE: &str = "mcp-apps.json";
 const MAX_LOG_BYTES: u64 = 1024 * 1024;
 /// Longest SQL kept per entry.
 const MAX_SQL: usize = 4000;
+/// The tools counted as queries in an app's summary.
+const QUERY_TOOLS: &[&str] = &["run_query", "export_csv"];
 /// What an AI app that doesn't say its name is called.
 pub const UNKNOWN_APP: &str = "Unknown app";
 
@@ -145,10 +147,14 @@ impl Store {
         Ok(())
     }
 
-    pub fn is_app_blocked(&self, app: &str) -> bool {
-        self.read::<Apps>(APPS_FILE)
-            .map(|a| a.blocked.iter().any(|b| b.eq_ignore_ascii_case(app)))
-            .unwrap_or(false)
+    /// Whether the person blocked `app` (by the name the app reports). An unreadable list is
+    /// an error, never "not blocked".
+    pub fn is_app_blocked(&self, app: &str) -> AppResult<bool> {
+        Ok(self
+            .read::<Apps>(APPS_FILE)?
+            .blocked
+            .iter()
+            .any(|b| b.eq_ignore_ascii_case(app)))
     }
 
     pub fn set_app_blocked(&self, app: &str, blocked: bool) -> AppResult<()> {
@@ -164,6 +170,10 @@ impl Store {
     pub fn app_summaries(&self) -> AppResult<Vec<AppSummary>> {
         let mut by_name: BTreeMap<String, AppSummary> = BTreeMap::new();
         for a in self.app_activity(usize::MAX)? {
+            // Reads (list_*, describe_schema) and hand-offs are logged too; count queries.
+            if !QUERY_TOOLS.contains(&a.tool.as_str()) {
+                continue;
+            }
             let s = by_name.entry(a.app.clone()).or_insert(AppSummary {
                 name: a.app.clone(),
                 blocked: false,
@@ -253,7 +263,7 @@ mod tests {
         s.log_app_activity(entry("Claude Code", 9, "SELECT 2"))
             .unwrap();
         s.set_app_blocked("Cursor", true).unwrap();
-        assert!(s.is_app_blocked("cursor") && !s.is_app_blocked("Claude Code"));
+        assert!(s.is_app_blocked("cursor").unwrap() && !s.is_app_blocked("Claude Code").unwrap());
         let apps = s.app_summaries().unwrap();
         assert_eq!(
             apps[0],
@@ -274,7 +284,22 @@ mod tests {
             }
         );
         s.set_app_blocked("Cursor", false).unwrap();
-        assert!(!s.is_app_blocked("Cursor"));
+        assert!(!s.is_app_blocked("Cursor").unwrap());
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn an_unreadable_block_list_fails_closed_and_stays_put() {
+        let (s, dir) = store();
+        std::fs::write(dir.join(APPS_FILE), r#"{"blocked": ["Cursor""#).unwrap();
+        let s = s.without_repair();
+        assert!(s.is_app_blocked("Claude Code").is_err());
+        assert!(s.set_app_blocked("Cursor", false).is_err());
+        assert_eq!(
+            std::fs::read_to_string(dir.join(APPS_FILE)).unwrap(),
+            r#"{"blocked": ["Cursor""#,
+            "the file is left for the app to repair"
+        );
         let _ = std::fs::remove_dir_all(dir);
     }
 }

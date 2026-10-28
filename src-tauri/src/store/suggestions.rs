@@ -60,6 +60,69 @@ fn clean_evidence(text: &str) -> AppResult<String> {
     Ok(text)
 }
 
+/// Words that start with a capital and aren't a person's name.
+const NOT_NAMES: &[&str] = &[
+    "january",
+    "february",
+    "march",
+    "april",
+    "may",
+    "june",
+    "july",
+    "august",
+    "september",
+    "october",
+    "november",
+    "december",
+    "monday",
+    "tuesday",
+    "wednesday",
+    "thursday",
+    "friday",
+    "saturday",
+    "sunday",
+    "sayql",
+    "postgres",
+    "postgresql",
+    "mysql",
+    "sqlite",
+    "sql",
+    "server",
+];
+
+/// What in an AI app's suggested note looks like a value from rows, beyond what `clean_note`
+/// refuses: a number of five or more digits or with thousands separators (an amount, an id),
+/// or two capitalised words in a row (a person's name). Dates like 2026-03-12 are fine.
+fn looks_like_value(text: &str) -> Option<&'static str> {
+    let mut run = 0;
+    let chars: Vec<char> = text.chars().collect();
+    for (i, c) in chars.iter().enumerate() {
+        if c.is_ascii_digit() {
+            run += 1;
+            if run >= 5 {
+                return Some("a long number");
+            }
+        } else if *c == ',' && run > 0 && chars.get(i + 1).is_some_and(char::is_ascii_digit) {
+            return Some("a number");
+        } else {
+            run = 0;
+        }
+    }
+    let title = |w: &str| {
+        let w = w.trim_matches(|c: char| !c.is_alphabetic());
+        let mut cs = w.chars();
+        cs.next().is_some_and(char::is_uppercase)
+            && w.chars().count() >= 2
+            && cs.all(char::is_lowercase)
+            && !NOT_NAMES.contains(&w.to_lowercase().as_str())
+    };
+    let words: Vec<&str> = text.split_whitespace().collect();
+    words
+        .windows(2)
+        .any(|w| title(w[0]) && title(w[1]))
+        .then_some("what looks like a person's name")
+}
+
 impl Store {
     /// Every waiting suggestion, oldest first.
     pub fn note_suggestions(&self) -> AppResult<Vec<NoteSuggestion>> {
@@ -78,6 +141,13 @@ impl Store {
     ) -> AppResult<NoteSuggestion> {
         let text = clean_note(text)?;
         let evidence = clean_evidence(evidence)?;
+        if let Some(what) = looks_like_value(&text).or_else(|| looks_like_value(&evidence)) {
+            return Err(format!(
+                "A suggested note describes the database, not the data in it, and this one holds {what}. Describe the \
+                 fact without values from rows (no names, amounts or long numbers)."
+            )
+            .into());
+        }
         let database = database
             .map(str::trim)
             .filter(|d| !d.is_empty())
@@ -254,6 +324,14 @@ mod tests {
                 "row for dana@example.com has vip = true",
             ),
             ("customers.vip marks paying customers", &"y".repeat(601)),
+            // Found by the governance test (2026-10-28): names and amounts were accepted.
+            ("the VIP customer is Alice Smith", ""),
+            ("top salary is 130000", ""),
+            ("top salary is 130,000", ""),
+            (
+                "customers.vip marks paying customers",
+                "Alice Smith has vip = true",
+            ),
         ] {
             assert!(
                 s.suggest_note("c1", None, text, evidence, "Cursor")
@@ -261,7 +339,16 @@ mod tests {
                 "{text} / {evidence}"
             );
         }
-        for i in 2..MAX_PENDING {
+        // Schema facts with dates, codes and product names still go through.
+        s.suggest_note(
+            "c1",
+            None,
+            "orders_legacy is unused since March 2026; use orders_v2 (status 3 = cancelled in Stripe)",
+            EVIDENCE,
+            "Cursor",
+        )
+        .unwrap();
+        for i in 3..MAX_PENDING {
             s.suggest_note("c1", None, &format!("table t{i} is unused"), "", "Cursor")
                 .unwrap();
         }

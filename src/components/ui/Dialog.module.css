@@ -67,3 +67,7 @@
 .spacer {
   flex: 1;
 }
+
+.dialog:focus {
+  outline: none;
+}
