@@ -1,17 +1,17 @@
 //! Process-wide state shared by the Tauri commands.
 
+use crate::ai::Endpoint;
 use crate::ai::agent::run::{History, Reply};
 use crate::db::{self, DbPool};
 use crate::error::AppResult;
 use crate::schema::{self, Schema};
 use crate::store::{Store, secrets};
-use crate::ai::Endpoint;
 use crate::team::ai::AiStatus;
 use crate::team::{self, TeamClient, TeamConnection, TeamPool};
-use std::sync::atomic::{AtomicBool, Ordering};
 use crate::voice::Voice;
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::time::Duration;
 use tauri::async_runtime::JoinHandle;
@@ -34,11 +34,17 @@ pub struct Target {
 
 impl Target {
     pub fn new(connection_id: String, database: Option<String>) -> Self {
-        Target { connection_id, database: database.filter(|d| !d.trim().is_empty()) }
+        Target {
+            connection_id,
+            database: database.filter(|d| !d.trim().is_empty()),
+        }
     }
 
     pub fn default_of(connection_id: &str) -> Self {
-        Target { connection_id: connection_id.to_string(), database: None }
+        Target {
+            connection_id: connection_id.to_string(),
+            database: None,
+        }
     }
 }
 
@@ -117,11 +123,15 @@ impl AppState {
 
     /// The pool of an open target, for running queries.
     pub fn open_pool(&self, target: &Target) -> AppResult<DbPool> {
-        self.pool(target).ok_or_else(|| "Not connected. Open the database first.".into())
+        self.pool(target)
+            .ok_or_else(|| "Not connected. Open the database first.".into())
     }
 
     pub fn schema(&self, target: &Target) -> AppResult<Arc<LoadedSchema>> {
-        lock(&self.schemas).get(target).cloned().ok_or_else(|| "Not connected. Open the database first.".into())
+        lock(&self.schemas)
+            .get(target)
+            .cloned()
+            .ok_or_else(|| "Not connected. Open the database first.".into())
     }
 
     pub fn set_schema(&self, target: Target, loaded: LoadedSchema) {
@@ -193,14 +203,24 @@ impl AppState {
 
     /// Passes the person's reply to a waiting run. False when the run has ended.
     pub fn reply_agent(&self, run_id: &str, reply: Reply) -> bool {
-        lock(&self.agents).values().find(|r| r.run_id == run_id).is_some_and(|r| r.replies.send(reply).is_ok())
+        lock(&self.agents)
+            .values()
+            .find(|r| r.run_id == run_id)
+            .is_some_and(|r| r.replies.send(reply).is_ok())
     }
 
     /// The signed-in team server. Reads the keychain only when settings say there is one.
     pub fn team_client(&self) -> AppResult<Option<TeamClient>> {
-        let Some(account) = self.store.settings()?.team else { return Ok(None) };
+        let Some(account) = self.store.settings()?.team else {
+            return Ok(None);
+        };
         let token = secrets::team_token().ok_or(team::SIGNED_OUT)?;
-        Ok(Some(TeamClient::new(self.http.clone(), account.server, token, Some(self.store.clone()))))
+        Ok(Some(TeamClient::new(
+            self.http.clone(),
+            account.server,
+            token,
+            Some(self.store.clone()),
+        )))
     }
 
     pub fn set_team_connections(&self, list: Vec<TeamConnection>) {
@@ -210,7 +230,10 @@ impl AppState {
     /// A team connection by its id in the app (`team:…`).
     pub fn team_connection(&self, id: &str) -> Option<TeamConnection> {
         let server_id = id.strip_prefix(team::ID_PREFIX)?;
-        lock(&self.team_connections).iter().find(|c| c.id == server_id).cloned()
+        lock(&self.team_connections)
+            .iter()
+            .find(|c| c.id == server_id)
+            .cloned()
     }
 
     pub fn set_team_ai(&self, status: Option<AiStatus>) {
@@ -232,14 +255,26 @@ impl AppState {
     /// Team AI, if it applies to `connection_id`: a team connection, signed in, with team AI on.
     /// Personal connections always get `None`, and keep the person's own provider and key.
     /// `own_ready`: the person has their own AI to fall back on if the server turns team AI off.
-    pub fn team_ai_route(&self, connection_id: &str, source: &str, own_ready: bool) -> Option<(Endpoint, AiStatus)> {
+    pub fn team_ai_route(
+        &self,
+        connection_id: &str,
+        source: &str,
+        own_ready: bool,
+    ) -> Option<(Endpoint, AiStatus)> {
         // Personal connections never reach the keychain or the team server from here.
         if !connection_id.starts_with(team::ID_PREFIX) || self.team_ai_off.load(Ordering::Relaxed) {
             return None;
         }
         let status = lock(&self.team_ai).clone()?;
         let client = self.team_client().ok().flatten()?;
-        team::ai::route(connection_id, &status, &client, source, self.team_ai_off.clone(), own_ready)
+        team::ai::route(
+            connection_id,
+            &status,
+            &client,
+            source,
+            self.team_ai_off.clone(),
+            own_ready,
+        )
     }
 
     /// Forgets the team connections and closes their tabs' pools, after signing out.
@@ -260,7 +295,10 @@ impl AppState {
 
     fn kind_of(&self, id: &str) -> AppResult<db::Kind> {
         if id.starts_with(team::ID_PREFIX) {
-            return self.team_connection(id).and_then(|c| c.kind()).ok_or_else(|| team::SIGNED_OUT.into());
+            return self
+                .team_connection(id)
+                .and_then(|c| c.kind())
+                .ok_or_else(|| team::SIGNED_OUT.into());
         }
         Ok(self.store.connection(id)?.kind)
     }
@@ -273,9 +311,17 @@ impl AppState {
         let id = &target.connection_id;
         if id.starts_with(team::ID_PREFIX) {
             let conn = self.team_connection(id).ok_or(team::SIGNED_OUT)?;
-            let kind = conn.kind().ok_or("Your team's server lists this connection with a database type SayQL doesn't know.")?;
+            let kind = conn.kind().ok_or(
+                "Your team's server lists this connection with a database type SayQL doesn't know.",
+            )?;
             let client = self.team_client()?.ok_or(team::SIGNED_OUT)?;
-            let pool = DbPool::Team(TeamPool { client, id: conn.id, kind, source: team::Source::Editor, question: None });
+            let pool = DbPool::Team(TeamPool {
+                client,
+                id: conn.id,
+                kind,
+                source: team::Source::Editor,
+                question: None,
+            });
             self.set_pool(target.clone(), pool.clone());
             return Ok(pool);
         }
@@ -297,7 +343,13 @@ impl AppState {
         let pool = self.target_pool(target).await?;
         let schema = db::introspect(&pool, kind).await?;
         let schema_text = schema::render_full(&schema);
-        self.set_schema(target.clone(), LoadedSchema { schema: schema.clone(), schema_text });
+        self.set_schema(
+            target.clone(),
+            LoadedSchema {
+                schema: schema.clone(),
+                schema_text,
+            },
+        );
         Ok(schema)
     }
 }

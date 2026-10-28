@@ -24,7 +24,10 @@ const LEGACY_DIR_NAME: &str = "com.askdb.app";
 /// `dir` has no connections yet). The old files are left in place.
 fn copy_legacy_files(dir: &std::path::Path) {
     let legacy = dir.with_file_name(LEGACY_DIR_NAME);
-    if legacy == dir || dir.join(CONNECTIONS_FILE).exists() || !legacy.join(CONNECTIONS_FILE).exists() {
+    if legacy == dir
+        || dir.join(CONNECTIONS_FILE).exists()
+        || !legacy.join(CONNECTIONS_FILE).exists()
+    {
         return;
     }
     for file in [CONNECTIONS_FILE, SETTINGS_FILE, SCRIPTS_FILE] {
@@ -92,11 +95,19 @@ pub struct ProviderSettings {
 
 impl ProviderSettings {
     pub fn model(&self, expert: bool) -> &str {
-        if expert && !self.expert_model.is_empty() { &self.expert_model } else { &self.typing_model }
+        if expert && !self.expert_model.is_empty() {
+            &self.expert_model
+        } else {
+            &self.typing_model
+        }
     }
 
     pub fn agent(&self) -> &str {
-        if self.agent_model.is_empty() { self.model(true) } else { &self.agent_model }
+        if self.agent_model.is_empty() {
+            self.model(true)
+        } else {
+            &self.agent_model
+        }
     }
 }
 
@@ -246,12 +257,14 @@ impl Store {
     /// replaces a file that doesn't parse.
     fn write<T: Serialize>(&self, name: &str, value: &T) -> AppResult<()> {
         let path = self.dir.join(name);
-        if let Ok(text) = std::fs::read_to_string(&path) {
-            if serde_json::from_str::<serde_json::Value>(&text).is_err() {
-                return Err(self.set_aside(name));
-            }
+        if let Ok(text) = std::fs::read_to_string(&path)
+            && serde_json::from_str::<serde_json::Value>(&text).is_err()
+        {
+            return Err(self.set_aside(name));
         }
-        let tmp = self.dir.join(format!(".{name}.{}.tmp", uuid::Uuid::new_v4()));
+        let tmp = self
+            .dir
+            .join(format!(".{name}.{}.tmp", uuid::Uuid::new_v4()));
         let result = (|| -> AppResult<()> {
             use std::io::Write;
             let mut file = std::fs::File::create(&tmp)?;
@@ -280,7 +293,10 @@ impl Store {
     }
 
     pub fn connection(&self, id: &str) -> AppResult<ConnConfig> {
-        self.connections()?.into_iter().find(|c| c.id == id).ok_or_else(|| "Connection not found.".into())
+        self.connections()?
+            .into_iter()
+            .find(|c| c.id == id)
+            .ok_or_else(|| "Connection not found.".into())
     }
 
     pub fn save_connections(&self, list: &[ConnConfig]) -> AppResult<()> {
@@ -318,19 +334,35 @@ mod tests {
 
     #[test]
     fn settings_saved_before_other_providers_still_read_as_claude() {
-        let s: Settings = serde_json::from_str(r#"{"typingModel":"claude-sonnet-5-5","expertModel":"claude-opus-5-5"}"#).unwrap();
+        let s: Settings = serde_json::from_str(
+            r#"{"typingModel":"claude-sonnet-5-5","expertModel":"claude-opus-5-5"}"#,
+        )
+        .unwrap();
         assert_eq!(s.provider, "anthropic");
-        assert_eq!(s.provider_settings("anthropic").model(false), "claude-sonnet-5-5");
+        assert_eq!(
+            s.provider_settings("anthropic").model(false),
+            "claude-sonnet-5-5"
+        );
         assert_eq!(s.provider_settings("ollama"), ProviderSettings::default());
     }
 
     #[test]
     fn an_empty_expert_model_falls_back_to_the_typing_model() {
         let mut s = Settings::default();
-        s.set_provider_settings("ollama", ProviderSettings { typing_model: "qwen3".into(), ..Default::default() });
+        s.set_provider_settings(
+            "ollama",
+            ProviderSettings {
+                typing_model: "qwen3".into(),
+                ..Default::default()
+            },
+        );
         let p = s.provider_settings("ollama");
         assert_eq!((p.model(false), p.model(true)), ("qwen3", "qwen3"));
-        assert_eq!(s.typing_model, crate::ai::DEFAULT_TYPING_MODEL, "Claude's choice is untouched");
+        assert_eq!(
+            s.typing_model,
+            crate::ai::DEFAULT_TYPING_MODEL,
+            "Claude's choice is untouched"
+        );
     }
 
     #[test]
@@ -338,7 +370,11 @@ mod tests {
         let base = std::env::temp_dir().join(format!("sayql-store-{}", uuid::Uuid::new_v4()));
         let legacy = base.join(LEGACY_DIR_NAME);
         std::fs::create_dir_all(&legacy).unwrap();
-        std::fs::write(legacy.join(CONNECTIONS_FILE), r#"[{"id":"x","name":"Sales","kind":"mssql"}]"#).unwrap();
+        std::fs::write(
+            legacy.join(CONNECTIONS_FILE),
+            r#"[{"id":"x","name":"Sales","kind":"mssql"}]"#,
+        )
+        .unwrap();
         std::fs::write(legacy.join(SCRIPTS_FILE), "[]").unwrap();
 
         let store = Store::new(base.join("com.sayql.app"));
@@ -353,12 +389,17 @@ mod tests {
     }
 
     fn temp_store() -> (PathBuf, Store) {
-        let dir = std::env::temp_dir().join(format!("sayql-store-{}", uuid::Uuid::new_v4())).join("com.sayql.app");
+        let dir = std::env::temp_dir()
+            .join(format!("sayql-store-{}", uuid::Uuid::new_v4()))
+            .join("com.sayql.app");
         (dir.clone(), Store::new(dir))
     }
 
     fn files_in(dir: &std::path::Path) -> Vec<String> {
-        let mut names: Vec<String> = std::fs::read_dir(dir).unwrap().map(|e| e.unwrap().file_name().to_string_lossy().into_owned()).collect();
+        let mut names: Vec<String> = std::fs::read_dir(dir)
+            .unwrap()
+            .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+            .collect();
         names.sort();
         names
     }
@@ -378,10 +419,20 @@ mod tests {
         std::fs::write(dir.join(CONNECTIONS_FILE), bad).unwrap();
 
         let err = store.connections().unwrap_err().to_string();
-        let backups: Vec<String> = files_in(&dir).into_iter().filter(|n| n.starts_with("connections.json.corrupt-")).collect();
+        let backups: Vec<String> = files_in(&dir)
+            .into_iter()
+            .filter(|n| n.starts_with("connections.json.corrupt-"))
+            .collect();
         assert_eq!(backups.len(), 1);
-        assert!(err.contains(&backups[0]), "the error says where the backup is: {err}");
-        assert_eq!(std::fs::read_to_string(dir.join(&backups[0])).unwrap(), bad, "the backup is the original bytes");
+        assert!(
+            err.contains(&backups[0]),
+            "the error says where the backup is: {err}"
+        );
+        assert_eq!(
+            std::fs::read_to_string(dir.join(&backups[0])).unwrap(),
+            bad,
+            "the backup is the original bytes"
+        );
         assert!(!dir.join(CONNECTIONS_FILE).exists());
 
         // Saving now starts a fresh file; the backup is untouched.
@@ -395,18 +446,34 @@ mod tests {
         let (dir, store) = temp_store();
         std::fs::write(dir.join(SETTINGS_FILE), "{not json").unwrap();
 
-        let err = store.save_settings(&Settings::default()).unwrap_err().to_string();
+        let err = store
+            .save_settings(&Settings::default())
+            .unwrap_err()
+            .to_string();
         assert!(err.contains("settings.json.corrupt-"), "{err}");
-        let backup = files_in(&dir).into_iter().find(|n| n.starts_with("settings.json.corrupt-")).unwrap();
-        assert_eq!(std::fs::read_to_string(dir.join(backup)).unwrap(), "{not json");
-        assert!(!dir.join(SETTINGS_FILE).exists(), "nothing was written over it");
+        let backup = files_in(&dir)
+            .into_iter()
+            .find(|n| n.starts_with("settings.json.corrupt-"))
+            .unwrap();
+        assert_eq!(
+            std::fs::read_to_string(dir.join(backup)).unwrap(),
+            "{not json"
+        );
+        assert!(
+            !dir.join(SETTINGS_FILE).exists(),
+            "nothing was written over it"
+        );
         let _ = std::fs::remove_dir_all(dir.parent().unwrap());
     }
 
     #[test]
     fn writes_replace_the_file_whole_and_leave_no_temp_files() {
         let (dir, store) = temp_store();
-        let skill = |slug: &str| Skill { slug: slug.into(), description: String::new(), instruction: "x".into() };
+        let skill = |slug: &str| Skill {
+            slug: slug.into(),
+            description: String::new(),
+            instruction: "x".into(),
+        };
         store.save_skills(&[skill("a"), skill("b")]).unwrap();
         store.save_skills(&[skill("c")]).unwrap();
 

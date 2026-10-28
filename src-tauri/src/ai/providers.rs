@@ -46,11 +46,34 @@ const fn openai(
     base_url: &'static str,
     key_placeholder: &'static str,
 ) -> Provider {
-    Provider { id, label, note, api: Api::OpenAi, base_url, key: KeyNeed::Required, key_placeholder, local: false }
+    Provider {
+        id,
+        label,
+        note,
+        api: Api::OpenAi,
+        base_url,
+        key: KeyNeed::Required,
+        key_placeholder,
+        local: false,
+    }
 }
 
-const fn local(id: &'static str, label: &'static str, note: &'static str, base_url: &'static str) -> Provider {
-    Provider { id, label, note, api: Api::OpenAi, base_url, key: KeyNeed::None, key_placeholder: "", local: true }
+const fn local(
+    id: &'static str,
+    label: &'static str,
+    note: &'static str,
+    base_url: &'static str,
+) -> Provider {
+    Provider {
+        id,
+        label,
+        note,
+        api: Api::OpenAi,
+        base_url,
+        key: KeyNeed::None,
+        key_placeholder: "",
+        local: true,
+    }
 }
 
 pub const PROVIDERS: &[Provider] = &[
@@ -74,7 +97,13 @@ pub const PROVIDERS: &[Provider] = &[
         key_placeholder: "sqlc_…",
         local: false,
     },
-    openai("openai", "OpenAI", "GPT models with an OpenAI API key.", "https://api.openai.com/v1", "sk-…"),
+    openai(
+        "openai",
+        "OpenAI",
+        "GPT models with an OpenAI API key.",
+        "https://api.openai.com/v1",
+        "sk-…",
+    ),
     openai(
         "gemini",
         "Google Gemini",
@@ -82,12 +111,46 @@ pub const PROVIDERS: &[Provider] = &[
         "https://generativelanguage.googleapis.com/v1beta/openai",
         "AIza…",
     ),
-    openai("openrouter", "OpenRouter", "Hundreds of models from many labs with one key.", "https://openrouter.ai/api/v1", "sk-or-…"),
-    openai("mistral", "Mistral", "Mistral models with a Mistral API key.", "https://api.mistral.ai/v1", ""),
-    openai("groq", "Groq", "Open models on very fast hardware.", "https://api.groq.com/openai/v1", "gsk_…"),
-    openai("deepseek", "DeepSeek", "DeepSeek models with a DeepSeek API key.", "https://api.deepseek.com/v1", "sk-…"),
-    local("ollama", "Ollama", "Runs on this computer. Nothing leaves your machine.", "http://localhost:11434/v1"),
-    local("lmstudio", "LM Studio", "Runs on this computer. Nothing leaves your machine.", "http://localhost:1234/v1"),
+    openai(
+        "openrouter",
+        "OpenRouter",
+        "Hundreds of models from many labs with one key.",
+        "https://openrouter.ai/api/v1",
+        "sk-or-…",
+    ),
+    openai(
+        "mistral",
+        "Mistral",
+        "Mistral models with a Mistral API key.",
+        "https://api.mistral.ai/v1",
+        "",
+    ),
+    openai(
+        "groq",
+        "Groq",
+        "Open models on very fast hardware.",
+        "https://api.groq.com/openai/v1",
+        "gsk_…",
+    ),
+    openai(
+        "deepseek",
+        "DeepSeek",
+        "DeepSeek models with a DeepSeek API key.",
+        "https://api.deepseek.com/v1",
+        "sk-…",
+    ),
+    local(
+        "ollama",
+        "Ollama",
+        "Runs on this computer. Nothing leaves your machine.",
+        "http://localhost:11434/v1",
+    ),
+    local(
+        "lmstudio",
+        "LM Studio",
+        "Runs on this computer. Nothing leaves your machine.",
+        "http://localhost:1234/v1",
+    ),
     Provider {
         id: "custom",
         label: "Other (OpenAI-compatible)",
@@ -110,7 +173,9 @@ pub fn clean_base_url(raw: &str) -> Result<String, String> {
     if url.is_empty() || url.starts_with("https://") || url.starts_with("http://") {
         Ok(url.to_string())
     } else {
-        Err(format!("The base URL must start with https:// or http:// (got \"{url}\")."))
+        Err(format!(
+            "The base URL must start with https:// or http:// (got \"{url}\")."
+        ))
     }
 }
 
@@ -122,14 +187,21 @@ mod tests {
     fn ids_are_unique_and_claude_is_first() {
         assert_eq!(PROVIDERS[0].id, ANTHROPIC);
         for (i, p) in PROVIDERS.iter().enumerate() {
-            assert!(PROVIDERS[i + 1..].iter().all(|q| q.id != p.id), "duplicate {}", p.id);
+            assert!(
+                PROVIDERS[i + 1..].iter().all(|q| q.id != p.id),
+                "duplicate {}",
+                p.id
+            );
             assert_eq!(p.local, p.key == KeyNeed::None, "{}", p.id);
         }
     }
 
     #[test]
     fn base_urls_are_cleaned_and_checked() {
-        assert_eq!(clean_base_url(" http://localhost:11434/v1/ ").unwrap(), "http://localhost:11434/v1");
+        assert_eq!(
+            clean_base_url(" http://localhost:11434/v1/ ").unwrap(),
+            "http://localhost:11434/v1"
+        );
         assert_eq!(clean_base_url("").unwrap(), "");
         assert!(clean_base_url("localhost:11434").is_err());
     }

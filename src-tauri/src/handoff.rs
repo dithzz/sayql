@@ -126,14 +126,20 @@ pub fn text(field: &str, value: &str, max: usize) -> Result<String, String> {
 }
 
 fn optional_text(field: &str, value: Option<&str>, max: usize) -> Result<Option<String>, String> {
-    Ok(value.map(|v| text(field, v, max)).transpose()?.filter(|v| !v.is_empty()))
+    Ok(value
+        .map(|v| text(field, v, max))
+        .transpose()?
+        .filter(|v| !v.is_empty()))
 }
 
 pub fn sql(value: &str) -> Result<String, String> {
     if value.trim().is_empty() {
         return Err("`sql` is empty.".into());
     }
-    if value.chars().any(|c| c.is_control() && !matches!(c, '\n' | '\r' | '\t')) {
+    if value
+        .chars()
+        .any(|c| c.is_control() && !matches!(c, '\n' | '\r' | '\t'))
+    {
         return Err("`sql` has control characters.".into());
     }
     if value.chars().count() > MAX_SQL_CHARS {
@@ -148,7 +154,9 @@ pub fn kind(value: &str) -> Result<Kind, String> {
         "mysql" | "mariadb" => Ok(Kind::Mysql),
         "sqlite" => Ok(Kind::Sqlite),
         "sqlserver" | "mssql" | "azuresql" => Ok(Kind::Mssql),
-        other => Err(format!("Unknown `type` {other:?}: use postgres, mysql, sqlite or sqlserver.")),
+        other => Err(format!(
+            "Unknown `type` {other:?}: use postgres, mysql, sqlite or sqlserver."
+        )),
     }
 }
 
@@ -162,28 +170,44 @@ fn kind_name(k: Kind) -> &'static str {
 }
 
 pub fn port(value: i64) -> Result<u16, String> {
-    u16::try_from(value).ok().filter(|p| *p > 0).ok_or_else(|| format!("`port` {value} is not between 1 and 65535."))
+    u16::try_from(value)
+        .ok()
+        .filter(|p| *p > 0)
+        .ok_or_else(|| format!("`port` {value} is not between 1 and 65535."))
 }
 
 /// A connection id from list_connections: letters, digits, `-` and `_`.
 pub fn connection_id(value: &str) -> Result<String, String> {
-    saved_id(value).ok_or_else(|| format!("`connection_id` {value:?} is not a SayQL connection id; use one from list_connections."))
+    saved_id(value).ok_or_else(|| {
+        format!(
+            "`connection_id` {value:?} is not a SayQL connection id; use one from list_connections."
+        )
+    })
 }
 
 /// A script id from list_scripts.
 pub fn script_id(value: &str) -> Result<String, String> {
-    saved_id(value).ok_or_else(|| format!("`script_id` {value:?} is not a SayQL script id; use one from list_scripts."))
+    saved_id(value).ok_or_else(|| {
+        format!("`script_id` {value:?} is not a SayQL script id; use one from list_scripts.")
+    })
 }
 
 fn saved_id(value: &str) -> Option<String> {
     let v = value.trim();
-    let ok = !v.is_empty() && v.len() <= 64 && v.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_');
+    let ok = !v.is_empty()
+        && v.len() <= 64
+        && v.chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_');
     ok.then(|| v.to_string())
 }
 
 /// The AI app's name as shown in SayQL ("From Claude (MCP)").
 pub fn source(value: Option<&str>) -> Option<String> {
-    let v: String = value?.chars().filter(|c| !c.is_control()).take(40).collect();
+    let v: String = value?
+        .chars()
+        .filter(|c| !c.is_control())
+        .take(40)
+        .collect();
     Some(v.trim().to_string()).filter(|v| !v.is_empty())
 }
 
@@ -193,7 +217,8 @@ pub fn connection_draft(
     port_value: Option<i64>,
     flag: impl Fn(&str) -> Result<Option<bool>, String>,
 ) -> Result<ConnectionDraft, String> {
-    let kind = kind(&get("type").ok_or("`type` is required: postgres, mysql, sqlite or sqlserver.")?)?;
+    let kind =
+        kind(&get("type").ok_or("`type` is required: postgres, mysql, sqlite or sqlserver.")?)?;
     let field = |name: &str, max: usize| text(name, &get(name).unwrap_or_default(), max);
     let draft = ConnectionDraft {
         name: field("name", 100)?,
@@ -204,7 +229,11 @@ pub fn connection_draft(
         user: field("user", 128)?,
         file: field("file", 1024)?,
         ssl: flag("ssl")?,
-        trust_cert: if kind == Kind::Mssql { flag("trust_server_certificate")? } else { None },
+        trust_cert: if kind == Kind::Mssql {
+            flag("trust_server_certificate")?
+        } else {
+            None
+        },
     };
     if kind == Kind::Sqlite && draft.file.is_empty() {
         return Err("`file` (the SQLite database file path) is required for sqlite.".into());
@@ -230,7 +259,8 @@ pub fn query_draft(
 
 /// The `sayql://` link for `handoff`, carrying `token`.
 pub fn to_url(handoff: &Handoff, token: &str) -> Result<String, String> {
-    let mut url = Url::parse(&format!("{SCHEME}://{}", handoff.action.path())).map_err(|e| e.to_string())?;
+    let mut url =
+        Url::parse(&format!("{SCHEME}://{}", handoff.action.path())).map_err(|e| e.to_string())?;
     {
         let mut q = url.query_pairs_mut();
         q.append_pair("token", token);
@@ -252,7 +282,10 @@ pub fn to_url(handoff: &Handoff, token: &str) -> Result<String, String> {
                 put("user", &c.user);
                 put("file", &c.file);
                 put("ssl", &c.ssl.map(|b| b.to_string()).unwrap_or_default());
-                put("trust_server_certificate", &c.trust_cert.map(|b| b.to_string()).unwrap_or_default());
+                put(
+                    "trust_server_certificate",
+                    &c.trust_cert.map(|b| b.to_string()).unwrap_or_default(),
+                );
             }
             Action::OpenQuery(qd) => {
                 put("connection_id", &qd.connection_id);
@@ -294,10 +327,28 @@ pub fn parse_url(link: &str) -> Result<(Handoff, String), String> {
         }
     }
     let allowed: &[&str] = match url.host_str() {
-        Some("new-connection") => {
-            &["token", "from", "type", "name", "host", "port", "database", "user", "file", "ssl", "trust_server_certificate"]
-        }
-        Some("open-query") => &["token", "from", "connection_id", "database", "sql", "title", "question"],
+        Some("new-connection") => &[
+            "token",
+            "from",
+            "type",
+            "name",
+            "host",
+            "port",
+            "database",
+            "user",
+            "file",
+            "ssl",
+            "trust_server_certificate",
+        ],
+        Some("open-query") => &[
+            "token",
+            "from",
+            "connection_id",
+            "database",
+            "sql",
+            "title",
+            "question",
+        ],
         Some("open-script") => &["token", "from", "script_id"],
         _ => return Err("Unknown SayQL link.".into()),
     };
@@ -307,13 +358,21 @@ pub fn parse_url(link: &str) -> Result<(Handoff, String), String> {
     if let Some(k) = params.keys().find(|k| !allowed.contains(&k.as_str())) {
         return Err(format!("Unexpected `{k}` in the link."));
     }
-    let token = params.get("token").cloned().ok_or("The link has no token.")?;
+    let token = params
+        .get("token")
+        .cloned()
+        .ok_or("The link has no token.")?;
     let get = |k: &str| params.get(k).cloned();
     let action = if url.host_str() == Some("open-script") {
-        Action::OpenScript(ScriptRef { script_id: script_id(&get("script_id").unwrap_or_default())? })
+        Action::OpenScript(ScriptRef {
+            script_id: script_id(&get("script_id").unwrap_or_default())?,
+        })
     } else if url.host_str() == Some("new-connection") {
         let port_value = match get("port") {
-            Some(p) => Some(p.parse::<i64>().map_err(|_| format!("`port` {p:?} is not a number."))?),
+            Some(p) => Some(
+                p.parse::<i64>()
+                    .map_err(|_| format!("`port` {p:?} is not a number."))?,
+            ),
             None => None,
         };
         let flag = |k: &str| match get(k).as_deref() {
@@ -325,9 +384,21 @@ pub fn parse_url(link: &str) -> Result<(Handoff, String), String> {
         Action::NewConnection(connection_draft(get, port_value, flag)?)
     } else {
         let p = |k: &str| params.get(k).map(String::as_str);
-        Action::OpenQuery(query_draft(p("connection_id").unwrap_or(""), p("database"), p("sql").unwrap_or(""), p("title"), p("question"))?)
+        Action::OpenQuery(query_draft(
+            p("connection_id").unwrap_or(""),
+            p("database"),
+            p("sql").unwrap_or(""),
+            p("title"),
+            p("question"),
+        )?)
     };
-    Ok((Handoff { source: source(get("from").as_deref()), action }, token))
+    Ok((
+        Handoff {
+            source: source(get("from").as_deref()),
+            action,
+        },
+        token,
+    ))
 }
 
 /// Reads a `sayql://team-join?server=…&code=…` invite link, sent by a team admin. `None` for
@@ -356,7 +427,10 @@ pub fn parse_team_join(link: &str) -> Option<Result<Handoff, String>> {
         }
         let server = crate::team::clean_server(&server.unwrap_or_default())?;
         let code = crate::team::clean_code(&code.unwrap_or_default())?;
-        Ok(Handoff { source: None, action: Action::TeamJoin(TeamJoin { server, code }) })
+        Ok(Handoff {
+            source: None,
+            action: Action::TeamJoin(TeamJoin { server, code }),
+        })
     })())
 }
 
@@ -365,7 +439,10 @@ fn token_dir(config_dir: &Path) -> PathBuf {
 }
 
 fn valid_token(token: &str) -> bool {
-    token.len() == 32 && token.chars().all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase())
+    token.len() == 32
+        && token
+            .chars()
+            .all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase())
 }
 
 /// Writes a one-time token into the app's config folder (the MCP side).
@@ -373,7 +450,8 @@ pub fn issue_token(config_dir: &Path) -> Result<String, String> {
     let dir = token_dir(config_dir);
     std::fs::create_dir_all(&dir).map_err(|e| format!("Could not reach SayQL's folder: {e}"))?;
     let token = uuid::Uuid::new_v4().simple().to_string();
-    std::fs::write(dir.join(&token), b"").map_err(|e| format!("Could not reach SayQL's folder: {e}"))?;
+    std::fs::write(dir.join(&token), b"")
+        .map_err(|e| format!("Could not reach SayQL's folder: {e}"))?;
     Ok(token)
 }
 
@@ -405,7 +483,8 @@ pub fn redeem_token(config_dir: &Path, token: &str) -> bool {
 
 /// Hands the link to the OS, which opens SayQL (starting it if needed).
 pub fn open_in_app(link: &str) -> Result<(), String> {
-    open::that_detached(link).map_err(|e| format!("Could not open SayQL: {e}. Is the SayQL app installed?"))
+    open::that_detached(link)
+        .map_err(|e| format!("Could not open SayQL: {e}. Is the SayQL app installed?"))
 }
 
 #[cfg(test)]
@@ -413,7 +492,10 @@ mod tests {
     use super::*;
 
     fn conn_args(pairs: &[(&str, &str)]) -> impl Fn(&str) -> Option<String> {
-        let m: HashMap<String, String> = pairs.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect();
+        let m: HashMap<String, String> = pairs
+            .iter()
+            .map(|(k, v)| (k.to_string(), v.to_string()))
+            .collect();
         move |k| m.get(k).cloned()
     }
 
@@ -422,21 +504,58 @@ mod tests {
     }
 
     fn pg() -> Handoff {
-        let get = conn_args(&[("type", "postgresql"), ("name", "Prod"), ("host", "db.example.com"), ("database", "shop"), ("user", "reader")]);
-        let draft = connection_draft(get, Some(5433), |k| Ok((k == "ssl").then_some(true))).unwrap();
-        Handoff { source: Some("Claude".into()), action: Action::NewConnection(draft) }
+        let get = conn_args(&[
+            ("type", "postgresql"),
+            ("name", "Prod"),
+            ("host", "db.example.com"),
+            ("database", "shop"),
+            ("user", "reader"),
+        ]);
+        let draft =
+            connection_draft(get, Some(5433), |k| Ok((k == "ssl").then_some(true))).unwrap();
+        Handoff {
+            source: Some("Claude".into()),
+            action: Action::NewConnection(draft),
+        }
     }
 
     #[test]
     fn validates_connection_fields() {
-        let Action::NewConnection(c) = pg().action else { panic!() };
-        assert_eq!((c.kind, c.port, c.ssl, c.trust_cert), (Kind::Postgres, Some(5433), Some(true), None));
+        let Action::NewConnection(c) = pg().action else {
+            panic!()
+        };
+        assert_eq!(
+            (c.kind, c.port, c.ssl, c.trust_cert),
+            (Kind::Postgres, Some(5433), Some(true), None)
+        );
         assert!(kind("oracle").is_err());
         assert!(port(0).is_err() && port(70_000).is_err() && port(1433).is_ok());
-        assert!(connection_draft(conn_args(&[]), None, no_flags).unwrap_err().contains("`type` is required"));
-        assert!(connection_draft(conn_args(&[("type", "sqlite")]), None, no_flags).unwrap_err().contains("`file`"));
-        assert!(connection_draft(conn_args(&[("type", "mysql"), ("host", "a\u{7}b")]), None, no_flags).is_err());
-        assert!(connection_draft(conn_args(&[("type", "mysql"), ("host", &"h".repeat(300))]), None, no_flags).is_err());
+        assert!(
+            connection_draft(conn_args(&[]), None, no_flags)
+                .unwrap_err()
+                .contains("`type` is required")
+        );
+        assert!(
+            connection_draft(conn_args(&[("type", "sqlite")]), None, no_flags)
+                .unwrap_err()
+                .contains("`file`")
+        );
+        assert!(
+            connection_draft(
+                conn_args(&[("type", "mysql"), ("host", "a\u{7}b")]),
+                None,
+                no_flags
+            )
+            .is_err()
+        );
+        assert!(
+            connection_draft(
+                conn_args(&[("type", "mysql"), ("host", &"h".repeat(300))]),
+                None,
+                no_flags
+            )
+            .is_err()
+        );
     }
 
     #[test]
@@ -447,12 +566,23 @@ mod tests {
         assert!(query_draft("demo", None, "select 1\0", None, None).is_err());
         assert!(query_draft("demo", None, &"x".repeat(MAX_SQL_CHARS + 1), None, None).is_err());
         let q = query_draft("demo", Some(" "), "select\n\t1", Some(""), None).unwrap();
-        assert_eq!((q.database, q.title, q.sql.as_str()), (None, None, "select\n\t1"));
+        assert_eq!(
+            (q.database, q.title, q.sql.as_str()),
+            (None, None, "select\n\t1")
+        );
     }
 
     #[test]
     fn spots_secret_fields() {
-        for k in ["password", "PASSWORD", "db_password", "pwd", "api_key", "secret", "access_token"] {
+        for k in [
+            "password",
+            "PASSWORD",
+            "db_password",
+            "pwd",
+            "api_key",
+            "secret",
+            "access_token",
+        ] {
             assert!(is_secret_field(k), "{k}");
         }
         for k in ["host", "user", "database", "ssl"] {
@@ -469,12 +599,26 @@ mod tests {
 
         let query = Handoff {
             source: None,
-            action: Action::OpenQuery(query_draft("demo", None, "select * from orders\nwhere total > 10 & 1=1 -- #?", Some("Big"), None).unwrap()),
+            action: Action::OpenQuery(
+                query_draft(
+                    "demo",
+                    None,
+                    "select * from orders\nwhere total > 10 & 1=1 -- #?",
+                    Some("Big"),
+                    None,
+                )
+                .unwrap(),
+            ),
         };
         let link = to_url(&query, token).unwrap();
         assert_eq!(parse_url(&link).unwrap(), (query, token.to_string()));
 
-        let script = Handoff { source: Some("Cursor".into()), action: Action::OpenScript(ScriptRef { script_id: "s-1".into() }) };
+        let script = Handoff {
+            source: Some("Cursor".into()),
+            action: Action::OpenScript(ScriptRef {
+                script_id: "s-1".into(),
+            }),
+        };
         let link = to_url(&script, token).unwrap();
         assert!(link.starts_with("sayql://open-script?"), "{link}");
         assert_eq!(parse_url(&link).unwrap(), (script, token.to_string()));
@@ -501,7 +645,10 @@ mod tests {
         ] {
             assert!(parse_url(bad).is_err(), "{bad}");
         }
-        assert_eq!(parse_url("sayql://new-connection?token=t&type=mysql&pwd=x").unwrap_err(), secret_refused());
+        assert_eq!(
+            parse_url("sayql://new-connection?token=t&type=mysql&pwd=x").unwrap_err(),
+            secret_refused()
+        );
     }
 
     #[test]

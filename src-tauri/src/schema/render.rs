@@ -13,8 +13,27 @@ const REFERENCING_TABLE_LIMIT: usize = 15;
 
 /// Words that must be quoted to be used as names. Matches `quoteIdent` in src/features/schema/sql.ts.
 const RESERVED: &[&str] = &[
-    "user", "order", "group", "table", "select", "where", "from", "limit", "offset", "desc", "asc", "key", "index",
-    "check", "default", "column", "values", "references", "primary", "case", "end",
+    "user",
+    "order",
+    "group",
+    "table",
+    "select",
+    "where",
+    "from",
+    "limit",
+    "offset",
+    "desc",
+    "asc",
+    "key",
+    "index",
+    "check",
+    "default",
+    "column",
+    "values",
+    "references",
+    "primary",
+    "case",
+    "end",
 ];
 
 /// `ident` as it must be written in `dialect`'s SQL: quoted only when it needs it (symbols,
@@ -22,8 +41,17 @@ const RESERVED: &[&str] = &[
 /// The model copies names from the schema text, so they must work as written.
 pub fn quote_ident(ident: &str, dialect: &str) -> String {
     let postgres = dialect == "PostgreSQL";
-    let plain_char = |c: char| c == '_' || c.is_ascii_digit() || if postgres { c.is_ascii_lowercase() } else { c.is_ascii_alphabetic() };
-    let plain = ident.chars().next().is_some_and(|c| !c.is_ascii_digit()) && ident.chars().all(plain_char);
+    let plain_char = |c: char| {
+        c == '_'
+            || c.is_ascii_digit()
+            || if postgres {
+                c.is_ascii_lowercase()
+            } else {
+                c.is_ascii_alphabetic()
+            }
+    };
+    let plain =
+        ident.chars().next().is_some_and(|c| !c.is_ascii_digit()) && ident.chars().all(plain_char);
     if plain && !RESERVED.contains(&ident.to_ascii_lowercase().as_str()) {
         return ident.to_string();
     }
@@ -37,7 +65,11 @@ pub fn quote_ident(ident: &str, dialect: &str) -> String {
 /// The table's name as written in a query: `schema.table`, each part quoted when needed.
 pub fn render_name(t: &Table, dialect: &str) -> String {
     match &t.schema {
-        Some(s) if s != "public" => format!("{}.{}", quote_ident(s, dialect), quote_ident(&t.name, dialect)),
+        Some(s) if s != "public" => format!(
+            "{}.{}",
+            quote_ident(s, dialect),
+            quote_ident(&t.name, dialect)
+        ),
         _ => quote_ident(&t.name, dialect),
     }
 }
@@ -56,8 +88,11 @@ fn render_ref(ref_table: &str, dialect: &str) -> String {
 /// One line per table, e.g.
 /// `orders [table, ~1000 rows](id integer PK, customer_id integer -> customers.id, status text)`
 pub fn render_table(t: &Table, dialect: &str) -> String {
-    let fk: HashMap<&str, &ForeignKey> =
-        t.foreign_keys.iter().map(|f| (f.column.as_str(), f)).collect();
+    let fk: HashMap<&str, &ForeignKey> = t
+        .foreign_keys
+        .iter()
+        .map(|f| (f.column.as_str(), f))
+        .collect();
     let cols: Vec<String> = t
         .columns
         .iter()
@@ -70,7 +105,11 @@ pub fn render_table(t: &Table, dialect: &str) -> String {
                 s.push_str(" NOT NULL");
             }
             if let Some(f) = fk.get(c.name.as_str()) {
-                s.push_str(&format!(" -> {}.{}", render_ref(&f.ref_table, dialect), quote_ident(&f.ref_column, dialect)));
+                s.push_str(&format!(
+                    " -> {}.{}",
+                    render_ref(&f.ref_table, dialect),
+                    quote_ident(&f.ref_column, dialect)
+                ));
             }
             if let Some(vals) = &c.enum_values {
                 s.push_str(&format!(" {{{}}}", vals.join("|")));
@@ -83,11 +122,22 @@ pub fn render_table(t: &Table, dialect: &str) -> String {
         .filter(|n| *n >= 0)
         .map(|n| format!(", ~{n} rows"))
         .unwrap_or_default();
-    format!("{} [{}{}]({})", render_name(t, dialect), t.kind, rows, cols.join(", "))
+    format!(
+        "{} [{}{}]({})",
+        render_name(t, dialect),
+        t.kind,
+        rows,
+        cols.join(", ")
+    )
 }
 
 pub fn render_full(schema: &Schema) -> String {
-    schema.tables.iter().map(|t| render_table(t, &schema.dialect)).collect::<Vec<_>>().join("\n")
+    schema
+        .tables
+        .iter()
+        .map(|t| render_table(t, &schema.dialect))
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 /// The schema text to put in the prompt for this question.
@@ -100,8 +150,15 @@ pub fn schema_for_prompt(schema: &Schema, full: &str, question: &str) -> String 
     let picked = relevant_tables(schema, question);
     if picked.is_empty() {
         // Nothing matched: send the table list without columns so the model can still orient.
-        let names: Vec<String> = schema.tables.iter().map(|t| render_name(t, &schema.dialect)).collect();
-        return format!("(schema too large to include in full; table names only)\n{}", names.join(", "));
+        let names: Vec<String> = schema
+            .tables
+            .iter()
+            .map(|t| render_name(t, &schema.dialect))
+            .collect();
+        return format!(
+            "(schema too large to include in full; table names only)\n{}",
+            names.join(", ")
+        );
     }
     let mut out = String::from("(only the tables most relevant to the question are listed)\n");
     out.push_str(
@@ -143,9 +200,13 @@ pub fn relevant_tables(schema: &Schema, question: &str) -> Vec<usize> {
         })
         .filter(|(_, s)| *s > 0)
         .collect();
-    scored.sort_by(|a, b| b.1.cmp(&a.1));
+    scored.sort_by_key(|&(_, s)| std::cmp::Reverse(s));
 
-    let mut picked: Vec<usize> = scored.iter().take(RELEVANT_TABLE_LIMIT).map(|(i, _)| *i).collect();
+    let mut picked: Vec<usize> = scored
+        .iter()
+        .take(RELEVANT_TABLE_LIMIT)
+        .map(|(i, _)| *i)
+        .collect();
     // Pull in referenced tables so joins are possible.
     let by_name: HashMap<String, usize> = schema
         .tables
@@ -156,10 +217,10 @@ pub fn relevant_tables(schema: &Schema, question: &str) -> Vec<usize> {
     let mut seen: HashSet<usize> = picked.iter().copied().collect();
     for i in picked.clone() {
         for f in &schema.tables[i].foreign_keys {
-            if let Some(&j) = by_name.get(&f.ref_table) {
-                if seen.insert(j) {
-                    picked.push(j);
-                }
+            if let Some(&j) = by_name.get(&f.ref_table)
+                && seen.insert(j)
+            {
+                picked.push(j);
             }
         }
     }
@@ -172,37 +233,60 @@ pub fn relevant_tables(schema: &Schema, question: &str) -> Vec<usize> {
 /// names exist, so the caller falls back to the usual schema.
 pub fn schema_with_focus(schema: &Schema, focus: &[String]) -> Option<String> {
     let wanted: HashSet<&str> = focus.iter().map(String::as_str).collect();
-    let focused: Vec<usize> = (0..schema.tables.len()).filter(|&i| wanted.contains(schema.tables[i].qualified_name().as_str())).collect();
+    let focused: Vec<usize> = (0..schema.tables.len())
+        .filter(|&i| wanted.contains(schema.tables[i].qualified_name().as_str()))
+        .collect();
     if focused.is_empty() {
         return None;
     }
-    let by_name: HashMap<String, usize> = schema.tables.iter().enumerate().map(|(i, t)| (t.qualified_name(), i)).collect();
+    let by_name: HashMap<String, usize> = schema
+        .tables
+        .iter()
+        .enumerate()
+        .map(|(i, t)| (t.qualified_name(), i))
+        .collect();
     let mut related: Vec<usize> = Vec::new();
     let mut seen: HashSet<usize> = focused.iter().copied().collect();
     for &i in &focused {
         for f in &schema.tables[i].foreign_keys {
-            if let Some(&j) = by_name.get(&f.ref_table) {
-                if seen.insert(j) {
-                    related.push(j);
-                }
+            if let Some(&j) = by_name.get(&f.ref_table)
+                && seen.insert(j)
+            {
+                related.push(j);
             }
         }
     }
-    let focus_names: HashSet<String> = focused.iter().map(|&i| schema.tables[i].qualified_name()).collect();
+    let focus_names: HashSet<String> = focused
+        .iter()
+        .map(|&i| schema.tables[i].qualified_name())
+        .collect();
     let referencing = (0..schema.tables.len())
         .filter(|j| !seen.contains(j))
-        .filter(|&j| schema.tables[j].foreign_keys.iter().any(|f| focus_names.contains(&f.ref_table)))
+        .filter(|&j| {
+            schema.tables[j]
+                .foreign_keys
+                .iter()
+                .any(|f| focus_names.contains(&f.ref_table))
+        })
         .take(REFERENCING_TABLE_LIMIT)
         .collect::<Vec<_>>();
     related.extend(referencing);
 
-    let render = |ids: &[usize]| ids.iter().map(|&i| render_table(&schema.tables[i], &schema.dialect)).collect::<Vec<_>>().join("\n");
+    let render = |ids: &[usize]| {
+        ids.iter()
+            .map(|&i| render_table(&schema.tables[i], &schema.dialect))
+            .collect::<Vec<_>>()
+            .join("\n")
+    };
     let mut out = format!(
         "(The person selected these tables for this request: build the query on them.)\n{}",
         render(&focused)
     );
     if !related.is_empty() {
-        out.push_str(&format!("\n\n(Related tables, for joins only when the request needs them.)\n{}", render(&related)));
+        out.push_str(&format!(
+            "\n\n(Related tables, for joins only when the request needs them.)\n{}",
+            render(&related)
+        ));
     }
     Some(out)
 }
@@ -228,10 +312,20 @@ mod tests {
             schema: None,
             name: name.into(),
             kind: "table".into(),
-            columns: vec![Column { name: "id".into(), data_type: "int".into(), nullable: false, primary_key: true, enum_values: None }],
+            columns: vec![Column {
+                name: "id".into(),
+                data_type: "int".into(),
+                nullable: false,
+                primary_key: true,
+                enum_values: None,
+            }],
             foreign_keys: fks
                 .iter()
-                .map(|(col, to)| ForeignKey { column: (*col).into(), ref_table: (*to).into(), ref_column: "id".into() })
+                .map(|(col, to)| ForeignKey {
+                    column: (*col).into(),
+                    ref_table: (*to).into(),
+                    ref_column: "id".into(),
+                })
                 .collect(),
             row_estimate: None,
         }
@@ -266,10 +360,26 @@ mod tests {
             name: "Order Lines".into(),
             kind: "table".into(),
             columns: vec![
-                Column { name: "id".into(), data_type: "integer".into(), nullable: false, primary_key: true, enum_values: None },
-                Column { name: "CustomerId".into(), data_type: "integer".into(), nullable: true, primary_key: false, enum_values: None },
+                Column {
+                    name: "id".into(),
+                    data_type: "integer".into(),
+                    nullable: false,
+                    primary_key: true,
+                    enum_values: None,
+                },
+                Column {
+                    name: "CustomerId".into(),
+                    data_type: "integer".into(),
+                    nullable: true,
+                    primary_key: false,
+                    enum_values: None,
+                },
             ],
-            foreign_keys: vec![ForeignKey { column: "CustomerId".into(), ref_table: "crm.Customers".into(), ref_column: "Id".into() }],
+            foreign_keys: vec![ForeignKey {
+                column: "CustomerId".into(),
+                ref_table: "crm.Customers".into(),
+                ref_column: "Id".into(),
+            }],
             row_estimate: Some(3),
         };
         assert_eq!(
@@ -280,8 +390,15 @@ mod tests {
             render_table(&t, "SQL Server"),
             "[Sales Ops].[Order Lines] [table, ~3 rows](id integer PK, CustomerId integer -> crm.Customers.Id)"
         );
-        let mysql = Table { schema: None, foreign_keys: vec![], ..t };
-        assert_eq!(render_table(&mysql, "MySQL"), "`Order Lines` [table, ~3 rows](id integer PK, CustomerId integer)");
+        let mysql = Table {
+            schema: None,
+            foreign_keys: vec![],
+            ..t
+        };
+        assert_eq!(
+            render_table(&mysql, "MySQL"),
+            "`Order Lines` [table, ~3 rows](id integer PK, CustomerId integer)"
+        );
     }
 
     #[test]
@@ -297,9 +414,15 @@ mod tests {
         };
         let text = schema_with_focus(&schema, &["app_user".into()]).unwrap();
         let (picked, related) = text.split_once("(Related tables").unwrap();
-        assert!(picked.contains("app_user [table]") && !picked.contains("person [table]"), "{text}");
+        assert!(
+            picked.contains("app_user [table]") && !picked.contains("person [table]"),
+            "{text}"
+        );
         // Referenced (person) and referencing (login) tables come along; unrelated ones don't.
-        assert!(related.contains("person [table]") && related.contains("login [table]"), "{text}");
+        assert!(
+            related.contains("person [table]") && related.contains("login [table]"),
+            "{text}"
+        );
         assert!(!text.contains("invoice"), "{text}");
         assert!(schema_with_focus(&schema, &["nope".into()]).is_none());
         assert!(schema_with_focus(&schema, &[]).is_none());

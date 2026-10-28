@@ -8,7 +8,9 @@ use std::collections::HashMap;
 
 pub(super) async fn introspect(pool: &PgPool) -> Result<Vec<Table>, sqlx::Error> {
     let mut tx = pool.begin().await?;
-    sqlx::raw_sql("SET TRANSACTION READ ONLY; DEALLOCATE ALL").execute(&mut *tx).await?;
+    sqlx::raw_sql("SET TRANSACTION READ ONLY; DEALLOCATE ALL")
+        .execute(&mut *tx)
+        .await?;
     let p = &mut *tx;
     // information_schema has no materialized views, so they come from the catalog. Partitions
     // are left out: the parent table is what queries use, and listing every partition would
@@ -98,7 +100,11 @@ pub(super) async fn introspect(pool: &PgPool) -> Result<Vec<Table>, sqlx::Error>
     .fetch_all(&mut *p)
     .await?;
     // reltuples is -1 until the table is first vacuumed or analyzed: unknown, not empty.
-    let rows = est.into_iter().filter(|(_, _, n)| *n >= 0).map(|(s, t, n)| ((s, t), n)).collect();
+    let rows = est
+        .into_iter()
+        .filter(|(_, _, n)| *n >= 0)
+        .map(|(s, t, n)| ((s, t), n))
+        .collect();
     tx.rollback().await?;
     Ok(assemble(cols, pks, fks, enums, rows, true))
 }

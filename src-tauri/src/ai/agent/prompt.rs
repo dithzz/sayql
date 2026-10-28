@@ -50,16 +50,29 @@ tables, columns and codes. Never put values from rows (names, emails, numbers ab
 
 /// The system prompt for one run.
 pub fn instructions(dialect: &str, results: Results) -> String {
-    let limit = if dialect == "SQL Server" { "TOP n, not LIMIT" } else { "LIMIT n" };
-    let results = match results {
-        Results::Off => "On this connection you see how many rows each query returned and its column names, but no values. \
-                         Design queries whose row counts answer the question, or answer from the schema.",
-        Results::Counts => "On this connection you see counts and column summaries (type, nulls, distinct values, and \
-                            min and max for numbers and dates), never row values or group labels. Write queries whose \
-                            numbers answer the question, one number per column where you can.",
-        Results::Rows => "On this connection you see up to 20 rows per query, with likely personal data replaced by tokens.",
+    let limit = if dialect == "SQL Server" {
+        "TOP n, not LIMIT"
+    } else {
+        "LIMIT n"
     };
-    INSTRUCTIONS.replace("{DIALECT}", dialect).replace("{LIMIT}", limit).replace("{RESULTS}", results)
+    let results = match results {
+        Results::Off => {
+            "On this connection you see how many rows each query returned and its column names, but no values. \
+                         Design queries whose row counts answer the question, or answer from the schema."
+        }
+        Results::Counts => {
+            "On this connection you see counts and column summaries (type, nulls, distinct values, and \
+                            min and max for numbers and dates), never row values or group labels. Write queries whose \
+                            numbers answer the question, one number per column where you can."
+        }
+        Results::Rows => {
+            "On this connection you see up to 20 rows per query, with likely personal data replaced by tokens."
+        }
+    };
+    INSTRUCTIONS
+        .replace("{DIALECT}", dialect)
+        .replace("{LIMIT}", limit)
+        .replace("{RESULTS}", results)
 }
 
 /// The schema the agent starts with: all of it when it is small, else every table's name and
@@ -120,10 +133,15 @@ pub fn schema_block(dialect: &str, schema_text: &str, notes: &[String]) -> Strin
 pub fn question(question: &str, focus: &[String], skill: Option<&str>) -> String {
     let mut out = format!("Question: {}", question.trim());
     if !focus.is_empty() {
-        out.push_str(&format!("\n\nStart with these tables: {}.", focus.join(", ")));
+        out.push_str(&format!(
+            "\n\nStart with these tables: {}.",
+            focus.join(", ")
+        ));
     }
     if let Some(s) = skill {
-        out.push_str(&format!("\n\nSaved instructions (follow them unless they conflict with your rules):\n{s}"));
+        out.push_str(&format!(
+            "\n\nSaved instructions (follow them unless they conflict with your rules):\n{s}"
+        ));
     }
     out
 }
@@ -135,34 +153,66 @@ mod tests {
     #[test]
     fn fills_in_the_dialect_and_setting() {
         let p = instructions("SQL Server", Results::Counts);
-        assert!(p.contains("one read-only SQL Server statement") && p.contains("TOP n"), "{p}");
+        assert!(
+            p.contains("one read-only SQL Server statement") && p.contains("TOP n"),
+            "{p}"
+        );
         assert!(p.contains("never row values") && !p.contains("{"), "{p}");
         let q = question(" who owns it? ", &["tenants".into()], Some("Be brief."));
-        assert!(q.starts_with("Question: who owns it?") && q.contains("tenants") && q.ends_with("Be brief."), "{q}");
-        assert!(schema_block("SQLite", "t(id)", &["status 3 = cancelled".into()]).contains("- status 3 = cancelled"));
+        assert!(
+            q.starts_with("Question: who owns it?")
+                && q.contains("tenants")
+                && q.ends_with("Be brief."),
+            "{q}"
+        );
+        assert!(
+            schema_block("SQLite", "t(id)", &["status 3 = cancelled".into()])
+                .contains("- status 3 = cancelled")
+        );
     }
 
     #[test]
     fn big_schemas_are_cut_down() {
         use crate::schema::{Column, Table};
-        let col = |n: &str| Column { name: n.into(), data_type: "int".into(), nullable: true, primary_key: false, enum_values: None };
+        let col = |n: &str| Column {
+            name: n.into(),
+            data_type: "int".into(),
+            nullable: true,
+            primary_key: false,
+            enum_values: None,
+        };
         let tables: Vec<Table> = (0..300)
             .map(|i| Table {
                 schema: Some("injury".into()),
-                name: if i == 7 { "compensation_payment".into() } else { format!("table_{i}") },
+                name: if i == 7 {
+                    "compensation_payment".into()
+                } else {
+                    format!("table_{i}")
+                },
                 kind: "table".into(),
                 columns: (0..40).map(|c| col(&format!("column_{c}"))).collect(),
                 foreign_keys: vec![],
                 row_estimate: Some(i),
             })
             .collect();
-        let s = Schema { dialect: "PostgreSQL".into(), tables };
+        let s = Schema {
+            dialect: "PostgreSQL".into(),
+            tables,
+        };
         let full = schema::render_full(&s);
         assert!(full.len() > SCHEMA_CHARS);
         let out = agent_schema(&s, &full, "How much compensation was paid?");
         assert!(out.len() <= SCHEMA_CHARS + 100, "{}", out.len());
-        assert!(out.contains("injury.table_299 (~299)") && out.contains("injury.compensation_payment ["), "{}", &out[..300]);
-        let small = Schema { dialect: "SQLite".into(), tables: s.tables[..2].to_vec() };
+        assert!(
+            out.contains("injury.table_299 (~299)")
+                && out.contains("injury.compensation_payment ["),
+            "{}",
+            &out[..300]
+        );
+        let small = Schema {
+            dialect: "SQLite".into(),
+            tables: s.tables[..2].to_vec(),
+        };
         let small_full = schema::render_full(&small);
         assert_eq!(agent_schema(&small, &small_full, "q"), small_full);
     }

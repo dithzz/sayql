@@ -15,13 +15,18 @@ impl SseParser {
         self.buf.extend(chunk.iter().filter(|&&b| b != b'\r'));
         let mut out = Vec::new();
         // Events are separated by a blank line.
-        while let Some(end) = self.buf.windows(2).position(|w| w == b"\n\n").map(|p| p + 2) {
+        while let Some(end) = self
+            .buf
+            .windows(2)
+            .position(|w| w == b"\n\n")
+            .map(|p| p + 2)
+        {
             let event: Vec<u8> = self.buf.drain(..end).collect();
             for line in String::from_utf8_lossy(&event).lines() {
-                if let Some(data) = line.strip_prefix("data:") {
-                    if let Ok(v) = serde_json::from_str(data.trim()) {
-                        out.push(v);
-                    }
+                if let Some(data) = line.strip_prefix("data:")
+                    && let Ok(v) = serde_json::from_str(data.trim())
+                {
+                    out.push(v);
                 }
             }
         }
@@ -35,7 +40,8 @@ mod tests {
 
     #[test]
     fn parses_events_split_across_chunks() {
-        let stream = "event: a\ndata: {\"type\":\"x\",\"t\":\"é\"}\n\nevent: b\ndata: {\"type\":\"y\"}\n\n";
+        let stream =
+            "event: a\ndata: {\"type\":\"x\",\"t\":\"é\"}\n\nevent: b\ndata: {\"type\":\"y\"}\n\n";
         let bytes = stream.as_bytes();
         // Split inside the two-byte "é".
         let cut = stream.find('é').unwrap() + 1;

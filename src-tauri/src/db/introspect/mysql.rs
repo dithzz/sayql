@@ -36,7 +36,10 @@ pub(super) async fn introspect(p: &MySqlPool) -> Result<Vec<Table>, sqlx::Error>
     )
     .fetch_all(p)
     .await?;
-    let rows = est.into_iter().filter_map(|(s, t, n)| n.map(|n| ((s, t), n))).collect();
+    let rows = est
+        .into_iter()
+        .filter_map(|(s, t, n)| n.map(|n| ((s, t), n)))
+        .collect();
     let mut tables = assemble(cols, pks, fks, HashMap::new(), rows, false);
     // Everything is in one database; drop the qualifier so names stay short.
     for t in &mut tables {

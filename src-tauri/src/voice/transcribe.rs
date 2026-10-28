@@ -12,7 +12,9 @@ const MAX_PROMPT_CHARS: usize = 600;
 /// Loads the model. Takes a moment, so the loaded model is kept for the next question.
 pub fn load(path: &Path) -> AppResult<WhisperContext> {
     whisper_rs::install_logging_hooks();
-    let path = path.to_str().ok_or("The voice model's path isn't valid text.")?;
+    let path = path
+        .to_str()
+        .ok_or("The voice model's path isn't valid text.")?;
     WhisperContext::new_with_params(path, WhisperContextParameters::default())
         .map_err(|e| AppError::User(format!("Could not load the voice model: {e}")))
 }
@@ -23,9 +25,14 @@ pub fn transcribe(ctx: &WhisperContext, audio: &[f32], prompt: &str) -> AppResul
     if audio.len() < MIN_SAMPLES {
         return Ok(String::new());
     }
-    let mut state = ctx.create_state().map_err(|e| AppError::User(format!("Could not start transcribing: {e}")))?;
+    let mut state = ctx
+        .create_state()
+        .map_err(|e| AppError::User(format!("Could not start transcribing: {e}")))?;
     let mut params = FullParams::new(SamplingStrategy::Greedy { best_of: 1 });
-    let threads = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4).min(8);
+    let threads = std::thread::available_parallelism()
+        .map(|n| n.get())
+        .unwrap_or(4)
+        .min(8);
     params.set_n_threads(threads as i32);
     params.set_language(Some("en"));
     params.set_no_context(true);
@@ -40,8 +47,13 @@ pub fn transcribe(ctx: &WhisperContext, audio: &[f32], prompt: &str) -> AppResul
     if !prompt.is_empty() {
         params.set_initial_prompt(prompt);
     }
-    state.full(params, audio).map_err(|e| AppError::User(format!("Transcription failed: {e}")))?;
-    let text: Vec<String> = state.as_iter().filter_map(|s| s.to_str_lossy().ok().map(|t| t.into_owned())).collect();
+    state
+        .full(params, audio)
+        .map_err(|e| AppError::User(format!("Transcription failed: {e}")))?;
+    let text: Vec<String> = state
+        .as_iter()
+        .filter_map(|s| s.to_str_lossy().ok().map(|t| t.into_owned()))
+        .collect();
     Ok(clean(&text.join(" ")))
 }
 
@@ -55,7 +67,9 @@ fn clip_prompt(prompt: &str) -> &str {
     while !prompt.is_char_boundary(end) {
         end -= 1;
     }
-    let cut = prompt[..end].rfind([' ', ',']).map_or(&prompt[..end], |i| &prompt[..i]);
+    let cut = prompt[..end]
+        .rfind([' ', ','])
+        .map_or(&prompt[..end], |i| &prompt[..i]);
     cut.trim_end_matches([' ', ','])
 }
 
@@ -82,8 +96,14 @@ mod tests {
     #[test]
     fn clean_drops_non_speech_markers() {
         assert_eq!(clean(" [BLANK_AUDIO]"), "");
-        assert_eq!(clean(" Top ten customers (keyboard clicking)  by revenue."), "Top ten customers by revenue.");
-        assert_eq!(clean("  orders\n from  last week "), "orders from last week");
+        assert_eq!(
+            clean(" Top ten customers (keyboard clicking)  by revenue."),
+            "Top ten customers by revenue."
+        );
+        assert_eq!(
+            clean("  orders\n from  last week "),
+            "orders from last week"
+        );
     }
 
     #[test]
@@ -104,7 +124,9 @@ mod tests {
         super::super::model::verify(Path::new(&model), super::super::model::MODEL_SHA256).unwrap();
         let ctx = load(Path::new(&model)).unwrap();
         let audio = read_wav(include_bytes!("testdata/top-customers.wav"));
-        let text = transcribe(&ctx, &audio, "customers, orders, order_items, total_spend").unwrap().to_lowercase();
+        let text = transcribe(&ctx, &audio, "customers, orders, order_items, total_spend")
+            .unwrap()
+            .to_lowercase();
         println!("transcript: {text}");
         assert!(text.contains("customers"), "{text}");
         assert!(text.contains("spend") || text.contains("spent"), "{text}");
@@ -118,7 +140,9 @@ mod tests {
             let len = u32::from_le_bytes(bytes[i + 4..i + 8].try_into().unwrap()) as usize;
             if id == b"data" {
                 return bytes[i + 8..(i + 8 + len).min(bytes.len())]
-                    .chunks_exact(2)
+                    .as_chunks::<2>()
+                    .0
+                    .iter()
                     .map(|b| i16::from_le_bytes([b[0], b[1]]) as f32 / 32768.0)
                     .collect();
             }
@@ -131,7 +155,10 @@ mod tests {
     fn the_test_clip_is_16k_mono_speech() {
         let bytes = include_bytes!("testdata/top-customers.wav");
         assert_eq!(u16::from_le_bytes([bytes[22], bytes[23]]), 1, "mono");
-        assert_eq!(u32::from_le_bytes(bytes[24..28].try_into().unwrap()), 16_000);
+        assert_eq!(
+            u32::from_le_bytes(bytes[24..28].try_into().unwrap()),
+            16_000
+        );
         let audio = read_wav(bytes);
         assert!(audio.len() > MIN_SAMPLES);
         assert!(audio.iter().any(|s| s.abs() > 0.05));

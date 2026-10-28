@@ -3,13 +3,13 @@
 //! read-only gate and `mask.rs`, and `checks.rs` checks the work in code.
 
 pub mod checks;
+#[cfg(test)]
+mod eval;
 pub mod mask;
 pub mod model;
 pub mod prompt;
 pub mod run;
-pub mod text_protocol;
-pub mod tools;
-#[cfg(test)]
-mod eval;
 #[cfg(test)]
 mod run_tests;
+pub mod text_protocol;
+pub mod tools;

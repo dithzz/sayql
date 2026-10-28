@@ -7,7 +7,10 @@
 
 mod render;
 
-pub use render::{quote_ident, relevant_tables, render_full, render_name, render_table, schema_for_prompt, schema_with_focus};
+pub use render::{
+    quote_ident, relevant_tables, render_full, render_name, render_table, schema_for_prompt,
+    schema_with_focus,
+};
 
 use serde::Serialize;
 

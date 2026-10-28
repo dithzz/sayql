@@ -19,7 +19,11 @@ pub async fn connect(cfg: &ConnConfig, password: Option<String>) -> AppResult<Db
                 .port(port)
                 .username(&cfg.user)
                 .database(or(&cfg.database, "postgres"))
-                .ssl_mode(if cfg.ssl { PgSslMode::Require } else { PgSslMode::Prefer })
+                .ssl_mode(if cfg.ssl {
+                    PgSslMode::Require
+                } else {
+                    PgSslMode::Prefer
+                })
                 .application_name("sayql")
                 // No client-side statement cache: behind a transaction pooler (Supabase on port 6543,
                 // PgBouncer) the server connection changes between transactions, so a cached statement
@@ -49,7 +53,11 @@ pub async fn connect(cfg: &ConnConfig, password: Option<String>) -> AppResult<Db
                 .host(host)
                 .port(port)
                 .username(&cfg.user)
-                .ssl_mode(if cfg.ssl { MySqlSslMode::Required } else { MySqlSslMode::Preferred });
+                .ssl_mode(if cfg.ssl {
+                    MySqlSslMode::Required
+                } else {
+                    MySqlSslMode::Preferred
+                });
             if !cfg.database.is_empty() {
                 o = o.database(&cfg.database);
             }
@@ -82,14 +90,12 @@ pub async fn connect(cfg: &ConnConfig, password: Option<String>) -> AppResult<Db
                 .max_connections(4)
                 .acquire_timeout(TIMEOUT)
                 .connect_with(o.clone())
-                .await
-                ?;
+                .await?;
             let ro = SqlitePoolOptions::new()
                 .max_connections(4)
                 .acquire_timeout(TIMEOUT)
                 .connect_with(o.read_only(true))
-                .await
-                ?;
+                .await?;
             Ok(DbPool::Lite(LitePools { rw, ro }))
         }
         Kind::Mssql => Ok(DbPool::Ms(MssqlPool::connect(cfg, Some(pw)).await?)),
@@ -99,7 +105,9 @@ pub async fn connect(cfg: &ConnConfig, password: Option<String>) -> AppResult<Db
 /// Opens and closes one connection, so a bad setting fails with its own error. A pool
 /// retries until its timeout and then reports only "pool timed out".
 async fn try_connect<C: Connection>(o: &<C as Connection>::Options) -> Result<(), sqlx::Error> {
-    let conn = tokio::time::timeout(TIMEOUT, C::connect_with(o)).await.map_err(|_| sqlx::Error::PoolTimedOut)??;
+    let conn = tokio::time::timeout(TIMEOUT, C::connect_with(o))
+        .await
+        .map_err(|_| sqlx::Error::PoolTimedOut)??;
     conn.close().await
 }
 
@@ -109,7 +117,9 @@ fn is_tls_failure(e: &sqlx::Error) -> bool {
         // rustls reports a refused handshake as an I/O error.
         sqlx::Error::Io(io) => {
             let text = io.to_string().to_ascii_lowercase();
-            ["tls", "alert", "handshake", "certificate"].iter().any(|w| text.contains(w))
+            ["tls", "alert", "handshake", "certificate"]
+                .iter()
+                .any(|w| text.contains(w))
         }
         _ => false,
     }
@@ -130,7 +140,8 @@ fn explain(e: sqlx::Error, host: &str, port: u16, ssl: bool) -> AppError {
         } else {
             ""
         };
-        return format!("Could not set up an encrypted connection to {addr}: {reason}.{hint}").into();
+        return format!("Could not set up an encrypted connection to {addr}: {reason}.{hint}")
+            .into();
     }
     match e {
         sqlx::Error::Io(io) => format!("Could not reach {addr}: {io}").into(),
@@ -147,5 +158,9 @@ fn explain(e: sqlx::Error, host: &str, port: u16, ssl: bool) -> AppError {
 }
 
 fn or<'a>(s: &'a str, default: &'a str) -> &'a str {
-    if s.trim().is_empty() { default } else { s.trim() }
+    if s.trim().is_empty() {
+        default
+    } else {
+        s.trim()
+    }
 }

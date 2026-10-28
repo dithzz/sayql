@@ -19,14 +19,18 @@ pub fn join_fan_out(sql: &str, schema: &Schema) -> Vec<String> {
             if w == "join" {
                 joins += 1;
             }
-            let Some(table) = words.get(i + 1).filter(|t| t.as_str() != "(") else { continue };
+            let Some(table) = words.get(i + 1).filter(|t| t.as_str() != "(") else {
+                continue;
+            };
             let table = unquote(table);
             let short = table.rsplit('.').next().unwrap_or(&table).to_lowercase();
             let mut alias = short.clone();
             let next = lower.get(i + 2).map(String::as_str);
             let after = match next {
                 Some("as") => lower.get(i + 3),
-                Some(n) if !KEYWORDS.contains(&n) && n != "," && n != "(" && n != ")" => lower.get(i + 2),
+                Some(n) if !KEYWORDS.contains(&n) && n != "," && n != "(" && n != ")" => {
+                    lower.get(i + 2)
+                }
                 _ => None,
             };
             if let Some(a) = after {
@@ -41,8 +45,16 @@ pub fn join_fan_out(sql: &str, schema: &Schema) -> Vec<String> {
     }
     let unique = |alias: &str, column: &str| -> Option<bool> {
         let table = aliases.get(alias)?;
-        let t = schema.tables.iter().find(|t| t.name.eq_ignore_ascii_case(table))?;
-        let keys: Vec<&str> = t.columns.iter().filter(|c| c.primary_key).map(|c| c.name.as_str()).collect();
+        let t = schema
+            .tables
+            .iter()
+            .find(|t| t.name.eq_ignore_ascii_case(table))?;
+        let keys: Vec<&str> = t
+            .columns
+            .iter()
+            .filter(|c| c.primary_key)
+            .map(|c| c.name.as_str())
+            .collect();
         Some(keys.len() == 1 && keys[0].eq_ignore_ascii_case(column))
     };
     // `a.x = b.y` pairs after ON.
@@ -51,7 +63,9 @@ pub fn join_fan_out(sql: &str, schema: &Schema) -> Vec<String> {
         if lower[i + 1] != "=" {
             continue;
         }
-        let (Some((a, x)), Some((b, y))) = (qualified(&lower[i]), qualified(&lower[i + 2])) else { continue };
+        let (Some((a, x)), Some((b, y))) = (qualified(&lower[i]), qualified(&lower[i + 2])) else {
+            continue;
+        };
         match (unique(&a, &x), unique(&b, &y)) {
             (Some(true), Some(false)) => repeated.push((a.clone(), format!("{b}.{y}"))),
             (Some(false), Some(true)) => repeated.push((b.clone(), format!("{a}.{x}"))),
@@ -60,9 +74,13 @@ pub fn join_fan_out(sql: &str, schema: &Schema) -> Vec<String> {
     }
     let mut out = Vec::new();
     for (alias, by) in repeated {
-        let table = aliases.get(&alias).cloned().unwrap_or_else(|| alias.clone());
+        let table = aliases
+            .get(&alias)
+            .cloned()
+            .unwrap_or_else(|| alias.clone());
         for (i, w) in lower.iter().enumerate() {
-            let agg = matches!(w.as_str(), "sum" | "avg" | "count") && lower.get(i + 1).is_some_and(|p| p == "(");
+            let agg = matches!(w.as_str(), "sum" | "avg" | "count")
+                && lower.get(i + 1).is_some_and(|p| p == "(");
             let distinct = lower.get(i + 2).is_some_and(|d| d == "distinct");
             let target = lower.get(i + 2).and_then(|t| qualified(t));
             if agg && !distinct && target.is_some_and(|(a, _)| a == alias) {
@@ -87,13 +105,20 @@ pub fn unfiltered_big_scan(sql: &str, schema: &Schema) -> Option<(String, i64)> 
     if words.iter().any(|w| w == "where") {
         return None;
     }
-    words.iter().enumerate().filter(|(_, w)| *w == "from" || *w == "join").find_map(|(i, _)| {
-        let name = unquote(words.get(i + 1)?);
-        let short = name.rsplit('.').next().unwrap_or(&name).to_string();
-        let t = schema.tables.iter().find(|t| t.name.eq_ignore_ascii_case(&short))?;
-        let rows = t.row_estimate?;
-        (rows > BIG_TABLE_ROWS).then(|| (t.name.clone(), rows))
-    })
+    words
+        .iter()
+        .enumerate()
+        .filter(|(_, w)| *w == "from" || *w == "join")
+        .find_map(|(i, _)| {
+            let name = unquote(words.get(i + 1)?);
+            let short = name.rsplit('.').next().unwrap_or(&name).to_string();
+            let t = schema
+                .tables
+                .iter()
+                .find(|t| t.name.eq_ignore_ascii_case(&short))?;
+            let rows = t.row_estimate?;
+            (rows > BIG_TABLE_ROWS).then(|| (t.name.clone(), rows))
+        })
 }
 
 /// How many statements `sql` holds, ignoring `;` in strings, comments and at the end.
@@ -104,8 +129,8 @@ pub fn statements(sql: &str) -> usize {
 }
 
 const KEYWORDS: &[&str] = &[
-    "on", "where", "join", "inner", "left", "right", "full", "cross", "outer", "group", "order", "limit", "having", "union",
-    "using", "natural", "offset", "fetch", "window", "for", "with",
+    "on", "where", "join", "inner", "left", "right", "full", "cross", "outer", "group", "order",
+    "limit", "having", "union", "using", "natural", "offset", "fetch", "window", "for", "with",
 ];
 
 /// Words, quoted names and single symbols of the SQL, with strings and comments dropped.
@@ -165,14 +190,19 @@ fn qualified(word: &str) -> Option<(String, String)> {
 }
 
 /// Words that make a sentence a claim about all rows.
-const SWEEPING: &[&str] = &["every", "all", "none", "no", "never", "always", "each", "nobody", "nothing", "only"];
+const SWEEPING: &[&str] = &[
+    "every", "all", "none", "no", "never", "always", "each", "nobody", "nothing", "only",
+];
 
 /// The sentences of `text` that say something about all rows ("every period has an end
 /// date", "no injury is missing a person"), for checking over all of them.
 pub fn sweeping_claims(text: &str) -> Vec<String> {
     text.split(['\n', '.', ';'])
         .map(str::trim)
-        .filter(|s| s.split(|c: char| !c.is_alphanumeric()).any(|w| SWEEPING.contains(&w.to_lowercase().as_str())))
+        .filter(|s| {
+            s.split(|c: char| !c.is_alphanumeric())
+                .any(|w| SWEEPING.contains(&w.to_lowercase().as_str()))
+        })
         .map(String::from)
         .collect()
 }
@@ -181,7 +211,12 @@ pub fn sweeping_claims(text: &str) -> Vec<String> {
 /// SQL that ran, nor one step of arithmetic on them (a total of a column or a row, a sum,
 /// difference or share of two). Rounded figures count when a result rounds to them. Days in
 /// dates ("24 Aug") and list numbers ("4.") aren't claims and are skipped.
-pub fn unbacked_numbers(text: &str, results: &[&[Vec<Value>]], other: &[f64], context: &str) -> Vec<String> {
+pub fn unbacked_numbers(
+    text: &str,
+    results: &[&[Vec<Value>]],
+    other: &[f64],
+    context: &str,
+) -> Vec<String> {
     let num = |v: &Value| match v {
         Value::Number(n) => n.as_f64().into_iter().collect::<Vec<_>>(),
         Value::String(s) => numbers(s).into_iter().map(|(_, n, _)| n).collect(),
@@ -213,7 +248,11 @@ pub fn unbacked_numbers(text: &str, results: &[&[Vec<Value>]], other: &[f64], co
             let direct = known.iter().any(|&k| near(k) || near(k * 100.0));
             let derived = || {
                 pairs.iter().any(|&a| {
-                    pairs.iter().any(|&b| near(a + b) || near(a - b) || (b != 0.0 && (near(a / b * 100.0) || near((a - b) / b * 100.0))))
+                    pairs.iter().any(|&b| {
+                        near(a + b)
+                            || near(a - b)
+                            || (b != 0.0 && (near(a / b * 100.0) || near((a - b) / b * 100.0)))
+                    })
                 })
             };
             !direct && !derived()
@@ -222,7 +261,9 @@ pub fn unbacked_numbers(text: &str, results: &[&[Vec<Value>]], other: &[f64], co
         .collect()
 }
 
-const MONTHS: &[&str] = &["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+const MONTHS: &[&str] = &[
+    "jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec",
+];
 
 /// `numbers`, without days next to a month name ("24 Aug", "17–22 Aug", "Aug 24") and list
 /// numbers at the start of a line ("4. Lucas").
@@ -230,19 +271,37 @@ fn numbers_in_claims(text: &str) -> Vec<(String, f64, usize)> {
     let mut out = Vec::new();
     for line in text.lines() {
         let trimmed = line.trim_start();
-        let words: Vec<&str> = line.split(|c: char| c.is_whitespace() || c == '–' || c == '-' || c == ',').filter(|w| !w.is_empty()).collect();
-        let is_month = |w: &str| MONTHS.iter().any(|m| w.to_lowercase().trim_matches(|c: char| !c.is_alphabetic()).starts_with(m));
+        let words: Vec<&str> = line
+            .split(|c: char| c.is_whitespace() || c == '–' || c == '-' || c == ',')
+            .filter(|w| !w.is_empty())
+            .collect();
+        let is_month = |w: &str| {
+            MONTHS.iter().any(|m| {
+                w.to_lowercase()
+                    .trim_matches(|c: char| !c.is_alphabetic())
+                    .starts_with(m)
+            })
+        };
         let day_words: Vec<&str> = words
             .iter()
             .enumerate()
             .filter(|(i, w)| {
-                let day = w.trim_end_matches(|c: char| !c.is_ascii_digit()).parse::<u32>().is_ok_and(|d| (1..=31).contains(&d));
+                let day = w
+                    .trim_end_matches(|c: char| !c.is_ascii_digit())
+                    .parse::<u32>()
+                    .is_ok_and(|d| (1..=31).contains(&d));
                 // "17–22 Aug": a day two words before the month counts too.
-                day && [1, 2].iter().any(|k| words.get(i + k).is_some_and(|n| is_month(n))) || day && i.checked_sub(1).is_some_and(|p| is_month(words[p]))
+                day && [1, 2]
+                    .iter()
+                    .any(|k| words.get(i + k).is_some_and(|n| is_month(n)))
+                    || day && i.checked_sub(1).is_some_and(|p| is_month(words[p]))
             })
             .map(|(_, w)| w.trim_end_matches(|c: char| !c.is_ascii_digit()))
             .collect();
-        let ordinal = trimmed.split_once(". ").map(|(n, _)| n).filter(|n| n.chars().all(|c| c.is_ascii_digit()));
+        let ordinal = trimmed
+            .split_once(". ")
+            .map(|(n, _)| n)
+            .filter(|n| n.chars().all(|c| c.is_ascii_digit()));
         for (s, n, d) in numbers(line) {
             if day_words.contains(&s.as_str()) || ordinal == Some(s.as_str()) {
                 continue;
@@ -260,7 +319,9 @@ fn numbers(text: &str) -> Vec<(String, f64, usize)> {
     let mut out = Vec::new();
     let mut i = 0;
     while i < chars.len() {
-        let starts = chars[i].is_ascii_digit() && (i == 0 || !(chars[i - 1].is_alphanumeric() || chars[i - 1] == '-' || chars[i - 1] == '_'));
+        let starts = chars[i].is_ascii_digit()
+            && (i == 0
+                || !(chars[i - 1].is_alphanumeric() || chars[i - 1] == '-' || chars[i - 1] == '_'));
         if !starts {
             i += 1;
             continue;
@@ -277,7 +338,9 @@ fn numbers(text: &str) -> Vec<(String, f64, usize)> {
                 break;
             }
         }
-        let ends_in_word = chars.get(j).is_some_and(|c| c.is_alphabetic() || *c == '›' || *c == '_');
+        let ends_in_word = chars
+            .get(j)
+            .is_some_and(|c| c.is_alphabetic() || *c == '›' || *c == '_');
         if !ends_in_word {
             let plain = written.replace(',', "");
             if let Ok(n) = plain.parse::<f64>() {
@@ -303,7 +366,13 @@ mod tests {
             kind: "table".into(),
             columns: cols
                 .iter()
-                .map(|(c, pk)| Column { name: (*c).into(), data_type: "int".into(), nullable: false, primary_key: *pk, enum_values: None })
+                .map(|(c, pk)| Column {
+                    name: (*c).into(),
+                    data_type: "int".into(),
+                    nullable: false,
+                    primary_key: *pk,
+                    enum_values: None,
+                })
                 .collect(),
             foreign_keys: vec![],
             row_estimate: None,
@@ -311,8 +380,14 @@ mod tests {
         Schema {
             dialect: "SQLite".into(),
             tables: vec![
-                table("orders", &[("id", true), ("total", false), ("customer_id", false)]),
-                table("order_items", &[("id", true), ("order_id", false), ("quantity", false)]),
+                table(
+                    "orders",
+                    &[("id", true), ("total", false), ("customer_id", false)],
+                ),
+                table(
+                    "order_items",
+                    &[("id", true), ("order_id", false), ("quantity", false)],
+                ),
             ],
         }
     }
@@ -322,7 +397,10 @@ mod tests {
         let bad = "SELECT SUM(o.total) FROM orders o JOIN order_items oi ON oi.order_id = o.id";
         let w = join_fan_out(bad, &schema());
         assert_eq!(w.len(), 1, "{w:?}");
-        assert!(w[0].contains("orders rows repeat") && w[0].contains("oi.order_id"), "{w:?}");
+        assert!(
+            w[0].contains("orders rows repeat") && w[0].contains("oi.order_id"),
+            "{w:?}"
+        );
         let quoted = "SELECT AVG(\"o\".\"total\") FROM \"orders\" AS \"o\" INNER JOIN order_items AS oi ON o.id = oi.order_id";
         assert_eq!(join_fan_out(quoted, &schema()).len(), 1);
         for fine in [
@@ -339,18 +417,39 @@ mod tests {
     fn finds_unfiltered_scans_of_big_tables() {
         let mut s = schema();
         s.tables[1].row_estimate = Some(5_000_000);
-        assert_eq!(unfiltered_big_scan("SELECT SUM(quantity) FROM order_items", &s), Some(("order_items".into(), 5_000_000)));
-        assert_eq!(unfiltered_big_scan("SELECT * FROM orders o JOIN \"order_items\" oi ON oi.order_id = o.id", &s).map(|x| x.0), Some("order_items".into()));
-        assert!(unfiltered_big_scan("SELECT COUNT(*) FROM order_items WHERE order_id = 3", &s).is_none());
+        assert_eq!(
+            unfiltered_big_scan("SELECT SUM(quantity) FROM order_items", &s),
+            Some(("order_items".into(), 5_000_000))
+        );
+        assert_eq!(
+            unfiltered_big_scan(
+                "SELECT * FROM orders o JOIN \"order_items\" oi ON oi.order_id = o.id",
+                &s
+            )
+            .map(|x| x.0),
+            Some("order_items".into())
+        );
+        assert!(
+            unfiltered_big_scan("SELECT COUNT(*) FROM order_items WHERE order_id = 3", &s)
+                .is_none()
+        );
         assert!(unfiltered_big_scan("SELECT COUNT(*) FROM orders", &s).is_none());
     }
 
     #[test]
     fn finds_claims_about_all_rows() {
-        let claims = sweeping_claims("There are 3,291 current certificates. Every period has an end date. None is open-ended.");
-        assert_eq!(claims, ["Every period has an end date", "None is open-ended"]);
+        let claims = sweeping_claims(
+            "There are 3,291 current certificates. Every period has an end date. None is open-ended.",
+        );
+        assert_eq!(
+            claims,
+            ["Every period has an end date", "None is open-ended"]
+        );
         assert!(sweeping_claims("Springwood had 92 injuries; the next had 65.").is_empty());
-        assert!(sweeping_claims("Knowledge is noted.").is_empty(), "words inside words don't count");
+        assert!(
+            sweeping_claims("Knowledge is noted.").is_empty(),
+            "words inside words don't count"
+        );
     }
 
     #[test]
@@ -362,18 +461,32 @@ mod tests {
 
     #[test]
     fn finds_numbers_no_step_backs() {
-        let rows = vec![vec![json!("Pinecrest Physio"), json!(0), json!("8")], vec![json!("total"), json!(1234.567), json!("2026-08-24")]];
+        let rows = vec![
+            vec![json!("Pinecrest Physio"), json!(0), json!("8")],
+            vec![json!("total"), json!(1234.567), json!("2026-08-24")],
+        ];
         let results: Vec<&[Vec<Value>]> = vec![&rows];
         let text = "Pinecrest Physio went from 8 to 0 appointments in the week of 2026-08-24, about 1,234.6 in total, \
                     40% of the drop, per ‹name-3› and step 2. It was 17 last month.";
         let bad = unbacked_numbers(text, &results, &[0.4, 2.0], "");
         assert_eq!(bad, ["17"], "{bad:?}");
         // One step of arithmetic on results is backed: totals, differences and shares.
-        let counts = vec![vec![json!("Pinecrest"), json!(8)], vec![json!("Harbor"), json!(4)], vec![json!("Riverbend"), json!(8)]];
+        let counts = vec![
+            vec![json!("Pinecrest"), json!(8)],
+            vec![json!("Harbor"), json!(4)],
+            vec![json!("Riverbend"), json!(8)],
+        ];
         let results: Vec<&[Vec<Value>]> = vec![&counts];
         let derived = "20 in all, 4 fewer, 40% of them at Pinecrest, in the week of 17–22 Aug.\n1. Pinecrest\n2. Harbor";
-        assert!(unbacked_numbers(derived, &results, &[], "").is_empty(), "{:?}", unbacked_numbers(derived, &results, &[], ""));
-        assert_eq!(unbacked_numbers("It rose by 77 last year.", &results, &[], ""), ["77"]);
+        assert!(
+            unbacked_numbers(derived, &results, &[], "").is_empty(),
+            "{:?}",
+            unbacked_numbers(derived, &results, &[], "")
+        );
+        assert_eq!(
+            unbacked_numbers("It rose by 77 last year.", &results, &[], ""),
+            ["77"]
+        );
         assert!(unbacked_numbers("Top 5 customers.", &results, &[], "top 5 customers").is_empty());
     }
 }

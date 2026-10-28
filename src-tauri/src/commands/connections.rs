@@ -49,12 +49,19 @@ pub async fn init(state: State<'_, AppState>) -> AppResult<InitView> {
         settings.demo_added = true;
         state.store.save_settings(&settings)?;
     }
-    Ok(InitView { connections: state.store.connections()?, settings: settings_view(&settings) })
+    Ok(InitView {
+        connections: state.store.connections()?,
+        settings: settings_view(&settings),
+    })
 }
 
 /// Creates (empty id) or updates a connection. `password: None` keeps the saved password.
 #[tauri::command]
-pub fn save_connection(state: State<'_, AppState>, mut config: ConnConfig, password: Option<String>) -> AppResult<ConnConfig> {
+pub fn save_connection(
+    state: State<'_, AppState>,
+    mut config: ConnConfig,
+    password: Option<String>,
+) -> AppResult<ConnConfig> {
     refuse_team(&config.id)?;
     if config.id.is_empty() {
         config.id = uuid::Uuid::new_v4().to_string();
@@ -77,7 +84,12 @@ pub fn save_connection(state: State<'_, AppState>, mut config: ConnConfig, passw
 #[tauri::command]
 pub fn delete_connection(state: State<'_, AppState>, id: String) -> AppResult<()> {
     refuse_team(&id)?;
-    let list: Vec<ConnConfig> = state.store.connections()?.into_iter().filter(|c| c.id != id).collect();
+    let list: Vec<ConnConfig> = state
+        .store
+        .connections()?
+        .into_iter()
+        .filter(|c| c.id != id)
+        .collect();
     state.store.save_connections(&list)?;
     state.close(&id);
     if let Err(e) = state.store.forget_agent(&id) {
@@ -103,13 +115,20 @@ pub async fn test_connection(config: ConnConfig, password: Option<String>) -> Ap
     let password = password.or_else(|| secrets::password(&config.id));
     let pool = db::connect(&config, password).await?;
     let schema = db::introspect(&pool, config.kind).await?;
-    Ok(format!("Connected. Found {} tables and views.", schema.tables.len()))
+    Ok(format!(
+        "Connected. Found {} tables and views.",
+        schema.tables.len()
+    ))
 }
 
 /// Opens one database of a connection (or reuses it) and returns its schema.
 /// `database: None` opens the connection's default database.
 #[tauri::command]
-pub async fn open_database(state: State<'_, AppState>, id: String, database: Option<String>) -> AppResult<Schema> {
+pub async fn open_database(
+    state: State<'_, AppState>,
+    id: String,
+    database: Option<String>,
+) -> AppResult<Schema> {
     let target = Target::new(id, database);
     match state.schema(&target) {
         Ok(loaded) => Ok(loaded.schema.clone()),
@@ -119,13 +138,20 @@ pub async fn open_database(state: State<'_, AppState>, id: String, database: Opt
 
 /// Re-reads the schema, e.g. after tables were added.
 #[tauri::command]
-pub async fn refresh_schema(state: State<'_, AppState>, id: String, database: Option<String>) -> AppResult<Schema> {
+pub async fn refresh_schema(
+    state: State<'_, AppState>,
+    id: String,
+    database: Option<String>,
+) -> AppResult<Schema> {
     state.load_schema(&Target::new(id, database)).await
 }
 
 /// The databases on the connection's server; `None` for SQLite.
 #[tauri::command]
-pub async fn list_databases(state: State<'_, AppState>, id: String) -> AppResult<Option<DatabaseList>> {
+pub async fn list_databases(
+    state: State<'_, AppState>,
+    id: String,
+) -> AppResult<Option<DatabaseList>> {
     let pool = state.target_pool(&Target::default_of(&id)).await?;
     db::list_databases(&pool).await
 }

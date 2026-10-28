@@ -26,12 +26,23 @@ If the answer is a change to the data, put the statement in finish as proposed_s
 pub const STOPPED: &str = "Stopped.";
 
 /// Runs a read-only query, stopping it on the server if it runs longer than `limit`.
-pub async fn run_limited(pool: &DbPool, sql: &str, cap: usize, limit: Duration) -> Result<QueryResult, String> {
+pub async fn run_limited(
+    pool: &DbPool,
+    sql: &str,
+    cap: usize,
+    limit: Duration,
+) -> Result<QueryResult, String> {
     run_limited_with(pool, sql, cap, limit, &CancellationToken::new()).await
 }
 
 /// `run_limited` that also stops, on the server too, when `stop` fires.
-pub async fn run_limited_with(pool: &DbPool, sql: &str, cap: usize, limit: Duration, stop: &CancellationToken) -> Result<QueryResult, String> {
+pub async fn run_limited_with(
+    pool: &DbPool,
+    sql: &str,
+    cap: usize,
+    limit: Duration,
+    stop: &CancellationToken,
+) -> Result<QueryResult, String> {
     let cancel = stop.child_token();
     let timer = tokio::spawn({
         let cancel = cancel.clone();
@@ -62,10 +73,15 @@ pub fn describe(schema: &Schema, search: Option<&str>) -> String {
 /// `describe` with each table's usage from the database's statistics (see db/usage.rs)
 /// after it, and one line saying what period the figures cover.
 pub fn describe_with(schema: &Schema, search: Option<&str>, usage: &Stats) -> String {
-    let words: Vec<String> = search.unwrap_or("").split_whitespace().map(str::to_lowercase).collect();
+    let words: Vec<String> = search
+        .unwrap_or("")
+        .split_whitespace()
+        .map(str::to_lowercase)
+        .collect();
     let matches = |t: &Table| {
         words.iter().any(|w| {
-            t.qualified_name().to_lowercase().contains(w) || t.columns.iter().any(|c| c.name.to_lowercase().contains(w))
+            t.qualified_name().to_lowercase().contains(w)
+                || t.columns.iter().any(|c| c.name.to_lowercase().contains(w))
         })
     };
     let with_usage = |t: &Table, text: String| match usage.line(t) {
@@ -73,15 +89,31 @@ pub fn describe_with(schema: &Schema, search: Option<&str>, usage: &Stats) -> St
         None => text,
     };
     let render = |t: &Table| with_usage(t, schema::render_table(t, &schema.dialect));
-    let header = format!("Dialect: {}. {} tables and views.", schema.dialect, schema.tables.len());
+    let header = format!(
+        "Dialect: {}. {} tables and views.",
+        schema.dialect,
+        schema.tables.len()
+    );
     // What the usage figures are and the period they cover, before the tables.
     let about = usage.header().map(|h| format!("{h}\n")).unwrap_or_default();
     if !words.is_empty() {
-        let found: Vec<String> = schema.tables.iter().filter(|t| matches(t)).map(render).collect();
+        let found: Vec<String> = schema
+            .tables
+            .iter()
+            .filter(|t| matches(t))
+            .map(render)
+            .collect();
         return if found.is_empty() {
-            format!("{header}\nNo table or column matches {:?}. Try other words, or omit `search` for the table list.", words.join(" "))
+            format!(
+                "{header}\nNo table or column matches {:?}. Try other words, or omit `search` for the table list.",
+                words.join(" ")
+            )
         } else {
-            format!("{header} Showing {} matching:\n{about}{}", found.len(), found.join("\n"))
+            format!(
+                "{header} Showing {} matching:\n{about}{}",
+                found.len(),
+                found.join("\n")
+            )
         };
     }
     // Whether it fits is judged without the usage, so usage never hides columns.
@@ -100,7 +132,10 @@ pub fn describe_with(schema: &Schema, search: Option<&str>, usage: &Stats) -> St
             with_usage(t, name)
         })
         .collect();
-    format!("{header} Too large to describe in full; call again with `search` words for columns.\n{about}{}", names.join("\n"))
+    format!(
+        "{header} Too large to describe in full; call again with `search` words for columns.\n{about}{}",
+        names.join("\n")
+    )
 }
 
 #[cfg(test)]
@@ -115,7 +150,13 @@ mod tests {
             kind: "table".into(),
             columns: cols
                 .iter()
-                .map(|c| Column { name: (*c).into(), data_type: "int".into(), nullable: false, primary_key: false, enum_values: None })
+                .map(|c| Column {
+                    name: (*c).into(),
+                    data_type: "int".into(),
+                    nullable: false,
+                    primary_key: false,
+                    enum_values: None,
+                })
                 .collect(),
             foreign_keys: vec![],
             row_estimate: Some(10),
@@ -124,32 +165,65 @@ mod tests {
 
     #[test]
     fn describe_filters_by_search_words() {
-        let s = Schema { dialect: "SQL Server".into(), tables: vec![table("Person", &["PERSON_EMAIL"]), table("Account", &["ID"])] };
+        let s = Schema {
+            dialect: "SQL Server".into(),
+            tables: vec![
+                table("Person", &["PERSON_EMAIL"]),
+                table("Account", &["ID"]),
+            ],
+        };
         let out = describe(&s, Some("email"));
-        assert!(out.contains("dbo.Person") && !out.contains("dbo.Account"), "{out}");
+        assert!(
+            out.contains("dbo.Person") && !out.contains("dbo.Account"),
+            "{out}"
+        );
         assert!(describe(&s, Some("nothing")).contains("No table or column matches"));
         let all = describe(&s, None);
-        assert!(all.contains("dbo.Person") && all.contains("dbo.Account"), "{all}");
+        assert!(
+            all.contains("dbo.Person") && all.contains("dbo.Account"),
+            "{all}"
+        );
     }
 
     #[test]
     fn describe_adds_usage_after_each_table() {
         use crate::db::usage::{Stats, UNAVAILABLE, parse};
-        let s = Schema { dialect: "SQL Server".into(), tables: vec![table("Person", &["ID"]), table("Account", &["ID"])] };
+        let s = Schema {
+            dialect: "SQL Server".into(),
+            tables: vec![table("Person", &["ID"]), table("Account", &["ID"])],
+        };
         let r = QueryResult {
-            columns: ["started", "schema_name", "table_name", "reads", "writes"].map(String::from).to_vec(),
-            rows: vec![vec![serde_json::json!("2026-10-01T00:00:00"), serde_json::json!("dbo"), serde_json::json!("Person"), serde_json::json!(50_000), serde_json::json!(3)]],
+            columns: ["started", "schema_name", "table_name", "reads", "writes"]
+                .map(String::from)
+                .to_vec(),
+            rows: vec![vec![
+                serde_json::json!("2026-10-01T00:00:00"),
+                serde_json::json!("dbo"),
+                serde_json::json!("Person"),
+                serde_json::json!(50_000),
+                serde_json::json!(3),
+            ]],
             rows_affected: None,
             truncated: false,
             elapsed_ms: 1,
             withheld: vec![],
         };
         let out = describe_with(&s, None, &parse(crate::db::Kind::Mssql, &r));
-        assert!(out.contains("since the server started on 2026-10-01"), "{out}");
+        assert!(
+            out.contains("since the server started on 2026-10-01"),
+            "{out}"
+        );
         assert!(out.contains("usage: 50.0k reads, 3 writes"), "{out}");
-        assert!(out.lines().any(|l| l.starts_with("dbo.Account") && l.ends_with("usage: no reads or writes")), "{out}");
+        assert!(
+            out.lines()
+                .any(|l| l.starts_with("dbo.Account") && l.ends_with("usage: no reads or writes")),
+            "{out}"
+        );
         let found = describe_with(&s, Some("person"), &Stats::Unavailable);
-        assert!(found.contains(UNAVAILABLE) && !found.contains("Account"), "{found}");
+        assert!(
+            found.contains(UNAVAILABLE) && !found.contains("Account"),
+            "{found}"
+        );
         assert_eq!(describe_with(&s, None, &Stats::None), describe(&s, None));
     }
 
@@ -157,8 +231,22 @@ mod tests {
     fn describe_lists_names_for_huge_schemas() {
         let cols: Vec<String> = (0..60).map(|i| format!("column_{i}")).collect();
         let cols: Vec<&str> = cols.iter().map(String::as_str).collect();
-        let tables = (0..200).map(|i| table(&format!("table_{i}"), &cols)).collect();
-        let out = describe(&Schema { dialect: "SQL Server".into(), tables }, None);
-        assert!(out.contains("Too large") && out.contains("dbo.table_199 (~10 rows)") && !out.contains("column_0"), "{}", &out[..200]);
+        let tables = (0..200)
+            .map(|i| table(&format!("table_{i}"), &cols))
+            .collect();
+        let out = describe(
+            &Schema {
+                dialect: "SQL Server".into(),
+                tables,
+            },
+            None,
+        );
+        assert!(
+            out.contains("Too large")
+                && out.contains("dbo.table_199 (~10 rows)")
+                && !out.contains("column_0"),
+            "{}",
+            &out[..200]
+        );
     }
 }

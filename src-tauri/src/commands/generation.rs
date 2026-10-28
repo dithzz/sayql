@@ -10,6 +10,7 @@ use tauri::{AppHandle, State};
 /// model). `focus_tables` (qualified names picked in the navigator) narrow what a draft sees.
 /// `skill` (a saved skill's slug) adds that skill's instruction to the request. Supersedes the generation still running in the same `slot` (one per editor tab).
 #[tauri::command]
+#[allow(clippy::too_many_arguments)]
 pub fn generate_sql(
     app: AppHandle,
     state: State<'_, AppState>,
@@ -27,24 +28,51 @@ pub fn generate_sql(
     let skill = match skill {
         None => None,
         Some(slug) => Some(
-            state.store.skills()?.into_iter().find(|s| s.slug == slug).map(|s| s.instruction).ok_or_else(|| {
-                AppError::User(format!("There's no skill called /{slug}. Create it in Settings."))
-            })?,
+            state
+                .store
+                .skills()?
+                .into_iter()
+                .find(|s| s.slug == slug)
+                .map(|s| s.instruction)
+                .ok_or_else(|| {
+                    AppError::User(format!(
+                        "There's no skill called /{slug}. Create it in Settings."
+                    ))
+                })?,
         ),
     };
     let settings = state.store.settings()?;
     // A team connection with team AI goes through the team server; everything else as before.
     let own = endpoint(&settings);
     let (endpoint, model) = match state.team_ai_route(&id, source_of(&task), own.is_ok()) {
-        Some((route, ai)) => (route, if task.needs_expert() { ai.default_model() } else { ai.fast_model() }),
-        None => (own?, settings.provider_settings(&settings.provider).model(task.needs_expert()).to_string()),
+        Some((route, ai)) => (
+            route,
+            if task.needs_expert() {
+                ai.default_model()
+            } else {
+                ai.fast_model()
+            },
+        ),
+        None => (
+            own?,
+            settings
+                .provider_settings(&settings.provider)
+                .model(task.needs_expert())
+                .to_string(),
+        ),
     };
     let request = GenRequest {
         req_id,
         endpoint,
         model,
         dialect: live.schema.dialect.clone(),
-        schema_text: schema_text(&live.schema, &live.schema_text, &question, &task, focus_tables.as_deref().unwrap_or(&[])) + &notes,
+        schema_text: schema_text(
+            &live.schema,
+            &live.schema_text,
+            &question,
+            &task,
+            focus_tables.as_deref().unwrap_or(&[]),
+        ) + &notes,
         question,
         task,
         skill,

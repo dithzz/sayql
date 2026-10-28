@@ -150,12 +150,8 @@ jobs:
           fi
           cargo test --lib -- integration_tests:: mcp::tests::tools_work_against_real_databases
 
-  # Non-blocking for now: main isn't rustfmt-clean (about 270 hunks in 36 of 45 files), and
-  # reformatting while many PRs are open would conflict with all of them. Once they land, run
-  # `cargo fmt` once in src-tauri, then remove `continue-on-error` and make this a required check.
   fmt:
     runs-on: ubuntu-22.04
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v7
 
@@ -167,12 +163,8 @@ jobs:
         working-directory: src-tauri
         run: cargo fmt --check
 
-  # Non-blocking for now, for the same reason: main has about 10 clippy warnings in files that
-  # open PRs are changing. Once they land, fix the warnings, then remove `continue-on-error` and
-  # make this a required check.
   clippy:
     runs-on: ubuntu-22.04
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v7
 

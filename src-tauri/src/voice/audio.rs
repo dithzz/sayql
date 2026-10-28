@@ -79,17 +79,21 @@ impl Recording {
                 Ok(s) => s,
                 Err(e) => {
                     let _ = ready_tx.send(Err(e));
-                    return Captured { samples: Vec::new(), rate: WHISPER_RATE, peak: 0.0 };
+                    return Captured {
+                        samples: Vec::new(),
+                        rate: WHISPER_RATE,
+                        peak: 0.0,
+                    };
                 }
             };
             let _ = ready_tx.send(Ok(()));
             let mut warned = false;
-            loop {
-                match stop_rx.recv_timeout(Duration::from_millis(50)) {
-                    Err(RecvTimeoutError::Timeout) => {}
-                    _ => break,
-                }
-                on_event(Event::Level(f32::from_bits(shared.level.load(Ordering::Relaxed))));
+            while let Err(RecvTimeoutError::Timeout) =
+                stop_rx.recv_timeout(Duration::from_millis(50))
+            {
+                on_event(Event::Level(f32::from_bits(
+                    shared.level.load(Ordering::Relaxed),
+                )));
                 let silent = f32::from_bits(shared.peak.load(Ordering::Relaxed)) == 0.0;
                 if !warned && silent && shared.frames.load(Ordering::Relaxed) >= rate as usize {
                     warned = true;
@@ -101,10 +105,17 @@ impl Recording {
             }
             drop(stream);
             let samples = std::mem::take(&mut *shared.samples.lock().unwrap());
-            Captured { samples, rate, peak: f32::from_bits(shared.peak.load(Ordering::Relaxed)) }
+            Captured {
+                samples,
+                rate,
+                peak: f32::from_bits(shared.peak.load(Ordering::Relaxed)),
+            }
         });
         match ready_rx.recv() {
-            Ok(Ok(())) => Ok(Recording { stop, thread: Some(thread) }),
+            Ok(Ok(())) => Ok(Recording {
+                stop,
+                thread: Some(thread),
+            }),
             Ok(Err(e)) => Err(e),
             Err(_) => Err("Could not start recording.".into()),
         }
@@ -124,7 +135,11 @@ impl Recording {
         self.thread
             .take()
             .and_then(|t| t.join().ok())
-            .unwrap_or(Captured { samples: Vec::new(), rate: WHISPER_RATE, peak: 0.0 })
+            .unwrap_or(Captured {
+                samples: Vec::new(),
+                rate: WHISPER_RATE,
+                peak: 0.0,
+            })
     }
 }
 
@@ -159,13 +174,23 @@ fn open_stream(shared: Arc<Shared>) -> AppResult<(cpal::Stream, u32)> {
         SampleFormat::I8 => build::<i8>(&device, &config, channels, rate, shared),
         SampleFormat::U8 => build::<u8>(&device, &config, channels, rate, shared),
         SampleFormat::F64 => build::<f64>(&device, &config, channels, rate, shared),
-        other => return Err(AppError::User(format!("Unsupported microphone format: {other}"))),
+        other => {
+            return Err(AppError::User(format!(
+                "Unsupported microphone format: {other}"
+            )));
+        }
     }?;
     stream.play().map_err(mic_error)?;
     Ok((stream, rate))
 }
 
-fn build<T>(device: &cpal::Device, config: &cpal::StreamConfig, channels: usize, rate: u32, shared: Arc<Shared>) -> AppResult<cpal::Stream>
+fn build<T>(
+    device: &cpal::Device,
+    config: &cpal::StreamConfig,
+    channels: usize,
+    rate: u32,
+    shared: Arc<Shared>,
+) -> AppResult<cpal::Stream>
 where
     T: SizedSample,
     f32: FromSample<T>,
@@ -174,16 +199,20 @@ where
     let on_error = shared.clone();
     device
         .build_input_stream(
-            config.clone(),
+            *config,
             move |data: &[T], _: &cpal::InputCallbackInfo| {
                 let mono = to_mono(data, channels);
-                let (mut sum, mut peak) = (0.0f32, f32::from_bits(shared.peak.load(Ordering::Relaxed)));
+                let (mut sum, mut peak) =
+                    (0.0f32, f32::from_bits(shared.peak.load(Ordering::Relaxed)));
                 for s in &mono {
                     sum += s * s;
                     peak = peak.max(s.abs());
                 }
                 if !mono.is_empty() {
-                    shared.level.store((sum / mono.len() as f32).sqrt().min(1.0).to_bits(), Ordering::Relaxed);
+                    shared.level.store(
+                        (sum / mono.len() as f32).sqrt().min(1.0).to_bits(),
+                        Ordering::Relaxed,
+                    );
                 }
                 shared.peak.store(peak.to_bits(), Ordering::Relaxed);
                 shared.frames.fetch_add(mono.len(), Ordering::Relaxed);
@@ -222,7 +251,12 @@ pub fn resample(input: &[f32], from: u32, to: u32) -> Vec<f32> {
         .map(|i| {
             let start = i as f64 * ratio;
             if ratio > 1.0 {
-                let (a, b) = (start as usize, ((start + ratio) as usize).min(input.len()).max(start as usize + 1));
+                let (a, b) = (
+                    start as usize,
+                    ((start + ratio) as usize)
+                        .min(input.len())
+                        .max(start as usize + 1),
+                );
                 input[a..b].iter().sum::<f32>() / (b - a) as f32
             } else {
                 let a = start as usize;
@@ -265,7 +299,9 @@ mod tests {
     #[test]
     fn downsampling_filters_out_high_frequencies() {
         // A tone at 24 kHz (alternating samples at 48 kHz) can't exist at 16 kHz; it must not alias.
-        let input: Vec<f32> = (0..48_000).map(|i| if i % 2 == 0 { 0.5 } else { -0.5 }).collect();
+        let input: Vec<f32> = (0..48_000)
+            .map(|i| if i % 2 == 0 { 0.5 } else { -0.5 })
+            .collect();
         let out = resample(&input, 48_000, WHISPER_RATE);
         let rms = (out.iter().map(|s| s * s).sum::<f32>() / out.len() as f32).sqrt();
         assert!(rms < 0.2, "rms {rms}");
@@ -273,7 +309,10 @@ mod tests {
 
     #[test]
     fn same_rate_is_unchanged() {
-        assert_eq!(resample(&[0.1, 0.2], WHISPER_RATE, WHISPER_RATE), vec![0.1, 0.2]);
+        assert_eq!(
+            resample(&[0.1, 0.2], WHISPER_RATE, WHISPER_RATE),
+            vec![0.1, 0.2]
+        );
         assert!(resample(&[], 48_000, WHISPER_RATE).is_empty());
     }
 }

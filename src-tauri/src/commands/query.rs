@@ -28,7 +28,9 @@ pub async fn run_query(
         DbPool::Team(_) => true,
         _ => write_gate(&sql, pool.kind(), allow_write)?,
     };
-    let Some(run_id) = run_id else { return db::run_query(&pool, &sql, read_only).await };
+    let Some(run_id) = run_id else {
+        return db::run_query(&pool, &sql, read_only).await;
+    };
     let cancel = state.start_query(&run_id);
     let out = db::run_query_with(&pool, &sql, read_only, db::MAX_ROWS, &cancel).await;
     state.finish_query(&run_id);
@@ -65,8 +67,18 @@ mod tests {
 
     #[test]
     fn writes_need_confirmation() {
-        for sql in ["DELETE FROM orders", "UPDATE orders SET status = 'x'", "DROP TABLE orders"] {
-            assert!(matches!(write_gate(sql, Kind::Postgres, false), Err(AppError::NeedsWriteConfirmation)), "{sql}");
+        for sql in [
+            "DELETE FROM orders",
+            "UPDATE orders SET status = 'x'",
+            "DROP TABLE orders",
+        ] {
+            assert!(
+                matches!(
+                    write_gate(sql, Kind::Postgres, false),
+                    Err(AppError::NeedsWriteConfirmation)
+                ),
+                "{sql}"
+            );
         }
     }
 

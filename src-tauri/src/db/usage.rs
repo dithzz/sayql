@@ -19,7 +19,8 @@ const TIMEOUT: Duration = Duration::from_secs(5);
 /// Most tables read from the statistics.
 const MAX_TABLES: usize = 20_000;
 
-pub const UNAVAILABLE: &str = "Usage statistics unavailable (the database user can't read them, or they are turned off).";
+pub const UNAVAILABLE: &str =
+    "Usage statistics unavailable (the database user can't read them, or they are turned off).";
 
 /// Reads, writes and live rows on PostgreSQL. The period: when the database's statistics
 /// were last reset, else when the server started.
@@ -96,16 +97,25 @@ impl Usage {
     fn insert(&mut self, schema: Option<&str>, name: &str, counts: Counts) {
         let name = name.to_lowercase();
         if let Some(s) = schema {
-            self.tables.insert(format!("{}.{name}", s.to_lowercase()), counts.clone());
+            self.tables
+                .insert(format!("{}.{name}", s.to_lowercase()), counts.clone());
         }
-        self.by_name.entry(name).and_modify(|c| *c = None).or_insert(Some(counts));
+        self.by_name
+            .entry(name)
+            .and_modify(|c| *c = None)
+            .or_insert(Some(counts));
     }
 
     fn get(&self, t: &Table) -> Option<&Counts> {
-        if let Some(c) = t.schema.as_ref().and_then(|s| self.tables.get(&format!("{}.{}", s.to_lowercase(), t.name.to_lowercase()))) {
+        if let Some(c) = t.schema.as_ref().and_then(|s| {
+            self.tables
+                .get(&format!("{}.{}", s.to_lowercase(), t.name.to_lowercase()))
+        }) {
             return Some(c);
         }
-        self.by_name.get(&t.name.to_lowercase()).and_then(Option::as_ref)
+        self.by_name
+            .get(&t.name.to_lowercase())
+            .and_then(Option::as_ref)
     }
 }
 
@@ -154,16 +164,31 @@ pub fn compact(n: i64) -> String {
     } else {
         return n.to_string();
     };
-    format!("{sign}{}{unit}", if v >= 100.0 { format!("{v:.0}") } else { format!("{v:.1}") })
+    format!(
+        "{sign}{}{unit}",
+        if v >= 100.0 {
+            format!("{v:.0}")
+        } else {
+            format!("{v:.1}")
+        }
+    )
 }
 
 fn format_counts(c: &Counts, row_estimate: Option<i64>) -> Option<String> {
     let mut parts = Vec::new();
     if let Some(r) = c.reads {
-        parts.push(format!("{} read{}", compact(r), if r == 1 { "" } else { "s" }));
+        parts.push(format!(
+            "{} read{}",
+            compact(r),
+            if r == 1 { "" } else { "s" }
+        ));
     }
     if let Some(w) = c.writes {
-        parts.push(format!("{} write{}", compact(w), if w == 1 { "" } else { "s" }));
+        parts.push(format!(
+            "{} write{}",
+            compact(w),
+            if w == 1 { "" } else { "s" }
+        ));
     }
     // Live rows only where the schema has no row estimate of its own.
     if let Some(n) = c.live_rows.filter(|_| row_estimate.is_none_or(|e| e < 0)) {
@@ -193,7 +218,9 @@ fn num(v: Option<&Value>) -> Option<i64> {
 fn date(v: Option<&Value>) -> Option<String> {
     let s = v?.as_str()?.trim();
     let d = s.get(..10)?;
-    chrono::NaiveDate::parse_from_str(d, "%Y-%m-%d").ok().map(|_| d.to_string())
+    chrono::NaiveDate::parse_from_str(d, "%Y-%m-%d")
+        .ok()
+        .map(|_| d.to_string())
 }
 
 fn text(v: Option<&Value>) -> Option<String> {
@@ -204,15 +231,25 @@ fn text(v: Option<&Value>) -> Option<String> {
 pub fn parse(kind: Kind, r: &QueryResult) -> Stats {
     let col = |name: &str| r.columns.iter().position(|c| c.eq_ignore_ascii_case(name));
     let at = |row: &[Value], name: &str| col(name).and_then(|i| row.get(i).cloned());
-    let mut u = Usage { absent_means_unused: kind == Kind::Mssql, ..Default::default() };
-    let Some(first) = r.rows.first() else { return Stats::Unavailable };
+    let mut u = Usage {
+        absent_means_unused: kind == Kind::Mssql,
+        ..Default::default()
+    };
+    let Some(first) = r.rows.first() else {
+        return Stats::Unavailable;
+    };
     u.since = match kind {
-        Kind::Postgres => match (date(at(first, "stats_reset").as_ref()), date(at(first, "started").as_ref())) {
+        Kind::Postgres => match (
+            date(at(first, "stats_reset").as_ref()),
+            date(at(first, "started").as_ref()),
+        ) {
             (Some(reset), _) => Some(format!("since {reset}")),
             (None, Some(started)) => Some(format!("since the server started on {started}")),
             (None, None) => None,
         },
-        Kind::Mssql => date(at(first, "started").as_ref()).map(|d| format!("since the server started on {d}")),
+        Kind::Mssql => {
+            date(at(first, "started").as_ref()).map(|d| format!("since the server started on {d}"))
+        }
         Kind::Mysql => num(at(first, "uptime").as_ref()).map(|secs| {
             let started = chrono::Utc::now() - chrono::Duration::seconds(secs);
             format!("since the server started on {}", started.format("%Y-%m-%d"))
@@ -220,7 +257,9 @@ pub fn parse(kind: Kind, r: &QueryResult) -> Stats {
         Kind::Sqlite => return Stats::None,
     };
     for row in &r.rows {
-        let Some(name) = text(at(row, "table_name").as_ref()) else { continue };
+        let Some(name) = text(at(row, "table_name").as_ref()) else {
+            continue;
+        };
         let schema = text(at(row, "schema_name").as_ref());
         let mut counts = Counts {
             reads: num(at(row, "reads").as_ref()),
@@ -263,11 +302,25 @@ mod tests {
     use serde_json::json;
 
     fn table(schema: Option<&str>, name: &str, kind: &str) -> Table {
-        Table { schema: schema.map(Into::into), name: name.into(), kind: kind.into(), columns: vec![], foreign_keys: vec![], row_estimate: Some(10) }
+        Table {
+            schema: schema.map(Into::into),
+            name: name.into(),
+            kind: kind.into(),
+            columns: vec![],
+            foreign_keys: vec![],
+            row_estimate: Some(10),
+        }
     }
 
     fn result(columns: &[&str], rows: Vec<Vec<Value>>) -> QueryResult {
-        QueryResult { columns: columns.iter().map(|c| c.to_string()).collect(), rows, rows_affected: None, truncated: false, elapsed_ms: 1, withheld: vec![] }
+        QueryResult {
+            columns: columns.iter().map(|c| c.to_string()).collect(),
+            rows,
+            rows_affected: None,
+            truncated: false,
+            elapsed_ms: 1,
+            withheld: vec![],
+        }
     }
 
     #[test]
@@ -282,47 +335,178 @@ mod tests {
 
     #[test]
     fn postgres_usage_states_the_period() {
-        let cols = ["stats_reset", "started", "schema_name", "table_name", "reads", "writes", "live_rows", "analyzed"];
+        let cols = [
+            "stats_reset",
+            "started",
+            "schema_name",
+            "table_name",
+            "reads",
+            "writes",
+            "live_rows",
+            "analyzed",
+        ];
         let r = result(
             &cols,
             vec![
-                vec![Value::Null, json!("2026-10-01 08:00:00+00"), json!("public"), json!("orders"), json!(12345), json!(40), json!(1200), json!("2026-10-20 03:00:00+00")],
-                vec![Value::Null, json!("2026-10-01 08:00:00+00"), json!("public"), json!("orders_legacy"), json!("3"), json!(0), json!(0), Value::Null],
+                vec![
+                    Value::Null,
+                    json!("2026-10-01 08:00:00+00"),
+                    json!("public"),
+                    json!("orders"),
+                    json!(12345),
+                    json!(40),
+                    json!(1200),
+                    json!("2026-10-20 03:00:00+00"),
+                ],
+                vec![
+                    Value::Null,
+                    json!("2026-10-01 08:00:00+00"),
+                    json!("public"),
+                    json!("orders_legacy"),
+                    json!("3"),
+                    json!(0),
+                    json!(0),
+                    Value::Null,
+                ],
             ],
         );
         let s = parse(Kind::Postgres, &r);
-        assert!(s.header().unwrap().contains("since the server started on 2026-10-01"), "{:?}", s.header());
-        assert_eq!(s.line(&table(Some("public"), "orders", "table")).unwrap(), "12.3k reads, 40 writes, analyzed 2026-10-20");
-        assert_eq!(s.line(&table(Some("public"), "orders_legacy", "table")).unwrap(), "3 reads, 0 writes");
-        assert_eq!(s.line(&table(Some("public"), "orders", "view")), None, "views have no usage");
+        assert!(
+            s.header()
+                .unwrap()
+                .contains("since the server started on 2026-10-01"),
+            "{:?}",
+            s.header()
+        );
+        assert_eq!(
+            s.line(&table(Some("public"), "orders", "table")).unwrap(),
+            "12.3k reads, 40 writes, analyzed 2026-10-20"
+        );
+        assert_eq!(
+            s.line(&table(Some("public"), "orders_legacy", "table"))
+                .unwrap(),
+            "3 reads, 0 writes"
+        );
+        assert_eq!(
+            s.line(&table(Some("public"), "orders", "view")),
+            None,
+            "views have no usage"
+        );
         assert_eq!(s.line(&table(Some("public"), "missing", "table")), None);
-        let no_estimate = Table { row_estimate: None, ..table(Some("public"), "orders", "table") };
+        let no_estimate = Table {
+            row_estimate: None,
+            ..table(Some("public"), "orders", "table")
+        };
         assert!(s.line(&no_estimate).unwrap().contains("~1200 live rows"));
 
-        let reset = result(&cols, vec![vec![json!("2026-01-01 00:00:00+00"), json!("2026-10-01 08:00:00+00"), Value::Null, Value::Null, Value::Null, Value::Null, Value::Null, Value::Null]]);
-        assert!(parse(Kind::Postgres, &reset).header().unwrap().contains("since 2026-01-01 ("));
+        let reset = result(
+            &cols,
+            vec![vec![
+                json!("2026-01-01 00:00:00+00"),
+                json!("2026-10-01 08:00:00+00"),
+                Value::Null,
+                Value::Null,
+                Value::Null,
+                Value::Null,
+                Value::Null,
+                Value::Null,
+            ]],
+        );
+        assert!(
+            parse(Kind::Postgres, &reset)
+                .header()
+                .unwrap()
+                .contains("since 2026-01-01 (")
+        );
     }
 
     #[test]
     fn sql_server_lists_unused_tables() {
-        let cols = ["started", "schema_name", "table_name", "reads", "writes", "last_read", "last_write"];
-        let r = result(&cols, vec![vec![json!("2026-09-30T22:01:02.123"), json!("dbo"), json!("Orders"), json!(7), json!(2), json!("2026-10-27T10:00:00"), Value::Null]]);
+        let cols = [
+            "started",
+            "schema_name",
+            "table_name",
+            "reads",
+            "writes",
+            "last_read",
+            "last_write",
+        ];
+        let r = result(
+            &cols,
+            vec![vec![
+                json!("2026-09-30T22:01:02.123"),
+                json!("dbo"),
+                json!("Orders"),
+                json!(7),
+                json!(2),
+                json!("2026-10-27T10:00:00"),
+                Value::Null,
+            ]],
+        );
         let s = parse(Kind::Mssql, &r);
-        assert_eq!(s.line(&table(Some("dbo"), "orders", "table")).unwrap(), "7 reads, 2 writes, last read 2026-10-27");
-        assert_eq!(s.line(&table(Some("dbo"), "OrdersOld", "table")).unwrap(), "no reads or writes");
-        assert!(s.header().unwrap().contains("since the server started on 2026-09-30"));
+        assert_eq!(
+            s.line(&table(Some("dbo"), "orders", "table")).unwrap(),
+            "7 reads, 2 writes, last read 2026-10-27"
+        );
+        assert_eq!(
+            s.line(&table(Some("dbo"), "OrdersOld", "table")).unwrap(),
+            "no reads or writes"
+        );
+        assert!(
+            s.header()
+                .unwrap()
+                .contains("since the server started on 2026-09-30")
+        );
     }
 
     #[test]
     fn mysql_without_performance_schema_keeps_only_dates() {
-        let cols = ["uptime", "schema_name", "table_name", "reads", "writes", "last_write"];
-        let r = result(&cols, vec![vec![Value::Null, json!("shop"), json!("orders"), Value::Null, Value::Null, json!("2026-10-02 11:00:00")]]);
+        let cols = [
+            "uptime",
+            "schema_name",
+            "table_name",
+            "reads",
+            "writes",
+            "last_write",
+        ];
+        let r = result(
+            &cols,
+            vec![vec![
+                Value::Null,
+                json!("shop"),
+                json!("orders"),
+                Value::Null,
+                Value::Null,
+                json!("2026-10-02 11:00:00"),
+            ]],
+        );
         let s = parse(Kind::Mysql, &r);
-        assert_eq!(s.line(&table(Some("shop"), "orders", "table")).unwrap(), "last write 2026-10-02");
-        assert!(s.header().unwrap().contains("last time each table was written"));
-        let r = result(&cols, vec![vec![json!("86400"), json!("shop"), json!("orders"), json!(5), json!(1), Value::Null]]);
+        assert_eq!(
+            s.line(&table(Some("shop"), "orders", "table")).unwrap(),
+            "last write 2026-10-02"
+        );
+        assert!(
+            s.header()
+                .unwrap()
+                .contains("last time each table was written")
+        );
+        let r = result(
+            &cols,
+            vec![vec![
+                json!("86400"),
+                json!("shop"),
+                json!("orders"),
+                json!(5),
+                json!(1),
+                Value::Null,
+            ]],
+        );
         let s = parse(Kind::Mysql, &r);
-        assert_eq!(s.line(&table(None, "orders", "table")).unwrap(), "5 reads, 1 write", "found by name alone");
+        assert_eq!(
+            s.line(&table(None, "orders", "table")).unwrap(),
+            "5 reads, 1 write",
+            "found by name alone"
+        );
         assert!(s.header().unwrap().contains("since the server started on"));
     }
 
@@ -331,6 +515,9 @@ mod tests {
         assert_eq!(Stats::None.header(), None);
         assert_eq!(Stats::Unavailable.header().as_deref(), Some(UNAVAILABLE));
         assert_eq!(Stats::Unavailable.line(&table(None, "t", "table")), None);
-        assert_eq!(parse(Kind::Postgres, &result(&["started"], vec![])), Stats::Unavailable);
+        assert_eq!(
+            parse(Kind::Postgres, &result(&["started"], vec![])),
+            Stats::Unavailable
+        );
     }
 }

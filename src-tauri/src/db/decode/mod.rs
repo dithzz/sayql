@@ -10,7 +10,6 @@ macro_rules! try_as {
     };
 }
 
-
 mod mssql;
 mod mysql;
 mod postgres;
@@ -26,7 +25,11 @@ fn num<T: Into<serde_json::Number>>(v: Option<T>) -> Option<Value> {
 }
 
 fn float(v: Option<f64>) -> Option<Value> {
-    v.map(|f| serde_json::Number::from_f64(f).map(Value::Number).unwrap_or(Value::String(f.to_string())))
+    v.map(|f| {
+        serde_json::Number::from_f64(f)
+            .map(Value::Number)
+            .unwrap_or(Value::String(f.to_string()))
+    })
 }
 
 fn string<T: ToString>(v: Option<T>) -> Option<Value> {
@@ -36,7 +39,11 @@ fn string<T: ToString>(v: Option<T>) -> Option<Value> {
 fn bytes(v: Option<Vec<u8>>) -> Option<Value> {
     v.map(|b| {
         let hex: String = b.iter().take(64).map(|x| format!("{x:02x}")).collect();
-        let more = if b.len() > 64 { format!("… ({} bytes)", b.len()) } else { String::new() };
+        let more = if b.len() > 64 {
+            format!("… ({} bytes)", b.len())
+        } else {
+            String::new()
+        };
         Value::String(format!("0x{hex}{more}"))
     })
 }
@@ -56,7 +63,12 @@ fn f32_to_f64(f: f32) -> f64 {
 /// `[-]HH:MM:SS[.ffffff]` from microseconds, trailing zeros trimmed, hours unbounded.
 fn clock(us: i64) -> String {
     let a = us.unsigned_abs();
-    let (h, m, s, frac) = (a / 3_600_000_000, a / 60_000_000 % 60, a / 1_000_000 % 60, a % 1_000_000);
+    let (h, m, s, frac) = (
+        a / 3_600_000_000,
+        a / 60_000_000 % 60,
+        a / 1_000_000 % 60,
+        a % 1_000_000,
+    );
     let mut out = format!("{}{h:02}:{m:02}:{s:02}", if us < 0 { "-" } else { "" });
     if frac != 0 {
         out.push('.');

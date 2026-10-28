@@ -6,27 +6,95 @@ use super::Kind;
 /// `OUTFILE`/`DUMPFILE` write files on MySQL; the function names below have side effects
 /// that a read-only transaction doesn't stop (or that leave the database).
 const WRITE_KEYWORDS: &[&str] = &[
-    "INSERT", "UPDATE", "DELETE", "MERGE", "UPSERT", "INTO", "DROP", "ALTER", "CREATE", "TRUNCATE", "RENAME",
-    "GRANT", "REVOKE", "DENY", "EXEC", "EXECUTE", "CALL", "COMMIT", "ROLLBACK", "SAVEPOINT", "BEGIN", "BACKUP",
-    "RESTORE", "DBCC", "KILL", "SHUTDOWN", "RECONFIGURE", "BULK", "OPENROWSET", "OPENQUERY", "OPENDATASOURCE",
-    "ATTACH", "DETACH", "VACUUM", "REINDEX", "COPY", "LOCK", "USE", "SET", "CHECKPOINT", "RECEIVE", "OUTFILE",
-    "DUMPFILE", "LOAD_EXTENSION", "DBLINK", "DBLINK_EXEC", "LO_IMPORT", "LO_EXPORT", "LO_UNLINK", "NEXTVAL",
-    "SETVAL", "PG_TERMINATE_BACKEND", "PG_CANCEL_BACKEND", "PG_RELOAD_CONF", "PG_ROTATE_LOGFILE", "PG_PROMOTE",
+    "INSERT",
+    "UPDATE",
+    "DELETE",
+    "MERGE",
+    "UPSERT",
+    "INTO",
+    "DROP",
+    "ALTER",
+    "CREATE",
+    "TRUNCATE",
+    "RENAME",
+    "GRANT",
+    "REVOKE",
+    "DENY",
+    "EXEC",
+    "EXECUTE",
+    "CALL",
+    "COMMIT",
+    "ROLLBACK",
+    "SAVEPOINT",
+    "BEGIN",
+    "BACKUP",
+    "RESTORE",
+    "DBCC",
+    "KILL",
+    "SHUTDOWN",
+    "RECONFIGURE",
+    "BULK",
+    "OPENROWSET",
+    "OPENQUERY",
+    "OPENDATASOURCE",
+    "ATTACH",
+    "DETACH",
+    "VACUUM",
+    "REINDEX",
+    "COPY",
+    "LOCK",
+    "USE",
+    "SET",
+    "CHECKPOINT",
+    "RECEIVE",
+    "OUTFILE",
+    "DUMPFILE",
+    "LOAD_EXTENSION",
+    "DBLINK",
+    "DBLINK_EXEC",
+    "LO_IMPORT",
+    "LO_EXPORT",
+    "LO_UNLINK",
+    "NEXTVAL",
+    "SETVAL",
+    "PG_TERMINATE_BACKEND",
+    "PG_CANCEL_BACKEND",
+    "PG_RELOAD_CONF",
+    "PG_ROTATE_LOGFILE",
+    "PG_PROMOTE",
     "PG_SWITCH_WAL",
     // Effects that a read-only transaction allows and a rollback doesn't undo. Session-level
     // locks stay held by the pooled connection; replication slots keep WAL until the disk fills.
-    "PG_ADVISORY_LOCK", "PG_ADVISORY_LOCK_SHARED", "PG_TRY_ADVISORY_LOCK", "PG_TRY_ADVISORY_LOCK_SHARED", "GET_LOCK",
-    "PG_CREATE_RESTORE_POINT", "PG_BACKUP_START", "PG_BACKUP_STOP", "PG_START_BACKUP", "PG_STOP_BACKUP",
-    "PG_WAL_REPLAY_PAUSE", "PG_WAL_REPLAY_RESUME", "PG_LOGICAL_EMIT_MESSAGE", "PG_FILE_WRITE", "PG_FILE_RENAME",
+    "PG_ADVISORY_LOCK",
+    "PG_ADVISORY_LOCK_SHARED",
+    "PG_TRY_ADVISORY_LOCK",
+    "PG_TRY_ADVISORY_LOCK_SHARED",
+    "GET_LOCK",
+    "PG_CREATE_RESTORE_POINT",
+    "PG_BACKUP_START",
+    "PG_BACKUP_STOP",
+    "PG_START_BACKUP",
+    "PG_STOP_BACKUP",
+    "PG_WAL_REPLAY_PAUSE",
+    "PG_WAL_REPLAY_RESUME",
+    "PG_LOGICAL_EMIT_MESSAGE",
+    "PG_FILE_WRITE",
+    "PG_FILE_RENAME",
     "PG_FILE_UNLINK",
 ];
 
 /// Function families with the same kind of lasting effect: `pg_stat_reset_shared`,
 /// `pg_create_logical_replication_slot`, `pg_replication_origin_drop`, ...
 const WRITE_PREFIXES: &[&str] = &[
-    "PG_STAT_RESET", "PG_STAT_STATEMENTS_RESET", "PG_CREATE_PHYSICAL_REPLICATION_SLOT", "PG_CREATE_LOGICAL_REPLICATION_SLOT",
-    "PG_COPY_PHYSICAL_REPLICATION_SLOT", "PG_COPY_LOGICAL_REPLICATION_SLOT", "PG_DROP_REPLICATION_SLOT",
-    "PG_REPLICATION_SLOT_ADVANCE", "PG_REPLICATION_ORIGIN_",
+    "PG_STAT_RESET",
+    "PG_STAT_STATEMENTS_RESET",
+    "PG_CREATE_PHYSICAL_REPLICATION_SLOT",
+    "PG_CREATE_LOGICAL_REPLICATION_SLOT",
+    "PG_COPY_PHYSICAL_REPLICATION_SLOT",
+    "PG_COPY_LOGICAL_REPLICATION_SLOT",
+    "PG_DROP_REPLICATION_SLOT",
+    "PG_REPLICATION_SLOT_ADVANCE",
+    "PG_REPLICATION_ORIGIN_",
 ];
 
 /// True when the statement only reads data: it starts with a reading keyword and
@@ -44,14 +112,20 @@ pub fn is_read_only(sql: &str, kind: Kind) -> bool {
         Kind::Mysql | Kind::Postgres => &[true, false],
         Kind::Sqlite | Kind::Mssql => &[false],
     };
-    backslash.iter().all(|&backslash| reads_only(sql, Lexer { kind, backslash }))
+    backslash
+        .iter()
+        .all(|&backslash| reads_only(sql, Lexer { kind, backslash }))
 }
 
 fn reads_only(sql: &str, lexer: Lexer) -> bool {
-    let first = lexer.tokens(sql).find(|t| !matches!(t, Tok::Sym(b'(' | b';')));
+    let first = lexer
+        .tokens(sql)
+        .find(|t| !matches!(t, Tok::Sym(b'(' | b';')));
     let reads = match first {
         Some(Tok::Word(w)) => match w.to_ascii_uppercase().as_str() {
-            "SELECT" | "WITH" | "EXPLAIN" | "SHOW" | "DESCRIBE" | "DESC" | "VALUES" | "TABLE" => true,
+            "SELECT" | "WITH" | "EXPLAIN" | "SHOW" | "DESCRIBE" | "DESC" | "VALUES" | "TABLE" => {
+                true
+            }
             // `PRAGMA x = y` changes settings; `PRAGMA x` / `PRAGMA x(y)` reads them.
             "PRAGMA" => !sql.contains('='),
             _ => false,
@@ -61,15 +135,22 @@ fn reads_only(sql: &str, lexer: Lexer) -> bool {
     if !reads {
         return false;
     }
-    let words: Vec<&str> = lexer.tokens(sql).filter_map(|t| if let Tok::Word(w) = t { Some(w) } else { None }).collect();
+    let words: Vec<&str> = lexer
+        .tokens(sql)
+        .filter_map(|t| if let Tok::Word(w) = t { Some(w) } else { None })
+        .collect();
     let is = |w: &str, k: &str| w.eq_ignore_ascii_case(k);
     // SQL Server's `NEXT VALUE FOR seq` advances a sequence, and a rollback doesn't undo it.
-    let next_value = words.windows(3).any(|w| is(w[0], "NEXT") && is(w[1], "VALUE") && is(w[2], "FOR"));
+    let next_value = words
+        .windows(3)
+        .any(|w| is(w[0], "NEXT") && is(w[1], "VALUE") && is(w[2], "FOR"));
     let writes = |i: usize, w: &str| {
         // MySQL's `SHOW CREATE TABLE t` only shows the statement.
         let shown = is(w, "CREATE") && i > 0 && is(words[i - 1], "SHOW");
         let upper = w.to_ascii_uppercase();
-        !shown && (WRITE_KEYWORDS.contains(&upper.as_str()) || WRITE_PREFIXES.iter().any(|p| upper.starts_with(p)))
+        !shown
+            && (WRITE_KEYWORDS.contains(&upper.as_str())
+                || WRITE_PREFIXES.iter().any(|p| upper.starts_with(p)))
     };
     !next_value && !words.iter().enumerate().any(|(i, w)| writes(i, w))
 }
@@ -97,7 +178,11 @@ impl Lexer {
         let bytes = sql.as_bytes();
         let mut i = 0;
         // Index just past the next `end` at or after `from`, or the end of the text.
-        let skip_to = |from: usize, end: &str| sql[from..].find(end).map_or(sql.len(), |p| from + p + end.len());
+        let skip_to = |from: usize, end: &str| {
+            sql[from..]
+                .find(end)
+                .map_or(sql.len(), |p| from + p + end.len())
+        };
         // Index just past the closing `q` of a quoted run starting at `from`, where `\`
         // escapes the next byte and a doubled `q` is a literal one.
         let skip_escaped = |mut j: usize, q: u8| {
@@ -112,7 +197,9 @@ impl Lexer {
             bytes.len()
         };
         // MySQL and Postgres allow `$` inside identifiers (`a$b`); elsewhere a `$` ends a word.
-        let word_byte = move |c: u8| c.is_ascii_alphanumeric() || c == b'_' || (c == b'$' && (mysql || postgres));
+        let word_byte = move |c: u8| {
+            c.is_ascii_alphanumeric() || c == b'_' || (c == b'$' && (mysql || postgres))
+        };
         std::iter::from_fn(move || {
             while i < bytes.len() {
                 let c = bytes[i];
@@ -125,7 +212,11 @@ impl Lexer {
                             && i > 0
                             && bytes[i - 1].eq_ignore_ascii_case(&b'e')
                             && (i == 1 || !word_byte(bytes[i - 2]));
-                        i = if self.backslash || e_string { skip_escaped(i + 1, b'\'') } else { skip_to(i + 1, "'") };
+                        i = if self.backslash || e_string {
+                            skip_escaped(i + 1, b'\'')
+                        } else {
+                            skip_to(i + 1, "'")
+                        };
                         // '' escapes re-enter as an empty string in the non-escaped case.
                     }
                     // In MySQL `"` quotes a string (unless ANSI_QUOTES) and takes `\` escapes.
@@ -143,7 +234,10 @@ impl Lexer {
                             .position(|&b| !(b.is_ascii_alphanumeric() || b == b'_'))
                             .map(|p| i + 1 + p);
                         match tag_end {
-                            Some(t) if bytes[t] == b'$' && !bytes.get(i + 1).is_some_and(u8::is_ascii_digit) => {
+                            Some(t)
+                                if bytes[t] == b'$'
+                                    && !bytes.get(i + 1).is_some_and(u8::is_ascii_digit) =>
+                            {
                                 let tag = &sql[i..=t];
                                 i = skip_to(t + 1, tag);
                             }
@@ -152,7 +246,10 @@ impl Lexer {
                     }
                     // MySQL needs whitespace after `--` for a comment: `1--1` is arithmetic.
                     b'-' if next == Some(b'-')
-                        && (!mysql || bytes.get(i + 2).is_none_or(|b| b.is_ascii_whitespace() || b.is_ascii_control())) =>
+                        && (!mysql
+                            || bytes.get(i + 2).is_none_or(|b| {
+                                b.is_ascii_whitespace() || b.is_ascii_control()
+                            })) =>
                     {
                         i = skip_to(i, "\n");
                         continue;
@@ -164,7 +261,13 @@ impl Lexer {
                     b'/' if next == Some(b'*') => {
                         // MySQL runs the inside of `/*! ... */` (and MariaDB `/*M! ... */`) as SQL.
                         let rest = &bytes[i + 2..];
-                        let marker = if rest.starts_with(b"!") { 1 } else if rest.starts_with(b"M!") { 2 } else { 0 };
+                        let marker = if rest.starts_with(b"!") {
+                            1
+                        } else if rest.starts_with(b"M!") {
+                            2
+                        } else {
+                            0
+                        };
                         if mysql && marker > 0 {
                             i += 2 + marker;
                             while i < bytes.len() && bytes[i].is_ascii_digit() {
@@ -212,12 +315,16 @@ mod tests {
     fn classifies_read_only_statements() {
         assert!(ro_everywhere("select 1"));
         assert!(ro_everywhere("  -- top customers\nSELECT * FROM customers"));
-        assert!(ro_everywhere("/* c */ WITH x AS (SELECT 1) SELECT * FROM x"));
+        assert!(ro_everywhere(
+            "/* c */ WITH x AS (SELECT 1) SELECT * FROM x"
+        ));
         assert!(ro_everywhere("(SELECT 1) UNION (SELECT 2)"));
         assert!(ro_everywhere("PRAGMA table_info(orders)"));
         assert!(rw_everywhere("PRAGMA journal_mode = WAL"));
         assert!(rw_everywhere("DELETE FROM orders"));
-        assert!(rw_everywhere("-- select\nUPDATE orders SET status = 'paid'"));
+        assert!(rw_everywhere(
+            "-- select\nUPDATE orders SET status = 'paid'"
+        ));
         assert!(rw_everywhere("DROP TABLE x"));
     }
 
@@ -225,7 +332,9 @@ mod tests {
     fn write_keywords_anywhere_need_confirmation() {
         assert!(rw_everywhere("SELECT 1; DELETE FROM orders"));
         assert!(rw_everywhere("SELECT * INTO backup_orders FROM orders"));
-        assert!(rw_everywhere("WITH gone AS (DELETE FROM t RETURNING *) SELECT * FROM gone"));
+        assert!(rw_everywhere(
+            "WITH gone AS (DELETE FROM t RETURNING *) SELECT * FROM gone"
+        ));
         assert!(rw_everywhere("SELECT 1\nEXEC sp_configure"));
         assert!(rw_everywhere("select 1; commit; drop table x"));
         assert!(rw_everywhere("SELECT 1; USE master"));
@@ -234,47 +343,103 @@ mod tests {
 
     #[test]
     fn an_explanation_commented_out_before_the_query_is_fine() {
-        assert!(ro_everywhere("-- The user's email is on the Person table, so join those.\n\nSELECT TOP 100 email FROM dbo.Person"));
+        assert!(ro_everywhere(
+            "-- The user's email is on the Person table, so join those.\n\nSELECT TOP 100 email FROM dbo.Person"
+        ));
         // Prose that isn't commented out is not SQL: it must not count as read-only.
-        assert!(rw_everywhere("The email is on Person.\nSELECT email FROM dbo.Person"));
+        assert!(rw_everywhere(
+            "The email is on Person.\nSELECT email FROM dbo.Person"
+        ));
     }
 
     #[test]
     fn write_words_inside_strings_identifiers_and_comments_are_fine() {
         assert!(ro_everywhere("SELECT * FROM audit WHERE action = 'DELETE'"));
-        assert!(is_read_only("SELECT [Update], \"insert\", `drop` FROM t", Kind::Sqlite));
-        assert!(is_read_only("SELECT [Update], \"insert\" FROM t", Kind::Mssql));
-        assert!(is_read_only("SELECT `drop`, \"insert\" FROM t", Kind::Mysql));
+        assert!(is_read_only(
+            "SELECT [Update], \"insert\", `drop` FROM t",
+            Kind::Sqlite
+        ));
+        assert!(is_read_only(
+            "SELECT [Update], \"insert\" FROM t",
+            Kind::Mssql
+        ));
+        assert!(is_read_only(
+            "SELECT `drop`, \"insert\" FROM t",
+            Kind::Mysql
+        ));
         assert!(is_read_only("SELECT \"insert\" FROM t", Kind::Postgres));
-        assert!(ro_everywhere("SELECT updated_at, created_by FROM t -- delete later\n/* drop */"));
-        assert!(ro_everywhere("SELECT REPLACE(name, 'a', 'b') FROM t WHERE note = 'it''s DELETE'"));
+        assert!(ro_everywhere(
+            "SELECT updated_at, created_by FROM t -- delete later\n/* drop */"
+        ));
+        assert!(ro_everywhere(
+            "SELECT REPLACE(name, 'a', 'b') FROM t WHERE note = 'it''s DELETE'"
+        ));
     }
 
     #[test]
     fn mysql_backslash_escapes_and_hash_comments_cannot_hide_writes() {
         // The audit's two bypasses.
-        assert!(!is_read_only(r"SELECT '\'' INTO OUTFILE '/tmp/x' -- '", Kind::Mysql));
-        assert!(!is_read_only("SELECT 1 # [\nINTO OUTFILE '/tmp/x' -- ]", Kind::Mysql));
+        assert!(!is_read_only(
+            r"SELECT '\'' INTO OUTFILE '/tmp/x' -- '",
+            Kind::Mysql
+        ));
+        assert!(!is_read_only(
+            "SELECT 1 # [\nINTO OUTFILE '/tmp/x' -- ]",
+            Kind::Mysql
+        ));
         // With NO_BACKSLASH_ESCAPES, `'\'` is a whole string.
-        assert!(!is_read_only(r"SELECT '\' INTO OUTFILE '/tmp/x' -- '", Kind::Mysql));
-        assert!(!is_read_only(r#"SELECT "\"" INTO OUTFILE '/tmp/x' -- ""#, Kind::Mysql));
+        assert!(!is_read_only(
+            r"SELECT '\' INTO OUTFILE '/tmp/x' -- '",
+            Kind::Mysql
+        ));
+        assert!(!is_read_only(
+            r#"SELECT "\"" INTO OUTFILE '/tmp/x' -- ""#,
+            Kind::Mysql
+        ));
         // `/*! ... */` runs as SQL on MySQL, and `--` without a space isn't a comment.
-        assert!(!is_read_only("SELECT 1 /*! INTO OUTFILE '/tmp/x' */", Kind::Mysql));
-        assert!(!is_read_only("SELECT 1 /*!50000 INTO DUMPFILE '/tmp/x' */", Kind::Mysql));
-        assert!(!is_read_only("SELECT 1 /*M! INTO OUTFILE '/tmp/x' */", Kind::Mysql));
-        assert!(!is_read_only("SELECT 1--1 INTO OUTFILE '/tmp/x'", Kind::Mysql));
+        assert!(!is_read_only(
+            "SELECT 1 /*! INTO OUTFILE '/tmp/x' */",
+            Kind::Mysql
+        ));
+        assert!(!is_read_only(
+            "SELECT 1 /*!50000 INTO DUMPFILE '/tmp/x' */",
+            Kind::Mysql
+        ));
+        assert!(!is_read_only(
+            "SELECT 1 /*M! INTO OUTFILE '/tmp/x' */",
+            Kind::Mysql
+        ));
+        assert!(!is_read_only(
+            "SELECT 1--1 INTO OUTFILE '/tmp/x'",
+            Kind::Mysql
+        ));
         // Brackets don't quote in MySQL.
         assert!(!is_read_only("SELECT [delete] FROM t", Kind::Mysql));
     }
 
     #[test]
     fn postgres_escape_and_dollar_strings_cannot_hide_writes() {
-        assert!(!is_read_only(r"SELECT E'\'' ; DROP TABLE t -- '", Kind::Postgres));
-        assert!(!is_read_only(r"SELECT e'\''; DROP TABLE t -- '", Kind::Postgres));
+        assert!(!is_read_only(
+            r"SELECT E'\'' ; DROP TABLE t -- '",
+            Kind::Postgres
+        ));
+        assert!(!is_read_only(
+            r"SELECT e'\''; DROP TABLE t -- '",
+            Kind::Postgres
+        ));
         // With standard_conforming_strings off, plain strings take backslash escapes too.
-        assert!(!is_read_only(r"SELECT '\''; DROP TABLE t -- '", Kind::Postgres));
-        assert!(!is_read_only("SELECT $$'$$; DROP TABLE t; -- '", Kind::Postgres));
-        assert!(!is_read_only("SELECT $q$ ' $q$; DELETE FROM t -- '", Kind::Postgres));
+        assert!(!is_read_only(
+            r"SELECT '\''; DROP TABLE t -- '",
+            Kind::Postgres
+        ));
+        assert!(!is_read_only(
+            "SELECT $$'$$; DROP TABLE t; -- '",
+            Kind::Postgres
+        ));
+        assert!(!is_read_only(
+            "SELECT $q$ ' $q$; DELETE FROM t -- '",
+            Kind::Postgres
+        ));
         // A backtick is an operator character in Postgres, not a quote.
         assert!(!is_read_only("SELECT 1 ` DELETE FROM t `", Kind::Postgres));
     }
@@ -289,10 +454,14 @@ mod tests {
         assert!(rw_everywhere("COPY (SELECT * FROM t) TO PROGRAM 'sh'"));
         assert!(rw_everywhere("SELECT pg_terminate_backend(123)"));
         assert!(rw_everywhere("SELECT nextval('orders_id_seq')"));
-        assert!(rw_everywhere("SELECT * FROM dblink('dbname=x', 'DELETE FROM t') AS r(n int)"));
+        assert!(rw_everywhere(
+            "SELECT * FROM dblink('dbname=x', 'DELETE FROM t') AS r(n int)"
+        ));
         assert!(rw_everywhere("SELECT lo_export(16409, '/tmp/x')"));
         assert!(rw_everywhere("SELECT load_extension('evil')"));
-        assert!(rw_everywhere("SELECT * FROM OPENDATASOURCE('SQLNCLI', 'Data Source=x').db.dbo.t"));
+        assert!(rw_everywhere(
+            "SELECT * FROM OPENDATASOURCE('SQLNCLI', 'Data Source=x').db.dbo.t"
+        ));
         assert!(rw_everywhere("SELECT NEXT VALUE FOR dbo.order_seq"));
         // Reading a file is a read.
         assert!(is_read_only("SELECT LOAD_FILE('/etc/hosts')", Kind::Mysql));
@@ -325,8 +494,14 @@ mod tests {
     fn show_create_is_a_read() {
         assert!(is_read_only("SHOW CREATE TABLE `orders`", Kind::Mysql));
         assert!(is_read_only("show create view v", Kind::Mysql));
-        assert!(!is_read_only("SHOW TABLES; CREATE TABLE x (a int)", Kind::Mysql));
-        assert!(!is_read_only("SELECT 1; CREATE TABLE x (a int)", Kind::Mysql));
+        assert!(!is_read_only(
+            "SHOW TABLES; CREATE TABLE x (a int)",
+            Kind::Mysql
+        ));
+        assert!(!is_read_only(
+            "SELECT 1; CREATE TABLE x (a int)",
+            Kind::Mysql
+        ));
     }
 
     #[test]
@@ -362,7 +537,10 @@ mod tests {
         for sql in mssql {
             assert!(is_read_only(sql, Kind::Mssql), "{sql}");
         }
-        let sqlite = ["SELECT [update], `drop`, \"insert\" FROM t WHERE x = 'a\\'", "PRAGMA table_info('t')"];
+        let sqlite = [
+            "SELECT [update], `drop`, \"insert\" FROM t WHERE x = 'a\\'",
+            "PRAGMA table_info('t')",
+        ];
         for sql in sqlite {
             assert!(is_read_only(sql, Kind::Sqlite), "{sql}");
         }

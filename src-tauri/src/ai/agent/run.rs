@@ -58,28 +58,66 @@ pub struct Io {
 }
 
 #[derive(Debug, Clone, Serialize)]
-#[serde(tag = "type", rename_all = "camelCase", rename_all_fields = "camelCase")]
+#[serde(
+    tag = "type",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
 pub enum Event {
     /// The model's plan; with `waiting`, the run waits for Go (or an edited plan).
-    Plan { run_id: String, steps: Vec<String>, waiting: bool },
+    Plan {
+        run_id: String,
+        steps: Vec<String>,
+        waiting: bool,
+    },
     /// A step started (`running`) or ended.
     Step { run_id: String, step: Step },
     /// The run waits for Send or Skip on what would go to the AI.
-    Send { run_id: String, step_id: u32, payload: String },
+    Send {
+        run_id: String,
+        step_id: u32,
+        payload: String,
+    },
     /// The model asked the person a question; the run waits for the answer.
-    Question { run_id: String, step_id: u32, question: String, choices: Vec<String> },
-    Progress { run_id: String, turns: u32, max_turns: u32, queries: u32, max_queries: u32, usage: Usage, elapsed_ms: u128 },
-    Done { run_id: String, answer: Option<Answer>, error: Option<String>, stopped: bool },
+    Question {
+        run_id: String,
+        step_id: u32,
+        question: String,
+        choices: Vec<String>,
+    },
+    Progress {
+        run_id: String,
+        turns: u32,
+        max_turns: u32,
+        queries: u32,
+        max_queries: u32,
+        usage: Usage,
+        elapsed_ms: u128,
+    },
+    Done {
+        run_id: String,
+        answer: Option<Answer>,
+        error: Option<String>,
+        stopped: bool,
+    },
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(tag = "type", rename_all = "camelCase", rename_all_fields = "camelCase")]
+#[serde(
+    tag = "type",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
 pub enum Reply {
     /// Start from the plan; `plan` when the person changed it.
-    Go { plan: Option<Vec<String>> },
+    Go {
+        plan: Option<Vec<String>>,
+    },
     Send,
     Skip,
-    Answer { text: String },
+    Answer {
+        text: String,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize)]
@@ -217,22 +255,46 @@ pub async fn run(llm: &mut Llm, pool: &DbPool, mut input: RunInput, io: &mut Io)
         End::Error(e) => (None, Some(e), false),
         End::Stopped => (None, None, true),
     };
-    (r.io.emit)(Event::Done { run_id, answer: answer.clone(), error, stopped });
+    (r.io.emit)(Event::Done {
+        run_id,
+        answer: answer.clone(),
+        error,
+        stopped,
+    });
     // A run that ended on a tool call leaves it unanswered; close it so the next message can follow.
-    if let Some(Msg { role: Role::Assistant, blocks }) = r.messages.last() {
+    if let Some(Msg {
+        role: Role::Assistant,
+        blocks,
+    }) = r.messages.last()
+    {
         let open: Vec<Block> = blocks
             .iter()
             .filter_map(|b| match b {
-                Block::ToolUse { id, .. } => Some(Block::ToolResult { id: id.clone(), content: "The run ended here.".into(), is_error: false }),
+                Block::ToolUse { id, .. } => Some(Block::ToolResult {
+                    id: id.clone(),
+                    content: "The run ended here.".into(),
+                    is_error: false,
+                }),
                 _ => None,
             })
             .collect();
         if !open.is_empty() {
-            r.messages.push(Msg { role: Role::User, blocks: open });
+            r.messages.push(Msg {
+                role: Role::User,
+                blocks: open,
+            });
         }
     }
     let mode = r.llm.mode();
-    Outcome { history: History { messages: r.messages, masker: r.masker, next_step: r.next_step }, mode, answer }
+    Outcome {
+        history: History {
+            messages: r.messages,
+            masker: r.masker,
+            next_step: r.next_step,
+        },
+        mode,
+        answer,
+    }
 }
 
 impl Run<'_> {
@@ -241,13 +303,19 @@ impl Run<'_> {
         let system = prompt::instructions(&dialect, self.input.access.results);
         let mut schema = prompt::schema_block(&dialect, &self.input.schema_text, &self.input.notes);
         if let Some(warning) = self.row_security().await {
-            schema.push_str(&format!("\n\nWarning: {warning} Say so in the answer when results look empty or small."));
+            schema.push_str(&format!(
+                "\n\nWarning: {warning} Say so in the answer when results look empty or small."
+            ));
         }
         let mut nudged = false;
         let mut switched = false;
         loop {
             let last_turn = self.turns + 1 >= self.input.limits.max_turns();
-            let offered = if last_turn { tools::finish_only() } else { tools::all() };
+            let offered = if last_turn {
+                tools::finish_only()
+            } else {
+                tools::all()
+            };
             if last_turn {
                 self.say("You have reached the step limit. Call finish now with what you have.");
             }
@@ -259,7 +327,10 @@ impl Run<'_> {
             let turn: Turn = match turn {
                 Ok(t) => t,
                 // A model that rejects `tools` gets the text protocol instead.
-                Err(e) if self.can_fall_back(switched) && e.to_string().to_lowercase().contains("tool") => {
+                Err(e)
+                    if self.can_fall_back(switched)
+                        && e.to_string().to_lowercase().contains("tool") =>
+                {
                     self.fall_back(&mut switched);
                     continue;
                 }
@@ -274,10 +345,15 @@ impl Run<'_> {
                 ));
             }
             self.progress();
-            let calls: Vec<(String, String, Value)> =
-                turn.tool_uses().map(|(id, name, input)| (id.to_string(), name.to_string(), input.clone())).collect();
+            let calls: Vec<(String, String, Value)> = turn
+                .tool_uses()
+                .map(|(id, name, input)| (id.to_string(), name.to_string(), input.clone()))
+                .collect();
             if calls.is_empty() && turn.truncated {
-                return End::Error("The model's reply was cut off before it finished. Try a narrower question.".into());
+                return End::Error(
+                    "The model's reply was cut off before it finished. Try a narrower question."
+                        .into(),
+                );
             }
             if calls.is_empty() {
                 // A model that ignores `tools` on its first turn gets the text protocol.
@@ -286,7 +362,10 @@ impl Run<'_> {
                     self.turns = 0;
                     continue;
                 }
-                self.messages.push(Msg { role: Role::Assistant, blocks: turn.blocks.clone() });
+                self.messages.push(Msg {
+                    role: Role::Assistant,
+                    blocks: turn.blocks.clone(),
+                });
                 if !nudged && !last_turn {
                     nudged = true;
                     self.say("Call one of the tools, or finish with your answer.");
@@ -294,18 +373,29 @@ impl Run<'_> {
                 }
                 // Take the text as the answer, unchecked by tools.
                 let text = turn.text();
-                return End::Answer(Box::new(self.answer(&json!({ "answer": text, "confidence": "low" }))));
+                return End::Answer(Box::new(
+                    self.answer(&json!({ "answer": text, "confidence": "low" })),
+                ));
             }
-            self.messages.push(Msg { role: Role::Assistant, blocks: turn.blocks.clone() });
+            self.messages.push(Msg {
+                role: Role::Assistant,
+                blocks: turn.blocks.clone(),
+            });
             let mut results = Vec::new();
             for (id, name, input) in calls {
                 if name == tools::FINISH {
                     // Claims about all rows are checked once more, over all of them, before the answer stands.
                     let claims = checks::sweeping_claims(input["answer"].as_str().unwrap_or(""));
                     let cannot = input["cannot_answer"].as_bool().unwrap_or(false);
-                    if !self.reviewed && !last_turn && self.queries > 0 && !cannot && !claims.is_empty() {
+                    if !self.reviewed
+                        && !last_turn
+                        && self.queries > 0
+                        && !cannot
+                        && !claims.is_empty()
+                    {
                         self.reviewed = true;
-                        let i = self.new_step("review", "Checking claims about all rows".into(), None);
+                        let i =
+                            self.new_step("review", "Checking claims about all rows".into(), None);
                         let list: Vec<String> = claims.iter().map(|c| format!("- {c}")).collect();
                         let msg = format!(
                             "Before this answer stands, check each sentence below that says something about all, every or no \
@@ -313,8 +403,13 @@ impl Run<'_> {
                              and correct any sentence the result doesn't support. Then call finish again.\n{}",
                             list.join("\n")
                         );
-                        let (content, is_error) = self.end_step(i, Ok(msg), "asked the AI to check its claims");
-                        results.push(Block::ToolResult { id, content, is_error });
+                        let (content, is_error) =
+                            self.end_step(i, Ok(msg), "asked the AI to check its claims");
+                        results.push(Block::ToolResult {
+                            id,
+                            content,
+                            is_error,
+                        });
                         continue;
                     }
                     return End::Answer(Box::new(self.answer(&input)));
@@ -323,12 +418,19 @@ impl Run<'_> {
                     Ok(out) => out,
                     Err(Stop) => return End::Stopped,
                 };
-                results.push(Block::ToolResult { id, content: out.0, is_error: out.1 });
+                results.push(Block::ToolResult {
+                    id,
+                    content: out.0,
+                    is_error: out.1,
+                });
                 if self.io.stop.is_cancelled() {
                     return End::Stopped;
                 }
             }
-            self.messages.push(Msg { role: Role::User, blocks: results });
+            self.messages.push(Msg {
+                role: Role::User,
+                blocks: results,
+            });
             if last_turn {
                 return End::Error("The run reached its step limit without an answer.".into());
             }
@@ -341,7 +443,10 @@ impl Run<'_> {
     async fn row_security(&mut self) -> Option<String> {
         // Checked once per conversation, not again for each follow-up. A team server's login is
         // its admin's business, and the check would be one more query in their audit log.
-        if self.input.kind != Kind::Postgres || self.messages.len() > 1 || matches!(self.pool, DbPool::Team(_)) {
+        if self.input.kind != Kind::Postgres
+            || self.messages.len() > 1
+            || matches!(self.pool, DbPool::Team(_))
+        {
             return None;
         }
         let sql = "SELECT n.nspname || '.' || c.relname FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace \
@@ -350,27 +455,48 @@ impl Run<'_> {
                    AND (c.relforcerowsecurity OR pg_get_userbyid(c.relowner) <> current_user) \
                    AND NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = current_user AND (rolsuper OR rolbypassrls)) \
                    ORDER BY 1";
-        let r = readonly::run_limited_with(self.pool, sql, ROWS_READ, Duration::from_secs(10), &self.io.stop).await.ok()?;
-        let tables: Vec<String> = r.rows.iter().filter_map(|row| row.first()?.as_str().map(String::from)).collect();
+        let r = readonly::run_limited_with(
+            self.pool,
+            sql,
+            ROWS_READ,
+            Duration::from_secs(10),
+            &self.io.stop,
+        )
+        .await
+        .ok()?;
+        let tables: Vec<String> = r
+            .rows
+            .iter()
+            .filter_map(|row| row.first()?.as_str().map(String::from))
+            .collect();
         if tables.is_empty() {
             return None;
         }
         let some: Vec<&str> = tables.iter().take(5).map(String::as_str).collect();
-        let more = if tables.len() > 5 { format!(" and {} more", tables.len() - 5) } else { String::new() };
+        let more = if tables.len() > 5 {
+            format!(" and {} more", tables.len() - 5)
+        } else {
+            String::new()
+        };
         let warning = format!(
             "Row-level security is on for {} tables ({}{more}), and this login can't bypass it, so queries on them may \
              return only some rows or none.",
             tables.len(),
             some.join(", ")
         );
-        let i = self.new_step("notice", "Row-level security limits what this login can see".into(), None);
+        let i = self.new_step(
+            "notice",
+            "Row-level security limits what this login can see".into(),
+            None,
+        );
         self.steps[i].checks = vec![warning.clone()];
         self.end_step(i, Ok(warning.clone()), "sent the warning");
         Some(warning)
     }
 
     fn can_fall_back(&self, switched: bool) -> bool {
-        !switched && matches!(&*self.llm, Llm::Remote { endpoint, mode: ToolMode::Native, .. } if endpoint.is_openai())
+        !switched
+            && matches!(&*self.llm, Llm::Remote { endpoint, mode: ToolMode::Native, .. } if endpoint.is_openai())
     }
 
     fn fall_back(&mut self, switched: &mut bool) {
@@ -380,7 +506,11 @@ impl Run<'_> {
             *mode = ToolMode::Text;
         }
         // Drop a reply that ignored the tools; the question goes again.
-        while self.messages.last().is_some_and(|m| m.role == Role::Assistant) {
+        while self
+            .messages
+            .last()
+            .is_some_and(|m| m.role == Role::Assistant)
+        {
             self.messages.pop();
         }
     }
@@ -388,13 +518,19 @@ impl Run<'_> {
     /// Adds a line of text to the next message to the model.
     fn say(&mut self, text: &str) {
         match self.messages.last_mut() {
-            Some(Msg { role: Role::User, blocks }) => blocks.push(Block::Text(text.into())),
+            Some(Msg {
+                role: Role::User,
+                blocks,
+            }) => blocks.push(Block::Text(text.into())),
             _ => self.messages.push(Msg::user(text)),
         }
     }
 
     fn out_of_time(&self) -> String {
-        format!("The run reached its time limit ({} seconds) and stopped. The steps so far are below.", self.input.limits.run_seconds)
+        format!(
+            "The run reached its time limit ({} seconds) and stopped. The steps so far are below.",
+            self.input.limits.run_seconds
+        )
     }
 
     fn progress(&self) {
@@ -427,13 +563,21 @@ impl Run<'_> {
             error: None,
         };
         self.next_step += 1;
-        (self.io.emit)(Event::Step { run_id: self.input.run_id.clone(), step: step.clone() });
+        (self.io.emit)(Event::Step {
+            run_id: self.input.run_id.clone(),
+            step: step.clone(),
+        });
         self.steps.push(step);
         self.steps.len() - 1
     }
 
     /// Ends step `i` and tells the tab. Returns the text for the model, `Step n: ...`.
-    fn end_step(&mut self, i: usize, sent: Result<String, String>, summary: &str) -> (String, bool) {
+    fn end_step(
+        &mut self,
+        i: usize,
+        sent: Result<String, String>,
+        summary: &str,
+    ) -> (String, bool) {
         let step = &mut self.steps[i];
         let (content, is_error) = match sent {
             Ok(s) => {
@@ -448,7 +592,10 @@ impl Run<'_> {
         };
         step.sent = Some(content.clone());
         step.sent_summary = Some(summary.into());
-        (self.io.emit)(Event::Step { run_id: self.input.run_id.clone(), step: step.clone() });
+        (self.io.emit)(Event::Step {
+            run_id: self.input.run_id.clone(),
+            step: step.clone(),
+        });
         self.progress();
         (content, is_error)
     }
@@ -468,19 +615,40 @@ impl Run<'_> {
         let s = |k: &str| input[k].as_str().unwrap_or("").trim().to_string();
         Ok(match name {
             tools::PLAN => {
-                let steps: Vec<String> =
-                    input["steps"].as_array().into_iter().flatten().filter_map(|v| v.as_str()).map(|t| self.masker.unmask_text(t)).collect();
+                let steps: Vec<String> = input["steps"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .filter_map(|v| v.as_str())
+                    .map(|t| self.masker.unmask_text(t))
+                    .collect();
                 let waiting = !self.input.limits.skip_plan;
-                (self.io.emit)(Event::Plan { run_id: self.input.run_id.clone(), steps: steps.clone(), waiting });
+                (self.io.emit)(Event::Plan {
+                    run_id: self.input.run_id.clone(),
+                    steps: steps.clone(),
+                    waiting,
+                });
                 if !waiting {
                     return Ok(("Plan noted. Go ahead.".into(), false));
                 }
                 match self.wait().await? {
                     Reply::Go { plan: Some(edited) } if edited != steps => {
-                        let lines: Vec<String> = edited.iter().enumerate().map(|(i, s)| format!("{}. {s}", i + 1)).collect();
-                        (format!("The person changed the plan. Follow this one:\n{}", lines.join("\n")), false)
+                        let lines: Vec<String> = edited
+                            .iter()
+                            .enumerate()
+                            .map(|(i, s)| format!("{}. {s}", i + 1))
+                            .collect();
+                        (
+                            format!(
+                                "The person changed the plan. Follow this one:\n{}",
+                                lines.join("\n")
+                            ),
+                            false,
+                        )
                     }
-                    Reply::Answer { text } => (format!("The person replied to the plan: {text}"), false),
+                    Reply::Answer { text } => {
+                        (format!("The person replied to the plan: {text}"), false)
+                    }
                     _ => ("The person approved the plan. Go ahead.".into(), false),
                 }
             }
@@ -509,22 +677,40 @@ impl Run<'_> {
                         }
                         Ok(text)
                     }
-                    None => Err(format!("There is no table called {name_in}. Use search_schema to find it.")),
+                    None => Err(format!(
+                        "There is no table called {name_in}. Use search_schema to find it."
+                    )),
                 };
                 self.end_step(i, out, "sent table and column names")
             }
-            tools::PROFILE => self.profile(&s("table"), &s("column"), &s("purpose")).await?,
+            tools::PROFILE => {
+                self.profile(&s("table"), &s("column"), &s("purpose"))
+                    .await?
+            }
             tools::QUERY => self.query(&s("sql"), &s("purpose")).await?,
             tools::EXPLAIN => self.explain(&s("sql")).await,
             tools::SHOW if !s("sql").is_empty() => self.show_sql(&s("sql")).await?,
-            tools::SHOW => self.show(&s("table"), &s("column"), &s("key_column"), &input["key"]).await?,
+            tools::SHOW => {
+                self.show(&s("table"), &s("column"), &s("key_column"), &input["key"])
+                    .await?
+            }
             tools::ASK => {
                 let question = self.masker.unmask_text(&s("question"));
-                let choices: Vec<String> =
-                    input["choices"].as_array().into_iter().flatten().filter_map(|v| v.as_str()).map(|c| self.masker.unmask_text(c)).collect();
+                let choices: Vec<String> = input["choices"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .filter_map(|v| v.as_str())
+                    .map(|c| self.masker.unmask_text(c))
+                    .collect();
                 let i = self.new_step(name, format!("Asked you: {question}"), None);
                 let id = self.steps[i].id;
-                (self.io.emit)(Event::Question { run_id: self.input.run_id.clone(), step_id: id, question, choices });
+                (self.io.emit)(Event::Question {
+                    run_id: self.input.run_id.clone(),
+                    step_id: id,
+                    question,
+                    choices,
+                });
                 let answer = match self.wait().await? {
                     Reply::Answer { text } => text,
                     _ => "(no answer)".into(),
@@ -532,7 +718,11 @@ impl Run<'_> {
                 self.steps[i].text.push_str(&format!(" — {answer}"));
                 // The person's answer may name values; they go to the AI masked like any other.
                 let answer = self.masker.remask_text(&answer);
-                self.end_step(i, Ok(format!("The person answered: {answer}")), "sent your answer")
+                self.end_step(
+                    i,
+                    Ok(format!("The person answered: {answer}")),
+                    "sent your answer",
+                )
             }
             other => (format!("There is no tool called {other}."), true),
         })
@@ -542,7 +732,11 @@ impl Run<'_> {
         self.input
             .notes
             .iter()
-            .filter(|n| words.iter().any(|w| w.len() > 2 && n.to_lowercase().contains(&w.to_lowercase())))
+            .filter(|n| {
+                words
+                    .iter()
+                    .any(|w| w.len() > 2 && n.to_lowercase().contains(&w.to_lowercase()))
+            })
             .cloned()
             .collect()
     }
@@ -580,14 +774,28 @@ impl Run<'_> {
     }
 
     async fn query(&mut self, sql: &str, purpose: &str) -> Result<(String, bool), Stop> {
-        let purpose = if purpose.is_empty() { "Running a query".to_string() } else { self.masker.unmask_text(purpose) };
+        let purpose = if purpose.is_empty() {
+            "Running a query".to_string()
+        } else {
+            self.masker.unmask_text(purpose)
+        };
         if self.queries >= self.input.limits.max_queries {
             let i = self.new_step(tools::QUERY, purpose, None);
-            let msg = format!("The run has used its {} queries. Call finish with what you have.", self.input.limits.max_queries);
+            let msg = format!(
+                "The run has used its {} queries. Call finish with what you have.",
+                self.input.limits.max_queries
+            );
             return Ok(self.end_step(i, Err(msg), "sent the refusal"));
         }
         let real = self.real_sql(sql);
-        let i = self.new_step(tools::QUERY, purpose, Some(real.clone().unwrap_or_else(|_| self.masker.unmask_text(sql))));
+        let i = self.new_step(
+            tools::QUERY,
+            purpose,
+            Some(
+                real.clone()
+                    .unwrap_or_else(|_| self.masker.unmask_text(sql)),
+            ),
+        );
         let real = match real {
             Ok(r) => r,
             Err(e) => return Ok(self.end_step(i, Err(e), "sent the refusal")),
@@ -623,24 +831,51 @@ impl Run<'_> {
         Ok(self.end_step(i, Ok(text), &summary))
     }
 
-    async fn profile(&mut self, table: &str, column: &str, purpose: &str) -> Result<(String, bool), Stop> {
-        let text = if purpose.is_empty() { format!("Profiling {table}.{column}") } else { purpose.to_string() };
+    async fn profile(
+        &mut self,
+        table: &str,
+        column: &str,
+        purpose: &str,
+    ) -> Result<(String, bool), Stop> {
+        let text = if purpose.is_empty() {
+            format!("Profiling {table}.{column}")
+        } else {
+            purpose.to_string()
+        };
         let found = find_table(&self.input.schema, table).and_then(|t| {
-            let c = t.columns.iter().find(|c| c.name.eq_ignore_ascii_case(column))?;
-            Some((schema::render_name(t, &self.input.schema.dialect), schema::quote_ident(&c.name, &self.input.schema.dialect), c.name.clone()))
+            let c = t
+                .columns
+                .iter()
+                .find(|c| c.name.eq_ignore_ascii_case(column))?;
+            Some((
+                schema::render_name(t, &self.input.schema.dialect),
+                schema::quote_ident(&c.name, &self.input.schema.dialect),
+                c.name.clone(),
+            ))
         });
         let Some((t, c, col_name)) = found else {
             let i = self.new_step(tools::PROFILE, text, None);
-            return Ok(self.end_step(i, Err(format!("There is no column {column} in {table}.")), "sent the error"));
+            return Ok(self.end_step(
+                i,
+                Err(format!("There is no column {column} in {table}.")),
+                "sent the error",
+            ));
         };
         if self.queries >= self.input.limits.max_queries {
             let i = self.new_step(tools::PROFILE, text, None);
-            let msg = format!("The run has used its {} queries. Call finish with what you have.", self.input.limits.max_queries);
+            let msg = format!(
+                "The run has used its {} queries. Call finish with what you have.",
+                self.input.limits.max_queries
+            );
             return Ok(self.end_step(i, Err(msg), "sent the refusal"));
         }
         let top = match self.input.kind {
-            Kind::Mssql => format!("SELECT TOP {TOP_VALUES} {c} AS {c}, COUNT(*) AS n FROM {t} GROUP BY {c} ORDER BY COUNT(*) DESC"),
-            _ => format!("SELECT {c} AS {c}, COUNT(*) AS n FROM {t} GROUP BY {c} ORDER BY COUNT(*) DESC LIMIT {TOP_VALUES}"),
+            Kind::Mssql => format!(
+                "SELECT TOP {TOP_VALUES} {c} AS {c}, COUNT(*) AS n FROM {t} GROUP BY {c} ORDER BY COUNT(*) DESC"
+            ),
+            _ => format!(
+                "SELECT {c} AS {c}, COUNT(*) AS n FROM {t} GROUP BY {c} ORDER BY COUNT(*) DESC LIMIT {TOP_VALUES}"
+            ),
         };
         let stats = format!(
             "SELECT COUNT(*) AS total_rows, COUNT(*) - COUNT({c}) AS nulls, COUNT(DISTINCT {c}) AS distinct_values, \
@@ -656,8 +891,16 @@ impl Run<'_> {
         let row = stats_r.rows.first().cloned().unwrap_or_default();
         let get = |k: usize| row.get(k).cloned().unwrap_or(Value::Null);
         let personal = self.masker.is_personal_column(&col_name)
-            || [get(3), get(4)].iter().chain(top_r.rows.iter().filter_map(|r| r.first())).any(|v| super::mask::value_kind(v).is_some());
-        let numeric_or_date = [get(3), get(4)].iter().all(|v| v.is_null() || v.is_number() || v.as_str().is_some_and(|s| s.parse::<f64>().is_ok() || is_date(s)));
+            || [get(3), get(4)]
+                .iter()
+                .chain(top_r.rows.iter().filter_map(|r| r.first()))
+                .any(|v| super::mask::value_kind(v).is_some());
+        let numeric_or_date = [get(3), get(4)].iter().all(|v| {
+            v.is_null()
+                || v.is_number()
+                || v.as_str()
+                    .is_some_and(|s| s.parse::<f64>().is_ok() || is_date(s))
+        });
         let mut out = json!({ "rows": get(0), "nulls": get(1), "distinct": get(2) });
         let summary;
         match self.input.access.results {
@@ -675,15 +918,36 @@ impl Run<'_> {
             Results::Rows => {
                 out["min"] = self.masker.mask_value(&col_name, &get(3));
                 out["max"] = self.masker.mask_value(&col_name, &get(4));
-                let top: Vec<Value> = top_r.rows.iter().map(|r| json!([self.masker.mask_value(&col_name, &r[0]), r.get(1)])).collect();
+                let top: Vec<Value> = top_r
+                    .rows
+                    .iter()
+                    .map(|r| json!([self.masker.mask_value(&col_name, &r[0]), r.get(1)]))
+                    .collect();
                 out["top_values"] = Value::Array(top);
-                summary = if personal { "sent counts and top values, masked".into() } else { "sent counts and top values".into() };
+                summary = if personal {
+                    "sent counts and top values, masked".into()
+                } else {
+                    "sent counts and top values".into()
+                };
             }
         }
         let mut local = stats_r.clone();
         local.columns.extend(["top values".to_string()]);
         if let Some(r0) = local.rows.first_mut() {
-            r0.push(Value::String(top_r.rows.iter().map(|r| format!("{} ({})", plain(&r[0]), plain(r.get(1).unwrap_or(&Value::Null)))).collect::<Vec<_>>().join(", ")));
+            r0.push(Value::String(
+                top_r
+                    .rows
+                    .iter()
+                    .map(|r| {
+                        format!(
+                            "{} ({})",
+                            plain(&r[0]),
+                            plain(r.get(1).unwrap_or(&Value::Null))
+                        )
+                    })
+                    .collect::<Vec<_>>()
+                    .join(", "),
+            ));
         }
         self.fill_step(i, &local, Vec::new());
         let payload = out.to_string();
@@ -697,7 +961,14 @@ impl Run<'_> {
     async fn show_sql(&mut self, sql: &str) -> Result<(String, bool), Stop> {
         let text = "Looking up a value to show you".to_string();
         let real = self.real_sql(sql);
-        let i = self.new_step(tools::SHOW, text, Some(real.clone().unwrap_or_else(|_| self.masker.unmask_text(sql))));
+        let i = self.new_step(
+            tools::SHOW,
+            text,
+            Some(
+                real.clone()
+                    .unwrap_or_else(|_| self.masker.unmask_text(sql)),
+            ),
+        );
         let real = match real {
             Ok(r) => r,
             Err(e) => return Ok(self.end_step(i, Err(e), "sent the refusal")),
@@ -709,28 +980,61 @@ impl Run<'_> {
         };
         self.fill_step(i, &r, Vec::new());
         let column = r.columns.first().cloned().unwrap_or_default();
-        let tokens: Vec<String> =
-            r.rows.iter().take(5).filter_map(|row| row.first()).filter(|v| !v.is_null()).map(|v| self.masker.token_for(&column, v)).collect();
+        let tokens: Vec<String> = r
+            .rows
+            .iter()
+            .take(5)
+            .filter_map(|row| row.first())
+            .filter(|v| !v.is_null())
+            .map(|v| self.masker.token_for(&column, v))
+            .collect();
         let out = match tokens.len() {
             0 => "The query returned no value.".to_string(),
-            1 => format!("{} (shown to the person, hidden from you). Use this token in your answer.", tokens[0]),
-            n => format!("{n} values: {} (hidden from you). Use these tokens in your answer.", tokens.join(", ")),
+            1 => format!(
+                "{} (shown to the person, hidden from you). Use this token in your answer.",
+                tokens[0]
+            ),
+            n => format!(
+                "{n} values: {} (hidden from you). Use these tokens in your answer.",
+                tokens.join(", ")
+            ),
         };
         self.results.push(r);
         Ok(self.end_step(i, Ok(out), "sent a token only"))
     }
 
     /// Looks up one value for the answer. The model gets a token for it, never the value.
-    async fn show(&mut self, table: &str, column: &str, key_column: &str, key: &Value) -> Result<(String, bool), Stop> {
+    async fn show(
+        &mut self,
+        table: &str,
+        column: &str,
+        key_column: &str,
+        key: &Value,
+    ) -> Result<(String, bool), Stop> {
         let dialect = self.input.schema.dialect.clone();
         let found = find_table(&self.input.schema, table).and_then(|t| {
-            let col = |name: &str| t.columns.iter().find(|c| c.name.eq_ignore_ascii_case(name)).map(|c| c.name.clone());
-            Some((schema::render_name(t, &dialect), col(column)?, col(key_column)?))
+            let col = |name: &str| {
+                t.columns
+                    .iter()
+                    .find(|c| c.name.eq_ignore_ascii_case(name))
+                    .map(|c| c.name.clone())
+            };
+            Some((
+                schema::render_name(t, &dialect),
+                col(column)?,
+                col(key_column)?,
+            ))
         });
         let text = format!("Looking up {table}.{column} to show you");
         let Some((t, col, key_col)) = found else {
             let i = self.new_step(tools::SHOW, text, None);
-            return Ok(self.end_step(i, Err(format!("There is no column {column} or {key_column} in {table}.")), "sent the error"));
+            return Ok(self.end_step(
+                i,
+                Err(format!(
+                    "There is no column {column} or {key_column} in {table}."
+                )),
+                "sent the error",
+            ));
         };
         // A token as the key stands for its real value.
         let key = match key {
@@ -741,10 +1045,17 @@ impl Run<'_> {
             Ok(l) if !key.is_null() && !key.is_array() && !key.is_object() => l,
             _ => {
                 let i = self.new_step(tools::SHOW, text, None);
-                return Ok(self.end_step(i, Err("Give the key as one number or string.".into()), "sent the error"));
+                return Ok(self.end_step(
+                    i,
+                    Err("Give the key as one number or string.".into()),
+                    "sent the error",
+                ));
             }
         };
-        let (c, k) = (schema::quote_ident(&col, &dialect), schema::quote_ident(&key_col, &dialect));
+        let (c, k) = (
+            schema::quote_ident(&col, &dialect),
+            schema::quote_ident(&key_col, &dialect),
+        );
         let sql = match self.input.kind {
             Kind::Mssql => format!("SELECT TOP 5 {c} AS {c} FROM {t} WHERE {k} = {literal}"),
             _ => format!("SELECT {c} AS {c} FROM {t} WHERE {k} = {literal} LIMIT 5"),
@@ -756,11 +1067,22 @@ impl Run<'_> {
             Err(e) => return Ok(self.end_step(i, Err(e), "sent the error")),
         };
         self.fill_step(i, &r, Vec::new());
-        let tokens: Vec<String> = r.rows.iter().filter_map(|row| row.first()).map(|v| self.masker.token_for(&col, v)).collect();
+        let tokens: Vec<String> = r
+            .rows
+            .iter()
+            .filter_map(|row| row.first())
+            .map(|v| self.masker.token_for(&col, v))
+            .collect();
         let out = match tokens.len() {
             0 => "No row has that key.".to_string(),
-            1 => format!("{} (shown to the person, hidden from you). Use this token in your answer.", tokens[0]),
-            n => format!("{n} rows: {} (hidden from you). Use these tokens in your answer.", tokens.join(", ")),
+            1 => format!(
+                "{} (shown to the person, hidden from you). Use this token in your answer.",
+                tokens[0]
+            ),
+            n => format!(
+                "{n} rows: {} (hidden from you). Use these tokens in your answer.",
+                tokens.join(", ")
+            ),
         };
         self.results.push(r);
         Ok(self.end_step(i, Ok(out), "sent a token only"))
@@ -768,7 +1090,11 @@ impl Run<'_> {
 
     async fn explain(&mut self, sql: &str) -> (String, bool) {
         let real = self.real_sql(sql);
-        let i = self.new_step(tools::EXPLAIN, "Checking the query plan".into(), Some(real.clone().unwrap_or_else(|_| sql.to_string())));
+        let i = self.new_step(
+            tools::EXPLAIN,
+            "Checking the query plan".into(),
+            Some(real.clone().unwrap_or_else(|_| sql.to_string())),
+        );
         let prefix = match self.input.kind {
             Kind::Postgres | Kind::Mysql => "EXPLAIN",
             Kind::Sqlite => "EXPLAIN QUERY PLAN",
@@ -783,9 +1109,16 @@ impl Run<'_> {
         match self.run_sql(&format!("{prefix} {real}")).await {
             Ok(r) => {
                 self.explained.push(real.clone());
-                let text = r.rows.iter().map(|row| row.iter().map(plain).collect::<Vec<_>>().join(" | ")).collect::<Vec<_>>().join("\n");
+                let text = r
+                    .rows
+                    .iter()
+                    .map(|row| row.iter().map(plain).collect::<Vec<_>>().join(" | "))
+                    .collect::<Vec<_>>()
+                    .join("\n");
                 self.fill_step(i, &r, Vec::new());
-                let plan = self.masker.remask_text(&format!("{}\n{text}", r.columns.join(" | ")));
+                let plan = self
+                    .masker
+                    .remask_text(&format!("{}\n{text}", r.columns.join(" | ")));
                 self.end_step(i, Ok(plan), "sent the plan")
             }
             Err(e) => self.end_step(i, Err(e), "sent the error"),
@@ -804,21 +1137,38 @@ impl Run<'_> {
 
     /// What the model may see of a result under this connection's setting.
     fn payload(&mut self, r: &QueryResult) -> (String, String) {
-        let more = if r.truncated { " (more rows exist; SayQL read the first 1,000)" } else { "" };
+        let more = if r.truncated {
+            " (more rows exist; SayQL read the first 1,000)"
+        } else {
+            ""
+        };
         match self.input.access.results {
             Results::Off => (
-                format!("{} rows{more}. Columns: {}. No values are sent on this connection.", r.rows.len(), r.columns.join(", ")),
+                format!(
+                    "{} rows{more}. Columns: {}. No values are sent on this connection.",
+                    r.rows.len(),
+                    r.columns.join(", ")
+                ),
                 "sent row count only".into(),
             ),
             Results::Counts => {
                 let s: ResultSummary = self.masker.summarize(r);
-                (format!("Summary{more}: {}", serde_json::to_string(&s).unwrap_or_default()), "sent counts and column summaries".into())
+                (
+                    format!(
+                        "Summary{more}: {}",
+                        serde_json::to_string(&s).unwrap_or_default()
+                    ),
+                    "sent counts and column summaries".into(),
+                )
             }
             Results::Rows => {
                 let m = self.masker.mask(r, ROWS_SENT);
                 let shown = m.rows.len();
                 let mut text = format!("{} rows{more}.", m.row_count);
-                text.push_str(&format!("\nColumns: {}", serde_json::to_string(&m.columns).unwrap_or_default()));
+                text.push_str(&format!(
+                    "\nColumns: {}",
+                    serde_json::to_string(&m.columns).unwrap_or_default()
+                ));
                 for row in &m.rows {
                     text.push('\n');
                     text.push_str(&serde_json::to_string(row).unwrap_or_default());
@@ -837,43 +1187,101 @@ impl Run<'_> {
     }
 
     /// With Ask before send, pauses on the payload; Skip sends the row count only.
-    async fn maybe_skip(&mut self, i: usize, r: &QueryResult, payload: String, summary: String) -> Result<(String, String), Stop> {
+    async fn maybe_skip(
+        &mut self,
+        i: usize,
+        r: &QueryResult,
+        payload: String,
+        summary: String,
+    ) -> Result<(String, String), Stop> {
         if !self.input.access.ask_before_send || self.input.access.results == Results::Off {
             return Ok((payload, summary));
         }
         let step_id = self.steps[i].id;
-        (self.io.emit)(Event::Send { run_id: self.input.run_id.clone(), step_id, payload: format!("Step {step_id}: {payload}") });
+        (self.io.emit)(Event::Send {
+            run_id: self.input.run_id.clone(),
+            step_id,
+            payload: format!("Step {step_id}: {payload}"),
+        });
         Ok(match self.wait().await? {
             Reply::Send => (payload, summary),
-            _ => (format!("{} rows. The person chose not to send this result.", r.rows.len()), "skipped: sent row count only".into()),
+            _ => (
+                format!(
+                    "{} rows. The person chose not to send this result.",
+                    r.rows.len()
+                ),
+                "skipped: sent row count only".into(),
+            ),
         })
     }
 
     fn answer(&self, input: &Value) -> Answer {
-        let text = self.masker.unmask_text(input["answer"].as_str().unwrap_or("").trim());
+        let text = self
+            .masker
+            .unmask_text(input["answer"].as_str().unwrap_or("").trim());
         let ids: Vec<u32> = self.steps.iter().map(|s| s.id).collect();
         let strings = |k: &str| -> Vec<String> {
-            input[k].as_array().into_iter().flatten().filter_map(|v| v.as_str()).map(|s| self.masker.unmask_text(s.trim())).filter(|s| !s.is_empty()).collect()
+            input[k]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter_map(|v| v.as_str())
+                .map(|s| self.masker.unmask_text(s.trim()))
+                .filter(|s| !s.is_empty())
+                .collect()
         };
         let cannot = input["cannot_answer"].as_bool().unwrap_or(false);
         // Numbers are checked against what the steps returned, the question, and the SQL that ran.
         let results: Vec<&[Vec<Value>]> = self.steps.iter().map(|s| s.rows.as_slice()).collect();
         let mut known: Vec<f64> = ids.iter().map(|i| f64::from(*i)).collect();
-        known.extend(self.steps.iter().filter_map(|s| s.row_count.map(|n| n as f64)));
-        let context = format!("{} {}", self.input.question, self.steps.iter().filter_map(|s| s.sql.clone()).collect::<Vec<_>>().join(" "));
-        let check = |t: &str| if cannot { Vec::new() } else { checks::unbacked_numbers(t, &results, &known, &context) };
+        known.extend(
+            self.steps
+                .iter()
+                .filter_map(|s| s.row_count.map(|n| n as f64)),
+        );
+        let context = format!(
+            "{} {}",
+            self.input.question,
+            self.steps
+                .iter()
+                .filter_map(|s| s.sql.clone())
+                .collect::<Vec<_>>()
+                .join(" ")
+        );
+        let check = |t: &str| {
+            if cannot {
+                Vec::new()
+            } else {
+                checks::unbacked_numbers(t, &results, &known, &context)
+            }
+        };
         let mut sentences: Vec<Sentence> = input["citations"]
             .as_array()
             .into_iter()
             .flatten()
             .filter_map(|c| {
                 let t = self.masker.unmask_text(c["sentence"].as_str()?.trim());
-                let steps = c["steps"].as_array().into_iter().flatten().filter_map(|s| s.as_u64()).map(|s| s as u32).filter(|s| ids.contains(s)).collect();
-                Some(Sentence { unverified: check(&t), text: t, steps })
+                let steps = c["steps"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .filter_map(|s| s.as_u64())
+                    .map(|s| s as u32)
+                    .filter(|s| ids.contains(s))
+                    .collect();
+                Some(Sentence {
+                    unverified: check(&t),
+                    text: t,
+                    steps,
+                })
             })
             .collect();
         if sentences.is_empty() && !text.is_empty() {
-            sentences.push(Sentence { unverified: check(&text), text: text.clone(), steps: Vec::new() });
+            sentences.push(Sentence {
+                unverified: check(&text),
+                text: text.clone(),
+                steps: Vec::new(),
+            });
         }
         // Checked as the model wrote them: a token means the note holds a value from the data.
         let notes = input["notes"]
@@ -884,14 +1292,22 @@ impl Run<'_> {
             .filter_map(|n| clean_note(n).ok())
             .take(3)
             .collect();
-        let proposed_sql = input["proposed_sql"].as_str().map(str::trim).filter(|s| !s.is_empty()).map(|s| {
-            self.masker.unmask_sql(s, self.input.kind).unwrap_or_else(|_| self.masker.unmask_text(s))
-        });
+        let proposed_sql = input["proposed_sql"]
+            .as_str()
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(|s| {
+                self.masker
+                    .unmask_sql(s, self.input.kind)
+                    .unwrap_or_else(|_| self.masker.unmask_text(s))
+            });
         let confidence = match input["confidence"].as_str() {
             Some(c @ ("high" | "medium" | "low")) => c.to_string(),
             _ => "medium".into(),
         };
-        let proposed_changes_data = proposed_sql.as_deref().is_some_and(|s| !db::is_read_only(s, self.input.kind));
+        let proposed_changes_data = proposed_sql
+            .as_deref()
+            .is_some_and(|s| !db::is_read_only(s, self.input.kind));
         Answer {
             proposed_changes_data,
             unverified: check(&text),
@@ -923,7 +1339,12 @@ fn find_table<'a>(schema: &'a Schema, name: &str) -> Option<&'a Table> {
         .tables
         .iter()
         .find(|t| t.qualified_name().eq_ignore_ascii_case(&clean))
-        .or_else(|| schema.tables.iter().find(|t| t.name.eq_ignore_ascii_case(&clean)))
+        .or_else(|| {
+            schema
+                .tables
+                .iter()
+                .find(|t| t.name.eq_ignore_ascii_case(&clean))
+        })
 }
 
 fn plain(v: &Value) -> String {

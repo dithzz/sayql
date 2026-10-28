@@ -116,12 +116,33 @@ impl Default for AgentSettings {
 impl AgentSettings {
     /// The limits within sensible bounds.
     pub fn validated(self) -> AppResult<AgentSettings> {
-        let check = |ok: bool, m: &str| if ok { Ok(()) } else { Err(AppError::User(m.to_string())) };
-        check((1..=50).contains(&self.max_steps), "Steps per run must be between 1 and 50.")?;
-        check((1..=50).contains(&self.max_queries), "Queries per run must be between 1 and 50.")?;
-        check((5..=600).contains(&self.query_seconds), "Time per query must be between 5 and 600 seconds.")?;
-        check((30..=3600).contains(&self.run_seconds), "Time per run must be between 30 seconds and an hour.")?;
-        check((10_000..=5_000_000).contains(&self.max_tokens), "Tokens per run must be between 10,000 and 5,000,000.")?;
+        let check = |ok: bool, m: &str| {
+            if ok {
+                Ok(())
+            } else {
+                Err(AppError::User(m.to_string()))
+            }
+        };
+        check(
+            (1..=50).contains(&self.max_steps),
+            "Steps per run must be between 1 and 50.",
+        )?;
+        check(
+            (1..=50).contains(&self.max_queries),
+            "Queries per run must be between 1 and 50.",
+        )?;
+        check(
+            (5..=600).contains(&self.query_seconds),
+            "Time per query must be between 5 and 600 seconds.",
+        )?;
+        check(
+            (30..=3600).contains(&self.run_seconds),
+            "Time per run must be between 30 seconds and an hour.",
+        )?;
+        check(
+            (10_000..=5_000_000).contains(&self.max_tokens),
+            "Tokens per run must be between 10,000 and 5,000,000.",
+        )?;
         Ok(self)
     }
 }
@@ -174,12 +195,20 @@ impl Store {
 
     /// The notes for one database (`None`: the connection's default database).
     pub fn notes(&self, connection_id: &str, database: Option<&str>) -> AppResult<Vec<Note>> {
-        Ok(self.all_notes()?.into_iter().filter(|n| n.connection_id == connection_id && n.database.as_deref() == database).collect())
+        Ok(self
+            .all_notes()?
+            .into_iter()
+            .filter(|n| n.connection_id == connection_id && n.database.as_deref() == database)
+            .collect())
     }
 
     /// Adds or replaces (by id) a note, after checking it holds no row values.
     pub fn save_note(&self, note: Note) -> AppResult<Note> {
-        let note = Note { text: clean_note(&note.text)?, updated_at: now_ms(), ..note };
+        let note = Note {
+            text: clean_note(&note.text)?,
+            updated_at: now_ms(),
+            ..note
+        };
         let mut all = self.all_notes()?;
         match all.iter_mut().find(|n| n.id == note.id) {
             Some(existing) => *existing = note.clone(),
@@ -196,7 +225,10 @@ impl Store {
             return String::new();
         }
         let lines: Vec<String> = notes.iter().map(|n| format!("- {}", n.text)).collect();
-        format!("\n\nNotes saved for this database (facts learned earlier):\n{}", lines.join("\n"))
+        format!(
+            "\n\nNotes saved for this database (facts learned earlier):\n{}",
+            lines.join("\n")
+        )
     }
 
     pub fn delete_note(&self, id: &str) -> AppResult<()> {
@@ -207,11 +239,19 @@ impl Store {
 }
 
 fn now_ms() -> u64 {
-    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis() as u64).unwrap_or(0)
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0)
 }
 
 fn clean_access(a: AgentAccess) -> AppResult<AgentAccess> {
-    let mut never_send: Vec<String> = a.never_send.iter().map(|c| c.trim().to_string()).filter(|c| !c.is_empty()).collect();
+    let mut never_send: Vec<String> = a
+        .never_send
+        .iter()
+        .map(|c| c.trim().to_string())
+        .filter(|c| !c.is_empty())
+        .collect();
     never_send.sort_by_key(|c| c.to_lowercase());
     never_send.dedup_by_key(|c| c.to_lowercase());
     if never_send.len() > MAX_NEVER_SEND {
@@ -230,7 +270,9 @@ pub fn clean_note(text: &str) -> AppResult<String> {
     if text.chars().count() > MAX_NOTE {
         return Err(format!("Keep a note to {MAX_NOTE} characters.").into());
     }
-    if text.contains('‹') || crate::ai::agent::mask::value_kind(&serde_json::Value::String(text.clone())).is_some() {
+    if text.contains('‹')
+        || crate::ai::agent::mask::value_kind(&serde_json::Value::String(text.clone())).is_some()
+    {
         return Err("A note describes the database, not the data in it. Remove the value (an email, number or name) from it.".into());
     }
     Ok(text)
@@ -249,10 +291,24 @@ mod tests {
     fn access_is_off_until_turned_on() {
         let (dir, s) = store();
         let a = s.agent_access("c1").unwrap();
-        assert_eq!((a.enabled, a.results, a.ask_before_send), (false, Results::Off, false));
-        let saved: AgentAccess = serde_json::from_str(r#"{"enabled":true,"results":"counts"}"#).unwrap();
-        assert!(saved.ask_before_send, "Ask before send defaults to on once saved");
-        s.save_agent_access("c1", AgentAccess { never_send: vec![" email ".into(), "EMAIL".into(), "".into()], ..saved }).unwrap();
+        assert_eq!(
+            (a.enabled, a.results, a.ask_before_send),
+            (false, Results::Off, false)
+        );
+        let saved: AgentAccess =
+            serde_json::from_str(r#"{"enabled":true,"results":"counts"}"#).unwrap();
+        assert!(
+            saved.ask_before_send,
+            "Ask before send defaults to on once saved"
+        );
+        s.save_agent_access(
+            "c1",
+            AgentAccess {
+                never_send: vec![" email ".into(), "EMAIL".into(), "".into()],
+                ..saved
+            },
+        )
+        .unwrap();
         assert_eq!(s.agent_access("c1").unwrap().never_send, ["email"]);
         assert!(!s.agent_access("c2").unwrap().enabled);
         s.forget_agent("c1").unwrap();
@@ -263,12 +319,25 @@ mod tests {
     #[test]
     fn notes_hold_no_values() {
         let (dir, s) = store();
-        let note = |text: &str| Note { id: "n1".into(), connection_id: "c1".into(), database: None, text: text.into(), updated_at: 0 };
-        s.save_note(note("owner = memberships.role = 'owner'")).unwrap();
-        s.save_note(note("status 3 = cancelled (appointment_statuses)")).unwrap();
+        let note = |text: &str| Note {
+            id: "n1".into(),
+            connection_id: "c1".into(),
+            database: None,
+            text: text.into(),
+            updated_at: 0,
+        };
+        s.save_note(note("owner = memberships.role = 'owner'"))
+            .unwrap();
+        s.save_note(note("status 3 = cancelled (appointment_statuses)"))
+            .unwrap();
         assert_eq!(s.notes("c1", None).unwrap().len(), 1, "same id replaces");
         assert!(s.notes("c1", Some("other")).unwrap().is_empty());
-        for bad in ["owner is dana@example.com", "call +1 (555) 014-2233", "owner is ‹name-1›", " "] {
+        for bad in [
+            "owner is dana@example.com",
+            "call +1 (555) 014-2233",
+            "owner is ‹name-1›",
+            " ",
+        ] {
             assert!(s.save_note(note(bad)).is_err(), "{bad}");
         }
         s.delete_note("n1").unwrap();
@@ -279,7 +348,21 @@ mod tests {
     #[test]
     fn limits_are_checked() {
         assert!(AgentSettings::default().validated().is_ok());
-        assert!(AgentSettings { max_steps: 0, ..Default::default() }.validated().is_err());
-        assert!(AgentSettings { query_seconds: 9999, ..Default::default() }.validated().is_err());
+        assert!(
+            AgentSettings {
+                max_steps: 0,
+                ..Default::default()
+            }
+            .validated()
+            .is_err()
+        );
+        assert!(
+            AgentSettings {
+                query_seconds: 9999,
+                ..Default::default()
+            }
+            .validated()
+            .is_err()
+        );
     }
 }

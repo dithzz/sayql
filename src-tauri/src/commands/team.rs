@@ -43,13 +43,20 @@ fn view(c: &TeamConnection) -> Option<TeamConnectionView> {
             ssl: false,
             trust_cert: false,
         },
-        team: TeamInfo { database: c.database.clone(), notes: c.notes.clone() },
+        team: TeamInfo {
+            database: c.database.clone(),
+            notes: c.notes.clone(),
+        },
     })
 }
 
 /// Redeems an invite code, keeps the token in the keychain and the server in settings.
 #[tauri::command]
-pub async fn team_sign_in(state: State<'_, AppState>, server: String, code: String) -> AppResult<TeamAccount> {
+pub async fn team_sign_in(
+    state: State<'_, AppState>,
+    server: String,
+    code: String,
+) -> AppResult<TeamAccount> {
     let server = team::clean_server(&server)?;
     let code = team::clean_code(&code)?;
     let (token, account) = team::redeem(&state.http, &server, &code, &team::device_name()).await?;
@@ -64,18 +71,31 @@ pub async fn team_sign_in(state: State<'_, AppState>, server: String, code: Stri
 /// Who is signed in, with the server's licence; `None` when signed out (without asking anyone).
 #[tauri::command]
 pub async fn team_status(state: State<'_, AppState>) -> AppResult<Option<TeamStatus>> {
-    let Some(client) = state.team_client()? else { return Ok(None) };
+    let Some(client) = state.team_client()? else {
+        return Ok(None);
+    };
     let (user, server) = client.status().await?;
     let mut settings = state.store.settings()?;
-    let Some(saved) = settings.team.clone() else { return Ok(None) };
-    let account = TeamAccount { email: user.email, name: user.name, role: user.role, ..saved.clone() };
+    let Some(saved) = settings.team.clone() else {
+        return Ok(None);
+    };
+    let account = TeamAccount {
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        ..saved.clone()
+    };
     if account != saved {
         settings.team = Some(account.clone());
         state.store.save_settings(&settings)?;
     }
     // With /me: team AI, so Settings shows it and AI requests on team connections use it.
     let ai = state.refresh_team_ai().await.ok().flatten();
-    Ok(Some(TeamStatus { account, server, ai }))
+    Ok(Some(TeamStatus {
+        account,
+        server,
+        ai,
+    }))
 }
 
 /// Signs out: the server revokes the token (when it can be reached), and this computer forgets it.

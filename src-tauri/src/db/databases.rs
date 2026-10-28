@@ -29,10 +29,22 @@ pub async fn list_databases(pool: &DbPool) -> AppResult<Option<DatabaseList>> {
         DbPool::Ms(p) => {
             let mut conn = p.acquire().await?;
             let client = conn.client();
-            let rows = client.simple_query(MSSQL_DATABASES).await?.into_first_result().await?;
-            let databases = rows.iter().filter_map(|r| r.try_get::<&str, _>(0).ok().flatten().map(str::to_string)).collect();
-            let current = client.simple_query("SELECT DB_NAME()").await?.into_row().await?;
-            let current = current.and_then(|r| r.try_get::<&str, _>(0).ok().flatten().map(str::to_string));
+            let rows = client
+                .simple_query(MSSQL_DATABASES)
+                .await?
+                .into_first_result()
+                .await?;
+            let databases = rows
+                .iter()
+                .filter_map(|r| r.try_get::<&str, _>(0).ok().flatten().map(str::to_string))
+                .collect();
+            let current = client
+                .simple_query("SELECT DB_NAME()")
+                .await?
+                .into_row()
+                .await?;
+            let current =
+                current.and_then(|r| r.try_get::<&str, _>(0).ok().flatten().map(str::to_string));
             DatabaseList { databases, current }
         }
         DbPool::Pg(p) => {
@@ -40,18 +52,27 @@ pub async fn list_databases(pool: &DbPool) -> AppResult<Option<DatabaseList>> {
             let mut tx = p.begin().await?;
             sqlx::raw_sql("DEALLOCATE ALL").execute(&mut *tx).await?;
             let databases = sqlx::query_scalar(PG_DATABASES).fetch_all(&mut *tx).await?;
-            let current = sqlx::query_scalar("SELECT current_database()::text").fetch_one(&mut *tx).await.ok();
+            let current = sqlx::query_scalar("SELECT current_database()::text")
+                .fetch_one(&mut *tx)
+                .await
+                .ok();
             tx.rollback().await?;
             DatabaseList { databases, current }
         }
         DbPool::My(p) => {
-            let rows = sqlx::query("SELECT CAST(SCHEMA_NAME AS CHAR) FROM information_schema.SCHEMATA ORDER BY 1").fetch_all(p).await?;
+            let rows = sqlx::query(
+                "SELECT CAST(SCHEMA_NAME AS CHAR) FROM information_schema.SCHEMATA ORDER BY 1",
+            )
+            .fetch_all(p)
+            .await?;
             let databases = rows
                 .iter()
                 .filter_map(|r| r.try_get::<String, _>(0).ok())
                 .filter(|d| !MYSQL_SYSTEM.contains(&d.as_str()))
                 .collect();
-            let current: Option<String> = sqlx::query_scalar("SELECT CAST(DATABASE() AS CHAR)").fetch_one(p).await?;
+            let current: Option<String> = sqlx::query_scalar("SELECT CAST(DATABASE() AS CHAR)")
+                .fetch_one(p)
+                .await?;
             DatabaseList { databases, current }
         }
     };
@@ -59,10 +80,26 @@ pub async fn list_databases(pool: &DbPool) -> AppResult<Option<DatabaseList>> {
 }
 
 /// A connection that works in `database`, opened alongside `base`.
-pub async fn open_database(base: &DbPool, cfg: &ConnConfig, password: Option<String>, database: &str) -> AppResult<DbPool> {
+pub async fn open_database(
+    base: &DbPool,
+    cfg: &ConnConfig,
+    password: Option<String>,
+    database: &str,
+) -> AppResult<DbPool> {
     match base {
         DbPool::Ms(p) => Ok(DbPool::Ms(p.for_database(database).await?)),
-        DbPool::Team(_) => Err("A team connection opens the one database your team admin set up.".into()),
-        _ => connect(&ConnConfig { database: database.to_string(), ..cfg.clone() }, password).await,
+        DbPool::Team(_) => {
+            Err("A team connection opens the one database your team admin set up.".into())
+        }
+        _ => {
+            connect(
+                &ConnConfig {
+                    database: database.to_string(),
+                    ..cfg.clone()
+                },
+                password,
+            )
+            .await
+        }
     }
 }

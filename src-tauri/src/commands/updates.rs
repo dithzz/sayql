@@ -18,7 +18,10 @@ pub async fn check_update(app: AppHandle) -> Option<UpdateInfo> {
         return None;
     }
     let update = app.updater().ok()?.check().await.ok()??;
-    Some(UpdateInfo { version: update.version.clone(), notes: update.body.clone() })
+    Some(UpdateInfo {
+        version: update.version.clone(),
+        notes: update.body.clone(),
+    })
 }
 
 /// Downloads the newer release, installs it once its signature checks out against the
@@ -32,6 +35,9 @@ pub async fn install_update(app: AppHandle) -> AppResult<()> {
         .await
         .map_err(|e| format!("Could not check for updates: {e}"))?
         .ok_or("SayQL is already up to date.")?;
-    update.download_and_install(|_, _| {}, || {}).await.map_err(|e| format!("The update could not be installed: {e}"))?;
+    update
+        .download_and_install(|_, _| {}, || {})
+        .await
+        .map_err(|e| format!("The update could not be installed: {e}"))?;
     app.restart();
 }

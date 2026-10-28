@@ -6,11 +6,17 @@ use crate::schema::{self, Schema};
 /// What schema the model sees. Drafts with picked tables see just those and their neighbours
 /// (smaller and faster); fixes and improvements always see the usual schema, so a narrow
 /// pick can't make the right query impossible.
-pub fn schema_text(schema: &Schema, full: &str, question: &str, task: &Task, focus: &[String]) -> String {
-    if !task.needs_expert() {
-        if let Some(text) = schema::schema_with_focus(schema, focus) {
-            return text;
-        }
+pub fn schema_text(
+    schema: &Schema,
+    full: &str,
+    question: &str,
+    task: &Task,
+    focus: &[String],
+) -> String {
+    if !task.needs_expert()
+        && let Some(text) = schema::schema_with_focus(schema, focus)
+    {
+        return text;
     }
     // A follow-up like "remove the middle name" names no table; the SQL that comes with it does.
     let relevance = format!("{question} {} {}", task.context_sql(), focus.join(" "));
@@ -27,10 +33,20 @@ mod tests {
             schema: None,
             name: name.into(),
             kind: "table".into(),
-            columns: vec![Column { name: "id".into(), data_type: "int".into(), nullable: false, primary_key: true, enum_values: None }],
+            columns: vec![Column {
+                name: "id".into(),
+                data_type: "int".into(),
+                nullable: false,
+                primary_key: true,
+                enum_values: None,
+            }],
             foreign_keys: fks
                 .iter()
-                .map(|(col, to)| ForeignKey { column: (*col).into(), ref_table: (*to).into(), ref_column: "id".into() })
+                .map(|(col, to)| ForeignKey {
+                    column: (*col).into(),
+                    ref_table: (*to).into(),
+                    ref_column: "id".into(),
+                })
                 .collect(),
             row_estimate: None,
         }
@@ -39,12 +55,19 @@ mod tests {
     fn schema() -> Schema {
         Schema {
             dialect: "SQLite".into(),
-            tables: vec![table("person", &[]), table("app_user", &[("person_id", "person")]), table("invoice", &[])],
+            tables: vec![
+                table("person", &[]),
+                table("app_user", &[("person_id", "person")]),
+                table("invoice", &[]),
+            ],
         }
     }
 
     fn draft() -> Task {
-        Task::Draft { previous: None, force_follow_up: false }
+        Task::Draft {
+            previous: None,
+            force_follow_up: false,
+        }
     }
 
     #[test]
@@ -52,7 +75,10 @@ mod tests {
         let s = schema();
         let full = schema::render_full(&s);
         let text = schema_text(&s, &full, "list users", &draft(), &["app_user".into()]);
-        assert!(text.contains("app_user") && text.contains("person"), "{text}");
+        assert!(
+            text.contains("app_user") && text.contains("person"),
+            "{text}"
+        );
         assert!(!text.contains("invoice"), "{text}");
     }
 
@@ -61,17 +87,28 @@ mod tests {
         let s = schema();
         let full = schema::render_full(&s);
         assert_eq!(schema_text(&s, &full, "list users", &draft(), &[]), full);
-        assert_eq!(schema_text(&s, &full, "list users", &draft(), &["nope".into()]), full);
+        assert_eq!(
+            schema_text(&s, &full, "list users", &draft(), &["nope".into()]),
+            full
+        );
     }
 
     #[test]
     fn fixes_and_improvements_ignore_the_pick() {
         let s = schema();
         let full = schema::render_full(&s);
-        let fix = Task::Fix { sql: "select 1".into(), error: String::new() };
-        let improve = Task::Improve { sql: "select 1".into() };
+        let fix = Task::Fix {
+            sql: "select 1".into(),
+            error: String::new(),
+        };
+        let improve = Task::Improve {
+            sql: "select 1".into(),
+        };
         for task in [fix, improve] {
-            assert_eq!(schema_text(&s, &full, "", &task, &["app_user".into()]), full);
+            assert_eq!(
+                schema_text(&s, &full, "", &task, &["app_user".into()]),
+                full
+            );
         }
     }
 
@@ -80,8 +117,14 @@ mod tests {
         let s = schema();
         // Over the full-schema budget, so only relevant tables are sent.
         let full = "x".repeat(400_000);
-        let fix = Task::Fix { sql: "select * from invoice".into(), error: "boom".into() };
+        let fix = Task::Fix {
+            sql: "select * from invoice".into(),
+            error: "boom".into(),
+        };
         let text = schema_text(&s, &full, "it fails", &fix, &[]);
-        assert!(text.contains("invoice") && !text.contains("app_user"), "{text}");
+        assert!(
+            text.contains("invoice") && !text.contains("app_user"),
+            "{text}"
+        );
     }
 }

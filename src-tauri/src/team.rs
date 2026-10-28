@@ -27,8 +27,10 @@ pub const ID_PREFIX: &str = "team:";
 pub const SIGNED_OUT: &str = "Signed out of your team, sign in again.";
 pub const ENTER_SERVER: &str = "Enter your server's address, for example https://sayql.example.com";
 pub const AGENT_OFF: &str = "Agent mode is turned off for this connection by your team admin.";
-pub const BAD_INVITE: &str = "That invite code isn't valid or has expired. Ask your team admin for a new one.";
-pub const WRITE_REFUSED: &str = "Your team's SayQL server runs only read-only queries, so this statement was not run.";
+pub const BAD_INVITE: &str =
+    "That invite code isn't valid or has expired. Ask your team admin for a new one.";
+pub const WRITE_REFUSED: &str =
+    "Your team's SayQL server runs only read-only queries, so this statement was not run.";
 
 /// How long a sign-in, schema or list request may take. Queries have no limit of their own:
 /// Stop, or agent mode's time per query, ends them.
@@ -140,7 +142,10 @@ impl TeamConnection {
     }
 
     pub fn rules(&self) -> TeamRules {
-        TeamRules { max_results: max_results(&self.agent_access), never_send: self.never_send.clone() }
+        TeamRules {
+            max_results: max_results(&self.agent_access),
+            never_send: self.never_send.clone(),
+        }
     }
 }
 
@@ -172,20 +177,41 @@ fn rank(r: Results) -> u8 {
 /// The person's agent access with the admin's rules on top: results no higher than the
 /// admin's, and the admin's never-send columns added.
 pub fn apply_rules(access: AgentAccess, rules: &TeamRules) -> AgentAccess {
-    let results = if rank(access.results) > rank(rules.max_results) { rules.max_results } else { access.results };
+    let results = if rank(access.results) > rank(rules.max_results) {
+        rules.max_results
+    } else {
+        access.results
+    };
     let mut never_send = access.never_send;
     for col in &rules.never_send {
         if !never_send.iter().any(|c| c.eq_ignore_ascii_case(col)) {
             never_send.push(col.clone());
         }
     }
-    AgentAccess { results, never_send, ..access }
+    AgentAccess {
+        results,
+        never_send,
+        ..access
+    }
 }
 
 /// What the person saves: their own choices, without the admin's columns (added back when read).
 pub fn own_access(access: AgentAccess, rules: &TeamRules) -> AgentAccess {
-    let never_send = access.never_send.into_iter().filter(|c| !rules.never_send.iter().any(|r| r.eq_ignore_ascii_case(c))).collect();
-    apply_rules(AgentAccess { never_send, ..access }, &TeamRules { never_send: vec![], ..rules.clone() })
+    let never_send = access
+        .never_send
+        .into_iter()
+        .filter(|c| !rules.never_send.iter().any(|r| r.eq_ignore_ascii_case(c)))
+        .collect();
+    apply_rules(
+        AgentAccess {
+            never_send,
+            ..access
+        },
+        &TeamRules {
+            never_send: vec![],
+            ..rules.clone()
+        },
+    )
 }
 
 /// The server address as typed, cleaned up: `https://` added when missing, no trailing slash.
@@ -196,24 +222,42 @@ pub fn clean_server(input: &str) -> Result<String, String> {
     let input = input.trim();
     // Half-typed schemes ("http:/", "https:") aren't hosts: don't turn them into https://http.
     let schemeless = !input.contains("://");
-    if input.is_empty() || (schemeless && input.contains(':') && input.split(':').next().is_some_and(|s| matches!(s.to_ascii_lowercase().as_str(), "http" | "https"))) {
+    if input.is_empty()
+        || (schemeless
+            && input.contains(':')
+            && input
+                .split(':')
+                .next()
+                .is_some_and(|s| matches!(s.to_ascii_lowercase().as_str(), "http" | "https")))
+    {
         return Err(bad());
     }
     let input = input.trim_end_matches('/');
-    let with_scheme = if schemeless { format!("https://{input}") } else { input.to_string() };
+    let with_scheme = if schemeless {
+        format!("https://{input}")
+    } else {
+        input.to_string()
+    };
     let url = Url::parse(&with_scheme).map_err(|_| bad())?;
     let host = url.host_str().filter(|h| !h.is_empty()).ok_or_else(bad)?;
     if schemeless && matches!(host.to_ascii_lowercase().as_str(), "http" | "https") {
         return Err(bad());
     }
-    if !url.username().is_empty() || url.password().is_some() || url.query().is_some() || url.fragment().is_some() {
+    if !url.username().is_empty()
+        || url.password().is_some()
+        || url.query().is_some()
+        || url.fragment().is_some()
+    {
         return Err(bad());
     }
     let local = matches!(host, "localhost" | "127.0.0.1" | "[::1]") || host.ends_with(".localhost");
     match url.scheme() {
         "https" => {}
         "http" if local => {}
-        "http" => return Err("Use the server's https:// address: SayQL doesn't send your team sign-in unencrypted.".into()),
+        "http" => return Err(
+            "Use the server's https:// address: SayQL doesn't send your team sign-in unencrypted."
+                .into(),
+        ),
         _ => return Err(bad()),
     }
     Ok(url.as_str().trim_end_matches('/').to_string())
@@ -232,7 +276,8 @@ pub fn clean_code(input: &str) -> Result<String, String> {
 }
 
 fn endpoint(server: &str, segments: &[&str]) -> AppResult<Url> {
-    let mut url = Url::parse(server).map_err(|_| AppError::User(format!("{server} isn't a server address.")))?;
+    let mut url = Url::parse(server)
+        .map_err(|_| AppError::User(format!("{server} isn't a server address.")))?;
     url.path_segments_mut()
         .map_err(|_| AppError::User(format!("{server} isn't a server address.")))?
         .pop_if_empty()
@@ -243,9 +288,13 @@ fn endpoint(server: &str, segments: &[&str]) -> AppResult<Url> {
 
 fn unreachable(server: &str, e: reqwest::Error) -> AppError {
     if e.is_timeout() {
-        return AppError::User(format!("Your team's SayQL server at {server} didn't answer in time."));
+        return AppError::User(format!(
+            "Your team's SayQL server at {server} didn't answer in time."
+        ));
     }
-    AppError::User(format!("Couldn't reach your team's SayQL server at {server}. Check the address and your network."))
+    AppError::User(format!(
+        "Couldn't reach your team's SayQL server at {server}. Check the address and your network."
+    ))
 }
 
 #[derive(Deserialize)]
@@ -262,7 +311,13 @@ struct ErrorDetail {
 
 /// A server error code as the message the person sees.
 pub fn error_text(code: &str, message: &str) -> String {
-    let or = |fallback: &str| if message.trim().is_empty() { fallback.to_string() } else { message.trim().to_string() };
+    let or = |fallback: &str| {
+        if message.trim().is_empty() {
+            fallback.to_string()
+        } else {
+            message.trim().to_string()
+        }
+    };
     match code {
         "unauthorized" => SIGNED_OUT.into(),
         "write_refused" => WRITE_REFUSED.into(),
@@ -281,7 +336,15 @@ pub fn error_text(code: &str, message: &str) -> String {
 }
 
 /// Codes for a team server refusing by its rules, as opposed to the database failing.
-const REFUSALS: [&str; 7] = ["write_refused", "never_send", "forbidden", "no_licence", "licence_expired", "seat_limit", "unauthorized"];
+const REFUSALS: [&str; 7] = [
+    "write_refused",
+    "never_send",
+    "forbidden",
+    "no_licence",
+    "licence_expired",
+    "seat_limit",
+    "unauthorized",
+];
 
 /// The error for a server error code: a refusal, or a plain message (`db_error`, `timeout`, …).
 fn coded_error(code: Option<&str>, msg: String) -> AppError {
@@ -292,23 +355,43 @@ fn coded_error(code: Option<&str>, msg: String) -> AppError {
 }
 
 /// The body of a reply as `T`, or the server's error as a message. `None` for `204`.
-async fn decode<T: DeserializeOwned>(resp: reqwest::Response) -> Result<T, (Option<String>, String)> {
+async fn decode<T: DeserializeOwned>(
+    resp: reqwest::Response,
+) -> Result<T, (Option<String>, String)> {
     let status = resp.status();
-    let bytes = resp.bytes().await.map_err(|e| (None, format!("Your team's SayQL server stopped answering: {e}")))?;
+    let bytes = resp.bytes().await.map_err(|e| {
+        (
+            None,
+            format!("Your team's SayQL server stopped answering: {e}"),
+        )
+    })?;
     if status.is_success() {
         let body: &[u8] = if bytes.is_empty() { b"null" } else { &bytes };
         return serde_json::from_slice(body)
             .map_err(|_| (None, "Your team's SayQL server sent an answer this version of SayQL can't read. Update SayQL, or ask your team admin.".into()));
     }
     match serde_json::from_slice::<ErrorBody>(&bytes) {
-        Ok(b) => Err((Some(b.error.code.clone()), error_text(&b.error.code, &b.error.message))),
-        Err(_) if status == reqwest::StatusCode::UNAUTHORIZED => Err((Some("unauthorized".into()), SIGNED_OUT.into())),
-        Err(_) => Err((None, format!("Your team's SayQL server answered with an error ({status})."))),
+        Ok(b) => Err((
+            Some(b.error.code.clone()),
+            error_text(&b.error.code, &b.error.message),
+        )),
+        Err(_) if status == reqwest::StatusCode::UNAUTHORIZED => {
+            Err((Some("unauthorized".into()), SIGNED_OUT.into()))
+        }
+        Err(_) => Err((
+            None,
+            format!("Your team's SayQL server answered with an error ({status})."),
+        )),
     }
 }
 
 /// Redeems an invite code. Returns the token and who it belongs to.
-pub async fn redeem(http: &reqwest::Client, server: &str, code: &str, device: &str) -> AppResult<(String, TeamAccount)> {
+pub async fn redeem(
+    http: &reqwest::Client,
+    server: &str,
+    code: &str,
+    device: &str,
+) -> AppResult<(String, TeamAccount)> {
     let resp = http
         .post(endpoint(server, &["auth", "redeem"])?)
         .timeout(REQUEST_TIMEOUT)
@@ -316,16 +399,26 @@ pub async fn redeem(http: &reqwest::Client, server: &str, code: &str, device: &s
         .send()
         .await
         .map_err(|e| unreachable(server, e))?;
-    let r: Redeemed = decode(resp).await.map_err(|(code, msg)| match code.as_deref() {
-        Some("unauthorized" | "not_found" | "bad_request" | "forbidden") => {
-            AppError::User(BAD_INVITE.into())
-        }
-        c => coded_error(c, msg),
-    })?;
+    let r: Redeemed = decode(resp)
+        .await
+        .map_err(|(code, msg)| match code.as_deref() {
+            Some("unauthorized" | "not_found" | "bad_request" | "forbidden") => {
+                AppError::User(BAD_INVITE.into())
+            }
+            c => coded_error(c, msg),
+        })?;
     if r.token.is_empty() {
         return Err("Your team's SayQL server didn't return a sign-in.".into());
     }
-    Ok((r.token, TeamAccount { server: server.to_string(), email: r.user.email, name: r.user.name, role: r.user.role }))
+    Ok((
+        r.token,
+        TeamAccount {
+            server: server.to_string(),
+            email: r.user.email,
+            name: r.user.name,
+            role: r.user.role,
+        },
+    ))
 }
 
 /// This computer's name as the server lists it among the person's devices.
@@ -336,9 +429,15 @@ pub fn device_name() -> String {
         "linux" => "Linux PC",
         other => other,
     };
-    let host = std::env::var("COMPUTERNAME").or_else(|_| std::env::var("HOSTNAME")).unwrap_or_default();
+    let host = std::env::var("COMPUTERNAME")
+        .or_else(|_| std::env::var("HOSTNAME"))
+        .unwrap_or_default();
     let host: String = host.chars().filter(|c| !c.is_control()).take(60).collect();
-    if host.trim().is_empty() { format!("SayQL on a {os}") } else { format!("SayQL on {}", host.trim()) }
+    if host.trim().is_empty() {
+        format!("SayQL on a {os}")
+    } else {
+        format!("SayQL on {}", host.trim())
+    }
 }
 
 /// Requests to the signed-in team server.
@@ -353,7 +452,12 @@ pub struct TeamClient {
 
 impl TeamClient {
     pub fn new(http: reqwest::Client, server: String, token: String, store: Option<Store>) -> Self {
-        TeamClient { http, server, token, store }
+        TeamClient {
+            http,
+            server,
+            token,
+            store,
+        }
     }
 
     async fn send<T: DeserializeOwned>(&self, req: reqwest::RequestBuilder) -> AppResult<T> {
@@ -361,8 +465,15 @@ impl TeamClient {
     }
 
     /// `send`, also giving the server's error code (errors are mapped by code, never by status).
-    async fn send_coded<T: DeserializeOwned>(&self, req: reqwest::RequestBuilder) -> Result<T, (Option<String>, AppError)> {
-        let resp = req.bearer_auth(&self.token).send().await.map_err(|e| (None, unreachable(&self.server, e)))?;
+    async fn send_coded<T: DeserializeOwned>(
+        &self,
+        req: reqwest::RequestBuilder,
+    ) -> Result<T, (Option<String>, AppError)> {
+        let resp = req
+            .bearer_auth(&self.token)
+            .send()
+            .await
+            .map_err(|e| (None, unreachable(&self.server, e)))?;
         decode(resp).await.map_err(|(code, msg)| {
             if code.as_deref() == Some("unauthorized")
                 && let Some(store) = &self.store
@@ -376,7 +487,12 @@ impl TeamClient {
     }
 
     async fn get<T: DeserializeOwned>(&self, segments: &[&str]) -> AppResult<T> {
-        self.send(self.http.get(endpoint(&self.server, segments)?).timeout(REQUEST_TIMEOUT)).await
+        self.send(
+            self.http
+                .get(endpoint(&self.server, segments)?)
+                .timeout(REQUEST_TIMEOUT),
+        )
+        .await
     }
 
     pub async fn status(&self) -> AppResult<(TeamUser, ServerInfo)> {
@@ -385,7 +501,13 @@ impl TeamClient {
     }
 
     pub async fn sign_out(&self) -> AppResult<()> {
-        self.send::<Value>(self.http.post(endpoint(&self.server, &["auth", "signout"])?).timeout(REQUEST_TIMEOUT)).await.map(|_| ())
+        self.send::<Value>(
+            self.http
+                .post(endpoint(&self.server, &["auth", "signout"])?)
+                .timeout(REQUEST_TIMEOUT),
+        )
+        .await
+        .map(|_| ())
     }
 
     /// Team AI: whether the company key is set up, its models and this month's usage.
@@ -407,12 +529,24 @@ impl TeamClient {
 
     pub async fn schema(&self, id: &str, kind: Kind) -> AppResult<Schema> {
         let s: SchemaReply = self.get(&["connections", id, "schema"]).await?;
-        Ok(Schema { dialect: kind.dialect().to_string(), tables: s.tables.into_iter().map(Into::into).collect() })
+        Ok(Schema {
+            dialect: kind.dialect().to_string(),
+            tables: s.tables.into_iter().map(Into::into).collect(),
+        })
     }
 
-    pub async fn query(&self, id: &str, body: Value, cancel: &CancellationToken) -> AppResult<QueryResult> {
+    pub async fn query(
+        &self,
+        id: &str,
+        body: Value,
+        cancel: &CancellationToken,
+    ) -> AppResult<QueryResult> {
         let agent = body["source"] == "agent";
-        let req = self.send_coded::<QueryReply>(self.http.post(endpoint(&self.server, &["connections", id, "query"])?).json(&body));
+        let req = self.send_coded::<QueryReply>(
+            self.http
+                .post(endpoint(&self.server, &["connections", id, "query"])?)
+                .json(&body),
+        );
         // Stop ends the wait; the server finishes (and audits) the query on its side.
         let r = tokio::select! {
             r = req => r.map_err(|(code, e)| match code.as_deref() {
@@ -482,7 +616,13 @@ impl From<SchemaTable> for Table {
             columns: t
                 .columns
                 .into_iter()
-                .map(|c| Column { name: c.name, data_type: c.data_type, nullable: c.nullable, primary_key: false, enum_values: None })
+                .map(|c| Column {
+                    name: c.name,
+                    data_type: c.data_type,
+                    nullable: c.nullable,
+                    primary_key: false,
+                    enum_values: None,
+                })
                 .collect(),
             foreign_keys: vec![],
             row_estimate: None,
@@ -517,7 +657,14 @@ impl From<QueryReply> for QueryResult {
         if width.is_some_and(|w| w < columns.len()) {
             columns.retain(|c| !r.withheld.iter().any(|w| w.eq_ignore_ascii_case(c)));
         }
-        QueryResult { columns, rows: r.rows, rows_affected: None, truncated: r.truncated, elapsed_ms: r.elapsed_ms as u128, withheld: r.withheld }
+        QueryResult {
+            columns,
+            rows: r.rows,
+            rows_affected: None,
+            truncated: r.truncated,
+            elapsed_ms: r.elapsed_ms as u128,
+            withheld: r.withheld,
+        }
     }
 }
 
@@ -543,7 +690,12 @@ pub struct TeamPool {
 }
 
 impl TeamPool {
-    pub async fn query(&self, sql: &str, cap: usize, cancel: &CancellationToken) -> AppResult<QueryResult> {
+    pub async fn query(
+        &self,
+        sql: &str,
+        cap: usize,
+        cancel: &CancellationToken,
+    ) -> AppResult<QueryResult> {
         let body = json!({
             "sql": sql,
             "source": self.source,
