@@ -2,6 +2,7 @@
 //! Secrets never go in these files; see [`secrets`].
 
 pub mod agent;
+pub mod apps;
 pub mod secrets;
 pub mod skills;
 

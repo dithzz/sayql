@@ -325,6 +325,21 @@ const waiting = new Map<string, (r: AgentReply) => void>();
 const stopped = new Set<string>();
 
 /** A scripted agent run on the demo store: plan, two steps, an optional Send/Skip pause, a cited answer. */
+// What AI apps did over MCP, for Settings → AI apps (MCP).
+const mcpBlocked = new Set<string>();
+const mcpActivity = [
+  { at: Date.now() - 60_000, app: "Claude Code", tool: "run_query", connectionId: "demo", connection: "Demo store (SQLite)", sql: "SELECT country, COUNT(*) FROM customers GROUP BY country", status: "ok", rows: 12, maySee: "counts" },
+  { at: Date.now() - 240_000, app: "Cursor", tool: "run_query", connectionId: "demo", connection: "Demo store (SQLite)", sql: "SELECT email FROM customers", status: "refused", detail: "never-send column email", maySee: "counts" },
+  { at: Date.now() - 600_000, app: "Claude Code", tool: "run_query", connectionId: "demo", connection: "Demo store (SQLite)", sql: "DELETE FROM orders WHERE id = 7", status: "refused", detail: "could change data", maySee: "counts" },
+];
+function mcpApps() {
+  const names = new Set([...mcpActivity.map((e) => e.app), ...mcpBlocked]);
+  return [...names].map((name) => {
+    const mine = mcpActivity.filter((e) => e.app === name);
+    return { name, blocked: mcpBlocked.has(name), queries: mine.length, lastUsed: mine.length ? Math.max(...mine.map((e) => e.at)) : null };
+  });
+}
+
 async function mockAgentRun(runId: string, question: string, access: AgentAccess, auto: boolean) {
   const pause = () => new Promise((r) => setTimeout(r, VIDEO ? 900 : 500));
   const reply = () => new Promise<AgentReply>((resolve) => waiting.set(runId, resolve));
@@ -513,6 +528,19 @@ export function installMockBackend() {
           return Promise.reject("Signing in to a team isn't available in the browser preview.");
         case "mcp_setup":
           return { path: "/Applications/SayQL.app/Contents/MacOS/sayql-mcp", exists: true, appimage: false };
+        case "mcp_activity":
+          return mcpActivity;
+        case "mcp_apps":
+          return mcpApps();
+        case "set_mcp_app_blocked": {
+          const name = String(a.name);
+          if (a.blocked) mcpBlocked.add(name);
+          else mcpBlocked.delete(name);
+          return mcpApps();
+        }
+        case "clear_mcp_activity":
+          mcpActivity.length = 0;
+          return null;
         case "test_connection":
           return "Connected. Found 6 tables and views.";
         case "save_connection":

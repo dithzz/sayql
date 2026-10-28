@@ -342,6 +342,29 @@ export interface McpSetup {
   appimage: boolean;
 }
 
+/** Something an AI app did, or tried, over MCP; mirrors `store::apps::Activity`. Holds SQL and counts, never rows. */
+export interface McpActivity {
+  /** Milliseconds since the Unix epoch. */
+  at: number;
+  app: string;
+  tool: string;
+  connectionId: string;
+  connection: string;
+  sql: string;
+  status: "ok" | "refused" | "error";
+  detail?: string | null;
+  rows?: number | null;
+  maySee?: AppResults | null;
+}
+
+/** An AI app in the activity log or on the blocked list. */
+export interface McpApp {
+  name: string;
+  blocked: boolean;
+  queries: number;
+  lastUsed?: number | null;
+}
+
 /** A query saved from a tab; mirrors `store::Script` in src-tauri/src/store/mod.rs. */
 export interface Script {
   id: string;

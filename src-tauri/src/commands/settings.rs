@@ -3,6 +3,7 @@ use crate::ai::{self, Api, KeyNeed};
 use crate::error::{AppError, AppResult};
 use crate::state::AppState;
 use crate::store::agent::AgentSettings;
+use crate::store::apps::{Activity, AppSummary};
 use crate::store::{ProviderSettings, Settings, secrets};
 use serde::Serialize;
 use tauri::State;
@@ -273,6 +274,34 @@ pub fn mcp_setup() -> AppResult<McpSetup> {
         path: path.to_string_lossy().into_owned(),
         appimage: std::env::var_os("APPIMAGE").is_some(),
     })
+}
+
+/// The newest entries in the activity log of AI apps using SayQL over MCP.
+#[tauri::command]
+pub fn mcp_activity(state: State<'_, AppState>, limit: Option<usize>) -> AppResult<Vec<Activity>> {
+    state.store.app_activity(limit.unwrap_or(100).min(1000))
+}
+
+/// The AI apps in the log or on the blocked list.
+#[tauri::command]
+pub fn mcp_apps(state: State<'_, AppState>) -> AppResult<Vec<AppSummary>> {
+    state.store.app_summaries()
+}
+
+/// Blocks or allows one AI app; returns the updated list.
+#[tauri::command]
+pub fn set_mcp_app_blocked(state: State<'_, AppState>, name: String, blocked: bool) -> AppResult<Vec<AppSummary>> {
+    let name = name.trim();
+    if name.is_empty() {
+        return Err(AppError::User("Which app? The name is empty.".into()));
+    }
+    state.store.set_app_blocked(name, blocked)?;
+    state.store.app_summaries()
+}
+
+#[tauri::command]
+pub fn clear_mcp_activity(state: State<'_, AppState>) -> AppResult<()> {
+    state.store.clear_app_activity()
 }
 
 #[cfg(test)]

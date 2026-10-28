@@ -14,6 +14,11 @@ All notable changes to SayQL are listed here. Downloads are on the
   nothing, counts and summaries, rows with personal data masked, or all rows. CSV export works only where you
   allow all rows, and below that, values quoted in database errors are masked. **If an AI app relied on seeing
   rows,** set that connection to **All rows**.
+- **Agent activity:** **Settings → AI apps (MCP)** now lists what each AI app ran through SayQL: when, which app,
+  the connection, the SQL, and whether it ran or was refused and why. SQL and counts only, never rows; kept on
+  your computer, with **Clear the log**.
+- **Block an AI app:** each app SayQL has seen has a **Block** button; a blocked app is refused everything until
+  you allow it again.
 
 ## 0.4.2 (2026-10-27)
 

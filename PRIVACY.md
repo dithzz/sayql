@@ -9,6 +9,8 @@ SayQL is a desktop app. It has no SayQL account, no SayQL server and no telemetr
 - **Query results** are shown in the app and are not saved unless you copy them yourself.
 - **Agent mode** keeps, per connection, whether it's on and what it may send; database notes you save; and in
   each tab its last run's queries and answer (never its rows).
+- **Agent activity:** what AI apps ran through SayQL over MCP (the app's name, the connection, the SQL and the
+  row count, never rows), in a file in SayQL's folder. **Clear the log** in Settings → AI apps (MCP) deletes it.
 - **Voice input** is turned into text on your computer by a speech model (Whisper) that runs locally. Audio is
   kept in memory only while you talk, is never saved, and is never sent anywhere.
 
