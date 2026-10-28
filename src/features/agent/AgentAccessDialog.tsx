@@ -51,7 +51,7 @@ export function AgentAccessDialog({ connectionName, provider, access, onSave, on
     setSaving(true);
     setError(null);
     const list = neverSend.split(/[\n,]/).map((c) => c.trim()).filter(Boolean);
-    onSave({ enabled, results, askBeforeSend: ask, neverSend: list }).then(onClose, (e) => {
+    onSave({ enabled, results, apps: access.apps, askBeforeSend: ask, neverSend: list }).then(onClose, (e) => {
       setSaving(false);
       setError(String(e));
     });

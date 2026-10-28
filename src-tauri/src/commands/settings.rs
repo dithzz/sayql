@@ -3,6 +3,7 @@ use crate::ai::{self, Api, KeyNeed};
 use crate::error::{AppError, AppResult};
 use crate::state::AppState;
 use crate::store::agent::AgentSettings;
+use crate::store::apps::{Activity, AppSummary};
 use crate::store::{ProviderSettings, Settings, secrets};
 use serde::Serialize;
 use tauri::State;
@@ -215,10 +216,13 @@ pub async fn list_models(
     if p.api == Api::Anthropic {
         // Claude's models are fixed; this checks the key so a typo is caught before it's saved.
         let key = api_key.map(|k| k.trim().to_string()).filter(|k| !k.is_empty()).or_else(|| secrets::api_key(p.id));
-        let key = key.ok_or_else(|| AppError::User("Paste your Claude API key first.".into()))?;
-        let workspace = valid_workspace_id(&state.store.settings()?.workspace_id)?;
+        let key = key.ok_or_else(|| AppError::User(format!("Paste your {} key first.", p.label)))?;
+        let saved = state.store.settings()?;
+        // Only Anthropic keys can need a workspace ID; SayQL credit keys never do.
+        let workspace = if p.id == ai::ANTHROPIC { valid_workspace_id(&saved.workspace_id)? } else { String::new() };
         let http = state.http.clone();
-        ai::check_claude_key(&http, &key, Some(workspace.as_str()).filter(|w| !w.is_empty())).await?;
+        let base = address(p, &saved.provider_settings(p.id));
+        ai::check_claude_key(&http, &base, &key, Some(workspace.as_str()).filter(|w| !w.is_empty())).await?;
         return Ok(ai::MODELS.iter().map(|(id, _)| id.to_string()).collect());
     }
     let typed = ai::clean_base_url(&base_url).map_err(AppError::User)?;
@@ -270,6 +274,34 @@ pub fn mcp_setup() -> AppResult<McpSetup> {
         path: path.to_string_lossy().into_owned(),
         appimage: std::env::var_os("APPIMAGE").is_some(),
     })
+}
+
+/// The newest entries in the activity log of AI apps using SayQL over MCP.
+#[tauri::command]
+pub fn mcp_activity(state: State<'_, AppState>, limit: Option<usize>) -> AppResult<Vec<Activity>> {
+    state.store.app_activity(limit.unwrap_or(100).min(1000))
+}
+
+/// The AI apps in the log or on the blocked list.
+#[tauri::command]
+pub fn mcp_apps(state: State<'_, AppState>) -> AppResult<Vec<AppSummary>> {
+    state.store.app_summaries()
+}
+
+/// Blocks or allows one AI app; returns the updated list.
+#[tauri::command]
+pub fn set_mcp_app_blocked(state: State<'_, AppState>, name: String, blocked: bool) -> AppResult<Vec<AppSummary>> {
+    let name = name.trim();
+    if name.is_empty() {
+        return Err(AppError::User("Which app? The name is empty.".into()));
+    }
+    state.store.set_app_blocked(name, blocked)?;
+    state.store.app_summaries()
+}
+
+#[tauri::command]
+pub fn clear_mcp_activity(state: State<'_, AppState>) -> AppResult<()> {
+    state.store.clear_app_activity()
 }
 
 #[cfg(test)]

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { commands, type AgentAccess } from "../../api";
 
-const OFF: AgentAccess = { enabled: false, results: "off", askBeforeSend: true, neverSend: [] };
+const OFF: AgentAccess = { enabled: false, results: "off", apps: "counts", askBeforeSend: true, neverSend: [] };
 
 // Shared by every tab and the navigator, so a change in one shows in all.
 const cache = new Map<string, AgentAccess>();

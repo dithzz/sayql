@@ -190,10 +190,15 @@ export interface AgentSettings {
 /** What the AI may see of query results on a connection in agent mode. */
 export type AgentResults = "off" | "counts" | "rows";
 
-/** Agent mode's access to one connection; off until the person turns it on. */
+/** What AI apps using SayQL over MCP may see of query results on a connection. */
+export type AppResults = "off" | "counts" | "masked" | "all";
+
+/** Agent mode's access to one connection, which is off until the person turns it on, and what AI apps may see of it. */
 export interface AgentAccess {
   enabled: boolean;
   results: AgentResults;
+  /** What AI apps over MCP may see; counts until the person chooses. Never-send columns apply too. */
+  apps: AppResults;
   askBeforeSend: boolean;
   /** Columns never sent (`column` or `table.column`), the team admin's included. */
   neverSend: string[];
@@ -335,6 +340,29 @@ export interface McpSetup {
   exists: boolean;
   /** Running from an AppImage, whose path changes on every launch. */
   appimage: boolean;
+}
+
+/** Something an AI app did, or tried, over MCP; mirrors `store::apps::Activity`. Holds SQL and counts, never rows. */
+export interface McpActivity {
+  /** Milliseconds since the Unix epoch. */
+  at: number;
+  app: string;
+  tool: string;
+  connectionId: string;
+  connection: string;
+  sql: string;
+  status: "ok" | "refused" | "error";
+  detail?: string | null;
+  rows?: number | null;
+  maySee?: AppResults | null;
+}
+
+/** An AI app in the activity log or on the blocked list. */
+export interface McpApp {
+  name: string;
+  blocked: boolean;
+  queries: number;
+  lastUsed?: number | null;
 }
 
 /** A query saved from a tab; mirrors `store::Script` in src-tauri/src/store/mod.rs. */

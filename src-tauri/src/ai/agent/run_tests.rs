@@ -27,7 +27,7 @@ async fn fixture() -> Fixture {
 }
 
 fn access(results: Results, ask: bool) -> AgentAccess {
-    AgentAccess { enabled: true, results, ask_before_send: ask, never_send: vec![] }
+    AgentAccess { enabled: true, results, ask_before_send: ask, never_send: vec![], ..Default::default() }
 }
 
 struct Ran {

@@ -7,12 +7,14 @@ use crate::error::{AppError, AppResult};
 use futures_util::StreamExt;
 use serde_json::{Value, json};
 
-const API_URL: &str = "https://api.anthropic.com/v1/messages";
+/// Anthropic's own API. SayQL AI credits use the same API at another address.
+pub const API_BASE: &str = "https://api.anthropic.com";
 const API_VERSION: &str = "2023-06-01";
 
-/// How a request reaches Claude: with the person's key, or through their team's server.
+/// How a request reaches Claude: with a key (Anthropic's, or a SayQL credit key at SayQL's
+/// address), or through their team's server.
 pub(crate) enum Access<'a> {
-    Key { api_key: &'a str, workspace_id: Option<&'a str> },
+    Key { api_key: &'a str, workspace_id: Option<&'a str>, base: &'a str },
     Team(&'a crate::team::ai::TeamAi),
 }
 
@@ -20,8 +22,8 @@ impl Access<'_> {
     /// A Messages API request carrying `body`, authorized for this access.
     fn post(&self, http: &reqwest::Client, body: &Value, beta: Option<&str>) -> reqwest::RequestBuilder {
         let mut req = match self {
-            Access::Key { api_key, workspace_id } => {
-                let mut req = http.post(API_URL).header("x-api-key", *api_key);
+            Access::Key { api_key, workspace_id, base } => {
+                let mut req = http.post(format!("{base}/v1/messages")).header("x-api-key", *api_key);
                 if let Some(ws) = workspace_id {
                     req = req.header("anthropic-workspace-id", *ws);
                 }
@@ -39,6 +41,7 @@ impl Access<'_> {
 
     fn unreachable(&self, e: reqwest::Error) -> AppError {
         match self {
+            Access::Key { base, .. } if *base != API_BASE => format!("Could not reach SayQL AI credits: {e}").into(),
             Access::Key { .. } => format!("Could not reach the Claude API: {e}").into(),
             Access::Team(t) => t.unreachable(e),
         }
@@ -46,6 +49,7 @@ impl Access<'_> {
 
     fn error(&self, status: u16, body: &str) -> AppError {
         match self {
+            Access::Key { base, .. } if *base != API_BASE => credits_error(status, body),
             Access::Key { .. } => api_error(status, body),
             Access::Team(t) => t.error(status, body),
         }
@@ -212,22 +216,39 @@ fn parse_turn(v: &Value) -> AppResult<Turn> {
     }
 }
 
-/// Checks that an API key works, with the cheapest call there is (listing one model).
-pub(super) async fn check_key(http: &reqwest::Client, api_key: &str, workspace_id: Option<&str>) -> AppResult<()> {
+/// Checks that a key works, with the cheapest call there is (listing one model). `base` is
+/// Anthropic's API or, for a SayQL credit key, SayQL's (which also needs credit left).
+pub(super) async fn check_key(http: &reqwest::Client, base: &str, api_key: &str, workspace_id: Option<&str>) -> AppResult<()> {
+    let access = Access::Key { api_key, workspace_id, base };
     let mut req = http
-        .get("https://api.anthropic.com/v1/models?limit=1")
+        .get(format!("{base}/v1/models?limit=1"))
         .header("x-api-key", api_key)
         .header("anthropic-version", API_VERSION)
         .timeout(std::time::Duration::from_secs(20));
     if let Some(ws) = workspace_id {
         req = req.header("anthropic-workspace-id", ws);
     }
-    let resp = req.send().await.map_err(|e| format!("Could not reach the Claude API: {e}"))?;
+    let resp = req.send().await.map_err(|e| access.unreachable(e))?;
     let status = resp.status().as_u16();
     if !resp.status().is_success() {
-        return Err(api_error(status, &resp.text().await.unwrap_or_default()));
+        return Err(access.error(status, &resp.text().await.unwrap_or_default()));
     }
     Ok(())
+}
+
+/// A message for a non-2xx answer from SayQL AI credits (its messages are written for people).
+fn credits_error(status: u16, body: &str) -> AppError {
+    let msg = serde_json::from_str::<Value>(body)
+        .ok()
+        .and_then(|v| v["error"]["message"].as_str().map(str::to_string))
+        .unwrap_or_else(|| body.to_string());
+    match status {
+        401 => format!("{msg} Check the credit key in Settings."),
+        402 => format!("{msg} To top it up, email hello@azenvoc.com."),
+        429 => format!("Too many AI requests right now: {msg}"),
+        _ => format!("SayQL AI credits error {status}: {msg}"),
+    }
+    .into()
 }
 
 /// A message for a non-2xx API response. Mentions Settings when that's where the fix is.
@@ -262,6 +283,52 @@ mod tests {
         assert!(api_error(400, ws).to_string().contains("Workspace ID in Settings"));
 
         assert_eq!(api_error(500, "oops").to_string(), "Claude API error 500: oops");
+    }
+
+    /// A one-request HTTP server at `http://127.0.0.1:<port>`: answers `status` + JSON `body`
+    /// and hands back the raw request.
+    async fn one_reply(status: &'static str, body: &'static str) -> (String, tokio::sync::oneshot::Receiver<String>) {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        tokio::spawn(async move {
+            let (mut sock, _) = listener.accept().await.unwrap();
+            let mut buf = [0u8; 8192];
+            let n = sock.read(&mut buf).await.unwrap();
+            let reply = format!("HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len());
+            sock.write_all(reply.as_bytes()).await.unwrap();
+            let _ = tx.send(String::from_utf8_lossy(&buf[..n]).to_string());
+        });
+        (format!("http://{addr}"), rx)
+    }
+
+    #[tokio::test]
+    async fn a_credit_key_is_checked_at_sayql_and_says_when_credit_runs_out() {
+        let http = reqwest::Client::new();
+        let (base, req) = one_reply("200 OK", r#"{"data":[{"id":"claude-haiku-5-5","type":"model"}],"has_more":false}"#).await;
+        check_key(&http, &base, "sqlc_test", None).await.unwrap();
+        let req = req.await.unwrap().to_ascii_lowercase();
+        assert!(req.starts_with("get /v1/models?limit=1 "), "{req}");
+        assert!(req.contains("x-api-key: sqlc_test") && !req.contains("anthropic-workspace-id"), "{req}");
+
+        let (base, _) = one_reply("402 Payment Required", r#"{"type":"error","error":{"type":"billing_error","message":"This SayQL AI credit has run out."}}"#).await;
+        let e = check_key(&http, &base, "sqlc_test", None).await.unwrap_err().to_string();
+        assert!(e.contains("credit has run out") && e.contains("hello@azenvoc.com"), "{e}");
+
+        let (base, _) = one_reply("401 Unauthorized", r#"{"type":"error","error":{"type":"authentication_error","message":"That SayQL AI credit key isn't valid or was turned off."}}"#).await;
+        let e = check_key(&http, &base, "sqlc_bad", None).await.unwrap_err().to_string();
+        assert!(e.contains("isn't valid") && e.contains("credit key in Settings") && !e.contains("Claude API key"), "{e}");
+    }
+
+    #[tokio::test]
+    async fn a_credit_key_sends_requests_to_sayql_with_the_same_body() {
+        let (base, req) = one_reply("200 OK", "{}").await;
+        let access = Access::Key { api_key: "sqlc_test", workspace_id: None, base: &base };
+        let _ = access.post(&reqwest::Client::new(), &json!({ "model": "claude-sonnet-5-5" }), None).send().await;
+        let req = req.await.unwrap().to_ascii_lowercase();
+        assert!(req.starts_with("post /v1/messages "), "{req}");
+        assert!(req.contains("x-api-key: sqlc_test") && req.contains("anthropic-version: 2023-06-01"), "{req}");
     }
 
     #[test]

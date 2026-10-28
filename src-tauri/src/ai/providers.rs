@@ -36,6 +36,8 @@ pub struct Provider {
 }
 
 pub const ANTHROPIC: &str = "anthropic";
+/// Prepaid Claude from SayQL: the same Messages API at SayQL's address, with a `sqlc_` credit key.
+pub const SAYQL_CREDITS: &str = "sayql";
 
 const fn openai(
     id: &'static str,
@@ -60,6 +62,16 @@ pub const PROVIDERS: &[Provider] = &[
         base_url: "https://api.anthropic.com",
         key: KeyNeed::Required,
         key_placeholder: "sk-ant-…",
+        local: false,
+    },
+    Provider {
+        id: SAYQL_CREDITS,
+        label: "SayQL AI credits",
+        note: "Claude without an Anthropic account: prepaid credit from SayQL. Requests go through SayQL to Anthropic.",
+        api: Api::Anthropic,
+        base_url: "https://sayql.dev/api/ai",
+        key: KeyNeed::Required,
+        key_placeholder: "sqlc_…",
         local: false,
     },
     openai("openai", "OpenAI", "GPT models with an OpenAI API key.", "https://api.openai.com/v1", "sk-…"),
