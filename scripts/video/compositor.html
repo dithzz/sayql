@@ -74,6 +74,43 @@
     padding: 16px 30px; border-radius: 16px; font-size: 36px; font-weight: 600;
     color: var(--text); background: var(--caption-bg); border: 1px solid var(--window-border);
   }
+  .card .tagline.headline { font-size: 64px; font-weight: 700; letter-spacing: -0.025em; text-align: center; }
+  .card .tagline.headline em { font-style: normal; color: var(--blue); }
+  .card .lead { color: var(--muted); font-size: 32px; font-weight: 500; text-align: center; max-width: 1300px; margin-top: -10px; }
+  /* A caption inside a card (the terminal scenes), the same pill as the clips' caption. */
+  .card .cap { position: absolute; left: 0; right: 0; bottom: 54px; display: flex; justify-content: center; }
+  .card .cap span {
+    padding: 18px 34px; border-radius: 999px; white-space: nowrap;
+    background: var(--caption-bg); border: 1px solid var(--caption-border);
+    color: var(--text); font-size: 40px; font-weight: 600; letter-spacing: -0.01em;
+    box-shadow: 0 12px 40px rgba(0,0,0,.28);
+  }
+  /* A terminal running Claude Code: dark in both themes, like most terminals. */
+  .card.terminal { justify-content: flex-start; padding-top: 46px; }
+  .term {
+    width: 1600px; height: 830px; border-radius: 14px; overflow: hidden; display: flex; flex-direction: column;
+    background: #0d1117; box-shadow: var(--shadow); outline: 1px solid var(--window-border);
+  }
+  .term-bar { height: 52px; flex: none; display: flex; align-items: center; gap: 10px; padding: 0 20px; background: #161b22; border-bottom: 1px solid #262c36; }
+  .term-bar i { width: 14px; height: 14px; border-radius: 50%; background: #3a404a; }
+  .term-bar span { flex: 1; text-align: center; color: #8b949e; font-size: 20px; font-weight: 500; margin-right: 62px; }
+  .term-body {
+    flex: 1; overflow: hidden; padding: 26px 34px; color: #d6dde6;
+    font: 500 25px/1.5 "SF Mono", Menlo, Monaco, monospace; white-space: pre-wrap; word-break: break-word;
+  }
+  .term-body .l { min-height: 1.5em; margin-bottom: 0.6em; }
+  .term-body .you { color: #f0f3f6; }
+  .term-body .you b { color: #8b949e; font-weight: 500; }
+  .term-body .tool b { color: #3fb950; font-weight: 500; }
+  .term-body .tool { color: #f0f3f6; }
+  .term-body .tool .args { color: #8b949e; }
+  .term-body .out { color: #8b949e; padding-left: 1.4em; }
+  .term-body .out .k { color: #79c0ff; }
+  .term-body .err { color: #ff7b72; padding-left: 1.4em; }
+  .term-body .say { color: #f0f3f6; }
+  .term-body .say b { color: #f0f3f6; font-weight: 500; }
+  .term-body .hl { background: rgba(63, 185, 80, 0.16); color: #7ee787; border-radius: 4px; }
+  .term-body .caret { display: inline-block; width: 0.6em; height: 1.1em; vertical-align: -0.18em; background: #d6dde6; margin-left: 2px; }
   .card .pill {
     padding: 10px 24px; border-radius: 999px; font-size: 28px; font-weight: 600; letter-spacing: 0.02em;
     color: var(--violet); background: var(--violet-bg); border: 1px solid var(--violet-border);
@@ -87,17 +124,53 @@
 <div id="caption" class="caption" style="opacity:0"></div>
 <script>
   const CURSOR = `<svg class="cursor" viewBox="0 0 22 33"><path d="M2 2v25l6.5-6.2 4.3 9.7 4-1.8-4.2-9.5H21z" fill="#fff" stroke="#000" stroke-width="1.6" stroke-linejoin="round"/></svg>`;
-  const CARDS = {
-    problem: () => `<div class="hook">You know the question.</div><div class="hook accent" data-at="1.3">Writing the SQL is the hard part.</div>`,
-    audience: () =>
-      `<div class="tagline">For anyone who needs answers, not SQL</div><div class="chips">` +
-      ["Analysts", "Product managers", "Support & ops", "Developers"].map((t, i) => `<span class="chip" data-at="${0.5 + i * 0.3}">${t}</span>`).join("") +
-      `</div>`,
-    title: () => `<img src="${WORDMARK}"><div class="tagline">Say what you need. It knows your schema.</div><div class="pill">Early access</div>`,
-    end: () =>
-      `<div class="big">Free and open source</div><img src="${WORDMARK}"><div class="pill">Early access</div>` +
-      `<div class="url">${SITE}</div>${SITE_NOW ? `<div class="sub">${SITE_NOW}</div>` : ""}`,
+  // The terminal scenes: Claude Code asking SayQL over MCP, as the desktop app answers it (src-tauri/src/mcp.rs):
+  // counts and summaries by default, and a never-send column refused. Each line shows at `at` seconds into its
+  // card; `type` types it at that many characters a second.
+  const esc = (t) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;");
+  const ASK_COUNT = [
+    { at: 0, cls: "you", pre: "<b>&gt; </b>", text: "How many orders were refunded in October?", type: 21, from: 0.5 },
+    { at: 2.9, cls: "tool", html: `<b>⏺</b> sayql - run_query (MCP)<span class="args">(connection_id: "demo", sql: "SELECT COUNT(*) AS refunded, COUNT(DISTINCT customer_id) AS customers FROM orders WHERE status = 'refunded' AND ordered_at &gt;= '2026-10-01'")</span>` },
+    { at: 3.9, cls: "out", html:
+        `⎿  {"summary": {"rowCount": 1, "truncated": false, "columns": [\n` +
+        `     {"name": "refunded", "type": "number", "nulls": 0, "distinct": 1, "min": 39, "max": 39},\n` +
+        `     {"name": "customers", "type": "number", "nulls": 0, "distinct": 1, "min": 37, "max": 37}]},\n` +
+        `    "note": "The user lets AI apps see counts and column summaries on this connection, <span class="hl">not row values</span>. …"}` },
+    { at: 6.3, cls: "say", pre: "<b>⏺</b> ", text: "39 orders were refunded in October, from 37 customers.", type: 42 },
+  ];
+  const ASK_EMAILS = [
+    { at: 0.2, cls: "you", pre: "<b>&gt; </b>", text: "Now list their emails, so I can send them a coupon.", type: 21, from: 0.6 },
+    { at: 3.4, cls: "tool", html: `<b>⏺</b> sayql - run_query (MCP)<span class="args">(connection_id: "demo", sql: "SELECT c.email FROM customers c JOIN orders o ON o.customer_id = c.id WHERE o.status = 'refunded'")</span>` },
+    { at: 4.2, cls: "err", html: "⎿  Error: email is a column the user marked never to send to AI apps. Leave it out of the query." },
+    { at: 5.3, cls: "say", pre: "<b>⏺</b> ", text: "Emails are marked private in SayQL, so I can't see them. I can open the query in SayQL for you to run there.", type: 48 },
+  ];
+  const line = (l, shift = 0) => {
+    const at = l.at + shift;
+    const body = l.text !== undefined ? `${l.pre}<span data-type="${l.type}" data-from="${(l.from ?? l.at) + shift}" data-full="${esc(l.text)}"></span>` : l.html;
+    return `<div class="l ${l.cls}" data-show="${at}">${body}</div>`;
   };
+  const terminal = (lines, cap) =>
+    `<div class="term"><div class="term-bar"><i></i><i></i><i></i><span>~/shop — claude</span></div><div class="term-body">${lines}</div></div>` +
+    (cap ? `<div class="cap" data-at="${cap.at}"><span>${cap.text}</span></div>` : "");
+  const CARDS = {
+    hook: () => `<div class="hook">Your AI agents want your database.</div><div class="hook accent" data-at="1.6">Your data shouldn't go with them.</div>`,
+    title: () =>
+      `<img src="${WORDMARK}"><div class="tagline headline">Let agents into your database. <em>Not your data.</em></div>` +
+      `<div class="lead" data-at="0.6">The governance layer between AI agents and your databases</div>`,
+    // Claude Code asks; SayQL answers with counts and summaries, not rows.
+    agentCounts: () => terminal(ASK_COUNT.map((l) => line(l)).join(""), { at: 4.4, text: "It gets the numbers it needs, not your rows" }),
+    // The same terminal, on: a private column is refused. Its first lines are already there.
+    agentRefused: () =>
+      terminal(ASK_COUNT.map((l) => line(l, -100)).join("") + `<div class="l"></div>` + ASK_EMAILS.map((l) => line(l)).join(""), { at: 4.4, text: "Private columns are refused" }),
+    end: () =>
+      `<div class="big">Free and open source</div><img src="${WORDMARK}"><div class="tagline" data-at="0.4">Teams free for 30 days</div>` +
+      `<div class="url" data-at="0.7">${SITE}</div>${SITE_NOW ? `<div class="sub">${SITE_NOW}</div>` : ""}`,
+    // The 15-second cut's last card: the headline and the site.
+    endShort: () =>
+      `<img src="${WORDMARK}"><div class="tagline headline">Let agents into your database. <em>Not your data.</em></div>` +
+      `<div class="url" data-at="0.4">${SITE}</div>`,
+  };
+  for (const k of ["agentCounts", "agentRefused"]) CARDS[k].terminal = true;
   const layers = [];
   function layer(i) {
     if (!layers[i]) {
@@ -159,6 +232,7 @@
       if (card.dataset.kind !== c.kind) {
         card.dataset.kind = c.kind;
         card.innerHTML = CARDS[c.kind]();
+        card.classList.toggle("terminal", !!CARDS[c.kind].terminal);
         loads.push(...[...card.querySelectorAll("img")].map((im) => im.decode().catch(() => {})));
       }
       card.style.opacity = c.opacity;
@@ -169,6 +243,20 @@
         part.style.opacity = e;
         part.style.transform = `translateY(${(1 - e) * 18}px)`;
       });
+      // Terminal lines: each shows at its time, typed ones a character at a time, with the caret on
+      // the line being typed; the newest line stays in view, as in a terminal.
+      let typing = null;
+      card.querySelectorAll("[data-show]").forEach((l) => (l.style.display = c.local >= Number(l.dataset.show) ? "" : "none"));
+      card.querySelectorAll("[data-type]").forEach((t) => {
+        const full = t.dataset.full;
+        const n = Math.max(0, Math.min(full.length, Math.floor((c.local - Number(t.dataset.from)) * Number(t.dataset.type))));
+        t.textContent = full.slice(0, n);
+        if (t.closest(".l").style.display !== "none" && n < full.length && t.closest(".you")) typing = t;
+      });
+      card.querySelectorAll(".caret").forEach((k) => k.remove());
+      if (typing) typing.insertAdjacentHTML("afterend", '<span class="caret"></span>');
+      const body = card.querySelector(".term-body");
+      if (body) body.scrollTop = body.scrollHeight;
     });
 
     const cap = document.getElementById("caption");

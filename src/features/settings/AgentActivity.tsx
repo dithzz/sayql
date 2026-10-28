@@ -92,7 +92,7 @@ export function AgentActivity() {
                     <td>{e.connection || "—"}</td>
                     <td>
                       {STATUS[e.status]}
-                      {e.status === "ok" && e.rows != null && ` · ${e.rows} rows`}
+                      {e.status === "ok" && e.rows != null && ` · ${e.rows} ${e.rows === 1 ? "row" : "rows"}`}
                       {e.detail && <span className={styles.detail}> · {e.detail}</span>}
                     </td>
                     <td className={styles.sql} title={e.sql}>
