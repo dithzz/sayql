@@ -6,11 +6,12 @@
 //! they run. `export_csv` writes a read-only query's rows to a new file in Downloads.
 
 use crate::ai::agent::mask::Masker;
-use crate::db::{self, Kind};
+use crate::db::{self, Kind, QueryResult};
 use crate::handoff::{self, Action, Handoff, ScriptRef};
 use crate::readonly::{DEFAULT_ROWS, MAX_ROWS, WRITE_REFUSED, describe, run_limited};
 use crate::schema::Schema;
 use crate::state::{AppState, Target};
+use crate::store::agent::{AgentAccess, AppResults};
 use rmcp::handler::server::{router::tool::ToolRouter, wrapper::Parameters};
 use rmcp::model::{Implementation, ServerCapabilities, ServerConfig};
 use rmcp::service::RequestContext;
@@ -43,7 +44,23 @@ opens SQL in a new SayQL tab for the user to review and run (use it for statemen
 list_scripts shows the user's saved scripts; open_script opens one in SayQL. export_csv saves a read-only \
 query's rows (up to 100,000) to a CSV file in the user's Downloads folder without returning them. \
 describe_schema includes notes the user saved about the database (what codes mean, how tables relate); \
-trust them. Some columns may be marked never to send to AI: queries naming them are refused, so leave them out.";
+trust them. Some columns may be marked never to send to AI: queries naming them are refused, so leave them out. \
+The user chooses, per connection, what you may see of results (`ai_may_see` in list_connections): `off` (row \
+counts and column names only), `counts` (the default: row counts and per-column summaries, no row values), \
+`masked` (rows, with likely personal data replaced by tokens such as ‹email-1›, which can't be used in later \
+queries) or `all` (rows as they are). Below `all`, answer with queries whose counts, sums or averages answer \
+the question, and use open_query when the user wants to see rows: they see them in SayQL, you don't. \
+export_csv works only where the user allows `all`.";
+
+/// What `run_query` says along with a result the AI app may not see in full.
+const OFF_NOTE: &str = "The user lets AI apps see only row counts and column names on this connection. \
+Write a query whose row count answers the question, or use open_query to show the user the rows in SayQL.";
+const COUNTS_NOTE: &str = "The user lets AI apps see counts and column summaries on this connection, not row values. \
+Write queries whose numbers answer the question (COUNT, SUM, AVG per column), or use open_query to show the user the rows in SayQL.";
+const MASKED_NOTE: &str = "Likely personal data is replaced by tokens such as ‹email-1›. They stand for real values in \
+this result only; they can't be used in later queries.";
+const EXPORT_OFF: &str = "The user hasn't allowed AI apps to see all rows on this connection, so export_csv is off \
+here. Use open_query to put the query in a SayQL tab: the user can run it and save the rows from there.";
 
 #[derive(Debug, Deserialize, JsonSchema)]
 struct ConnectionParams {
@@ -162,7 +179,9 @@ impl SayqlServer {
             .into_iter()
             .map(|c| {
                 let place = if c.kind == Kind::Sqlite { c.file.clone() } else { c.host.clone() };
-                json!({ "id": c.id, "name": c.name, "kind": c.kind, "dialect": c.kind.dialect(), "location": place, "default_database": c.database })
+                let may_see = self.access(&c.id).apps;
+                json!({ "id": c.id, "name": c.name, "kind": c.kind, "dialect": c.kind.dialect(), "location": place,
+                        "default_database": c.database, "ai_may_see": may_see })
             })
             .collect();
         Ok(json!(list).to_string())
@@ -185,9 +204,10 @@ impl SayqlServer {
         Ok(describe(&schema, p.search.as_deref()) + &notes)
     }
 
-    #[tool(description = "Run one read-only SQL statement and return the rows as JSON. \
-                          Statements that could change data are refused. Results are paged: when \
-                          `next_offset` is set, call again with it as `offset` for more rows.")]
+    #[tool(description = "Run one read-only SQL statement. Returns what the user lets AI apps see on this \
+                          connection (`ai_may_see` in list_connections): row counts, column summaries, masked \
+                          rows or rows as JSON. Statements that could change data are refused. Rows are paged: \
+                          when `next_offset` is set, call again with it as `offset` for more.")]
     async fn run_query(&self, Parameters(p): Parameters<QueryParams>) -> Result<String, String> {
         let target = Target::new(p.connection_id, p.database);
         let pool = self.state.target_pool(&target).await.map_err(|e| e.to_string())?;
@@ -196,41 +216,38 @@ impl SayqlServer {
         }
         // Columns the user marked never to send to an AI (in the connection's agent settings)
         // are refused here too, and withheld when a query returns them anyway (SELECT *).
-        let never = Masker::new(self.state.store.agent_access(&target.connection_id).map(|a| a.never_send).unwrap_or_default());
+        let access = self.access(&target.connection_id);
+        let mut never = Masker::new(access.never_send);
         if let Some(col) = never.names_never_send(&p.sql) {
             return Err(never_send_refused(&col));
         }
-        let mut r = run_limited(&pool, &p.sql, db::MAX_ROWS, QUERY_TIMEOUT).await?;
-        withhold(&never, &r.columns, &mut r.rows);
+        let r = run_limited(&pool, &p.sql, db::MAX_ROWS, QUERY_TIMEOUT).await.map_err(|e| shown_error(access.apps, &e))?;
         let limit = p.max_rows.unwrap_or(DEFAULT_ROWS).clamp(1, MAX_ROWS);
-        let page = page(r.rows, r.truncated, p.offset.unwrap_or(0), limit);
-        let mut out = json!({
-            "columns": r.columns,
-            "rows": page.rows,
-            "row_count": page.rows.len(),
-            "offset": page.offset,
-            "next_offset": page.next_offset,
-            "truncated": page.more,
-            "elapsed_ms": r.elapsed_ms,
-        });
-        if page.past_cap {
-            out["note"] = json!("SayQL reads at most 5,000 rows per query. For later rows, add a WHERE or \
-                                LIMIT/OFFSET to the SQL; to save them all, use export_csv.");
-        }
-        Ok(out.to_string())
+        Ok(shape(access.apps, &mut never, &p.sql, r, p.offset.unwrap_or(0), limit).to_string())
     }
 
     #[tool(description = "Run one read-only SQL statement and save all its rows (up to 100,000) to a new CSV \
                           file in the user's Downloads folder. Returns the file path, columns and row count, \
-                          not the rows. Statements that could change data are refused.")]
+                          not the rows. Only on connections where the user lets AI apps see all rows. \
+                          Statements that could change data are refused.")]
     async fn export_csv(&self, Parameters(p): Parameters<ExportParams>) -> Result<String, String> {
         let target = Target::new(p.connection_id, p.database);
+        // The AI app could read the file back, so exporting needs the same permission as seeing rows.
+        let access = self.access(&target.connection_id);
+        if access.apps != AppResults::All {
+            return Err(EXPORT_OFF.into());
+        }
         let pool = self.state.target_pool(&target).await.map_err(|e| e.to_string())?;
         if !db::is_read_only(&p.sql, pool.kind()) {
             return Err(WRITE_REFUSED.into());
         }
+        let never = Masker::new(access.never_send);
+        if let Some(col) = never.names_never_send(&p.sql) {
+            return Err(never_send_refused(&col));
+        }
         let dir = dirs::download_dir().or_else(dirs::home_dir).ok_or("Could not find the Downloads folder.")?;
-        let r = run_limited(&pool, &p.sql, EXPORT_ROWS, EXPORT_TIMEOUT).await?;
+        let mut r = run_limited(&pool, &p.sql, EXPORT_ROWS, EXPORT_TIMEOUT).await?;
+        withhold(&never, &r.columns, &mut r.rows);
         let (path, mut file) = new_export_file(&dir, p.file_name.as_deref())?;
         file.write_all(to_csv(&r.columns, &r.rows).as_bytes()).map_err(|e| format!("Could not write {}: {e}", path.display()))?;
         Ok(json!({
@@ -317,6 +334,58 @@ struct Page {
 /// `limit` rows from `offset` of the rows SayQL read (`cut_off`: the query had more).
 fn never_send_refused(column: &str) -> String {
     format!("{column} is a column the user marked never to send to AI apps. Leave it out of the query.")
+}
+
+/// A query's result as the connection's "AI apps may see" setting allows: row counts, column
+/// summaries, a page of masked rows, or a page of rows with never-send columns withheld.
+fn shape(level: AppResults, never: &mut Masker, sql: &str, mut r: QueryResult, offset: usize, limit: usize) -> Value {
+    let rows = match level {
+        AppResults::Off => {
+            return json!({ "columns": r.columns, "row_count": r.rows.len(), "truncated": r.truncated,
+                           "elapsed_ms": r.elapsed_ms, "note": OFF_NOTE });
+        }
+        AppResults::Counts => return json!({ "summary": never.summarize(&r), "elapsed_ms": r.elapsed_ms, "note": COUNTS_NOTE }),
+        AppResults::Masked | AppResults::All => std::mem::take(&mut r.rows),
+    };
+    let elapsed_ms = r.elapsed_ms;
+    let mut page = page(rows, r.truncated, offset, limit);
+    let mut columns = r.columns.clone();
+    let mut notes = Vec::new();
+    if level == AppResults::Masked {
+        never.learn_aliases(sql);
+        let masked = never.mask(&QueryResult { rows: std::mem::take(&mut page.rows), ..r }, usize::MAX);
+        (columns, page.rows) = (masked.columns, masked.rows);
+        if !masked.masked_columns.is_empty() {
+            notes.push(MASKED_NOTE);
+        }
+    } else {
+        withhold(never, &columns, &mut page.rows);
+    }
+    if page.past_cap {
+        notes.push(
+            "SayQL reads at most 5,000 rows per query. For later rows, add a WHERE or LIMIT/OFFSET to the SQL; \
+             to save them all, use export_csv.",
+        );
+    }
+    let mut out = json!({
+        "columns": columns,
+        "row_count": page.rows.len(),
+        "rows": page.rows,
+        "offset": page.offset,
+        "next_offset": page.next_offset,
+        "truncated": page.more,
+        "elapsed_ms": elapsed_ms,
+    });
+    if !notes.is_empty() {
+        out["note"] = json!(notes.join(" "));
+    }
+    out
+}
+
+/// A failed query's error as the AI app may see it: below `all`, values the database quotes in
+/// errors (duplicate keys, failed conversions) are masked.
+fn shown_error(level: AppResults, error: &str) -> String {
+    if level == AppResults::All { error.to_string() } else { crate::ai::redact::database_error(error) }
 }
 
 /// Replaces the values of never-send columns.
@@ -410,6 +479,12 @@ fn client_label(info: &Implementation) -> Option<String> {
 }
 
 impl SayqlServer {
+    /// The connection's agent and AI app settings, or the defaults when none are saved (AI apps
+    /// then see counts and summaries).
+    fn access(&self, connection_id: &str) -> AgentAccess {
+        self.state.store.agent_access(connection_id).unwrap_or_default()
+    }
+
     /// Opens `action` in the SayQL app through a one-time `sayql://` link.
     fn hand_off(&self, action: Action, ctx: &RequestContext<RoleServer>) -> Result<(), String> {
         let source = ctx.peer.peer_info().and_then(|i| client_label(&i.client_info));
@@ -495,6 +570,76 @@ mod tests {
         assert!(never_send_refused("notes").contains("never to send"));
     }
 
+    fn result(columns: &[&str], rows: Vec<Vec<Value>>) -> QueryResult {
+        QueryResult {
+            columns: columns.iter().map(|c| c.to_string()).collect(),
+            rows,
+            rows_affected: None,
+            truncated: false,
+            elapsed_ms: 3,
+            withheld: vec![],
+        }
+    }
+
+    #[test]
+    fn results_follow_what_ai_apps_may_see() {
+        let rows = || {
+            result(
+                &["id", "email", "notes", "total"],
+                vec![
+                    vec![json!(1), json!("ana@example.com"), json!("allergic to penicillin"), json!(40)],
+                    vec![json!(2), json!("raj@example.com"), json!("vip"), json!(60)],
+                ],
+            )
+        };
+        let sql = "SELECT id, email, notes, total FROM customers";
+        let never = || Masker::new(["notes".to_string()]);
+        let text = |v: &Value| v.to_string();
+
+        // Off: the row count and column names, no values at all.
+        let off = shape(AppResults::Off, &mut never(), sql, rows(), 0, 100);
+        assert_eq!((off["row_count"].clone(), off["columns"].clone()), (json!(2), json!(["id", "email", "notes", "total"])));
+        assert!(off.get("rows").is_none() && !text(&off).contains("ana@") && !text(&off).contains("vip"));
+
+        // Counts: per-column summaries; no row values or labels.
+        let counts = shape(AppResults::Counts, &mut never(), sql, rows(), 0, 100);
+        assert_eq!(counts["summary"]["rowCount"], json!(2));
+        assert_eq!(counts["summary"]["columns"][3]["max"], json!(60));
+        for value in ["ana@", "raj@", "penicillin", "vip"] {
+            assert!(!text(&counts).contains(value), "{value} in {counts}");
+        }
+
+        // Masked: rows, with personal data and never-send columns as tokens.
+        let masked = shape(AppResults::Masked, &mut never(), sql, rows(), 0, 100);
+        assert_eq!(masked["rows"][0][0], json!(1));
+        assert_eq!(masked["rows"][1][3], json!(60));
+        for value in ["ana@", "raj@", "penicillin", "vip"] {
+            assert!(!text(&masked).contains(value), "{value} in {masked}");
+        }
+        assert!(masked["note"].as_str().unwrap().contains("tokens"));
+
+        // All: rows as they are, never-send columns still withheld, paged.
+        let all = shape(AppResults::All, &mut never(), sql, rows(), 1, 100);
+        assert_eq!(all["rows"], json!([[2, "raj@example.com", "(withheld: never sent to AI)", 60]]));
+        assert_eq!((all["offset"].clone(), all["next_offset"].clone()), (json!(1), Value::Null));
+    }
+
+    #[test]
+    fn errors_hide_quoted_values_below_all() {
+        let error = "duplicate key value violates unique constraint \"users_email_key\"\nDETAIL: Key (email)=(ana@example.com) already exists.";
+        assert!(!shown_error(AppResults::Counts, error).contains("ana@example.com"));
+        assert!(shown_error(AppResults::Counts, error).contains("users_email_key"));
+        assert_eq!(shown_error(AppResults::All, error), error);
+    }
+
+    #[test]
+    fn ai_apps_see_counts_until_the_user_chooses() {
+        assert_eq!(AgentAccess::default().apps, AppResults::Counts);
+        let saved: AgentAccess = serde_json::from_value(json!({ "enabled": true, "results": "rows" })).unwrap();
+        assert_eq!(saved.apps, AppResults::Counts, "settings saved before this setting existed");
+        assert_eq!(serde_json::to_value(AppResults::Masked).unwrap(), json!("masked"));
+    }
+
     #[test]
     fn pages_through_rows() {
         let rows = |n: usize| (0..n).map(|i| vec![json!(i)]).collect::<Vec<_>>();
@@ -577,6 +722,7 @@ mod tests {
 
             let list = json(server.list_connections().await.unwrap());
             assert_eq!(list[0]["dialect"], json!(kind.dialect()), "{kind:?}");
+            assert_eq!(list[0]["ai_may_see"], json!("counts"), "{kind:?}: counts until the user chooses");
             let dbs = server.list_databases(Parameters(conn())).await.unwrap();
             if kind == Kind::Sqlite {
                 assert!(dbs.contains("single database"), "{dbs}");
@@ -608,6 +754,18 @@ mod tests {
                     offset,
                 }))
             };
+            // By default the AI app gets counts and summaries, not rows, and can't export.
+            let counts = json(run(THOUSAND, None).await.unwrap());
+            assert_eq!(counts["summary"]["rowCount"], json!(1000), "{kind:?}: {counts}");
+            assert!(counts.get("rows").is_none(), "{kind:?}: {counts}");
+            let export = |sql: &str| {
+                server.export_csv(Parameters(ExportParams { connection_id: cfg.id.clone(), database: None, sql: sql.into(), file_name: None }))
+            };
+            assert_eq!(export(THOUSAND).await.unwrap_err(), EXPORT_OFF, "{kind:?}");
+            // Rows once the user allows them.
+            let all = AgentAccess { apps: AppResults::All, ..Default::default() };
+            server.state.store.save_agent_access(&cfg.id, all).unwrap();
+
             // Pages through the rows, and says where the next page starts.
             let first = json(run(THOUSAND, None).await.unwrap());
             assert_eq!((first["row_count"].clone(), first["next_offset"].clone()), (json!(300), json!(300)), "{kind:?}");

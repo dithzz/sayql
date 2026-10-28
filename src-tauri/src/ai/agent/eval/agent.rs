@@ -83,7 +83,7 @@ impl Answerer for Agent {
             notes: Vec::new(),
             focus: Vec::new(),
             skill: None,
-            access: AgentAccess { enabled: true, results: results_setting(), ask_before_send: false, never_send: Vec::new() },
+            access: AgentAccess { enabled: true, results: results_setting(), ask_before_send: false, never_send: Vec::new(), ..Default::default() },
             limits: AgentSettings { skip_plan: true, ..Default::default() },
             history: None,
         };

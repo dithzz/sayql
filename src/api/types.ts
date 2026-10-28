@@ -190,10 +190,15 @@ export interface AgentSettings {
 /** What the AI may see of query results on a connection in agent mode. */
 export type AgentResults = "off" | "counts" | "rows";
 
-/** Agent mode's access to one connection; off until the person turns it on. */
+/** What AI apps using SayQL over MCP may see of query results on a connection. */
+export type AppResults = "off" | "counts" | "masked" | "all";
+
+/** Agent mode's access to one connection, which is off until the person turns it on, and what AI apps may see of it. */
 export interface AgentAccess {
   enabled: boolean;
   results: AgentResults;
+  /** What AI apps over MCP may see; counts until the person chooses. Never-send columns apply too. */
+  apps: AppResults;
   askBeforeSend: boolean;
   /** Columns never sent (`column` or `table.column`), the team admin's included. */
   neverSend: string[];

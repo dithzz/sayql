@@ -23,7 +23,25 @@ pub enum Results {
     Rows,
 }
 
-/// Agent mode's access to one connection. Off until the person turns it on.
+/// What AI apps using SayQL over MCP (Claude Code, Cursor, ...) may see of query results on
+/// one connection. Separate from agent mode's setting; counts and summaries until the person
+/// chooses otherwise.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum AppResults {
+    /// Only how many rows a query returned, and its column names.
+    Off,
+    /// Per result: row count, and per column its type, nulls, distinct count, min and max.
+    #[default]
+    Counts,
+    /// Rows, with likely personal data replaced by tokens.
+    Masked,
+    /// Rows as they are (never-send columns still withheld), and CSV export.
+    All,
+}
+
+/// Agent mode's access to one connection, which is off until the person turns it on, and
+/// what AI apps may see of it.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AgentAccess {
@@ -31,6 +49,9 @@ pub struct AgentAccess {
     pub enabled: bool,
     #[serde(default)]
     pub results: Results,
+    /// What AI apps over MCP may see. Never-send columns apply to them too.
+    #[serde(default)]
+    pub apps: AppResults,
     /// Pause before each send to the AI, with Send and Skip.
     #[serde(default = "yes")]
     pub ask_before_send: bool,

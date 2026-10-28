@@ -9,6 +9,11 @@ All notable changes to SayQL are listed here. Downloads are on the
   Paste a prepaid credit key from SayQL (it starts with `sqlc_`); SayQL checks it before saving. Requests go
   through SayQL's service to Anthropic and are charged to your credit; SayQL keeps only token counts, never
   your questions or the answers. When the credit runs out, SayQL says so.
+- **Choose what AI apps may see:** Claude, Cursor and other apps using SayQL over MCP now get counts and
+  summaries of query results by default, not your rows. In **Settings → AI apps (MCP)**, choose per connection:
+  nothing, counts and summaries, rows with personal data masked, or all rows. CSV export works only where you
+  allow all rows, and below that, values quoted in database errors are masked. **If an AI app relied on seeing
+  rows,** set that connection to **All rows**.
 
 ## 0.4.2 (2026-10-27)
 

@@ -318,7 +318,7 @@ async function streamSql(reqId: number, sql: string) {
 /** Agent mode in the preview: access per connection, notes, and replies runs wait for. */
 // The video turns agent mode on for the demo store, counts only, so the scene goes straight to the plan.
 const agentAccess = new Map<string, AgentAccess>(
-  VIDEO ? [["demo", { enabled: true, results: "counts", askBeforeSend: false, neverSend: [] }]] : [],
+  VIDEO ? [["demo", { enabled: true, results: "counts", apps: "counts", askBeforeSend: false, neverSend: [] }]] : [],
 );
 let notes: DbNote[] = [];
 const waiting = new Map<string, (r: AgentReply) => void>();
@@ -437,7 +437,7 @@ export function installMockBackend() {
           return null;
         }
         case "agent_access":
-          return agentAccess.get(String(a.id)) ?? { enabled: false, results: "off", askBeforeSend: true, neverSend: [] };
+          return agentAccess.get(String(a.id)) ?? { enabled: false, results: "off", apps: "counts", askBeforeSend: true, neverSend: [] };
         case "save_agent_access":
           agentAccess.set(String(a.id), a.access as AgentAccess);
           return a.access;

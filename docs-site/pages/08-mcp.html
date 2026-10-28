@@ -1,8 +1,8 @@
 <!-- order: 8 | slug: mcp | title: MCP for AI apps | group: Configure | description: Let Claude, Cursor and other MCP apps query your databases through SayQL. -->
 <p class="lead">SayQL includes an MCP server, so AI assistants like Claude and Cursor can query your databases through the connections you saved in SayQL.</p>
 <div class="callout"><svg><use href="#i-info"/></svg><p><b>On Linux,</b> use the <code>.deb</code> or <code>.rpm</code> for MCP. The AppImage opens from a new folder each time, so the path you give your AI app would stop working.</p></div>
-<p>The assistant can list connections, list databases, describe the schema, and run a read-only query. The same read-only rules apply. Results come in pages of 100 rows by default, at most 1,000. Database passwords are never shared with the assistant, but query results are sent to it.</p>
-<p>It can also list your saved scripts, and export a read-only query to a CSV in your Downloads folder (up to 100,000 rows). Exported rows aren't sent to the assistant, only the file path.</p>
+<p>The assistant can list connections, list databases, describe the schema, and run a read-only query. The same read-only rules apply. Database passwords are never shared with the assistant. What it gets back from a query is up to you, per connection (below): by default counts and summaries, not your rows.</p>
+<p>It can also list your saved scripts, and, on connections where you allow all rows, export a read-only query to a CSV in your Downloads folder (up to 100,000 rows). Exported rows aren't sent to the assistant, only the file path, but it could open the file, so export follows the same setting.</p>
 <p>Three more tools hand work to you in SayQL instead of doing it:</p>
 <ul>
   <li><b>Add connection</b> opens SayQL's New connection dialog with the details filled in. You type the password in SayQL, test and save.</li>
@@ -11,6 +11,16 @@
 </ul>
 <p>The schema the assistant gets includes the <a href="/docs/agent-mode/">database notes</a> you saved, so it knows what codes mean and how tables relate. Columns you marked <b>never send</b> in a connection's agent settings stay private over MCP too: a query that names one is refused, and their values are withheld when a query returns them anyway.</p>
 <p>Passwords and writes never go through MCP. SayQL brings its window to the front and marks what came from an AI app, e.g. <i>From Claude (MCP)</i>.</p>
+<h2>What AI apps may see</h2>
+<p>In <b>Settings → AI apps (MCP)</b>, choose for each saved connection what an AI app gets back from a query:</p>
+<ul>
+  <li><b>Nothing:</b> only how many rows a query returned, and its column names.</li>
+  <li><b>Counts and summaries</b> (the default): the row count and, per column, its type, nulls, distinct values, and min and max for numbers and dates. No row values. The assistant answers with queries whose numbers answer the question, and can open SQL in SayQL when you want to see the rows yourself.</li>
+  <li><b>Rows, masked:</b> rows, with likely personal data (emails, phones, names, IDs) replaced by tokens such as <code>‹email-1›</code>. This is best effort: a free-text column can hold anything.</li>
+  <li><b>All rows:</b> rows as they are, in pages of 100 by default and at most 1,000, and CSV export. For data you're happy to share with that app.</li>
+</ul>
+<p>Columns marked <b>never send</b> stay out at every level. Below <b>All rows</b>, values that a database error quotes (a duplicate key, a failed conversion) are masked too.</p>
+
 <h2>Set it up</h2>
 <p>Open <b>Settings → AI apps (MCP)</b>. It shows the exact command and config for your install:</p>
 <ul>

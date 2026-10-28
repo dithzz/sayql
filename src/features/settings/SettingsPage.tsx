@@ -1,6 +1,6 @@
 import { useEffect, useId, useState } from "react";
 import { ArrowLeft, Bot, Info, Mic, Plug, RefreshCw, ScrollText, Sparkles, Users, type LucideIcon } from "lucide-react";
-import { commands, type AiProvider, type Settings, type TeamAccount } from "../../api";
+import { commands, type AiProvider, type ConnectionConfig, type Settings, type TeamAccount } from "../../api";
 import { Alert, Button, Field, Select, TextInput } from "../../components/ui";
 import { cx } from "../../lib/cx";
 import { errorText } from "../../lib/errors";
@@ -26,6 +26,8 @@ const SECTIONS: { id: SettingsSection; label: string; icon: LucideIcon }[] = [
 
 export interface SettingsPageProps {
   settings: Settings;
+  /** Saved connections, for what AI apps may see on each. */
+  connections: ConnectionConfig[];
   onClose: () => void;
   onSaved: (s: Settings) => void;
   /** Reopens the first-run setup. */
@@ -62,7 +64,7 @@ function privacyNote(p: AiProvider): string {
 }
 
 /** Full-window settings, with sections in a sidebar. Esc or Back returns to the workbench. */
-export function SettingsPage({ settings, onClose, onSaved, onShowSetup, skills, section: initial = "ai", createSkill, onTeamChange }: SettingsPageProps) {
+export function SettingsPage({ settings, connections, onClose, onSaved, onShowSetup, skills, section: initial = "ai", createSkill, onTeamChange }: SettingsPageProps) {
   const [section, setSection] = useState<SettingsSection>(initial);
   const [saved, setSaved] = useState(false);
   const [providerId, setProviderId] = useState(settings.provider);
@@ -308,7 +310,7 @@ export function SettingsPage({ settings, onClose, onSaved, onShowSetup, skills, 
           {section === "mcp" && (
             <>
               <h2 className={styles.title}>Use SayQL from AI apps (MCP)</h2>
-              <ClaudeIntegration />
+              <ClaudeIntegration connections={connections} />
             </>
           )}
           {section === "team" && (

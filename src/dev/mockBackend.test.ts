@@ -40,7 +40,7 @@ describe("mock backend", () => {
       save_script: { script: { id: "s" } },
       save_skill: { skill: { slug: "a", description: "d", instruction: "i" }, original: null },
       save_settings: { provider: "anthropic", typingModel: "m", expertModel: "m", baseUrl: "" },
-      save_agent_access: { id: "demo", access: { enabled: true, results: "counts", askBeforeSend: false, neverSend: [] } },
+      save_agent_access: { id: "demo", access: { enabled: true, results: "counts", apps: "counts", askBeforeSend: false, neverSend: [] } },
       start_agent: { id: "demo", runId: "r1", question: "Why did paid orders drop?" },
       reply_agent: { runId: "r1", reply: { type: "go", plan: null } },
       stop_agent: { runId: "r1" },

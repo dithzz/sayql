@@ -609,6 +609,7 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
       {dialog?.kind === "settings" && (
         <SettingsPage
           settings={settings}
+          connections={conn.connections}
           skills={skills}
           section={dialog.section}
           createSkill={dialog.createSkill}

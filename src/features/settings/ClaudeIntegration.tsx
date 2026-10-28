@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { Check, Copy } from "lucide-react";
-import { commands, type McpSetup } from "../../api";
+import { commands, type ConnectionConfig, type McpSetup } from "../../api";
 import { Alert, Button } from "../../components/ui";
+import { AppAccessList } from "./AppAccessList";
 import styles from "./ClaudeIntegration.module.css";
 
 function CopyBlock({ label, text }: { label: string; text: string }) {
@@ -24,8 +25,8 @@ function CopyBlock({ label, text }: { label: string; text: string }) {
   );
 }
 
-/** How to let Claude Code / Claude Desktop query the saved connections through MCP. */
-export function ClaudeIntegration() {
+/** How to let Claude Code / Claude Desktop query the saved connections through MCP, and what they may see. */
+export function ClaudeIntegration({ connections }: { connections: ConnectionConfig[] }) {
   const [setup, setSetup] = useState<McpSetup | null>(null);
   useEffect(() => {
     commands.mcpSetup().then(setSetup, () => setSetup(null));
@@ -37,7 +38,7 @@ export function ClaudeIntegration() {
     <div className={styles.section}>
       <p className={styles.intro}>
         Let Claude, Cursor or any other MCP app list your connections, read schemas and run <strong>read-only</strong>{" "}
-        queries. Query results are sent to that app.
+        queries. You choose, per connection, what it gets back: by default counts and summaries, not your rows.
       </p>
       <p className={styles.intro}>
         It can also fill in a new connection, or open SQL or a saved script here, for you to finish. Passwords and
@@ -56,6 +57,7 @@ export function ClaudeIntegration() {
       )}
       <CopyBlock label="Claude Code — run in a terminal" text={`claude mcp add --scope user sayql -- "${setup.path}"`} />
       <CopyBlock label="Claude Desktop — merge into claude_desktop_config.json" text={desktopConfig} />
+      <AppAccessList connections={connections} />
     </div>
   );
 }
