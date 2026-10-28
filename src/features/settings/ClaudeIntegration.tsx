@@ -208,7 +208,7 @@ export function ClaudeIntegration({ connections, provider, suggestions, tab: ini
       <div id={`${base}-${tab}-panel`} role="tabpanel" aria-labelledby={`${base}-${tab}-tab`} className={styles.panel}>
         {tab === "access" && <AccessTab connections={connections} provider={provider} />}
         {tab === "activity" && <AgentActivity />}
-        {tab === "suggestions" && <SuggestedNotes connections={connections} {...suggestions} />}
+        {tab === "suggestions" && <SuggestedNotes connections={connections} {...suggestions} onSetUp={() => setTab("access")} />}
       </div>
     </div>
   );

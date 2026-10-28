@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Check, X } from "lucide-react";
+import { Check, Trash2, X } from "lucide-react";
 import type { NoteSuggestion } from "../../api";
 import { Alert, Button } from "../../components/ui";
 import { errorText } from "../../lib/errors";
@@ -45,7 +45,27 @@ export function NoteSuggestions({ suggestions, place, onAccept, onDismiss }: Not
                 From <strong>{s.app}</strong>
                 {where && <> · {where}</>} · {when(s.createdAt)}
               </div>
-              <p className={styles.text}>{s.text}</p>
+              {s.remove ? (
+                <>
+                  <p className={styles.change}>
+                    <span className={styles.label}>Remove note:</span>{" "}
+                    <span className={styles.old}>{s.replacedText ?? "a note that was since deleted"}</span>
+                  </p>
+                  <p className={styles.text}>
+                    <span className={styles.label}>Why:</span> {s.text}
+                  </p>
+                </>
+              ) : (
+                <>
+                  {s.replaces && (
+                    <p className={styles.change}>
+                      <span className={styles.label}>Replaces:</span>{" "}
+                      <span className={styles.old}>{s.replacedText ?? "a note that was since deleted"}</span>
+                    </p>
+                  )}
+                  <p className={styles.text}>{s.text}</p>
+                </>
+              )}
               {s.evidence && (
                 <p className={styles.evidence}>
                   <span className={styles.label}>Evidence:</span> {s.evidence}
@@ -55,8 +75,14 @@ export function NoteSuggestions({ suggestions, place, onAccept, onDismiss }: Not
                 <Button size="sm" variant="ghost" icon={X} disabled={busy === s.id} onClick={() => act(s.id, onDismiss)}>
                   Dismiss
                 </Button>
-                <Button size="sm" variant="primary" icon={Check} loading={busy === s.id} onClick={() => act(s.id, onAccept)}>
-                  Accept
+                <Button
+                  size="sm"
+                  variant={s.remove ? "danger" : "primary"}
+                  icon={s.remove ? Trash2 : Check}
+                  loading={busy === s.id}
+                  onClick={() => act(s.id, onAccept)}
+                >
+                  {s.remove ? "Remove note" : s.replaces ? "Replace note" : "Accept"}
                 </Button>
               </div>
             </li>

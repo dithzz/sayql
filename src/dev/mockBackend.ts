@@ -2,7 +2,7 @@
 // for design work without the Rust backend. Never loaded inside the Tauri app.
 import { emit } from "@tauri-apps/api/event";
 import { mockIPC } from "@tauri-apps/api/mocks";
-import type { AgentAccess, AgentReply, AgentStep, AiProvider, Bootstrap, DbNote, NoteSuggestion, QueryResult, Schema, Settings, Skill, Table } from "../api";
+import type { AgentAccess, AgentReply, AgentStep, AiProvider, AuditRun, Bootstrap, DbNote, NoteSuggestion, QueryResult, Schema, Settings, Skill, Table } from "../api";
 import { EXAMPLE_SKILLS, skillError } from "../features/skills";
 import { version } from "../../package.json";
 import { isReadOnly } from "./readOnly";
@@ -320,7 +320,17 @@ async function streamSql(reqId: number, sql: string) {
 const agentAccess = new Map<string, AgentAccess>(
   VIDEO ? [["demo", { enabled: true, results: "counts", apps: "counts", askBeforeSend: false, neverSend: [] }]] : [],
 );
-let notes: DbNote[] = [];
+// Two saved notes on the demo store, which suggestions below correct and remove (outside the video).
+let notes: DbNote[] = VIDEO
+  ? []
+  : [
+      { id: "1f3a9c2e-5b7d-4e8f-9a01-2c3d4e5f6a7b", connectionId: "demo", database: null, updatedAt: Date.now() - 90 * 86_400_000,
+        text: "orders.status 'pending' means awaiting payment" },
+      { id: "7c2e1b4d-8a9f-4c3e-b2d1-0e9f8a7b6c5d", connectionId: "demo", database: null, updatedAt: Date.now() - 120 * 86_400_000,
+        text: "Use legacy_orders for orders before 2024" },
+    ];
+// When AI apps last fetched the audit prompt (none in the video).
+const audits: AuditRun[] = VIDEO ? [] : [{ connectionId: "pg", database: "analytics", app: "Claude Code", at: Date.now() - 3 * 86_400_000 }];
 // Notes AI apps suggested over MCP, waiting in the navigator and Settings → AI apps.
 let suggestions: NoteSuggestion[] = VIDEO
   ? [
@@ -335,6 +345,14 @@ let suggestions: NoteSuggestion[] = VIDEO
       { id: "sug-2", connectionId: "demo", database: null, app: "Cursor", createdAt: Date.now() - 900_000,
         text: "categories.parent_id is unused since the flat category redesign; ignore it",
         evidence: "No reads of parent_id in web/ or api/ since commit 51c0e7a (2026-06-02)." },
+      { id: "sug-3", connectionId: "demo", database: null, app: "Claude Code", createdAt: Date.now() - 60_000,
+        text: "orders.status 'pending' means paid, waiting to ship; awaiting payment is 'unpaid'",
+        evidence: "OrderStatus in api/orders/status.ts (commit 2d8e4a1, 2026-08-30) renamed the states.",
+        replaces: "1f3a9c2e-5b7d-4e8f-9a01-2c3d4e5f6a7b", replacedText: "orders.status 'pending' means awaiting payment", remove: false },
+      { id: "sug-4", connectionId: "demo", database: null, app: "Claude Code", createdAt: Date.now() - 50_000,
+        text: "legacy_orders was dropped from the code; orders holds every order since the 2025 backfill",
+        evidence: "No references to legacy_orders in the repo since commit 8b0c3f5 (2025-11-02); the schema has no legacy_orders table.",
+        replaces: "7c2e1b4d-8a9f-4c3e-b2d1-0e9f8a7b6c5d", replacedText: "Use legacy_orders for orders before 2024", remove: true },
     ];
 const waiting = new Map<string, (r: AgentReply) => void>();
 const stopped = new Set<string>();
@@ -504,10 +522,29 @@ export function installMockBackend() {
         case "accept_note_suggestion": {
           const s = suggestions.find((x) => x.id === a.id);
           if (!s) return Promise.reject("This suggestion is no longer waiting.");
-          const saved: DbNote = { id: crypto.randomUUID(), connectionId: s.connectionId, database: s.database, text: s.text, updatedAt: Date.now() };
-          notes = [...notes, saved];
           suggestions = suggestions.filter((x) => x.id !== a.id);
+          // A removal deletes the note it names; a replacement keeps that note's id.
+          if (s.remove) {
+            notes = notes.filter((n) => n.id !== s.replaces);
+            return null;
+          }
+          const id = s.replaces && notes.some((n) => n.id === s.replaces) ? s.replaces : crypto.randomUUID();
+          const saved: DbNote = { id, connectionId: s.connectionId, database: s.database, text: s.text, updatedAt: Date.now() };
+          notes = [...notes.filter((n) => n.id !== id), saved];
           return saved;
+        }
+        case "mcp_audits":
+          return audits;
+        case "audit_prompt": {
+          const c = boot.connections.find((x) => x.id === a.id);
+          if (!c) return Promise.reject("No saved connection has this id.");
+          const db = (a.database as string | null) ?? (c.database || null);
+          const where = db ? `, database "${db}"` : "";
+          return (
+            `Audit the database of the SayQL connection "${c.name}" (connection_id "${c.id}"${where}) against the code in this project, ` +
+            "and suggest notes that teach SayQL what the schema doesn't say.\n\n" +
+            "Use the SayQL MCP server's tools for this (describe_schema, suggest_note). (The app gives the full instructions; the browser preview shortens them.)"
+          );
         }
         case "dismiss_note_suggestion":
           suggestions = suggestions.filter((x) => x.id !== a.id);

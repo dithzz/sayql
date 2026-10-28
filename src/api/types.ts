@@ -236,6 +236,21 @@ export interface NoteSuggestion {
   app: string;
   /** Milliseconds since the Unix epoch. */
   createdAt: number;
+  /** The id of the saved note this one replaces (or removes, with `remove`). */
+  replaces?: string | null;
+  /** That note's text when the suggestion was made. */
+  replacedText?: string | null;
+  /** Accepting deletes the note in `replaces`; `text` says why. */
+  remove?: boolean;
+}
+
+/** When an AI app last fetched the audit prompt for a database; mirrors `store::audits::AuditRun`. */
+export interface AuditRun {
+  connectionId: string;
+  database: string | null;
+  app: string;
+  /** Milliseconds since the Unix epoch. */
+  at: number;
 }
 
 export interface AgentUsage {

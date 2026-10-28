@@ -3,6 +3,27 @@
 All notable changes to SayQL are listed here. Downloads are on the
 [releases page](https://github.com/dithzz/sayql-releases/releases).
 
+## Unreleased
+
+### Audit: teach SayQL your database
+
+- **The `audit` prompt.** SayQL's MCP server now offers a prompt, `audit` (`/mcp__sayql__audit` in Claude Code,
+  with the connection's name or id and optionally a database). Run in your project, it has the coding agent read
+  the schema, its usage figures and the saved notes, search your code for where each table and column is used,
+  and suggest notes with evidence: retired tables, what status codes and flags mean, relationships that aren't
+  foreign keys, units and time zones. It keeps to the 10 to 20 most useful notes and needs no rows. Fetching it
+  is blocked and approved like the tools, and logged.
+- **Fixing outdated notes.** `describe_schema` now lists saved notes with a short id (`[n_1a2b3c4d]`), and
+  `suggest_note` takes `replaces` (the note it corrects) and `remove: true` (to delete it; the text says why).
+  Suggestions show **Replaces:** or **Remove note:** with the old text, and **Replace note** or **Remove note**
+  applies them. **Dismiss** leaves the note as it is.
+- **Last audit.** **Settings → AI apps → Access** shows when an app last fetched the audit prompt for each
+  connection, says **Run an audit** when it's never been run or not in 30 days, and has **Copy prompt** for apps
+  without MCP prompts.
+- **Teach SayQL this database.** Until a connection has been audited, the navigator offers the three steps
+  (connect an app, run the audit, approve the notes) with the command for that connection; it can be hidden for
+  good. The same steps show on the **Suggestions** tab while none are waiting.
+
 ## 0.4.5 (2026-10-28)
 
 ### Security: AI apps (MCP) and agent mode

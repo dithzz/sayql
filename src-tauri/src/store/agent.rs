@@ -180,7 +180,7 @@ impl Store {
         self.write(ACCESS_FILE, &all)
     }
 
-    /// Forgets a deleted connection's agent access, notes and suggested notes.
+    /// Forgets a deleted connection's agent access, notes, suggested notes and audits.
     pub fn forget_agent(&self, connection_id: &str) -> AppResult<()> {
         let mut all: BTreeMap<String, AgentAccess> = self.read(ACCESS_FILE)?;
         if all.remove(connection_id).is_some() {
@@ -192,7 +192,8 @@ impl Store {
         if notes.len() != before {
             self.write(NOTES_FILE, &notes)?;
         }
-        self.forget_note_suggestions(connection_id)
+        self.forget_note_suggestions(connection_id)?;
+        self.forget_audits(connection_id)
     }
 
     pub fn all_notes(&self) -> AppResult<Vec<Note>> {
@@ -237,11 +238,68 @@ impl Store {
         )
     }
 
+    /// The notes as AI apps over MCP read them after a schema: each with its short id
+    /// ([`note_ref`]), so an app can suggest replacing or removing one. Nothing when there are none.
+    pub fn notes_text_with_refs(&self, connection_id: &str, database: Option<&str>) -> String {
+        let notes = self.notes(connection_id, database).unwrap_or_default();
+        if notes.is_empty() {
+            return String::new();
+        }
+        let lines: Vec<String> = notes
+            .iter()
+            .map(|n| format!("- [{}] {}", note_ref(&n.id), n.text))
+            .collect();
+        format!(
+            "\n\nNotes saved for this database (facts learned earlier; the [n_…] id is for suggest_note's `replaces`):\n{}",
+            lines.join("\n")
+        )
+    }
+
+    /// The note of one database that `reference` names: its short id from
+    /// [`Self::notes_text_with_refs`] (`n_1a2b3c4d`, brackets optional) or its full id.
+    pub fn find_note(
+        &self,
+        connection_id: &str,
+        database: Option<&str>,
+        reference: &str,
+    ) -> AppResult<Note> {
+        let wanted = reference
+            .trim()
+            .trim_matches(|c| c == '[' || c == ']')
+            .to_lowercase();
+        let mut found: Vec<Note> = self
+            .notes(connection_id, database)?
+            .into_iter()
+            .filter(|n| n.id.to_lowercase() == wanted || note_ref(&n.id) == wanted)
+            .collect();
+        if found.len() > 1 {
+            return Err("That id matches more than one note; pass the note's full id.".into());
+        }
+        found.pop().ok_or_else(|| {
+            format!(
+                "No saved note on this database has the id {:?}. Use an id such as n_1a2b3c4d from describe_schema's notes.",
+                reference.trim()
+            )
+            .into()
+        })
+    }
+
     pub fn delete_note(&self, id: &str) -> AppResult<()> {
         let mut all = self.all_notes()?;
         all.retain(|n| n.id != id);
         self.write(NOTES_FILE, &all)
     }
+}
+
+/// A note's short id as AI apps see it: `n_` and the first 8 letters or digits of its id.
+pub fn note_ref(id: &str) -> String {
+    let short: String = id
+        .chars()
+        .filter(char::is_ascii_alphanumeric)
+        .take(8)
+        .collect::<String>()
+        .to_lowercase();
+    format!("n_{short}")
 }
 
 fn now_ms() -> u64 {

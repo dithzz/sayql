@@ -204,7 +204,22 @@
   width: 200px;
 }
 .colNever {
-  width: 38%;
+  width: 30%;
+}
+.colAudit {
+  width: 150px;
+}
+.audit {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  font-size: var(--font-size-xs);
+}
+.nudge {
+  color: var(--color-warning);
+  font-weight: 600;
+  cursor: help;
 }
 .choice {
   width: 100%;

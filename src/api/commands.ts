@@ -3,6 +3,7 @@ import type {
   AgentAccess,
   AgentReply,
   AgentSettings,
+  AuditRun,
   Bootstrap,
   DbNote,
   ConnectionConfig,
@@ -80,8 +81,11 @@ export const commands = {
   deleteNote: (id: string) => invoke<void>("delete_note", { id }),
   /** Notes AI apps suggested over MCP, on every connection, oldest first. */
   listNoteSuggestions: () => invoke<NoteSuggestion[]>("list_note_suggestions"),
-  /** Saves the suggestion as a note (the usual note checks apply) and removes it. */
-  acceptNoteSuggestion: (id: string) => invoke<DbNote>("accept_note_suggestion", { id }),
+  /**
+   * Applies the suggestion and removes it: saves it as a note (the usual note checks apply),
+   * replaces the note it corrects, or deletes the note it removes (then null).
+   */
+  acceptNoteSuggestion: (id: string) => invoke<DbNote | null>("accept_note_suggestion", { id }),
   dismissNoteSuggestion: (id: string) => invoke<void>("dismiss_note_suggestion", { id }),
   /** From the Ask box: switch to a ready provider and use `model` for typing (Quick) or agent mode. */
   chooseModel: (provider: string, model: string, purpose: "typing" | "agent") =>
@@ -117,6 +121,10 @@ export const commands = {
   /** Turning it on approves the apps already seen that aren't blocked. */
   setMcpOnlyApproved: (on: boolean) => invoke<McpApps>("set_mcp_only_approved", { on }),
   clearMcpActivity: () => invoke<void>("clear_mcp_activity"),
+  /** When an AI app last fetched the audit prompt, per connection and database. */
+  mcpAudits: () => invoke<AuditRun[]>("mcp_audits"),
+  /** The audit instructions for a connection, to paste into an AI app without MCP prompts. */
+  auditPrompt: (connectionId: string, database: string | null) => invoke<string>("audit_prompt", { id: connectionId, database }),
   /** Handoffs from AI apps waiting to be shown (see the `handoff://new` event). */
   takeHandoffs: () => invoke<Handoff[]>("take_handoffs"),
 

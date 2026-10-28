@@ -1,0 +1,212 @@
+//! The audit: instructions for an AI app working in the person's code (Claude Code, Cursor)
+//! to teach SayQL about a database. The app reads the schema, its usage figures and the saved
+//! notes, checks them against the code, and suggests notes with `suggest_note`, including
+//! corrections and removals of notes that look outdated. Served as the MCP prompt `audit`
+//! (`/mcp__sayql__audit` in Claude Code) and copied from the app for AI apps without prompts.
+
+use crate::db::ConnConfig;
+use crate::store::Store;
+
+/// The MCP prompt's name.
+pub const PROMPT: &str = "audit";
+/// What the prompt does, in prompts/list.
+pub const DESCRIPTION: &str = "Teach SayQL about a database: read its schema, usage figures and saved notes, \
+check them against the code in this project, and suggest notes (and fixes to outdated ones) for the user to approve in SayQL.";
+
+/// The connection and database an audit is for.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Target<'a> {
+    pub connection_id: &'a str,
+    pub name: &'a str,
+    /// `None`: a SQLite file, or a connection without a default database.
+    pub database: Option<&'a str>,
+}
+
+/// The database notes are kept under: the one named, else the connection's default, as the
+/// app saves them (its tabs name the default database), so both see the same notes.
+pub fn notes_database(
+    store: &Store,
+    connection_id: &str,
+    database: Option<&str>,
+) -> Option<String> {
+    match database.map(str::trim).filter(|d| !d.is_empty()) {
+        Some(d) => Some(d.to_string()),
+        None => store
+            .connection(connection_id)
+            .ok()
+            .map(|c| c.database.trim().to_string())
+            .filter(|d| !d.is_empty()),
+    }
+}
+
+/// The saved connection `wanted` names: its id, else its name (any case).
+pub fn find_connection<'a>(list: &'a [ConnConfig], wanted: &str) -> Result<&'a ConnConfig, String> {
+    let wanted = wanted.trim();
+    if let Some(c) = list.iter().find(|c| c.id == wanted) {
+        return Ok(c);
+    }
+    let named: Vec<&ConnConfig> = list
+        .iter()
+        .filter(|c| c.name.trim().eq_ignore_ascii_case(wanted))
+        .collect();
+    match named.as_slice() {
+        [one] => Ok(one),
+        [] => {
+            let names: Vec<String> = list.iter().map(|c| format!("{:?}", c.name)).collect();
+            Err(if names.is_empty() {
+                "No connections are saved in SayQL yet.".to_string()
+            } else {
+                format!(
+                    "No saved connection is called or has the id {wanted:?}. Saved connections: {}.",
+                    names.join(", ")
+                )
+            })
+        }
+        _ => Err(format!(
+            "More than one saved connection is called {wanted:?}; pass its id from list_connections."
+        )),
+    }
+}
+
+/// The audit instructions. Without a target the app picks the connection first. `copied`:
+/// for pasting into an AI app by hand, so it says which tools to use.
+pub fn instructions(target: Option<&Target>, copied: bool) -> String {
+    let mut out = String::new();
+    let args = match target {
+        Some(t) => {
+            let db = match t.database {
+                Some(d) => format!(", database {d:?}"),
+                None => String::new(),
+            };
+            out.push_str(&format!(
+                "Audit the database of the SayQL connection {:?} (connection_id {:?}{db}) against the code in this \
+                 project, and suggest notes that teach SayQL what the schema doesn't say.\n\n",
+                t.name, t.connection_id
+            ));
+            let db = match t.database {
+                Some(d) => format!(" and database {d:?}"),
+                None => String::new(),
+            };
+            format!("connection_id {:?}{db}", t.connection_id)
+        }
+        None => {
+            out.push_str(
+                "Audit one of the user's SayQL databases against the code in this project, and suggest notes that \
+                 teach SayQL what the schema doesn't say.\n\n\
+                 First pick the database: call list_connections, and find the connection this project's code uses (its \
+                 database settings or .env.example; never read or print passwords or other secrets). For a server \
+                 connection, call list_databases and pick the database the code uses. If more than one could fit, or \
+                 none clearly does, ask the user which one to audit.\n\n",
+            );
+            "the connection_id (and database) you picked".to_string()
+        }
+    };
+    if copied {
+        out.push_str(
+            "Use the SayQL MCP server's tools for this (describe_schema, suggest_note). If you don't have them, SayQL \
+             isn't connected to this app yet: tell the user to set it up in SayQL under Settings → AI apps → Access.\n\n",
+        );
+    }
+    out.push_str(&format!(
+        "1. Call describe_schema with {args}. For a large database it lists table names only: call it again with \
+         `search` words for the tables you look into. Where the database keeps statistics it shows each table's usage \
+         (reads, writes, last write, and the period they cover; SQLite keeps none), and it ends with the notes already \
+         saved, each with an id such as [n_1a2b3c4d].\n\
+         2. Search this project's code (the repository you're working in) for where each table and its main columns \
+         are used: queries, ORM models, migrations, raw SQL, jobs and scripts. Use git log when you need to know when \
+         something stopped being used.\n\
+         3. Look for what the schema doesn't say:\n\
+         - tables that are unused or retired: no references in the code and no writes in the usage period (say so \
+         when usage isn't available), and what replaced them;\n\
+         - what status and type codes, enum values and flags mean, as the code defines them;\n\
+         - relationships the code relies on that aren't declared as foreign keys;\n\
+         - units, currencies, time zones and conventions such as soft deletes (amounts in cents, timestamps in UTC, \
+         deleted_at set means deleted).\n\
+         4. Check the notes already saved against the code and the usage. For one that's wrong or outdated, call \
+         suggest_note with `replaces` set to its id and the corrected note as `text`. For one that no longer applies, \
+         call suggest_note with `replaces` set to its id, `remove: true`, and why as `text`.\n\
+         5. For each finding, call suggest_note with {args}, the note as `text` (at most 300 characters) and your \
+         evidence (at most 600 characters): file paths, short commit hashes, usage figures. Notes are schema-level \
+         facts: never values from rows or personal data (names, emails, amounts, ids). SayQL refuses suggestions that \
+         look like values. You need no rows for this; if you run a query to check something, keep its results out of the notes.\n\
+         6. Keep to the 10 to 20 most useful notes: facts that change how someone writes a query. Skip what the schema \
+         already says (types, declared foreign keys) and notes already saved.\n\
+         7. Finish with a short summary for the user: how many notes you suggested, how many replace or remove saved \
+         ones, and anything you weren't sure of. Tell them the suggestions wait in SayQL (under Notes in the \
+         navigator, and in Settings → AI apps → Suggestions) and nothing is saved until they accept it.\n"
+    ));
+    out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::db::Kind;
+
+    fn conn(id: &str, name: &str) -> ConnConfig {
+        ConnConfig {
+            id: id.into(),
+            name: name.into(),
+            kind: Kind::Sqlite,
+            host: String::new(),
+            port: None,
+            database: String::new(),
+            user: String::new(),
+            file: "/tmp/x.sqlite".into(),
+            ssl: false,
+            trust_cert: false,
+        }
+    }
+
+    #[test]
+    fn finds_a_connection_by_id_or_name() {
+        let list = [
+            conn("c1", "Shop"),
+            conn("c2", "Analytics"),
+            conn("c3", "shop "),
+        ];
+        assert_eq!(find_connection(&list, "c2").unwrap().id, "c2");
+        assert_eq!(find_connection(&list, " analytics").unwrap().id, "c2");
+        assert!(
+            find_connection(&list, "shop")
+                .unwrap_err()
+                .contains("More than one")
+        );
+        let e = find_connection(&list, "crm").unwrap_err();
+        assert!(e.contains("\"Shop\"") && e.contains("\"Analytics\""), "{e}");
+        assert!(
+            find_connection(&[], "x")
+                .unwrap_err()
+                .contains("No connections")
+        );
+    }
+
+    #[test]
+    fn instructions_name_the_target_and_the_tools() {
+        let t = Target {
+            connection_id: "c1",
+            name: "Shop",
+            database: Some("sales"),
+        };
+        let text = instructions(Some(&t), false);
+        assert!(text.starts_with("Audit the database of the SayQL connection \"Shop\" (connection_id \"c1\", database \"sales\")"));
+        for word in [
+            "describe_schema",
+            "suggest_note",
+            "`replaces`",
+            "`remove: true`",
+            "never values from rows",
+            "10 to 20",
+        ] {
+            assert!(text.contains(word), "{word}");
+        }
+        assert!(text.contains("connection_id \"c1\" and database \"sales\""));
+        assert!(
+            !text.contains("SayQL MCP server's tools"),
+            "MCP apps have the tools"
+        );
+        assert!(instructions(Some(&t), true).contains("SayQL MCP server's tools"));
+        let open = instructions(None, false);
+        assert!(open.contains("call list_connections") && open.contains("ask the user"));
+    }
+}

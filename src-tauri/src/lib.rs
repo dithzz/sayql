@@ -1,6 +1,7 @@
 //! SayQL backend: wires the Tauri app together. Logic lives in the modules below.
 
 mod ai;
+mod audit;
 mod commands;
 mod db;
 mod error;
@@ -92,6 +93,8 @@ pub fn run() {
             settings::approve_mcp_app,
             settings::set_mcp_only_approved,
             settings::clear_mcp_activity,
+            settings::mcp_audits,
+            settings::audit_prompt,
             updates::check_update,
             updates::install_update,
             teams::team_sign_in,

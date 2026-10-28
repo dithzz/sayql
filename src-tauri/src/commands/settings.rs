@@ -1,9 +1,11 @@
 use crate::ai::endpoint::{address, endpoint, valid_workspace_id};
 use crate::ai::{self, Api, KeyNeed};
+use crate::audit;
 use crate::error::{AppError, AppResult};
 use crate::state::AppState;
 use crate::store::agent::AgentSettings;
 use crate::store::apps::{Activity, AppList};
+use crate::store::audits::AuditRun;
 use crate::store::{ProviderSettings, Settings, secrets};
 use serde::Serialize;
 use tauri::State;
@@ -393,6 +395,36 @@ pub fn set_mcp_only_approved(state: State<'_, AppState>, on: bool) -> AppResult<
 #[tauri::command]
 pub fn clear_mcp_activity(state: State<'_, AppState>) -> AppResult<()> {
     state.store.clear_app_activity()
+}
+
+/// When an AI app last fetched the audit prompt, per connection and database.
+#[tauri::command]
+pub fn mcp_audits(state: State<'_, AppState>) -> AppResult<Vec<AuditRun>> {
+    state.store.audits()
+}
+
+/// The audit instructions for one saved connection, to paste into an AI app that can't fetch
+/// MCP prompts. The same text as the `audit` prompt, plus which tools to use.
+#[tauri::command]
+pub fn audit_prompt(
+    state: State<'_, AppState>,
+    id: String,
+    database: Option<String>,
+) -> AppResult<String> {
+    let conn = state.store.connection(&id)?;
+    let database = if conn.kind == crate::db::Kind::Sqlite {
+        None
+    } else {
+        audit::notes_database(&state.store, &conn.id, database.as_deref())
+    };
+    Ok(audit::instructions(
+        Some(&audit::Target {
+            connection_id: &conn.id,
+            name: &conn.name,
+            database: database.as_deref(),
+        }),
+        true,
+    ))
 }
 
 #[cfg(test)]

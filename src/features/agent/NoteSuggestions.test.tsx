@@ -63,9 +63,33 @@ it("shows the app, note and evidence, and accepts or dismisses", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
   // Once nothing is waiting, the tab says so and still explains what suggestions are.
   expect(await screen.findByText("No suggested notes are waiting.")).toBeTruthy();
-  expect(screen.getByText(/Nothing is saved until you accept it/)).toBeTruthy();
+  expect(screen.getByText(/Nothing changes until you accept it/)).toBeTruthy();
   expect(saved).toHaveLength(1);
   window.removeEventListener(SUGGESTIONS_CHANGED, changed);
+});
+
+it("shows what a replacement or removal changes, and the empty state teaches the audit", async () => {
+  waiting = [
+    { ...suggestion("s3", "status 3 = refunded; 4 = cancelled"), replaces: "n9", replacedText: "status 3 = cancelled", remove: false },
+    { ...suggestion("s4", "orders_v1 was dropped from the code"), replaces: "n8", replacedText: "orders_v1 is the live orders table", remove: true },
+  ];
+  render(<Suggestions />);
+  expect(await screen.findByText("status 3 = cancelled")).toBeTruthy();
+  expect(screen.getByText("Replaces:")).toBeTruthy();
+  expect(screen.getByText("Remove note:")).toBeTruthy();
+  expect(screen.getByText("orders_v1 is the live orders table")).toBeTruthy();
+  expect(screen.getByText("Why:")).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Replace note" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Remove note" })).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Accept" })).toBeNull();
+  expect(screen.queryByText("Teach SayQL your database")).toBeNull();
+
+  fireEvent.click(screen.getAllByRole("button", { name: "Dismiss" })[0]);
+  await waitFor(() => expect(screen.getAllByRole("button", { name: "Dismiss" })).toHaveLength(1));
+  fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+  expect(await screen.findByText("Teach SayQL your database")).toBeTruthy();
+  expect(screen.getByText("/mcp__sayql__audit")).toBeTruthy();
+  expect(screen.getByText(/notes go stale/)).toBeTruthy();
 });
 
 it("shows why an accept failed", async () => {

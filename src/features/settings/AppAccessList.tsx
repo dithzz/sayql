@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
-import { Pencil } from "lucide-react";
+import { Check, Copy, Pencil } from "lucide-react";
 import { commands, type AgentAccess, type AppResults, type ConnectionConfig } from "../../api";
 import { Alert, Badge, Button, Select } from "../../components/ui";
 import { cx } from "../../lib/cx";
 import { errorText } from "../../lib/errors";
-import { AgentAccessDialog, NeverSendLabel, saveAgentAccess } from "../agent";
+import { AgentAccessDialog, NeverSendLabel, auditAge, auditCommand, auditStale, copyAuditPrompt, lastAudit, saveAgentAccess, useAudits } from "../agent";
 import { DATABASE_KINDS } from "../connections";
 import styles from "./ClaudeIntegration.module.css";
 
@@ -30,6 +30,18 @@ export function AppAccessList({ connections, provider }: { connections: Connecti
   const [access, setAccess] = useState<Record<string, AgentAccess>>({});
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState<ConnectionConfig | null>(null);
+  const audits = useAudits();
+  const [copied, setCopied] = useState<string | null>(null);
+  const copyPrompt = (c: ConnectionConfig) => {
+    setError(null);
+    copyAuditPrompt({ connectionId: c.id, database: null }).then(
+      () => {
+        setCopied(c.id);
+        window.setTimeout(() => setCopied((id) => (id === c.id ? null : id)), 1500);
+      },
+      (e) => setError(errorText(e)),
+    );
+  };
 
   useEffect(() => {
     let live = true;
@@ -60,7 +72,8 @@ export function AppAccessList({ connections, provider }: { connections: Connecti
       </h3>
       <p className={styles.intro}>
         Per connection, choose what an AI app gets back from a query. Never-send columns are always kept out: queries
-        that use them are refused. They apply to agent mode too.
+        that use them are refused. They apply to agent mode too. <strong>Last audit</strong> is when an AI app last fetched
+        the audit prompt, which teaches SayQL about the database from your code; run it again after big changes.
       </p>
       <dl className={styles.legend} aria-label="What each choice sends">
         {APP_RESULTS.map((r) => (
@@ -79,17 +92,20 @@ export function AppAccessList({ connections, provider }: { connections: Connecti
               <col />
               <col className={styles.colChoice} />
               <col className={styles.colNever} />
+              <col className={styles.colAudit} />
             </colgroup>
             <thead>
               <tr>
                 <th>Connection</th>
                 <th>What AI apps get back</th>
                 <th>Never send</th>
+                <th>Last audit</th>
               </tr>
             </thead>
             <tbody>
               {local.map((c) => {
                 const a = access[c.id];
+                const audited = lastAudit(audits, c.id);
                 return (
                   <tr key={c.id}>
                     <td>
@@ -129,6 +145,29 @@ export function AppAccessList({ connections, provider }: { connections: Connecti
                           onClick={() => setEditing(c)}
                         >
                           Edit
+                        </Button>
+                      </div>
+                    </td>
+                    <td>
+                      <div className={styles.audit}>
+                        <span>{auditAge(audited)}</span>
+                        {auditStale(audited) && (
+                          <span
+                            className={styles.nudge}
+                            title={`In your project, type ${auditCommand({ connectionId: c.id, name: c.name, database: null })} in Claude Code, or copy the audit prompt into another app. Code moves on and notes go stale.`}
+                          >
+                            Run an audit
+                          </span>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          icon={copied === c.id ? Check : Copy}
+                          aria-label={`Copy the audit prompt for ${c.name}`}
+                          title="Copy the audit instructions, for AI apps without MCP prompts: paste them into the chat."
+                          onClick={() => copyPrompt(c)}
+                        >
+                          {copied === c.id ? "Copied" : "Copy prompt"}
                         </Button>
                       </div>
                     </td>

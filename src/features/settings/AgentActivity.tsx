@@ -27,7 +27,12 @@ function short(ms: number): string {
 /** What the entry did, in one line. */
 function summary(e: McpActivity): string {
   if (e.tool === "export_csv") return `CSV export: ${e.sql}`;
-  if (e.tool === "suggest_note") return `Suggested a note${e.status === "ok" && e.detail ? `: ${e.detail}` : ""}`;
+  if (e.tool === "suggest_note") {
+    // The MCP server logs what kind of suggestion it was ("suggested replacing a note"), never the note.
+    if (e.status === "ok" && e.detail?.startsWith("suggested ")) return `Suggested ${e.detail.slice("suggested ".length)}`;
+    return `Suggested a note${e.status === "ok" && e.detail ? `: ${e.detail}` : ""}`;
+  }
+  if (e.tool === "audit") return e.status === "ok" && !e.connection ? "Fetched the audit prompt (connection not named)" : "Fetched the audit prompt";
   return e.sql || e.tool;
 }
 
@@ -36,7 +41,7 @@ function result(e: McpActivity): string {
 }
 
 /** The detail beside the result; a suggested note's text is already the summary. */
-const detailOf = (e: McpActivity) => (e.detail && !(e.tool === "suggest_note" && e.status === "ok") ? e.detail : null);
+const detailOf = (e: McpActivity) => (e.detail && !((e.tool === "suggest_note" || e.tool === "audit") && e.status === "ok") ? e.detail : null);
 
 /** What AI apps ran through SayQL over MCP: filters, a row to open for the full SQL, and clearing the log. */
 export function AgentActivity() {
@@ -177,7 +182,7 @@ export function AgentActivity() {
                       {expanded && (
                         <tr className={cx(styles.detailRow, e.status !== "ok" && styles.notOk)}>
                           <td colSpan={5}>
-                            <pre className={styles.fullSql}>{e.tool === "suggest_note" ? summary(e) : e.sql || e.tool}</pre>
+                            <pre className={styles.fullSql}>{e.tool === "suggest_note" || e.tool === "audit" ? summary(e) : e.sql || e.tool}</pre>
                             <dl className={styles.facts}>
                               <div>
                                 <dt>When</dt>

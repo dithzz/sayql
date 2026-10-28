@@ -233,7 +233,19 @@ live table from an abandoned one: counts and dates only, never row values. SQLit
 
 With `suggest_note`, an AI app can suggest a note (a schema-level fact, never row values) along with the
 evidence it checked. It is saved only when you **Accept** it, under **Notes → Suggested by AI apps** in the
-navigator or in **Settings → AI apps → Suggestions**; **Dismiss** drops it. Columns you marked **never send** in a connection's agent settings stay private over MCP too: queries
+navigator or in **Settings → AI apps → Suggestions**; **Dismiss** drops it. `describe_schema` lists the saved
+notes with short ids (`[n_1a2b3c4d]`), so an app can also suggest replacing a note that looks out of date
+(`replaces`) or removing it (`remove: true`); accepting one changes or deletes that note.
+
+**Audit: teach SayQL your database.** In your project, type `/mcp__sayql__audit` in Claude Code (add the
+connection's name or id when you have more than one). The `audit` prompt has the agent read the schema, its usage
+figures and the saved notes, check them against your code, and suggest notes: retired tables, what status codes
+and flags mean, relationships without foreign keys, units and time zones, and fixes to notes that look outdated,
+each with its evidence. It needs no rows. For apps without MCP prompts, **Copy prompt** on a connection in
+**Settings → AI apps → Access** copies the same instructions. The **Last audit** column there shows when each
+connection was last audited and nudges you to run it again after 30 days: code moves on and notes go stale.
+
+Columns you marked **never send** in a connection's agent settings stay private over MCP too: queries
 naming them are refused and their values are withheld. The AI app writes the SQL itself, so MCP never uses
 your SayQL AI key; SQL it opens in SayQL isn't fixed automatically by SayQL's AI either.
 

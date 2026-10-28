@@ -13,3 +13,6 @@ export { NoteSuggestions } from "./NoteSuggestions";
 export { SUGGESTIONS_CHANGED, suggestionFor, useNoteSuggestions } from "./useNoteSuggestions";
 export type { NoteSuggestionsApi } from "./useNoteSuggestions";
 export { AgentSettingsSection } from "./AgentSettingsSection";
+export { TeachSayql } from "./TeachSayql";
+export { AUDIT_STALE_DAYS, auditAge, auditCommand, auditStale, copyAuditPrompt, lastAudit, useAudits } from "./audit";
+export type { AuditTarget } from "./audit";

@@ -18,7 +18,7 @@ beforeAll(async () => {
 const COMMANDS = [
   "init", "save_connection", "delete_connection", "test_connection", "open_database", "refresh_schema",
   "list_databases", "run_query", "cancel_query", "generate_sql", "cancel_generation", "list_scripts", "save_script",
-  "delete_script", "list_skills", "save_skill", "delete_skill", "mcp_setup", "mcp_activity", "mcp_apps", "set_mcp_app_blocked", "approve_mcp_app", "set_mcp_only_approved", "clear_mcp_activity", "take_handoffs", "app_info", "check_update",
+  "delete_script", "list_skills", "save_skill", "delete_skill", "mcp_setup", "mcp_activity", "mcp_apps", "set_mcp_app_blocked", "approve_mcp_app", "set_mcp_only_approved", "clear_mcp_activity", "mcp_audits", "audit_prompt", "take_handoffs", "app_info", "check_update",
   "install_update", "save_settings", "finish_onboarding", "list_models", "voice_status", "voice_download",
   "voice_cancel_download", "voice_delete_model", "voice_start", "voice_stop", "voice_cancel",
   "agent_access", "save_agent_access", "start_agent", "reply_agent", "stop_agent", "list_notes", "save_note", "delete_note",
@@ -51,6 +51,7 @@ describe("mock backend", () => {
       set_mcp_only_approved: { on: true },
       accept_note_suggestion: { id: "sug-1" },
       dismiss_note_suggestion: { id: "sug-2" },
+      audit_prompt: { id: "demo", database: null },
       save_note: { note: { id: "", connectionId: "demo", database: null, text: "status 'paid' = not shipped", updatedAt: 0 } },
     };
     for (const cmd of COMMANDS) {
