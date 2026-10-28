@@ -9,8 +9,8 @@
 
 ### Let agents into your database. Not your data.
 
-Agents like Claude Code and Cursor query your database through SayQL, and you ask in plain English.<br>
-By default the AI gets your schema and counts, never your rows. Read-only, with any AI, even a local one.
+SayQL sits between AI agents and your database.<br>
+They get your schema and the numbers they need, not your rows, unless you say so.
 
 [![Latest release](https://img.shields.io/github/v/release/dithzz/sayql-releases?label=release&color=1f6feb)](https://github.com/dithzz/sayql-releases/releases/latest)
 [![CI](https://github.com/dithzz/sayql/actions/workflows/ci.yml/badge.svg)](https://github.com/dithzz/sayql/actions/workflows/ci.yml)
