@@ -7,10 +7,10 @@
 </picture>
 </h1>
 
-### Let AI into your database. Not your data.
+### Let agents into your database. Not your data.
 
-The AI writes the SQL from your schema and never sees your rows unless you choose.<br>
-Columns you mark private never reach any AI. Read-only by default, with any AI, even a local one.
+Agents like Claude Code and Cursor query your database through SayQL, and you ask in plain English.<br>
+By default the AI gets your schema and counts, never your rows. Read-only, with any AI, even a local one.
 
 [![Latest release](https://img.shields.io/github/v/release/dithzz/sayql-releases?label=release&color=1f6feb)](https://github.com/dithzz/sayql-releases/releases/latest)
 [![CI](https://github.com/dithzz/sayql/actions/workflows/ci.yml/badge.svg)](https://github.com/dithzz/sayql/actions/workflows/ci.yml)
@@ -48,8 +48,9 @@ safely; and an AI agent with a database password can do anything. SayQL keeps th
 - **Any AI, any database.** Use Claude, OpenAI, Gemini or any OpenAI-compatible API with your own key, a local
   model so nothing leaves your computer, or SayQL AI credits, on PostgreSQL, MySQL, SQLite or SQL Server. Switch
   models right in the Ask box. The Ask box never sends table rows to the AI.
-- **AI apps on a leash.** Claude, Cursor and other MCP apps can query through SayQL, read-only, with your
-  never-send columns kept private, or hand you a query to review before anything runs.
+- **Agents without your data.** Claude Code, Cursor and other MCP apps query through SayQL, read-only. By default
+  they get counts and summaries, not rows; you choose per connection, and never-send columns always stay private.
+  They can also hand you a query to review before anything runs.
 - **Rules and a record for teams.** [SayQL for teams](https://sayql.dev/#teams) is a server you run: shared
   connections without passwords on laptops, rules the AI can't cross, and a record of every query, from people
   and from agent mode. Your data never reaches us.
