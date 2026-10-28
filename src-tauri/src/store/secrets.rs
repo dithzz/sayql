@@ -65,7 +65,12 @@ struct Vault<B: Backend> {
 
 impl<B: Backend> Vault<B> {
     fn new(backend: B) -> Self {
-        Vault { backend, secrets: None, unavailable: None, not_found: Default::default() }
+        Vault {
+            backend,
+            secrets: None,
+            unavailable: None,
+            not_found: Default::default(),
+        }
     }
 
     fn loaded(&mut self) -> AppResult<&mut BTreeMap<String, String>> {
@@ -124,7 +129,10 @@ impl<B: Backend> Vault<B> {
         let changed = if value.is_empty() {
             secrets.remove(account).is_some()
         } else {
-            secrets.insert(account.to_string(), value.to_string()).as_deref() != Some(value)
+            secrets
+                .insert(account.to_string(), value.to_string())
+                .as_deref()
+                != Some(value)
         };
         if changed { self.save() } else { Ok(()) }
     }
@@ -170,7 +178,11 @@ pub fn delete_password(conn_id: &str) -> AppResult<()> {
 
 /// Claude's key keeps the account name it had before other providers were added.
 fn api_key_account(provider: &str) -> String {
-    if provider == crate::ai::ANTHROPIC { API_KEY_ACCOUNT.to_string() } else { format!("api-key:{provider}") }
+    if provider == crate::ai::ANTHROPIC {
+        API_KEY_ACCOUNT.to_string()
+    } else {
+        format!("api-key:{provider}")
+    }
 }
 
 /// The AI provider's API key. In debug builds, `ANTHROPIC_API_KEY` is a fallback for Claude;
@@ -180,7 +192,11 @@ pub fn api_key(provider: &str) -> Option<String> {
     if provider != crate::ai::ANTHROPIC || !cfg!(debug_assertions) {
         return saved;
     }
-    saved.or_else(|| std::env::var("ANTHROPIC_API_KEY").ok().filter(|s| !s.is_empty()))
+    saved.or_else(|| {
+        std::env::var("ANTHROPIC_API_KEY")
+            .ok()
+            .filter(|s| !s.is_empty())
+    })
 }
 
 pub fn set_api_key(provider: &str, key: &str) -> AppResult<()> {
@@ -223,18 +239,26 @@ mod tests {
             if self.deny {
                 return Err("User canceled the operation.".into());
             }
-            Ok(self.items.borrow().get(&(service.into(), account.into())).cloned())
+            Ok(self
+                .items
+                .borrow()
+                .get(&(service.into(), account.into()))
+                .cloned())
         }
         fn write(&self, service: &str, account: &str, value: &str) -> AppResult<()> {
             *self.writes.borrow_mut() += 1;
-            self.items.borrow_mut().insert((service.into(), account.into()), value.into());
+            self.items
+                .borrow_mut()
+                .insert((service.into(), account.into()), value.into());
             Ok(())
         }
         fn delete(&self, service: &str, account: &str) -> AppResult<()> {
             if self.deny {
                 return Err("User canceled the operation.".into());
             }
-            self.items.borrow_mut().remove(&(service.to_string(), account.to_string()));
+            self.items
+                .borrow_mut()
+                .remove(&(service.to_string(), account.to_string()));
             Ok(())
         }
     }
@@ -257,19 +281,30 @@ mod tests {
         *fake.reads.borrow_mut() = 0;
         assert_eq!(next.get("conn:a").unwrap().as_deref(), Some("pw-a"));
         assert_eq!(next.get("conn:b").unwrap().as_deref(), Some("pw-b"));
-        assert_eq!(next.get("anthropic-api-key").unwrap().as_deref(), Some("sk-ant"));
+        assert_eq!(
+            next.get("anthropic-api-key").unwrap().as_deref(),
+            Some("sk-ant")
+        );
         assert_eq!(*fake.reads.borrow(), 1);
     }
 
     #[test]
     fn copies_secrets_saved_one_item_each_by_earlier_versions() {
         let fake = Fake::default();
-        fake.items.borrow_mut().insert((SERVICE.into(), "conn:a".into()), "old-a".into());
-        fake.items.borrow_mut().insert((LEGACY_SERVICE.into(), "anthropic-api-key".into()), "old-key".into());
+        fake.items
+            .borrow_mut()
+            .insert((SERVICE.into(), "conn:a".into()), "old-a".into());
+        fake.items.borrow_mut().insert(
+            (LEGACY_SERVICE.into(), "anthropic-api-key".into()),
+            "old-key".into(),
+        );
 
         let mut v = vault(&fake);
         assert_eq!(v.get("conn:a").unwrap().as_deref(), Some("old-a"));
-        assert_eq!(v.get("anthropic-api-key").unwrap().as_deref(), Some("old-key"));
+        assert_eq!(
+            v.get("anthropic-api-key").unwrap().as_deref(),
+            Some("old-key")
+        );
         assert_eq!(v.get("conn:missing").unwrap(), None);
 
         // From now on they come from the shared item alone.
@@ -286,14 +321,21 @@ mod tests {
         v.set("conn:a", "pw").unwrap();
         let writes = *fake.writes.borrow();
         v.set("conn:a", "pw").unwrap();
-        assert_eq!(*fake.writes.borrow(), writes, "unchanged values aren't rewritten");
+        assert_eq!(
+            *fake.writes.borrow(),
+            writes,
+            "unchanged values aren't rewritten"
+        );
         v.set("conn:a", "").unwrap();
         assert_eq!(v.get("conn:a").unwrap(), None);
     }
 
     #[test]
     fn after_deny_the_keychain_is_not_asked_again_this_launch() {
-        let fake = Fake { deny: true, ..Default::default() };
+        let fake = Fake {
+            deny: true,
+            ..Default::default()
+        };
         let mut v = vault(&fake);
         assert!(v.get("conn:a").is_err());
         assert!(v.get("api-key:openai").is_err());
@@ -316,17 +358,26 @@ mod tests {
     #[test]
     fn an_unreadable_item_is_never_overwritten() {
         let fake = Fake::default();
-        fake.items.borrow_mut().insert((SERVICE.into(), VAULT_ACCOUNT.into()), "not json".into());
+        fake.items
+            .borrow_mut()
+            .insert((SERVICE.into(), VAULT_ACCOUNT.into()), "not json".into());
         let mut v = vault(&fake);
         assert!(v.set("conn:a", "pw").is_err());
-        assert_eq!(fake.items.borrow()[&(SERVICE.to_string(), VAULT_ACCOUNT.to_string())], "not json");
+        assert_eq!(
+            fake.items.borrow()[&(SERVICE.to_string(), VAULT_ACCOUNT.to_string())],
+            "not json"
+        );
     }
 
     #[test]
     fn removing_a_secret_also_removes_the_old_items() {
         let fake = Fake::default();
-        fake.items.borrow_mut().insert((SERVICE.into(), "conn:a".into()), "old-a".into());
-        fake.items.borrow_mut().insert((LEGACY_SERVICE.into(), "conn:a".into()), "older-a".into());
+        fake.items
+            .borrow_mut()
+            .insert((SERVICE.into(), "conn:a".into()), "old-a".into());
+        fake.items
+            .borrow_mut()
+            .insert((LEGACY_SERVICE.into(), "conn:a".into()), "older-a".into());
 
         let mut v = vault(&fake);
         assert_eq!(v.get("conn:a").unwrap().as_deref(), Some("old-a"));
@@ -345,7 +396,10 @@ mod tests {
 
     #[test]
     fn removing_reports_keychain_errors() {
-        let fake = Fake { deny: true, ..Default::default() };
+        let fake = Fake {
+            deny: true,
+            ..Default::default()
+        };
         assert!(vault(&fake).remove("conn:a").is_err());
     }
 }

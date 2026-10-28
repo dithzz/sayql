@@ -9,7 +9,9 @@ use sqlx::{Row, TypeInfo, ValueRef};
 // out-of-range values (huge NUMERIC, 'infinity' timestamps) cannot panic inside sqlx.
 
 pub(crate) fn pg_cell(row: &PgRow, i: usize) -> Value {
-    let Ok(raw) = row.try_get_raw(i) else { return Value::Null };
+    let Ok(raw) = row.try_get_raw(i) else {
+        return Value::Null;
+    };
     if raw.is_null() {
         return Value::Null;
     }
@@ -74,7 +76,11 @@ impl<'a> Buf<'a> {
     /// A length-prefixed field; `Some(None)` is SQL NULL.
     fn field(&mut self) -> Option<Option<&'a [u8]>> {
         let len = self.i32()?;
-        if len < 0 { Some(None) } else { self.take(len as usize).map(Some) }
+        if len < 0 {
+            Some(None)
+        } else {
+            self.take(len as usize).map(Some)
+        }
     }
 }
 
@@ -86,7 +92,8 @@ fn pg_binary(ty: &PgTypeInfo, b: &[u8]) -> Option<Value> {
         PgTypeKind::Composite(fields) => pg_record(Some(fields), b),
         PgTypeKind::Range(elem) => pg_range(elem, b),
         _ if pg_oid(ty) == 2249 => pg_record(None, b),
-        _ => pg_scalar(pg_oid(ty), b).or_else(|| printable(std::str::from_utf8(b).ok().map(String::from))),
+        _ => pg_scalar(pg_oid(ty), b)
+            .or_else(|| printable(std::str::from_utf8(b).ok().map(String::from))),
     }
 }
 
@@ -115,7 +122,17 @@ fn pg_array(elem: &PgTypeInfo, b: &[u8]) -> Option<Value> {
     }
     fn nest(dims: &[usize], it: &mut std::vec::IntoIter<Value>) -> Value {
         let (n, rest) = dims.split_first().unwrap();
-        Value::Array((0..*n).map(|_| if rest.is_empty() { it.next().unwrap_or(Value::Null) } else { nest(rest, it) }).collect())
+        Value::Array(
+            (0..*n)
+                .map(|_| {
+                    if rest.is_empty() {
+                        it.next().unwrap_or(Value::Null)
+                    } else {
+                        nest(rest, it)
+                    }
+                })
+                .collect(),
+        )
     }
     Some(nest(&dims, &mut flat.into_iter()))
 }
@@ -145,7 +162,11 @@ fn pg_record(fields: Option<&[(String, PgTypeInfo)]>, b: &[u8]) -> Option<Value>
             None => arr.push(v),
         }
     }
-    Some(if fields.is_some() { Value::Object(obj) } else { Value::Array(arr) })
+    Some(if fields.is_some() {
+        Value::Object(obj)
+    } else {
+        Value::Array(arr)
+    })
 }
 
 fn pg_range(elem: &PgTypeInfo, b: &[u8]) -> Option<Value> {
@@ -174,14 +195,24 @@ fn pg_scalar(oid: u32, b: &[u8]) -> Option<Value> {
     use std::fmt::Write;
     let mut r = Buf(b);
     let epoch = NaiveDate::from_ymd_opt(2000, 1, 1)?;
-    let text = || std::str::from_utf8(b).ok().map(|s| Value::String(s.to_string()));
+    let text = || {
+        std::str::from_utf8(b)
+            .ok()
+            .map(|s| Value::String(s.to_string()))
+    };
     let timestamp = |us: i64| -> Option<String> {
         match us {
             i64::MAX => Some("infinity".into()),
             i64::MIN => Some("-infinity".into()),
             _ => {
-                let t = epoch.and_hms_opt(0, 0, 0)?.checked_add_signed(TimeDelta::microseconds(us))?;
-                Some(format!("{} {}", t.date(), clock(us.rem_euclid(86_400_000_000))))
+                let t = epoch
+                    .and_hms_opt(0, 0, 0)?
+                    .checked_add_signed(TimeDelta::microseconds(us))?;
+                Some(format!(
+                    "{} {}",
+                    t.date(),
+                    clock(us.rem_euclid(86_400_000_000))
+                ))
             }
         }
     };
@@ -194,7 +225,9 @@ fn pg_scalar(oid: u32, b: &[u8]) -> Option<Value> {
         21 => Value::from(r.i16()?),
         23 => Value::from(r.i32()?),
         // oid, xid, cid and the reg* aliases
-        24 | 26 | 28 | 29 | 2202 | 2203 | 2204 | 2205 | 2206 | 3734 | 3769 | 4089 | 4096 => Value::from(r.u32()?),
+        24 | 26 | 28 | 29 | 2202 | 2203 | 2204 | 2205 | 2206 | 3734 | 3769 | 4089 | 4096 => {
+            Value::from(r.u32()?)
+        }
         700 => float(Some(f32_to_f64(f32::from_bits(r.u32()?))))?,
         701 => float(Some(r.f64()?))?,
         114 => serde_json::from_slice(b).ok()?,
@@ -209,13 +242,20 @@ fn pg_scalar(oid: u32, b: &[u8]) -> Option<Value> {
         1700 => Value::String(pg_numeric(&mut r)?),
         790 => {
             let c = i128::from(r.i64()?);
-            Value::String(format!("{}{}.{:02}", if c < 0 { "-" } else { "" }, c.abs() / 100, c.abs() % 100))
+            Value::String(format!(
+                "{}{}.{:02}",
+                if c < 0 { "-" } else { "" },
+                c.abs() / 100,
+                c.abs() % 100
+            ))
         }
         2950 => Value::String(uuid::Uuid::from_slice(b).ok()?.to_string()),
         1082 => Value::String(match r.i32()? {
             i32::MAX => "infinity".into(),
             i32::MIN => "-infinity".into(),
-            d => epoch.checked_add_signed(TimeDelta::days(d.into()))?.to_string(),
+            d => epoch
+                .checked_add_signed(TimeDelta::days(d.into()))?
+                .to_string(),
         }),
         1083 => Value::String(clock(r.i64()?)),
         1114 => Value::String(timestamp(r.i64()?)?),
@@ -227,7 +267,12 @@ fn pg_scalar(oid: u32, b: &[u8]) -> Option<Value> {
             let (us, west) = (r.i64()?, r.i32()?);
             let east = -west;
             let a = east.unsigned_abs();
-            let mut s = format!("{}{}{:02}", clock(us), if east < 0 { '-' } else { '+' }, a / 3600);
+            let mut s = format!(
+                "{}{}{:02}",
+                clock(us),
+                if east < 0 { '-' } else { '+' },
+                a / 3600
+            );
             if a % 3600 != 0 {
                 write!(s, ":{:02}", a / 60 % 60).ok()?;
             }
@@ -247,13 +292,30 @@ fn pg_scalar(oid: u32, b: &[u8]) -> Option<Value> {
                 16 => (std::net::Ipv6Addr::from(r.arr::<16>()?).into(), 128),
                 _ => return None,
             };
-            Value::String(if oid == 650 || bits != max { format!("{ip}/{bits}") } else { ip.to_string() })
+            Value::String(if oid == 650 || bits != max {
+                format!("{ip}/{bits}")
+            } else {
+                ip.to_string()
+            })
         }
-        829 | 774 => Value::String(b.iter().map(|x| format!("{x:02x}")).collect::<Vec<_>>().join(":")),
+        829 | 774 => Value::String(
+            b.iter()
+                .map(|x| format!("{x:02x}"))
+                .collect::<Vec<_>>()
+                .join(":"),
+        ),
         1560 | 1562 => {
             let n = usize::try_from(r.i32()?).ok()?;
             let bits = r.0;
-            let s: Option<String> = (0..n).map(|i| Some(if bits.get(i / 8)? & (0x80 >> (i % 8)) != 0 { '1' } else { '0' })).collect();
+            let s: Option<String> = (0..n)
+                .map(|i| {
+                    Some(if bits.get(i / 8)? & (0x80 >> (i % 8)) != 0 {
+                        '1'
+                    } else {
+                        '0'
+                    })
+                })
+                .collect();
             Value::String(s?)
         }
         600 => Value::String(format!("({},{})", r.f64()?, r.f64()?)),
@@ -282,7 +344,13 @@ fn pg_numeric(r: &mut Buf) -> Option<String> {
     }
     let digits: Vec<i16> = (0..n).map(|_| r.i16()).collect::<Option<_>>()?;
     // digits[0] is worth 10000^weight; digit(k) is the group k places after it.
-    let digit = |k: i32| usize::try_from(k).ok().and_then(|k| digits.get(k)).copied().unwrap_or(0);
+    let digit = |k: i32| {
+        usize::try_from(k)
+            .ok()
+            .and_then(|k| digits.get(k))
+            .copied()
+            .unwrap_or(0)
+    };
     let mut s = String::new();
     if sign == 0x4000 {
         s.push('-');
@@ -291,7 +359,12 @@ fn pg_numeric(r: &mut Buf) -> Option<String> {
         s.push('0');
     } else {
         for k in 0..=weight {
-            if k == 0 { write!(s, "{}", digit(k)) } else { write!(s, "{:04}", digit(k)) }.ok()?;
+            if k == 0 {
+                write!(s, "{}", digit(k))
+            } else {
+                write!(s, "{:04}", digit(k))
+            }
+            .ok()?;
         }
     }
     if dscale > 0 {

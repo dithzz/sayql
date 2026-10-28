@@ -43,24 +43,52 @@ JOIN sys.partitions p ON p.object_id = t.object_id AND p.index_id IN (0, 1)
 GROUP BY t.schema_id, t.name"#;
 
 fn text(row: &Row, i: usize) -> String {
-    row.try_get::<&str, _>(i).ok().flatten().unwrap_or_default().to_string()
+    row.try_get::<&str, _>(i)
+        .ok()
+        .flatten()
+        .unwrap_or_default()
+        .to_string()
 }
 
 pub(super) async fn introspect(pool: &MssqlPool) -> AppResult<Vec<Table>> {
     let mut conn = pool.acquire().await?;
     let client = conn.client();
-    let mut query = async |sql: &str| -> AppResult<Vec<Row>> { Ok(client.simple_query(sql).await?.into_first_result().await?) };
+    let mut query = async |sql: &str| -> AppResult<Vec<Row>> {
+        Ok(client.simple_query(sql).await?.into_first_result().await?)
+    };
 
     let cols = query(COLUMNS)
         .await?
         .iter()
-        .map(|r| (text(r, 0), text(r, 1), text(r, 2), text(r, 3), text(r, 4) == "YES", text(r, 5)))
+        .map(|r| {
+            (
+                text(r, 0),
+                text(r, 1),
+                text(r, 2),
+                text(r, 3),
+                text(r, 4) == "YES",
+                text(r, 5),
+            )
+        })
         .collect();
-    let pks = query(PRIMARY_KEYS).await?.iter().map(|r| (text(r, 0), text(r, 1), text(r, 2))).collect();
+    let pks = query(PRIMARY_KEYS)
+        .await?
+        .iter()
+        .map(|r| (text(r, 0), text(r, 1), text(r, 2)))
+        .collect();
     let fks = query(FOREIGN_KEYS)
         .await?
         .iter()
-        .map(|r| (text(r, 0), text(r, 1), text(r, 2), text(r, 3), text(r, 4), text(r, 5)))
+        .map(|r| {
+            (
+                text(r, 0),
+                text(r, 1),
+                text(r, 2),
+                text(r, 3),
+                text(r, 4),
+                text(r, 5),
+            )
+        })
         .collect();
     let rows = query(ROW_ESTIMATES)
         .await?

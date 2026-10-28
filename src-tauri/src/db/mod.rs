@@ -73,6 +73,7 @@ pub struct ConnConfig {
 }
 
 #[derive(Clone)]
+#[allow(clippy::large_enum_variant)]
 pub enum DbPool {
     Pg(PgPool),
     My(MySqlPool),
@@ -97,7 +98,11 @@ impl DbPool {
     /// for the team server's audit log. Other pools are unchanged.
     pub fn with_context(self, source: crate::team::Source, question: Option<String>) -> DbPool {
         match self {
-            DbPool::Team(t) => DbPool::Team(crate::team::TeamPool { source, question, ..t }),
+            DbPool::Team(t) => DbPool::Team(crate::team::TeamPool {
+                source,
+                question,
+                ..t
+            }),
             other => other,
         }
     }

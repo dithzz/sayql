@@ -10,8 +10,16 @@ use serde_json::Value;
 #[derive(Debug, Clone, PartialEq)]
 pub enum Block {
     Text(String),
-    ToolUse { id: String, name: String, input: Value },
-    ToolResult { id: String, content: String, is_error: bool },
+    ToolUse {
+        id: String,
+        name: String,
+        input: Value,
+    },
+    ToolResult {
+        id: String,
+        content: String,
+        is_error: bool,
+    },
     /// A block the provider needs back unchanged on the next turn (Claude's thinking blocks).
     Opaque(Value),
 }
@@ -30,7 +38,10 @@ pub struct Msg {
 
 impl Msg {
     pub fn user(text: impl Into<String>) -> Msg {
-        Msg { role: Role::User, blocks: vec![Block::Text(text.into())] }
+        Msg {
+            role: Role::User,
+            blocks: vec![Block::Text(text.into())],
+        }
     }
 }
 
@@ -84,7 +95,17 @@ impl Turn {
     }
 
     pub fn text(&self) -> String {
-        self.blocks.iter().filter_map(|b| if let Block::Text(t) = b { Some(t.as_str()) } else { None }).collect::<Vec<_>>().join("\n")
+        self.blocks
+            .iter()
+            .filter_map(|b| {
+                if let Block::Text(t) = b {
+                    Some(t.as_str())
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>()
+            .join("\n")
     }
 }
 
@@ -99,26 +120,59 @@ pub enum ToolMode {
 }
 
 /// One turn on whichever client the endpoint speaks.
-async fn turn(http: &reqwest::Client, endpoint: &Endpoint, model: &str, system: &str, schema: &str, tools: &[ToolSpec], messages: &[Msg]) -> AppResult<Turn> {
+async fn turn(
+    http: &reqwest::Client,
+    endpoint: &Endpoint,
+    model: &str,
+    system: &str,
+    schema: &str,
+    tools: &[ToolSpec],
+    messages: &[Msg],
+) -> AppResult<Turn> {
     match (endpoint.claude(), endpoint.openai()) {
-        (Some(access), _) => crate::ai::anthropic::turn(http, &access, model, system, schema, tools, messages).await,
-        (None, Some(svc)) => crate::ai::openai::turn(http, &svc, model, system, schema, tools, messages).await,
+        (Some(access), _) => {
+            crate::ai::anthropic::turn(http, &access, model, system, schema, tools, messages).await
+        }
+        (None, Some(svc)) => {
+            crate::ai::openai::turn(http, &svc, model, system, schema, tools, messages).await
+        }
         (None, None) => Err("This AI provider isn't supported.".into()),
     }
 }
 
 /// A model to run the agent with.
 pub enum Llm {
-    Remote { http: reqwest::Client, endpoint: Endpoint, model: String, mode: ToolMode },
+    Remote {
+        http: reqwest::Client,
+        endpoint: Endpoint,
+        model: String,
+        mode: ToolMode,
+    },
     #[cfg(test)]
     Mock(Mock),
 }
 
 impl Llm {
-    pub async fn turn(&self, system: &str, schema: &str, tools: &[ToolSpec], messages: &[Msg]) -> AppResult<Turn> {
+    pub async fn turn(
+        &self,
+        system: &str,
+        schema: &str,
+        tools: &[ToolSpec],
+        messages: &[Msg],
+    ) -> AppResult<Turn> {
         match self {
-            Llm::Remote { http, endpoint, model, mode: ToolMode::Native } => turn(http, endpoint, model, system, schema, tools, messages).await,
-            Llm::Remote { http, endpoint, model, mode: ToolMode::Text } => {
+            Llm::Remote {
+                http,
+                endpoint,
+                model,
+                mode: ToolMode::Native,
+            } => turn(http, endpoint, model, system, schema, tools, messages).await,
+            Llm::Remote {
+                http,
+                endpoint,
+                model,
+                mode: ToolMode::Text,
+            } => {
                 let system = format!("{system}\n\n{}", text_protocol::instructions(tools));
                 let messages = text_protocol::to_text(messages);
                 let reply = turn(http, endpoint, model, &system, schema, &[], &messages).await?;
@@ -172,11 +226,17 @@ pub enum MockTurn {
 #[cfg(test)]
 impl Mock {
     pub fn new(turns: Vec<MockTurn>) -> Mock {
-        Mock { script: std::sync::Mutex::new(turns.into()), seen: Default::default() }
+        Mock {
+            script: std::sync::Mutex::new(turns.into()),
+            seen: Default::default(),
+        }
     }
 
     async fn turn(&self, system: &str, schema: &str, messages: &[Msg]) -> AppResult<Turn> {
-        let sent = format!("{system}\n{schema}\n{}", messages.iter().map(render).collect::<Vec<_>>().join("\n"));
+        let sent = format!(
+            "{system}\n{schema}\n{}",
+            messages.iter().map(render).collect::<Vec<_>>().join("\n")
+        );
         self.seen.lock().unwrap().push(sent);
         let last = messages.last().map(render).unwrap_or_default();
         let next = self.script.lock().unwrap().pop_front();
@@ -186,15 +246,31 @@ impl Mock {
             blocks: calls
                 .into_iter()
                 .enumerate()
-                .map(|(i, (name, input))| Block::ToolUse { id: format!("t{n}_{i}"), name: name.into(), input })
+                .map(|(i, (name, input))| Block::ToolUse {
+                    id: format!("t{n}_{i}"),
+                    name: name.into(),
+                    input,
+                })
                 .collect(),
-            usage: Usage { input: 100, cached: 1000, output: 50 },
+            usage: Usage {
+                input: 100,
+                cached: 1000,
+                output: 50,
+            },
             truncated: false,
         };
         Ok(match next {
             MockTurn::Tools(calls) => tools(calls),
             MockTurn::Dynamic(f) => tools(f(&last)),
-            MockTurn::Text(t) => Turn { blocks: vec![Block::Text(t.into())], usage: Usage { input: 10, cached: 0, output: 10 }, truncated: false },
+            MockTurn::Text(t) => Turn {
+                blocks: vec![Block::Text(t.into())],
+                usage: Usage {
+                    input: 10,
+                    cached: 0,
+                    output: 10,
+                },
+                truncated: false,
+            },
             MockTurn::Hang => {
                 tokio::time::sleep(std::time::Duration::from_secs(3600)).await;
                 return Err("The mock model hung.".into());
@@ -210,7 +286,9 @@ pub fn render(m: &Msg) -> String {
         .map(|b| match b {
             Block::Text(t) => t.clone(),
             Block::ToolUse { name, input, .. } => format!("[call {name} {input}]"),
-            Block::ToolResult { content, is_error, .. } => {
+            Block::ToolResult {
+                content, is_error, ..
+            } => {
                 if *is_error {
                     format!("[error] {content}")
                 } else {

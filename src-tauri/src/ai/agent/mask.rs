@@ -90,12 +90,16 @@ impl Masker {
             })
             .filter(|c| !c.is_empty())
             .collect();
-        Masker { never_send, ..Default::default() }
+        Masker {
+            never_send,
+            ..Default::default()
+        }
     }
 
     /// The first `max_rows` rows of `r`, with likely personal values replaced by tokens.
     pub fn mask(&mut self, r: &QueryResult, max_rows: usize) -> MaskedResult {
-        let by_name: Vec<Option<&'static str>> = r.columns.iter().map(|c| self.column_rule(c)).collect();
+        let by_name: Vec<Option<&'static str>> =
+            r.columns.iter().map(|c| self.column_rule(c)).collect();
         let mut masked = vec![false; r.columns.len()];
         let rows = r
             .rows
@@ -108,7 +112,11 @@ impl Masker {
                         if v.is_null() {
                             return Value::Null;
                         }
-                        let by_column = by_name.get(i).copied().flatten().filter(|k| !numbers_are_safe(k, v));
+                        let by_column = by_name
+                            .get(i)
+                            .copied()
+                            .flatten()
+                            .filter(|k| !numbers_are_safe(k, v));
                         match by_column.or_else(|| value_kind(v)) {
                             Some(kind) => {
                                 masked[i] = true;
@@ -120,8 +128,20 @@ impl Masker {
                     .collect()
             })
             .collect();
-        let masked_columns = r.columns.iter().zip(masked).filter(|(_, m)| *m).map(|(c, _)| c.clone()).collect();
-        MaskedResult { columns: r.columns.clone(), rows, row_count: r.rows.len(), truncated: r.truncated, masked_columns }
+        let masked_columns = r
+            .columns
+            .iter()
+            .zip(masked)
+            .filter(|(_, m)| *m)
+            .map(|(c, _)| c.clone())
+            .collect();
+        MaskedResult {
+            columns: r.columns.clone(),
+            rows,
+            row_count: r.rows.len(),
+            truncated: r.truncated,
+            masked_columns,
+        }
     }
 
     /// Row count and per-column type, null count and distinct count; min and max only for
@@ -132,19 +152,42 @@ impl Masker {
             .iter()
             .enumerate()
             .map(|(i, name)| {
-                let values: Vec<&Value> = r.rows.iter().filter_map(|row| row.get(i)).filter(|v| !v.is_null()).collect();
-                let distinct = values.iter().map(|v| v.to_string()).collect::<HashSet<_>>().len();
+                let values: Vec<&Value> = r
+                    .rows
+                    .iter()
+                    .filter_map(|row| row.get(i))
+                    .filter(|v| !v.is_null())
+                    .collect();
+                let distinct = values
+                    .iter()
+                    .map(|v| v.to_string())
+                    .collect::<HashSet<_>>()
+                    .len();
                 let kind = column_type(&values);
-                let by_column = self.column_rule(name).filter(|k| !values.iter().all(|v| numbers_are_safe(k, v)));
-                let personal = by_column.is_some() || values.iter().any(|v| value_kind(v).is_some());
+                let by_column = self
+                    .column_rule(name)
+                    .filter(|k| !values.iter().all(|v| numbers_are_safe(k, v)));
+                let personal =
+                    by_column.is_some() || values.iter().any(|v| value_kind(v).is_some());
                 let (min, max) = match kind {
                     "number" | "date" if !personal => min_max(&values, kind),
                     _ => (None, None),
                 };
-                ColumnSummary { name: name.clone(), kind, nulls: r.rows.len() - values.len(), distinct, min, max }
+                ColumnSummary {
+                    name: name.clone(),
+                    kind,
+                    nulls: r.rows.len() - values.len(),
+                    distinct,
+                    min,
+                    max,
+                }
             })
             .collect();
-        ResultSummary { row_count: r.rows.len(), truncated: r.truncated, columns }
+        ResultSummary {
+            row_count: r.rows.len(),
+            truncated: r.truncated,
+            columns,
+        }
     }
 
     /// `sql` with every token replaced by its real value, written as a literal of `kind`'s
@@ -198,7 +241,10 @@ impl Masker {
     /// a personal column (`COUNT(email) AS n`) aren't personal.
     pub fn learn_aliases(&mut self, sql: &str) {
         self.aliases.clear();
-        let toks: Vec<String> = super::checks::tokens(sql).iter().map(|t| t.to_lowercase()).collect();
+        let toks: Vec<String> = super::checks::tokens(sql)
+            .iter()
+            .map(|t| t.to_lowercase())
+            .collect();
         let mut items: Vec<Vec<String>> = Vec::new();
         let mut i = 0;
         while i < toks.len() {
@@ -217,7 +263,12 @@ impl Masker {
                         break;
                     }
                     depth -= 1;
-                } else if depth == 0 && ["from", "where", "union", "into", "group", "order", "having", "limit"].contains(&t.as_str()) {
+                } else if depth == 0
+                    && [
+                        "from", "where", "union", "into", "group", "order", "having", "limit",
+                    ]
+                    .contains(&t.as_str())
+                {
                     break;
                 }
                 if depth == 0 && t == "," {
@@ -229,7 +280,8 @@ impl Masker {
             }
             items.push(cur);
         }
-        let ident = |t: &str| t.starts_with(|c: char| c.is_alphabetic() || c == '_' || "\"`[".contains(c));
+        let ident =
+            |t: &str| t.starts_with(|c: char| c.is_alphabetic() || c == '_' || "\"`[".contains(c));
         let bare = |t: &str| -> String {
             let t: String = t.chars().filter(|c| !"\"`[]".contains(*c)).collect();
             t.rsplit('.').next().unwrap_or("").to_string()
@@ -240,19 +292,31 @@ impl Masker {
                 let n = item.len();
                 let (alias, expr) = if n >= 3 && item[n - 2] == "as" {
                     (bare(&item[n - 1]), &item[..n - 2])
-                } else if n >= 2 && ident(&item[n - 1]) && !["end", "null", "true", "false"].contains(&item[n - 1].as_str()) && (ident(&item[n - 2]) || item[n - 2] == ")") && !["as", "distinct", "case", "else", "then"].contains(&item[n - 2].as_str()) {
+                } else if n >= 2
+                    && ident(&item[n - 1])
+                    && !["end", "null", "true", "false"].contains(&item[n - 1].as_str())
+                    && (ident(&item[n - 2]) || item[n - 2] == ")")
+                    && !["as", "distinct", "case", "else", "then"].contains(&item[n - 2].as_str())
+                {
                     (bare(&item[n - 1]), &item[..n - 1])
                 } else {
                     continue;
                 };
                 // A count, sum or average of a personal column is a number about it, not the column's values.
-                let wrappers = ["(", "select", "coalesce", "round", "cast", "abs", "floor", "ceil", "ceiling", "trunc", "nullif"];
+                let wrappers = [
+                    "(", "select", "coalesce", "round", "cast", "abs", "floor", "ceil", "ceiling",
+                    "trunc", "nullif",
+                ];
                 let lead = expr.iter().find(|t| !wrappers.contains(&t.as_str()));
                 let aggregate = lead.is_some_and(|f| ["count", "sum", "avg"].contains(&f.as_str()));
                 if alias.is_empty() || self.aliases.contains_key(&alias) || aggregate {
                     continue;
                 }
-                let kind = expr.iter().filter(|t| ident(t)).map(|t| bare(t)).find_map(|w| self.column_rule(&w));
+                let kind = expr
+                    .iter()
+                    .filter(|t| ident(t))
+                    .map(|t| bare(t))
+                    .find_map(|w| self.column_rule(&w));
                 if let Some(kind) = kind {
                     self.aliases.insert(alias, kind);
                     changed = true;
@@ -284,8 +348,12 @@ impl Masker {
     /// `text` with every real value this run masked replaced by its token again: for
     /// database messages and plans that quote values from the SQL.
     pub fn remask_text(&self, text: &str) -> String {
-        let mut pairs: Vec<(String, &String)> =
-            self.values.iter().map(|(t, v)| (plain(v), t)).filter(|(v, _)| v.chars().count() >= 3).collect();
+        let mut pairs: Vec<(String, &String)> = self
+            .values
+            .iter()
+            .map(|(t, v)| (plain(v), t))
+            .filter(|(v, _)| v.chars().count() >= 3)
+            .collect();
         pairs.sort_by_key(|(v, _)| std::cmp::Reverse(v.len()));
         let mut out = text.to_string();
         for (v, t) in pairs {
@@ -296,7 +364,10 @@ impl Masker {
 
     /// A token for a value the person may see but the AI may not, whatever its column or shape.
     pub fn token_for(&mut self, column: &str, v: &Value) -> String {
-        let kind = self.column_rule(column).or_else(|| value_kind(v)).unwrap_or("value");
+        let kind = self
+            .column_rule(column)
+            .or_else(|| value_kind(v))
+            .unwrap_or("value");
         self.token(kind, v)
     }
 
@@ -315,7 +386,11 @@ impl Masker {
     fn column_rule(&self, column: &str) -> Option<&'static str> {
         let name = column.trim().to_lowercase();
         let kind = column_kind(column).or_else(|| self.aliases.get(&name).copied());
-        if self.never_send.contains(&name) { Some(kind.unwrap_or("value")) } else { kind }
+        if self.never_send.contains(&name) {
+            Some(kind.unwrap_or("value"))
+        } else {
+            kind
+        }
     }
 
     fn token(&mut self, kind: &'static str, v: &Value) -> String {
@@ -345,7 +420,12 @@ impl Masker {
                 })?;
                 match &mut state {
                     State::Code => out.push_str(&literal(value, kind)?),
-                    State::Str { quote, escapes, start, national } => {
+                    State::Str {
+                        quote,
+                        escapes,
+                        start,
+                        national,
+                    } => {
                         let text = in_string(value, *quote, *escapes);
                         // SQL Server keeps non-ASCII text only in N'...' strings.
                         if kind == Kind::Mssql && !*national && !text.is_ascii() {
@@ -354,7 +434,11 @@ impl Masker {
                         }
                         out.push_str(&text);
                     }
-                    State::Dollar(_) => return Err(format!("Put {token} in a single-quoted string, not a $$ string.")),
+                    State::Dollar(_) => {
+                        return Err(format!(
+                            "Put {token} in a single-quoted string, not a $$ string."
+                        ));
+                    }
                     State::Comment(_) => out.push_str(token),
                 }
                 i += token.len();
@@ -371,14 +455,29 @@ impl Masker {
                         let before: Vec<char> = sql[..i].chars().rev().take(2).collect();
                         let prefixed = |p: char| {
                             before.first().is_some_and(|b| b.eq_ignore_ascii_case(&p))
-                                && before.get(1).is_none_or(|b| !(b.is_alphanumeric() || *b == '_' || *b == '$'))
+                                && before.get(1).is_none_or(|b| {
+                                    !(b.is_alphanumeric() || *b == '_' || *b == '$')
+                                })
                         };
                         // Postgres E'...' strings always take backslash escapes.
-                        let escapes = (postgres && prefixed('e')) || ((mysql || postgres) && backslash);
+                        let escapes =
+                            (postgres && prefixed('e')) || ((mysql || postgres) && backslash);
                         let national = kind == Kind::Mssql && prefixed('n');
-                        next_state = Some(State::Str { quote: '\'', escapes, start: out.len(), national });
+                        next_state = Some(State::Str {
+                            quote: '\'',
+                            escapes,
+                            start: out.len(),
+                            national,
+                        });
                     }
-                    '"' if mysql => next_state = Some(State::Str { quote: '"', escapes: backslash, start: out.len(), national: false }),
+                    '"' if mysql => {
+                        next_state = Some(State::Str {
+                            quote: '"',
+                            escapes: backslash,
+                            start: out.len(),
+                            national: false,
+                        })
+                    }
                     '"' => len += quoted_name(&rest[1..], '"')?,
                     '`' if mysql || kind == Kind::Sqlite => len += quoted_name(&rest[1..], '`')?,
                     '[' if !mysql && !postgres => len += quoted_name(&rest[1..], ']')?,
@@ -388,12 +487,17 @@ impl Masker {
                             next_state = Some(State::Dollar(tag.to_string()));
                         }
                     }
-                    '-' if next == Some('-') && (!mysql || rest[2..].chars().next().is_none_or(char::is_whitespace)) => {
+                    '-' if next == Some('-')
+                        && (!mysql || rest[2..].chars().next().is_none_or(char::is_whitespace)) =>
+                    {
                         next_state = Some(State::Comment("\n"));
                     }
                     '#' if mysql => next_state = Some(State::Comment("\n")),
                     // MySQL runs the inside of `/*! ... */` as SQL, so tokens there are code.
-                    '/' if next == Some('*') && !(mysql && (rest[2..].starts_with('!') || rest[2..].starts_with("M!"))) => {
+                    '/' if next == Some('*')
+                        && !(mysql
+                            && (rest[2..].starts_with('!') || rest[2..].starts_with("M!"))) =>
+                    {
                         len = 2;
                         next_state = Some(State::Comment("*/"));
                     }
@@ -435,7 +539,12 @@ enum State {
     Code,
     /// Inside a string literal closed by `quote`. `escapes`: `\` escapes the next character;
     /// `start`: where its opening quote is in the output; `national`: SQL Server N'...'.
-    Str { quote: char, escapes: bool, start: usize, national: bool },
+    Str {
+        quote: char,
+        escapes: bool,
+        start: usize,
+        national: bool,
+    },
     /// Postgres $tag$ ... $tag$.
     Dollar(String),
     /// A comment, until this text.
@@ -454,7 +563,9 @@ fn quoted_name(body: &str, close: char) -> Result<usize, String> {
         }
     };
     match body[..end].find(OPEN).and_then(|p| token_at(&body[p..])) {
-        Some(t) => Err(format!("{t} is a value, not a name; put it in single quotes.")),
+        Some(t) => Err(format!(
+            "{t} is a value, not a name; put it in single quotes."
+        )),
         None => Ok(end),
     }
 }
@@ -553,33 +664,127 @@ fn name_words(name: &str) -> Vec<String> {
 
 /// Words before `name` that make it a thing's name rather than a person's: `product_name`.
 const THING_NAMES: &[&str] = &[
-    "table", "column", "schema", "product", "category", "file", "host", "db", "database", "event", "status", "role",
-    "plan", "type", "country", "city", "state", "company", "org", "organization", "organisation", "tenant", "team",
-    "brand", "app", "service", "job", "feature", "department", "dept", "device", "browser", "os", "model", "item",
-    "sku", "field", "key", "index", "constraint", "view", "project", "group", "region", "workspace", "account",
-    "clinic", "facility", "site", "store", "shop", "domain", "metric", "tag", "label", "permission", "queue",
-    "topic", "channel", "bucket", "test", "step", "stage", "task", "drug", "medication", "procedure", "diagnosis",
+    "table",
+    "column",
+    "schema",
+    "product",
+    "category",
+    "file",
+    "host",
+    "db",
+    "database",
+    "event",
+    "status",
+    "role",
+    "plan",
+    "type",
+    "country",
+    "city",
+    "state",
+    "company",
+    "org",
+    "organization",
+    "organisation",
+    "tenant",
+    "team",
+    "brand",
+    "app",
+    "service",
+    "job",
+    "feature",
+    "department",
+    "dept",
+    "device",
+    "browser",
+    "os",
+    "model",
+    "item",
+    "sku",
+    "field",
+    "key",
+    "index",
+    "constraint",
+    "view",
+    "project",
+    "group",
+    "region",
+    "workspace",
+    "account",
+    "clinic",
+    "facility",
+    "site",
+    "store",
+    "shop",
+    "domain",
+    "metric",
+    "tag",
+    "label",
+    "permission",
+    "queue",
+    "topic",
+    "channel",
+    "bucket",
+    "test",
+    "step",
+    "stage",
+    "task",
+    "drug",
+    "medication",
+    "procedure",
+    "diagnosis",
 ];
 
 /// The kind of personal data a column holds, judged by its name.
 pub fn column_kind(name: &str) -> Option<&'static str> {
     let words = name_words(name);
     let joined = words.concat();
-    let is = |w: &str, list: &[&str]| list.contains(&w) || w.strip_suffix('s').is_some_and(|s| list.contains(&s));
+    let is = |w: &str, list: &[&str]| {
+        list.contains(&w) || w.strip_suffix('s').is_some_and(|s| list.contains(&s))
+    };
     let has = |list: &[&str]| words.iter().any(|w| is(w, list));
     if joined.contains("email") || has(&["mail"]) {
         Some("email")
-    } else if joined.contains("phone") || has(&["mobile", "cell", "tel", "telephone", "fax", "msisdn", "whatsapp"]) {
+    } else if joined.contains("phone")
+        || has(&[
+            "mobile",
+            "cell",
+            "tel",
+            "telephone",
+            "fax",
+            "msisdn",
+            "whatsapp",
+        ])
+    {
         Some("phone")
     } else if joined.contains("ipaddress") || has(&["ip", "ipv4", "ipv6"]) {
         Some("ip")
-    } else if ["password", "passwd", "passphrase", "apikey", "secret", "credential"].iter().any(|w| joined.contains(w))
-        || has(&["pwd", "token", "hash", "salt", "otp", "totp", "session", "cvv", "cvc", "pin"])
-        || (has(&["api", "private", "access", "refresh", "signing", "encryption"]) && has(&["key"]))
+    } else if [
+        "password",
+        "passwd",
+        "passphrase",
+        "apikey",
+        "secret",
+        "credential",
+    ]
+    .iter()
+    .any(|w| joined.contains(w))
+        || has(&[
+            "pwd", "token", "hash", "salt", "otp", "totp", "session", "cvv", "cvc", "pin",
+        ])
+        || (has(&[
+            "api",
+            "private",
+            "access",
+            "refresh",
+            "signing",
+            "encryption",
+        ]) && has(&["key"]))
     {
         Some("secret")
     } else if joined.contains("socialsecurity")
-        || has(&["ssn", "sin", "nin", "passport", "license", "licence", "nhs", "aadhaar", "pan"])
+        || has(&[
+            "ssn", "sin", "nin", "passport", "license", "licence", "nhs", "aadhaar", "pan",
+        ])
         || (has(&["national", "tax", "government", "gov"]) && has(&["id", "number", "no", "num"]))
     {
         Some("ssn")
@@ -595,16 +800,49 @@ pub fn column_kind(name: &str) -> Option<&'static str> {
         Some("mrn")
     } else if has(&["patient"]) {
         Some("patient")
-    } else if joined.contains("address") || has(&["addr", "street", "zip", "zipcode", "postcode", "postal", "geo", "latitude", "longitude", "lat", "lng", "lon"]) {
+    } else if joined.contains("address")
+        || has(&[
+            "addr",
+            "street",
+            "zip",
+            "zipcode",
+            "postcode",
+            "postal",
+            "geo",
+            "latitude",
+            "longitude",
+            "lat",
+            "lng",
+            "lon",
+        ])
+    {
         Some("address")
     } else if has(&[
-        "firstname", "lastname", "fullname", "surname", "forename", "nickname", "username", "displayname",
-        "maidenname", "handle", "signature", "initials",
+        "firstname",
+        "lastname",
+        "fullname",
+        "surname",
+        "forename",
+        "nickname",
+        "username",
+        "displayname",
+        "maidenname",
+        "handle",
+        "signature",
+        "initials",
     ]) || (has(&["name"]) && !words.iter().any(|w| is(w, THING_NAMES)))
         || (has(&["login"]) && (words.len() == 1 || has(&["name", "id"])))
     {
         Some("name")
-    } else if has(&["note", "comment", "remark", "message", "memo", "narrative", "transcript"]) {
+    } else if has(&[
+        "note",
+        "comment",
+        "remark",
+        "message",
+        "memo",
+        "narrative",
+        "transcript",
+    ]) {
         Some("text")
     } else {
         None
@@ -638,9 +876,21 @@ fn text_kind(s: &str) -> Option<&'static str> {
         return Some(kind);
     }
     // Free text: any word, or any run of digits and separators, that looks personal.
-    let words = t.split_whitespace().map(|w| w.trim_matches(|c: char| !(c.is_alphanumeric() || c == '+')));
-    let runs = t.split(|c: char| !(c.is_ascii_digit() || " +-().".contains(c))).map(|r| r.trim().trim_end_matches('.'));
-    if words.chain(runs).filter(|w| !w.is_empty()).any(|w| word_kind(w).is_some()) { Some("text") } else { None }
+    let words = t
+        .split_whitespace()
+        .map(|w| w.trim_matches(|c: char| !(c.is_alphanumeric() || c == '+')));
+    let runs = t
+        .split(|c: char| !(c.is_ascii_digit() || " +-().".contains(c)))
+        .map(|r| r.trim().trim_end_matches('.'));
+    if words
+        .chain(runs)
+        .filter(|w| !w.is_empty())
+        .any(|w| word_kind(w).is_some())
+    {
+        Some("text")
+    } else {
+        None
+    }
 }
 
 /// The kind of a single value with no spaces around it.
@@ -663,24 +913,34 @@ fn word_kind(s: &str) -> Option<&'static str> {
 }
 
 fn is_email(s: &str) -> bool {
-    let Some((local, domain)) = s.split_once('@') else { return false };
+    let Some((local, domain)) = s.split_once('@') else {
+        return false;
+    };
     let ok = |c: char| c.is_alphanumeric() || "._%+-'".contains(c);
     !local.is_empty()
         && local.chars().all(ok)
         && domain.contains('.')
-        && domain.split('.').all(|p| !p.is_empty() && p.chars().all(|c| c.is_alphanumeric() || c == '-'))
+        && domain
+            .split('.')
+            .all(|p| !p.is_empty() && p.chars().all(|c| c.is_alphanumeric() || c == '-'))
 }
 
 /// `123-45-6789`.
 fn is_ssn(s: &str) -> bool {
     let parts: Vec<&str> = s.split('-').collect();
     parts.len() == 3
-        && parts.iter().zip([3, 2, 4]).all(|(p, n)| p.len() == n && p.bytes().all(|b| b.is_ascii_digit()))
+        && parts
+            .iter()
+            .zip([3, 2, 4])
+            .all(|(p, n)| p.len() == n && p.bytes().all(|b| b.is_ascii_digit()))
 }
 
 /// 13 to 19 digits, optionally grouped by spaces or dashes, passing the Luhn check.
 fn is_card(s: &str) -> bool {
-    if !s.chars().all(|c| c.is_ascii_digit() || c == ' ' || c == '-') {
+    if !s
+        .chars()
+        .all(|c| c.is_ascii_digit() || c == ' ' || c == '-')
+    {
         return false;
     }
     let digits: Vec<u32> = s.chars().filter_map(|c| c.to_digit(10)).collect();
@@ -691,7 +951,13 @@ fn is_card(s: &str) -> bool {
         .iter()
         .rev()
         .enumerate()
-        .map(|(i, &d)| if i % 2 == 1 { if d * 2 > 9 { d * 2 - 9 } else { d * 2 } } else { d })
+        .map(|(i, &d)| {
+            if i % 2 == 1 {
+                if d * 2 > 9 { d * 2 - 9 } else { d * 2 }
+            } else {
+                d
+            }
+        })
         .sum();
     sum.is_multiple_of(10)
 }
@@ -699,7 +965,12 @@ fn is_card(s: &str) -> bool {
 /// 10 to 15 digits, or 7 or more after a leading `+`, with phone separators. Not dates,
 /// and not decimal numbers.
 fn is_phone(s: &str) -> bool {
-    if !s.chars().all(|c| c.is_ascii_digit() || " +-().".contains(c)) || s.starts_with('-') || s.ends_with('-') {
+    if !s
+        .chars()
+        .all(|c| c.is_ascii_digit() || " +-().".contains(c))
+        || s.starts_with('-')
+        || s.ends_with('-')
+    {
         return false;
     }
     if s.contains('.') && s.parse::<f64>().is_ok() {
@@ -717,7 +988,13 @@ fn has_date(s: &str) -> bool {
     let b = s.as_bytes();
     let shape = |at: usize, pattern: &[u8]| {
         b.len() >= at + pattern.len()
-            && pattern.iter().enumerate().all(|(k, p)| if *p == b'd' { b[at + k].is_ascii_digit() } else { b[at + k] == *p })
+            && pattern.iter().enumerate().all(|(k, p)| {
+                if *p == b'd' {
+                    b[at + k].is_ascii_digit()
+                } else {
+                    b[at + k] == *p
+                }
+            })
     };
     (0..b.len()).any(|i| shape(i, b"dddd-dd-dd") || shape(i, b"dd-dd-dddd"))
 }
@@ -726,7 +1003,8 @@ fn has_date(s: &str) -> bool {
 /// no spaces, letters and at least four digits. Not timestamps.
 fn is_long_id(s: &str) -> bool {
     s.chars().count() >= 16
-        && s.chars().all(|c| c.is_ascii_alphanumeric() || "-_.+/=:".contains(c))
+        && s.chars()
+            .all(|c| c.is_ascii_alphanumeric() || "-_.+/=:".contains(c))
         && s.chars().any(|c| c.is_ascii_alphabetic())
         && s.chars().filter(char::is_ascii_digit).count() >= 4
         && !is_date(s)
@@ -736,7 +1014,13 @@ fn is_long_id(s: &str) -> bool {
 fn is_date(s: &str) -> bool {
     let b = s.as_bytes();
     b.len() >= 10
-        && b[..10].iter().enumerate().all(|(i, c)| if i == 4 || i == 7 { *c == b'-' } else { c.is_ascii_digit() })
+        && b[..10].iter().enumerate().all(|(i, c)| {
+            if i == 4 || i == 7 {
+                *c == b'-'
+            } else {
+                c.is_ascii_digit()
+            }
+        })
 }
 
 fn as_number(v: &Value) -> Option<f64> {
@@ -778,11 +1062,18 @@ fn column_type(values: &[&Value]) -> &'static str {
 fn min_max(values: &[&Value], kind: &str) -> (Option<Value>, Option<Value>) {
     let mut sorted: Vec<&Value> = values.to_vec();
     if kind == "number" {
-        sorted.sort_by(|a, b| as_number(a).partial_cmp(&as_number(b)).unwrap_or(std::cmp::Ordering::Equal));
+        sorted.sort_by(|a, b| {
+            as_number(a)
+                .partial_cmp(&as_number(b))
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
     } else {
         sorted.sort_by_key(|v| v.as_str().unwrap_or(""));
     }
-    (sorted.first().map(|v| (*v).clone()), sorted.last().map(|v| (*v).clone()))
+    (
+        sorted.first().map(|v| (*v).clone()),
+        sorted.last().map(|v| (*v).clone()),
+    )
 }
 
 #[cfg(test)]
@@ -791,7 +1082,14 @@ mod tests {
     use serde_json::json;
 
     fn result(columns: &[&str], rows: Vec<Vec<Value>>) -> QueryResult {
-        QueryResult { columns: columns.iter().map(|c| c.to_string()).collect(), rows, rows_affected: None, truncated: false, elapsed_ms: 1, withheld: vec![] }
+        QueryResult {
+            columns: columns.iter().map(|c| c.to_string()).collect(),
+            rows,
+            rows_affected: None,
+            truncated: false,
+            elapsed_ms: 1,
+            withheld: vec![],
+        }
     }
 
     /// Planted personal data, each under a column name that gives it away and again under
@@ -825,7 +1123,10 @@ mod tests {
             ("ref", json!("4111-1111-1111-1111")),
             ("ref2", json!(4012888888881881_u64)),
             ("x", json!("078-05-1120")),
-            ("details", json!("Call me on +1 555 014 9876 or mail sam@example.net")),
+            (
+                "details",
+                json!("Call me on +1 555 014 9876 or mail sam@example.net"),
+            ),
             ("details2", json!("card 5500 0000 0000 0004 expired")),
             ("ext_id", json!("550e8400-e29b-41d4-a716-446655440000")),
             ("meta", json!({ "name": "Ines Duarte" })),
@@ -841,7 +1142,18 @@ mod tests {
         row.extend(shaped.iter().map(|(_, v)| v.clone()));
         let mut secrets: Vec<String> = row.iter().map(plain).collect();
         // Parts that would identify someone on their own.
-        secrets.extend(["Dana", "Reyes", "Maya", "Ines Duarte", "sam@example.net", "555 014 9876", "5500 0000"].map(String::from));
+        secrets.extend(
+            [
+                "Dana",
+                "Reyes",
+                "Maya",
+                "Ines Duarte",
+                "sam@example.net",
+                "555 014 9876",
+                "5500 0000",
+            ]
+            .map(String::from),
+        );
         (result(&columns, vec![row.clone(), row]), secrets)
     }
 
@@ -851,18 +1163,37 @@ mod tests {
         let mut m = Masker::new(Vec::<String>::new());
         let sent = serde_json::to_string(&m.mask(&r, 20)).unwrap();
         for s in &secrets {
-            assert!(!sent.contains(s.as_str()), "{s:?} reached the payload: {sent}");
+            assert!(
+                !sent.contains(s.as_str()),
+                "{s:?} reached the payload: {sent}"
+            );
         }
         let summary = serde_json::to_string(&m.summarize(&r)).unwrap();
         for s in &secrets {
-            assert!(!summary.contains(s.as_str()), "{s:?} reached the summary: {summary}");
+            assert!(
+                !summary.contains(s.as_str()),
+                "{s:?} reached the summary: {summary}"
+            );
         }
     }
 
     #[test]
     fn ordinary_values_are_kept() {
         let r = result(
-            &["id", "status", "country", "city", "total", "amount", "ordered_at", "product_name", "n", "last_login_at", "is_active", "category"],
+            &[
+                "id",
+                "status",
+                "country",
+                "city",
+                "total",
+                "amount",
+                "ordered_at",
+                "product_name",
+                "n",
+                "last_login_at",
+                "is_active",
+                "category",
+            ],
             vec![vec![
                 json!(42),
                 json!("paid"),
@@ -886,11 +1217,30 @@ mod tests {
     #[test]
     fn tokens_are_stable_for_the_run() {
         let mut m = Masker::new(Vec::<String>::new());
-        let r = result(&["email"], vec![vec![json!("a@example.com")], vec![json!("b@example.com")], vec![json!("a@example.com")], vec![Value::Null]]);
+        let r = result(
+            &["email"],
+            vec![
+                vec![json!("a@example.com")],
+                vec![json!("b@example.com")],
+                vec![json!("a@example.com")],
+                vec![Value::Null],
+            ],
+        );
         let out = m.mask(&r, 20);
-        assert_eq!(out.rows, [[json!("‹email-1›")], [json!("‹email-2›")], [json!("‹email-1›")], [Value::Null]]);
+        assert_eq!(
+            out.rows,
+            [
+                [json!("‹email-1›")],
+                [json!("‹email-2›")],
+                [json!("‹email-1›")],
+                [Value::Null]
+            ]
+        );
         // The same value in a later step, under another column, keeps its token.
-        let again = m.mask(&result(&["created_by"], vec![vec![json!("b@example.com")]]), 20);
+        let again = m.mask(
+            &result(&["created_by"], vec![vec![json!("b@example.com")]]),
+            20,
+        );
         assert_eq!(again.rows, [[json!("‹email-2›")]]);
         assert_eq!(out.masked_columns, ["email"]);
     }
@@ -905,9 +1255,15 @@ mod tests {
     #[test]
     fn never_send_columns_are_masked() {
         let mut m = Masker::new(["patients.diagnosis", "Severity"]);
-        let r = result(&["diagnosis", "severity", "visits"], vec![vec![json!("asthma"), json!(3), json!(2)]]);
+        let r = result(
+            &["diagnosis", "severity", "visits"],
+            vec![vec![json!("asthma"), json!(3), json!(2)]],
+        );
         let out = m.mask(&r, 20);
-        assert_eq!(out.rows, [[json!("‹value-1›"), json!("‹value-2›"), json!(2)]]);
+        assert_eq!(
+            out.rows,
+            [[json!("‹value-1›"), json!("‹value-2›"), json!(2)]]
+        );
         let summary = m.summarize(&r);
         assert!(summary.columns[1].min.is_none() && summary.columns[2].min == Some(json!(2)));
     }
@@ -915,22 +1271,89 @@ mod tests {
     #[test]
     fn column_names_that_look_personal() {
         for c in [
-            "email", "EmailAddress", "contact_email", "phone", "mobile_no", "Telephone", "first_name", "LastName",
-            "full_name", "name", "patient_name", "username", "home_address", "street", "zip_code", "postcode",
-            "date_of_birth", "DOB", "birthDate", "ssn", "SocialSecurityNumber", "national_id", "passport_no", "mrn",
-            "medical_record_number", "patient_id", "PatientId", "api_token", "password", "password_hash",
-            "reset_token", "secret", "api_key", "ip_address", "notes", "comment", "card_number", "iban",
-            "insurance_member_id", "latitude", "login", "login_name",
+            "email",
+            "EmailAddress",
+            "contact_email",
+            "phone",
+            "mobile_no",
+            "Telephone",
+            "first_name",
+            "LastName",
+            "full_name",
+            "name",
+            "patient_name",
+            "username",
+            "home_address",
+            "street",
+            "zip_code",
+            "postcode",
+            "date_of_birth",
+            "DOB",
+            "birthDate",
+            "ssn",
+            "SocialSecurityNumber",
+            "national_id",
+            "passport_no",
+            "mrn",
+            "medical_record_number",
+            "patient_id",
+            "PatientId",
+            "api_token",
+            "password",
+            "password_hash",
+            "reset_token",
+            "secret",
+            "api_key",
+            "ip_address",
+            "notes",
+            "comment",
+            "card_number",
+            "iban",
+            "insurance_member_id",
+            "latitude",
+            "login",
+            "login_name",
         ] {
             assert!(column_kind(c).is_some(), "{c} should be masked");
         }
         for c in [
-            "id", "status", "country", "city", "state", "created_at", "last_login_at", "first_seen", "product_name",
-            "category_name", "tenant_name", "role", "amount", "total", "quantity", "ordered_at", "plan", "tenant_id",
-            "user_id", "rating", "body", "kind", "action", "domain_name", "is_active", "membership_count",
-            "description", "code", "label", "statuses", "login_count",
+            "id",
+            "status",
+            "country",
+            "city",
+            "state",
+            "created_at",
+            "last_login_at",
+            "first_seen",
+            "product_name",
+            "category_name",
+            "tenant_name",
+            "role",
+            "amount",
+            "total",
+            "quantity",
+            "ordered_at",
+            "plan",
+            "tenant_id",
+            "user_id",
+            "rating",
+            "body",
+            "kind",
+            "action",
+            "domain_name",
+            "is_active",
+            "membership_count",
+            "description",
+            "code",
+            "label",
+            "statuses",
+            "login_count",
         ] {
-            assert!(column_kind(c).is_none(), "{c} should not be masked ({:?})", column_kind(c));
+            assert!(
+                column_kind(c).is_none(),
+                "{c} should not be masked ({:?})",
+                column_kind(c)
+            );
         }
         assert_eq!(column_kind("EmailAddress"), Some("email"));
         assert_eq!(column_kind("ip_address"), Some("ip"));
@@ -949,22 +1372,43 @@ mod tests {
             ("+353 1 234 5678", "phone"),
             ("10.0.0.12", "ip"),
             ("550e8400-e29b-41d4-a716-446655440000", "id"),
-            ("eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.abc123", "id"),
+            (
+                "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.abc123",
+                "id",
+            ),
             ("met at 9am, email jo@example.com", "text"),
         ];
         for (v, kind) in yes {
             assert_eq!(value_kind(&json!(v)), Some(kind), "{v}");
         }
         for v in [
-            "paid", "2026-10-23", "2026-10-23 11:32:00", "2026-10-23T11:32:00.000+02:00", "1234567.89", "19.99",
-            "2019-2024", "4111111111111112", "Smart Lamp 3", "11:32:00", "orders in 2026: 3000", "-12.5", "0.000001",
-            "ORD-1042", "Great value, would buy again.",
+            "paid",
+            "2026-10-23",
+            "2026-10-23 11:32:00",
+            "2026-10-23T11:32:00.000+02:00",
+            "1234567.89",
+            "19.99",
+            "2019-2024",
+            "4111111111111112",
+            "Smart Lamp 3",
+            "11:32:00",
+            "orders in 2026: 3000",
+            "-12.5",
+            "0.000001",
+            "ORD-1042",
+            "Great value, would buy again.",
         ] {
             assert_eq!(value_kind(&json!(v)), None, "{v}");
         }
         assert_eq!(value_kind(&json!(4111111111111111_u64)), Some("card"));
         assert_eq!(value_kind(&json!(15551234567_u64)), Some("phone"));
-        for v in [json!(42), json!(2026), json!(19.99), json!(true), json!(3000000)] {
+        for v in [
+            json!(42),
+            json!(2026),
+            json!(19.99),
+            json!(true),
+            json!(3000000),
+        ] {
             assert_eq!(value_kind(&v), None, "{v}");
         }
     }
@@ -974,9 +1418,30 @@ mod tests {
         let r = result(
             &["country", "day", "orders", "revenue", "email", "ok"],
             vec![
-                vec![json!("UK"), json!("2026-10-20"), json!(12), json!("120.50"), json!("a@example.com"), json!(true)],
-                vec![json!("India"), json!("2026-10-21"), json!(30), json!("99.00"), json!("b@example.com"), json!(false)],
-                vec![json!("UK"), json!("2026-10-22"), Value::Null, json!("1000.25"), json!("a@example.com"), json!(true)],
+                vec![
+                    json!("UK"),
+                    json!("2026-10-20"),
+                    json!(12),
+                    json!("120.50"),
+                    json!("a@example.com"),
+                    json!(true),
+                ],
+                vec![
+                    json!("India"),
+                    json!("2026-10-21"),
+                    json!(30),
+                    json!("99.00"),
+                    json!("b@example.com"),
+                    json!(false),
+                ],
+                vec![
+                    json!("UK"),
+                    json!("2026-10-22"),
+                    Value::Null,
+                    json!("1000.25"),
+                    json!("a@example.com"),
+                    json!(true),
+                ],
             ],
         );
         let s = Masker::new(Vec::<String>::new()).summarize(&r);
@@ -985,73 +1450,169 @@ mod tests {
             assert!(!text.contains(hidden), "{hidden} in {text}");
         }
         let col = |n: &str| s.columns.iter().find(|c| c.name == n).unwrap();
-        assert_eq!((s.row_count, col("country").kind, col("country").distinct), (3, "text", 2));
-        assert_eq!((col("day").kind, col("day").min.clone(), col("day").max.clone()), ("date", Some(json!("2026-10-20")), Some(json!("2026-10-22"))));
-        assert_eq!((col("orders").nulls, col("orders").min.clone(), col("orders").max.clone()), (1, Some(json!(12)), Some(json!(30))));
-        assert_eq!((col("revenue").min.clone(), col("revenue").max.clone()), (Some(json!("99.00")), Some(json!("1000.25"))));
-        assert_eq!((col("email").kind, col("email").distinct, col("email").min.clone()), ("text", 2, None));
+        assert_eq!(
+            (s.row_count, col("country").kind, col("country").distinct),
+            (3, "text", 2)
+        );
+        assert_eq!(
+            (
+                col("day").kind,
+                col("day").min.clone(),
+                col("day").max.clone()
+            ),
+            ("date", Some(json!("2026-10-20")), Some(json!("2026-10-22")))
+        );
+        assert_eq!(
+            (
+                col("orders").nulls,
+                col("orders").min.clone(),
+                col("orders").max.clone()
+            ),
+            (1, Some(json!(12)), Some(json!(30)))
+        );
+        assert_eq!(
+            (col("revenue").min.clone(), col("revenue").max.clone()),
+            (Some(json!("99.00")), Some(json!("1000.25")))
+        );
+        assert_eq!(
+            (
+                col("email").kind,
+                col("email").distinct,
+                col("email").min.clone()
+            ),
+            ("text", 2, None)
+        );
         assert_eq!(col("ok").kind, "boolean");
-        assert!(text.contains("\"type\":\"number\"") && text.contains("rowCount"), "{text}");
+        assert!(
+            text.contains("\"type\":\"number\"") && text.contains("rowCount"),
+            "{text}"
+        );
     }
 
     #[test]
     fn birth_dates_get_no_min_or_max() {
-        let r = result(&["date_of_birth", "n"], vec![vec![json!("1984-03-09"), json!(1)]]);
+        let r = result(
+            &["date_of_birth", "n"],
+            vec![vec![json!("1984-03-09"), json!(1)]],
+        );
         let s = Masker::new(Vec::<String>::new()).summarize(&r);
-        assert_eq!((s.columns[0].kind, s.columns[0].min.clone()), ("date", None));
+        assert_eq!(
+            (s.columns[0].kind, s.columns[0].min.clone()),
+            ("date", None)
+        );
     }
 
     fn masker_with(values: &[Value]) -> (Masker, Vec<String>) {
         let mut m = Masker::new(["v"]);
         let rows = values.iter().map(|v| vec![v.clone()]).collect();
         let out = m.mask(&result(&["v"], rows), 100);
-        let tokens = out.rows.into_iter().map(|r| r[0].as_str().unwrap().to_string()).collect();
+        let tokens = out
+            .rows
+            .into_iter()
+            .map(|r| r[0].as_str().unwrap().to_string())
+            .collect();
         (m, tokens)
     }
 
     #[test]
     fn tokens_become_dialect_literals() {
         let (m, t) = masker_with(&[json!("O'Brien"), json!(42), json!("a\\b"), json!("Zoë")]);
-        let sql = format!("SELECT * FROM t WHERE a = {} AND b = '{}' AND c = {} AND d LIKE '%{}%'", t[0], t[0], t[1], t[0]);
+        let sql = format!(
+            "SELECT * FROM t WHERE a = {} AND b = '{}' AND c = {} AND d LIKE '%{}%'",
+            t[0], t[0], t[1], t[0]
+        );
         assert_eq!(
             m.unmask_sql(&sql, Kind::Sqlite).unwrap(),
             "SELECT * FROM t WHERE a = 'O''Brien' AND b = 'O''Brien' AND c = 42 AND d LIKE '%O''Brien%'"
         );
-        assert_eq!(m.unmask_sql(&format!("SELECT {}", t[3]), Kind::Mssql).unwrap(), "SELECT N'Zoë'");
-        assert_eq!(m.unmask_sql(&format!("SELECT {}", t[0]), Kind::Mysql).unwrap(), "SELECT 'O''Brien'");
+        assert_eq!(
+            m.unmask_sql(&format!("SELECT {}", t[3]), Kind::Mssql)
+                .unwrap(),
+            "SELECT N'Zoë'"
+        );
+        assert_eq!(
+            m.unmask_sql(&format!("SELECT {}", t[0]), Kind::Mysql)
+                .unwrap(),
+            "SELECT 'O''Brien'"
+        );
         // Postgres: an E'' string means the same whatever standard_conforming_strings is.
-        assert_eq!(m.unmask_sql(&format!("SELECT {}", t[2]), Kind::Postgres).unwrap(), "SELECT E'a\\\\b'");
-        assert_eq!(m.unmask_sql(&format!("SELECT E'x{}'", t[2]), Kind::Postgres).unwrap(), "SELECT E'xa\\\\b'");
+        assert_eq!(
+            m.unmask_sql(&format!("SELECT {}", t[2]), Kind::Postgres)
+                .unwrap(),
+            "SELECT E'a\\\\b'"
+        );
+        assert_eq!(
+            m.unmask_sql(&format!("SELECT E'x{}'", t[2]), Kind::Postgres)
+                .unwrap(),
+            "SELECT E'xa\\\\b'"
+        );
         // MySQL's reading of `\` depends on sql_mode, so it refuses rather than guess.
-        assert_eq!(m.unmask_sql(&format!("SELECT {}", t[2]), Kind::Mysql).unwrap_err(), AMBIGUOUS);
-        assert_eq!(m.unmask_sql(&format!("SELECT '{}'", t[2]), Kind::Postgres).unwrap_err(), AMBIGUOUS);
+        assert_eq!(
+            m.unmask_sql(&format!("SELECT {}", t[2]), Kind::Mysql)
+                .unwrap_err(),
+            AMBIGUOUS
+        );
+        assert_eq!(
+            m.unmask_sql(&format!("SELECT '{}'", t[2]), Kind::Postgres)
+                .unwrap_err(),
+            AMBIGUOUS
+        );
         // A backslash elsewhere changes where strings end on some servers.
-        assert_eq!(m.unmask_sql(&format!("SELECT 'a\\' = {}", t[0]), Kind::Mysql).unwrap_err(), AMBIGUOUS);
-        assert_eq!(m.unmask_sql(&format!("SELECT 'a\\' = {}", t[0]), Kind::Sqlite).unwrap(), "SELECT 'a\\' = 'O''Brien'");
+        assert_eq!(
+            m.unmask_sql(&format!("SELECT 'a\\' = {}", t[0]), Kind::Mysql)
+                .unwrap_err(),
+            AMBIGUOUS
+        );
+        assert_eq!(
+            m.unmask_sql(&format!("SELECT 'a\\' = {}", t[0]), Kind::Sqlite)
+                .unwrap(),
+            "SELECT 'a\\' = 'O''Brien'"
+        );
         // MySQL double-quoted strings.
         let (m2, t2) = masker_with(&[json!("say \"hi\"")]);
-        assert_eq!(m2.unmask_sql(&format!("SELECT \"{}\"", t2[0]), Kind::Mysql).unwrap(), "SELECT \"say \"\"hi\"\"\"");
+        assert_eq!(
+            m2.unmask_sql(&format!("SELECT \"{}\"", t2[0]), Kind::Mysql)
+                .unwrap(),
+            "SELECT \"say \"\"hi\"\"\""
+        );
     }
 
     #[test]
     fn unmasking_refuses_what_it_cannot_place() {
         let (m, t) = masker_with(&[json!("x@example.com")]);
-        assert!(m.unmask_sql("SELECT '‹email-9›'", Kind::Sqlite).unwrap_err().contains("isn't a value SayQL masked"));
+        assert!(
+            m.unmask_sql("SELECT '‹email-9›'", Kind::Sqlite)
+                .unwrap_err()
+                .contains("isn't a value SayQL masked")
+        );
         for (sql, kind) in [
             (format!("SELECT \"{}\" FROM t", t[0]), Kind::Postgres),
             (format!("SELECT [{}] FROM t", t[0]), Kind::Mssql),
             (format!("SELECT `{}` FROM t", t[0]), Kind::Mysql),
         ] {
-            assert!(m.unmask_sql(&sql, kind).unwrap_err().contains("not a name"), "{sql}");
+            assert!(
+                m.unmask_sql(&sql, kind).unwrap_err().contains("not a name"),
+                "{sql}"
+            );
         }
-        assert!(m.unmask_sql(&format!("SELECT $${}$$", t[0]), Kind::Postgres).unwrap_err().contains("$$"));
+        assert!(
+            m.unmask_sql(&format!("SELECT $${}$$", t[0]), Kind::Postgres)
+                .unwrap_err()
+                .contains("$$")
+        );
         // Comments are left alone, and SQL without tokens is untouched.
         let c = format!("SELECT 1 -- {}\n", t[0]);
         assert_eq!(m.unmask_sql(&c, Kind::Postgres).unwrap(), c);
-        assert_eq!(m.unmask_sql("SELECT 'it''s'", Kind::Mssql).unwrap(), "SELECT 'it''s'");
+        assert_eq!(
+            m.unmask_sql("SELECT 'it''s'", Kind::Mssql).unwrap(),
+            "SELECT 'it''s'"
+        );
         // A quoted name with a doubled quote doesn't hide a token after it.
         let q = format!("SELECT \"a\"\"b\" FROM t WHERE x = {}", t[0]);
-        assert_eq!(m.unmask_sql(&q, Kind::Postgres).unwrap(), "SELECT \"a\"\"b\" FROM t WHERE x = 'x@example.com'");
+        assert_eq!(
+            m.unmask_sql(&q, Kind::Postgres).unwrap(),
+            "SELECT \"a\"\"b\" FROM t WHERE x = 'x@example.com'"
+        );
     }
 
     #[test]
@@ -1062,33 +1623,80 @@ mod tests {
             "select t.id, c.full_name creator, m.role, u.full_name, u.email from tenants t left join users c on c.id = t.created_by_user_id \
              left join memberships m on m.tenant_id = t.id left join users u on u.id = m.user_id where t.name like '%North%'",
         );
-        let r = result(&["id", "creator", "role", "full_name", "email"], vec![vec![json!(2), json!("Grace Holloway"), json!("admin"), json!("Ravi Menon"), json!("r@example.com")]]);
+        let r = result(
+            &["id", "creator", "role", "full_name", "email"],
+            vec![vec![
+                json!(2),
+                json!("Grace Holloway"),
+                json!("admin"),
+                json!("Ravi Menon"),
+                json!("r@example.com"),
+            ]],
+        );
         let out = serde_json::to_string(&m.mask(&r, 20)).unwrap();
-        assert!(!out.contains("Grace Holloway") && !out.contains("Ravi Menon") && out.contains("admin"), "{out}");
+        assert!(
+            !out.contains("Grace Holloway") && !out.contains("Ravi Menon") && out.contains("admin"),
+            "{out}"
+        );
         for (sql, col) in [
-            ("SELECT upper(first_name) || ' ' || last_name AS who FROM patients", "who"),
-            ("SELECT \"u\".\"email\" AS \"Contact\" FROM users u", "contact"),
-            ("WITH x AS (SELECT phone AS p FROM users) SELECT p AS reach FROM x", "reach"),
+            (
+                "SELECT upper(first_name) || ' ' || last_name AS who FROM patients",
+                "who",
+            ),
+            (
+                "SELECT \"u\".\"email\" AS \"Contact\" FROM users u",
+                "contact",
+            ),
+            (
+                "WITH x AS (SELECT phone AS p FROM users) SELECT p AS reach FROM x",
+                "reach",
+            ),
             ("SELECT n FROM (SELECT notes n FROM patients) s", "n"),
-            ("SELECT CASE WHEN id > 1 THEN full_name ELSE 'x' END AS label FROM users", "label"),
+            (
+                "SELECT CASE WHEN id > 1 THEN full_name ELSE 'x' END AS label FROM users",
+                "label",
+            ),
         ] {
             m.learn_aliases(sql);
             assert!(m.is_personal_column(col), "{sql}: {col} should be masked");
         }
-        m.learn_aliases("SELECT COUNT(email) AS n, COUNT(DISTINCT phone) people, status s FROM users");
-        assert!(!m.is_personal_column("n") && !m.is_personal_column("people") && !m.is_personal_column("s"));
+        m.learn_aliases(
+            "SELECT COUNT(email) AS n, COUNT(DISTINCT phone) people, status s FROM users",
+        );
+        assert!(
+            !m.is_personal_column("n")
+                && !m.is_personal_column("people")
+                && !m.is_personal_column("s")
+        );
         m.learn_aliases("SELECT COALESCE(SUM(CASE WHEN first_name = 'x' THEN 1 END), 0) AS a1, (SELECT COUNT(*) FROM users WHERE full_name LIKE 'A%') a2, MAX(full_name) AS top FROM users");
-        assert!(!m.is_personal_column("a1") && !m.is_personal_column("a2") && m.is_personal_column("top"));
+        assert!(
+            !m.is_personal_column("a1")
+                && !m.is_personal_column("a2")
+                && m.is_personal_column("top")
+        );
         // Numbers under a name-like column name are counts, not names; identifiers stay masked.
         let r = result(
             &["max_per_name", "distinct_names", "first_name", "phone"],
-            vec![vec![json!(3), json!(810), json!("Dana"), json!(5550142233_u64)]],
+            vec![vec![
+                json!(3),
+                json!(810),
+                json!("Dana"),
+                json!(5550142233_u64),
+            ]],
         );
         let out = m.mask(&r, 20);
         assert_eq!(out.rows[0][..2], [json!(3), json!(810)]);
-        assert!(out.rows[0][2].as_str().unwrap().starts_with('‹') && out.rows[0][3].as_str().unwrap().starts_with('‹'), "{:?}", out.rows);
+        assert!(
+            out.rows[0][2].as_str().unwrap().starts_with('‹')
+                && out.rows[0][3].as_str().unwrap().starts_with('‹'),
+            "{:?}",
+            out.rows
+        );
         let s = m.summarize(&r);
-        assert_eq!((s.columns[0].min.clone(), s.columns[1].max.clone()), (Some(json!(3)), Some(json!(810))));
+        assert_eq!(
+            (s.columns[0].min.clone(), s.columns[1].max.clone()),
+            (Some(json!(3)), Some(json!(810)))
+        );
         // Each query starts fresh.
         m.learn_aliases("SELECT 1 AS who");
         assert!(!m.is_personal_column("who"));
@@ -1098,18 +1706,33 @@ mod tests {
     fn values_are_masked_again_in_text() {
         let (mut m, t) = masker_with(&[json!("dana@example.org")]);
         let msg = "duplicate key: email=(dana@example.org) for ab";
-        assert_eq!(m.remask_text(msg), format!("duplicate key: email=({}) for ab", t[0]));
+        assert_eq!(
+            m.remask_text(msg),
+            format!("duplicate key: email=({}) for ab", t[0])
+        );
         assert_eq!(m.mask_value("phone", &json!("x")), json!("‹phone-1›"));
         assert_eq!(m.mask_value("total", &json!(3)), json!(3));
         let never = Masker::new(["patients.email"]);
-        assert_eq!(never.names_never_send("SELECT COUNT(Email) FROM p").as_deref(), Some("Email"));
-        assert!(never.names_never_send("SELECT email_verified FROM p").is_none());
+        assert_eq!(
+            never
+                .names_never_send("SELECT COUNT(Email) FROM p")
+                .as_deref(),
+            Some("Email")
+        );
+        assert!(
+            never
+                .names_never_send("SELECT email_verified FROM p")
+                .is_none()
+        );
     }
 
     #[test]
     fn text_gets_real_values_back() {
         let (m, t) = masker_with(&[json!("Dana Reyes")]);
-        assert_eq!(m.unmask_text(&format!("The owner is {}. ‹name-9› is unknown.", t[0])), "The owner is Dana Reyes. ‹name-9› is unknown.");
+        assert_eq!(
+            m.unmask_text(&format!("The owner is {}. ‹name-9› is unknown.", t[0])),
+            "The owner is Dana Reyes. ‹name-9› is unknown."
+        );
     }
 
     /// The phase 1 gate: no planted value in the tenant fixture survives masking, in any
@@ -1128,24 +1751,54 @@ mod tests {
             assert_eq!(schema.tables.len(), 9, "{:?}", pool.kind());
             let mut raw = String::new();
             for t in &schema.tables {
-                let r = db::run_query(pool, &format!("SELECT * FROM {}", t.name), true).await.unwrap();
+                let r = db::run_query(pool, &format!("SELECT * FROM {}", t.name), true)
+                    .await
+                    .unwrap();
                 raw.push_str(&serde_json::to_string(&r.rows).unwrap());
                 let sent = serde_json::to_string(&m.mask(&r, r.rows.len())).unwrap();
                 let summary = serde_json::to_string(&m.summarize(&r)).unwrap();
                 for p in &planted {
-                    assert!(!sent.contains(p.as_str()), "{:?} {}: {p:?} survived masking", pool.kind(), t.name);
-                    assert!(!summary.contains(p.as_str()), "{:?} {}: {p:?} is in the summary", pool.kind(), t.name);
+                    assert!(
+                        !sent.contains(p.as_str()),
+                        "{:?} {}: {p:?} survived masking",
+                        pool.kind(),
+                        t.name
+                    );
+                    assert!(
+                        !summary.contains(p.as_str()),
+                        "{:?} {}: {p:?} is in the summary",
+                        pool.kind(),
+                        t.name
+                    );
                 }
             }
             // Every planted value is really there, so the check above isn't empty.
             for p in &planted {
-                assert!(raw.contains(p.as_str()), "{:?}: {p:?} is not in the fixture", pool.kind());
+                assert!(
+                    raw.contains(p.as_str()),
+                    "{:?}: {p:?} is not in the fixture",
+                    pool.kind()
+                );
             }
             // Tokens lead back to the real rows: the planted owner, found again by email.
-            let r = db::run_query(pool, "SELECT email FROM users WHERE full_name = 'Priya Natarajan'", true).await.unwrap();
+            let r = db::run_query(
+                pool,
+                "SELECT email FROM users WHERE full_name = 'Priya Natarajan'",
+                true,
+            )
+            .await
+            .unwrap();
             let token = m.mask(&r, 1).rows[0][0].as_str().unwrap().to_string();
-            let sql = m.unmask_sql(&format!("SELECT full_name FROM users WHERE email = '{token}'"), pool.kind()).unwrap();
-            assert_eq!(db::run_query(pool, &sql, true).await.unwrap().rows, [[json!("Priya Natarajan")]]);
+            let sql = m
+                .unmask_sql(
+                    &format!("SELECT full_name FROM users WHERE email = '{token}'"),
+                    pool.kind(),
+                )
+                .unwrap();
+            assert_eq!(
+                db::run_query(pool, &sql, true).await.unwrap().rows,
+                [[json!("Priya Natarajan")]]
+            );
         }
         let _ = std::fs::remove_dir_all(dir);
     }
@@ -1155,7 +1808,13 @@ mod tests {
     #[tokio::test]
     async fn literals_round_trip_on_real_databases() {
         use crate::db::{self, ConnConfig};
-        let values = [json!("O'Brien"), json!("Zoë Ångström 李"), json!("a\"b`c]d"), json!("50% off_"), json!("line\nbreak")];
+        let values = [
+            json!("O'Brien"),
+            json!("Zoë Ångström 李"),
+            json!("a\"b`c]d"),
+            json!("50% off_"),
+            json!("line\nbreak"),
+        ];
         let (m, t) = masker_with(&values);
         let dir = std::env::temp_dir().join(format!("sayql-mask-{}", uuid::Uuid::new_v4()));
         let file = dir.join("demo.sqlite");
@@ -1172,16 +1831,30 @@ mod tests {
             ssl: false,
             trust_cert: false,
         };
-        let servers = [("SAYQL_TEST_PG_URL", Kind::Postgres), ("SAYQL_TEST_MYSQL_URL", Kind::Mysql), ("SAYQL_TEST_MSSQL_URL", Kind::Mssql)];
-        let targets = std::iter::once(Some((sqlite, None))).chain(servers.map(|(var, kind)| db::env_config(var, kind)));
+        let servers = [
+            ("SAYQL_TEST_PG_URL", Kind::Postgres),
+            ("SAYQL_TEST_MYSQL_URL", Kind::Mysql),
+            ("SAYQL_TEST_MSSQL_URL", Kind::Mssql),
+        ];
+        let targets = std::iter::once(Some((sqlite, None)))
+            .chain(servers.map(|(var, kind)| db::env_config(var, kind)));
         for (cfg, password) in targets.flatten() {
             let pool = db::connect(&cfg, password).await.unwrap();
             for (v, token) in values.iter().zip(&t) {
-                for sql in [format!("SELECT {token} AS v"), format!("SELECT 'x{token}' AS v")] {
+                for sql in [
+                    format!("SELECT {token} AS v"),
+                    format!("SELECT 'x{token}' AS v"),
+                ] {
                     let real = m.unmask_sql(&sql, cfg.kind).unwrap();
                     assert!(db::is_read_only(&real, cfg.kind), "{real}");
-                    let r = db::run_query(&pool, &real, true).await.unwrap_or_else(|e| panic!("{:?} {real}: {e}", cfg.kind));
-                    let want = if sql.contains("'x") { format!("x{}", plain(v)) } else { plain(v) };
+                    let r = db::run_query(&pool, &real, true)
+                        .await
+                        .unwrap_or_else(|e| panic!("{:?} {real}: {e}", cfg.kind));
+                    let want = if sql.contains("'x") {
+                        format!("x{}", plain(v))
+                    } else {
+                        plain(v)
+                    };
                     assert_eq!(r.rows[0][0], json!(want), "{:?}: {real}", cfg.kind);
                 }
             }

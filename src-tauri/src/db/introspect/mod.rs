@@ -18,7 +18,10 @@ pub async fn introspect(pool: &DbPool, kind: Kind) -> AppResult<Schema> {
         DbPool::Ms(p) => mssql::introspect(p).await?,
         DbPool::Team(t) => return t.schema().await,
     };
-    Ok(Schema { dialect: kind.dialect().to_string(), tables })
+    Ok(Schema {
+        dialect: kind.dialect().to_string(),
+        tables,
+    })
 }
 
 /// (schema, table)
@@ -35,8 +38,16 @@ fn assemble(
     let pk: HashSet<(String, String, String)> = pks.into_iter().collect();
     let mut fk_map: HashMap<Key, Vec<ForeignKey>> = HashMap::new();
     for (s, t, c, rs, rt, rc) in fks {
-        let ref_table = if qualify_refs && rs != "public" { format!("{rs}.{rt}") } else { rt };
-        fk_map.entry((s, t)).or_default().push(ForeignKey { column: c, ref_table, ref_column: rc });
+        let ref_table = if qualify_refs && rs != "public" {
+            format!("{rs}.{rt}")
+        } else {
+            rt
+        };
+        fk_map.entry((s, t)).or_default().push(ForeignKey {
+            column: c,
+            ref_table,
+            ref_column: rc,
+        });
     }
     let mut order: Vec<Key> = Vec::new();
     let mut map: HashMap<Key, Table> = HashMap::new();
@@ -63,7 +74,11 @@ fn assemble(
         table.columns.push(Column {
             primary_key: pk.contains(&(s, t, c.clone())),
             name: c,
-            data_type: if enum_values.is_some() && ty.starts_with("enum(") { "enum".into() } else { ty },
+            data_type: if enum_values.is_some() && ty.starts_with("enum(") {
+                "enum".into()
+            } else {
+                ty
+            },
             nullable,
             enum_values,
         });

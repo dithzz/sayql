@@ -71,7 +71,10 @@ pub fn settings_view(s: &Settings) -> SettingsView {
         onboarded: s.onboarded,
         workspace_id: s.workspace_id.clone(),
         team: s.team.clone(),
-        models: ai::MODELS.iter().map(|(id, label)| ModelOption { id, label }).collect(),
+        models: ai::MODELS
+            .iter()
+            .map(|(id, label)| ModelOption { id, label })
+            .collect(),
         providers: ai::PROVIDERS
             .iter()
             .map(|p| {
@@ -90,7 +93,11 @@ pub fn settings_view(s: &Settings) -> SettingsView {
                     expert_model: chosen.expert_model,
                     agent_model: chosen.agent_model,
                     has_key: p.key != KeyNeed::None && secrets::api_key(p.id).is_some(),
-                    ready: endpoint(&Settings { provider: p.id.to_string(), ..s.clone() }).is_ok(),
+                    ready: endpoint(&Settings {
+                        provider: p.id.to_string(),
+                        ..s.clone()
+                    })
+                    .is_ok(),
                 }
             })
             .collect(),
@@ -123,10 +130,16 @@ pub fn save_settings(
         }
         Api::OpenAi => {
             if typing_model.is_empty() {
-                return Err(AppError::User(format!("Choose the {} model that writes SQL while you type.", p.label)));
+                return Err(AppError::User(format!(
+                    "Choose the {} model that writes SQL while you type.",
+                    p.label
+                )));
             }
             if base_url.is_empty() && p.base_url.is_empty() {
-                return Err(AppError::User(format!("Add the base URL of your {} server.", p.label)));
+                return Err(AppError::User(format!(
+                    "Add the base URL of your {} server.",
+                    p.label
+                )));
             }
         }
     }
@@ -138,9 +151,21 @@ pub fn save_settings(
     s.provider = p.id.to_string();
     s.workspace_id = workspace_id;
     // Claude's address is fixed; a base URL equal to the default is stored as "use the default".
-    let base_url = if p.api == Api::Anthropic || base_url == p.base_url { String::new() } else { base_url };
+    let base_url = if p.api == Api::Anthropic || base_url == p.base_url {
+        String::new()
+    } else {
+        base_url
+    };
     let agent_model = s.provider_settings(p.id).agent_model;
-    s.set_provider_settings(p.id, ProviderSettings { base_url, typing_model, expert_model, agent_model });
+    s.set_provider_settings(
+        p.id,
+        ProviderSettings {
+            base_url,
+            typing_model,
+            expert_model,
+            agent_model,
+        },
+    );
     state.store.save_settings(&s)?;
     Ok(settings_view(&s))
 }
@@ -158,7 +183,12 @@ pub enum ModelUse {
 /// Switches to `provider` (one that is ready) and uses `model` for typing or for agent mode,
 /// from the Ask box. Other choices for that provider stay as they were.
 #[tauri::command]
-pub fn choose_model(state: State<'_, AppState>, provider: String, model: String, purpose: ModelUse) -> AppResult<SettingsView> {
+pub fn choose_model(
+    state: State<'_, AppState>,
+    provider: String,
+    model: String,
+    purpose: ModelUse,
+) -> AppResult<SettingsView> {
     let mut s = state.store.settings()?;
     s.provider = choose(&s, &provider, model.trim(), purpose)?;
     let p = ai::endpoint::provider(&s.provider)?;
@@ -181,14 +211,22 @@ fn choose(s: &Settings, provider: &str, model: &str, purpose: ModelUse) -> AppRe
     if p.api == Api::Anthropic && !model.is_empty() && !ai::is_known(model) {
         return Err(format!("Unknown model {model}").into());
     }
-    let candidate = Settings { provider: p.id.to_string(), ..s.clone() };
-    endpoint(&candidate).map_err(|e| AppError::User(format!("{} isn't set up yet: {e}", p.label)))?;
+    let candidate = Settings {
+        provider: p.id.to_string(),
+        ..s.clone()
+    };
+    endpoint(&candidate)
+        .map_err(|e| AppError::User(format!("{} isn't set up yet: {e}", p.label)))?;
     Ok(p.id.to_string())
 }
 
 /// Saves the agent model of the current provider (empty: its expert model) and the run limits.
 #[tauri::command]
-pub fn save_agent_settings(state: State<'_, AppState>, agent_model: String, agent: AgentSettings) -> AppResult<SettingsView> {
+pub fn save_agent_settings(
+    state: State<'_, AppState>,
+    agent_model: String,
+    agent: AgentSettings,
+) -> AppResult<SettingsView> {
     let mut s = state.store.settings()?;
     let p = ai::endpoint::provider(&s.provider)?;
     let agent_model = agent_model.trim().to_string();
@@ -215,28 +253,55 @@ pub async fn list_models(
     let p = ai::endpoint::provider(&provider)?;
     if p.api == Api::Anthropic {
         // Claude's models are fixed; this checks the key so a typo is caught before it's saved.
-        let key = api_key.map(|k| k.trim().to_string()).filter(|k| !k.is_empty()).or_else(|| secrets::api_key(p.id));
-        let key = key.ok_or_else(|| AppError::User(format!("Paste your {} key first.", p.label)))?;
+        let key = api_key
+            .map(|k| k.trim().to_string())
+            .filter(|k| !k.is_empty())
+            .or_else(|| secrets::api_key(p.id));
+        let key =
+            key.ok_or_else(|| AppError::User(format!("Paste your {} key first.", p.label)))?;
         let saved = state.store.settings()?;
         // Only Anthropic keys can need a workspace ID; SayQL credit keys never do.
-        let workspace = if p.id == ai::ANTHROPIC { valid_workspace_id(&saved.workspace_id)? } else { String::new() };
+        let workspace = if p.id == ai::ANTHROPIC {
+            valid_workspace_id(&saved.workspace_id)?
+        } else {
+            String::new()
+        };
         let http = state.http.clone();
         let base = address(p, &saved.provider_settings(p.id));
-        ai::check_claude_key(&http, &base, &key, Some(workspace.as_str()).filter(|w| !w.is_empty())).await?;
+        ai::check_claude_key(
+            &http,
+            &base,
+            &key,
+            Some(workspace.as_str()).filter(|w| !w.is_empty()),
+        )
+        .await?;
         return Ok(ai::MODELS.iter().map(|(id, _)| id.to_string()).collect());
     }
     let typed = ai::clean_base_url(&base_url).map_err(AppError::User)?;
     let saved = state.store.settings()?.provider_settings(p.id);
-    let url = if typed.is_empty() { address(p, &saved) } else { typed };
+    let url = if typed.is_empty() {
+        address(p, &saved)
+    } else {
+        typed
+    };
     if url.is_empty() {
-        return Err(AppError::User(format!("Add the base URL of your {} server first.", p.label)));
+        return Err(AppError::User(format!(
+            "Add the base URL of your {} server first.",
+            p.label
+        )));
     }
     let key = match p.key {
         KeyNeed::None => None,
-        _ => api_key.map(|k| k.trim().to_string()).filter(|k| !k.is_empty()).or_else(|| secrets::api_key(p.id)),
+        _ => api_key
+            .map(|k| k.trim().to_string())
+            .filter(|k| !k.is_empty())
+            .or_else(|| secrets::api_key(p.id)),
     };
     if p.key == KeyNeed::Required && key.is_none() {
-        return Err(AppError::User(format!("Paste your {} API key first.", p.label)));
+        return Err(AppError::User(format!(
+            "Paste your {} API key first.",
+            p.label
+        )));
     }
     let http = state.http.clone();
     ai::list_models(&http, p.label, &url, key.as_deref()).await
@@ -267,7 +332,11 @@ pub struct McpSetup {
 #[tauri::command]
 pub fn mcp_setup() -> AppResult<McpSetup> {
     let exe = std::env::current_exe()?;
-    let name = if cfg!(windows) { "sayql-mcp.exe" } else { "sayql-mcp" };
+    let name = if cfg!(windows) {
+        "sayql-mcp.exe"
+    } else {
+        "sayql-mcp"
+    };
     let path = exe.with_file_name(name);
     Ok(McpSetup {
         exists: path.exists(),
@@ -290,7 +359,11 @@ pub fn mcp_apps(state: State<'_, AppState>) -> AppResult<Vec<AppSummary>> {
 
 /// Blocks or allows one AI app; returns the updated list.
 #[tauri::command]
-pub fn set_mcp_app_blocked(state: State<'_, AppState>, name: String, blocked: bool) -> AppResult<Vec<AppSummary>> {
+pub fn set_mcp_app_blocked(
+    state: State<'_, AppState>,
+    name: String,
+    blocked: bool,
+) -> AppResult<Vec<AppSummary>> {
     let name = name.trim();
     if name.is_empty() {
         return Err(AppError::User("Which app? The name is empty.".into()));
@@ -312,12 +385,35 @@ mod tests {
     fn the_ask_box_switches_only_to_providers_that_are_ready() {
         let mut s = Settings::default();
         // Ollama needs no key: once it has a model, it's ready.
-        assert!(choose(&s, "ollama", "qwen3", ModelUse::Typing).unwrap_err().to_string().contains("isn't set up yet"));
-        s.set_provider_settings("ollama", ProviderSettings { typing_model: "qwen3".into(), ..Default::default() });
-        assert_eq!(choose(&s, "ollama", "llama3.3", ModelUse::Typing).unwrap(), "ollama");
+        assert!(
+            choose(&s, "ollama", "qwen3", ModelUse::Typing)
+                .unwrap_err()
+                .to_string()
+                .contains("isn't set up yet")
+        );
+        s.set_provider_settings(
+            "ollama",
+            ProviderSettings {
+                typing_model: "qwen3".into(),
+                ..Default::default()
+            },
+        );
+        assert_eq!(
+            choose(&s, "ollama", "llama3.3", ModelUse::Typing).unwrap(),
+            "ollama"
+        );
         assert!(choose(&s, "ollama", "", ModelUse::Typing).is_err());
-        assert_eq!(choose(&s, "ollama", "", ModelUse::Agent).unwrap(), "ollama", "empty agent model means the expert model");
-        assert!(choose(&s, "anthropic", "claude-unknown", ModelUse::Typing).unwrap_err().to_string().contains("Unknown model"));
+        assert_eq!(
+            choose(&s, "ollama", "", ModelUse::Agent).unwrap(),
+            "ollama",
+            "empty agent model means the expert model"
+        );
+        assert!(
+            choose(&s, "anthropic", "claude-unknown", ModelUse::Typing)
+                .unwrap_err()
+                .to_string()
+                .contains("Unknown model")
+        );
         assert!(choose(&s, "nope", "x", ModelUse::Typing).is_err());
     }
 }

@@ -13,7 +13,8 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 
 pub const MODEL_FILE: &str = "ggml-base.en-q8_0.bin";
-pub const MODEL_URL: &str = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en-q8_0.bin";
+pub const MODEL_URL: &str =
+    "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en-q8_0.bin";
 pub const MODEL_SHA256: &str = "a4d4a0768075e13cfd7e19df3ae2dbc4a68d37d36a7dad45e8410c9a34f8c87e";
 pub const MODEL_BYTES: u64 = 81_781_811;
 
@@ -29,7 +30,9 @@ fn partial_path(path: &Path) -> PathBuf {
 
 /// Whether the model is downloaded. A cheap size check; the hash is checked before use.
 pub fn is_downloaded(path: &Path) -> bool {
-    std::fs::metadata(path).map(|m| m.len() == MODEL_BYTES).unwrap_or(false)
+    std::fs::metadata(path)
+        .map(|m| m.len() == MODEL_BYTES)
+        .unwrap_or(false)
 }
 
 fn hex(bytes: &[u8]) -> String {
@@ -57,7 +60,9 @@ pub fn verify(path: &Path, expected: &str) -> AppResult<()> {
         return Ok(());
     }
     let _ = std::fs::remove_file(path);
-    Err(AppError::User("The voice model was damaged and has been removed. Download it again.".into()))
+    Err(AppError::User(
+        "The voice model was damaged and has been removed. Download it again.".into(),
+    ))
 }
 
 /// Removes the model and any unfinished download.
@@ -86,7 +91,12 @@ pub async fn download(
         std::fs::create_dir_all(dir)?;
     }
     let part = partial_path(path);
-    let response = http.get(url).send().await.and_then(|r| r.error_for_status()).map_err(|_| FAILED)?;
+    let response = http
+        .get(url)
+        .send()
+        .await
+        .and_then(|r| r.error_for_status())
+        .map_err(|_| FAILED)?;
     let total = response.content_length().unwrap_or(MODEL_BYTES);
     let mut file = std::fs::File::create(&part)?;
     let mut hasher = Sha256::new();
@@ -105,7 +115,10 @@ pub async fn download(
         }
         file.flush()?;
         if hex(&hasher.finalize_reset()) != sha256 {
-            return Err("The downloaded model didn't match its checksum, so it wasn't used. Try again.".into());
+            return Err(
+                "The downloaded model didn't match its checksum, so it wasn't used. Try again."
+                    .into(),
+            );
         }
         Ok(())
     }
@@ -134,8 +147,14 @@ mod tests {
     #[test]
     fn model_lives_in_the_voice_folder_of_app_data() {
         let path = model_path(Path::new("/data/com.sayql.app"));
-        assert_eq!(path, Path::new("/data/com.sayql.app/voice/ggml-base.en-q8_0.bin"));
-        assert_eq!(partial_path(&path), Path::new("/data/com.sayql.app/voice/ggml-base.en-q8_0.bin.part"));
+        assert_eq!(
+            path,
+            Path::new("/data/com.sayql.app/voice/ggml-base.en-q8_0.bin")
+        );
+        assert_eq!(
+            partial_path(&path),
+            Path::new("/data/com.sayql.app/voice/ggml-base.en-q8_0.bin.part")
+        );
     }
 
     #[test]
@@ -143,7 +162,11 @@ mod tests {
         assert!(MODEL_URL.starts_with("https://huggingface.co/ggerganov/whisper.cpp/"));
         assert!(MODEL_URL.ends_with(MODEL_FILE));
         assert_eq!(MODEL_SHA256.len(), 64);
-        assert!(MODEL_SHA256.chars().all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase()));
+        assert!(
+            MODEL_SHA256
+                .chars()
+                .all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase())
+        );
     }
 
     #[test]
@@ -151,7 +174,10 @@ mod tests {
         let dir = temp_dir("sha");
         let file = dir.join("abc");
         std::fs::write(&file, b"abc").unwrap();
-        assert_eq!(sha256_file(&file).unwrap(), "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
+        assert_eq!(
+            sha256_file(&file).unwrap(),
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        );
     }
 
     #[test]
@@ -159,7 +185,11 @@ mod tests {
         let dir = temp_dir("verify");
         let file = dir.join(MODEL_FILE);
         std::fs::write(&file, b"abc").unwrap();
-        verify(&file, "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad").unwrap();
+        verify(
+            &file,
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+        )
+        .unwrap();
         assert!(file.exists());
         assert!(verify(&file, MODEL_SHA256).is_err());
         assert!(!file.exists());
@@ -173,10 +203,17 @@ mod tests {
         let path = model_path(&dir);
         let cancel = AtomicBool::new(false);
         let mut updates = 0;
-        download(&reqwest::Client::new(), MODEL_URL, MODEL_SHA256, &path, &cancel, |received, total| {
-            updates += 1;
-            assert!(received <= total);
-        })
+        download(
+            &reqwest::Client::new(),
+            MODEL_URL,
+            MODEL_SHA256,
+            &path,
+            &cancel,
+            |received, total| {
+                updates += 1;
+                assert!(received <= total);
+            },
+        )
         .await
         .unwrap();
         assert!(is_downloaded(&path));
@@ -185,7 +222,15 @@ mod tests {
         verify(&path, MODEL_SHA256).unwrap();
         // A wrong checksum is refused and leaves nothing behind.
         remove(&path).unwrap();
-        let err = download(&reqwest::Client::new(), MODEL_URL, &"0".repeat(64), &path, &cancel, |_, _| {}).await;
+        let err = download(
+            &reqwest::Client::new(),
+            MODEL_URL,
+            &"0".repeat(64),
+            &path,
+            &cancel,
+            |_, _| {},
+        )
+        .await;
         assert!(err.is_err());
         assert!(!path.exists() && !partial_path(&path).exists());
         let _ = std::fs::remove_dir_all(&dir);

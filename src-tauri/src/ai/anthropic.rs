@@ -14,16 +14,31 @@ const API_VERSION: &str = "2023-06-01";
 /// How a request reaches Claude: with a key (Anthropic's, or a SayQL credit key at SayQL's
 /// address), or through their team's server.
 pub(crate) enum Access<'a> {
-    Key { api_key: &'a str, workspace_id: Option<&'a str>, base: &'a str },
+    Key {
+        api_key: &'a str,
+        workspace_id: Option<&'a str>,
+        base: &'a str,
+    },
     Team(&'a crate::team::ai::TeamAi),
 }
 
 impl Access<'_> {
     /// A Messages API request carrying `body`, authorized for this access.
-    fn post(&self, http: &reqwest::Client, body: &Value, beta: Option<&str>) -> reqwest::RequestBuilder {
+    fn post(
+        &self,
+        http: &reqwest::Client,
+        body: &Value,
+        beta: Option<&str>,
+    ) -> reqwest::RequestBuilder {
         let mut req = match self {
-            Access::Key { api_key, workspace_id, base } => {
-                let mut req = http.post(format!("{base}/v1/messages")).header("x-api-key", *api_key);
+            Access::Key {
+                api_key,
+                workspace_id,
+                base,
+            } => {
+                let mut req = http
+                    .post(format!("{base}/v1/messages"))
+                    .header("x-api-key", *api_key);
                 if let Some(ws) = workspace_id {
                     req = req.header("anthropic-workspace-id", *ws);
                 }
@@ -41,7 +56,9 @@ impl Access<'_> {
 
     fn unreachable(&self, e: reqwest::Error) -> AppError {
         match self {
-            Access::Key { base, .. } if *base != API_BASE => format!("Could not reach SayQL AI credits: {e}").into(),
+            Access::Key { base, .. } if *base != API_BASE => {
+                format!("Could not reach SayQL AI credits: {e}").into()
+            }
             Access::Key { .. } => format!("Could not reach the Claude API: {e}").into(),
             Access::Team(t) => t.unreachable(e),
         }
@@ -84,7 +101,11 @@ pub(super) async fn run(
 ) -> AppResult<Option<u64>> {
     let mut body = request_body(r);
     let beta = models::apply_options(&r.model, &mut body);
-    let resp = access.post(http, &body, beta).send().await.map_err(|e| access.unreachable(e))?;
+    let resp = access
+        .post(http, &body, beta)
+        .send()
+        .await
+        .map_err(|e| access.unreachable(e))?;
     let status = resp.status().as_u16();
     if !resp.status().is_success() {
         return Err(access.error(status, &resp.text().await.unwrap_or_default()));
@@ -99,7 +120,9 @@ pub(super) async fn run(
         let chunk = chunk.map_err(|e| format!("The response was interrupted: {e}"))?;
         for v in parser.push(&chunk) {
             match v["type"].as_str().unwrap_or("") {
-                "message_start" => cache_read = v["message"]["usage"]["cache_read_input_tokens"].as_u64(),
+                "message_start" => {
+                    cache_read = v["message"]["usage"]["cache_read_input_tokens"].as_u64()
+                }
                 // The first model declined and a fallback model answers from scratch.
                 "content_block_start" if v["content_block"]["type"] == "fallback" => out.reset(),
                 "content_block_delta" if v["delta"]["type"] == "text_delta" => {
@@ -141,18 +164,33 @@ pub(crate) async fn turn(
 ) -> AppResult<Turn> {
     let mut body = turn_body(model, system, schema, tools, messages);
     let beta = models::apply_options(model, &mut body);
-    let resp = access.post(http, &body, beta).send().await.map_err(|e| access.unreachable(e))?;
+    let resp = access
+        .post(http, &body, beta)
+        .send()
+        .await
+        .map_err(|e| access.unreachable(e))?;
     let status = resp.status().as_u16();
-    let text = resp.text().await.map_err(|e| format!("The response was interrupted: {e}"))?;
+    let text = resp
+        .text()
+        .await
+        .map_err(|e| format!("The response was interrupted: {e}"))?;
     if !(200..300).contains(&status) {
         return Err(access.error(status, &text));
     }
     parse_turn(&serde_json::from_str(&text)?)
 }
 
-fn turn_body(model: &str, system: &str, schema: &str, tools: &[ToolSpec], messages: &[Msg]) -> Value {
-    let mut tools: Vec<Value> =
-        tools.iter().map(|t| json!({ "name": t.name, "description": t.description, "input_schema": t.schema })).collect();
+fn turn_body(
+    model: &str,
+    system: &str,
+    schema: &str,
+    tools: &[ToolSpec],
+    messages: &[Msg],
+) -> Value {
+    let mut tools: Vec<Value> = tools
+        .iter()
+        .map(|t| json!({ "name": t.name, "description": t.description, "input_schema": t.schema }))
+        .collect();
     if let Some(last) = tools.last_mut() {
         last["cache_control"] = json!({ "type": "ephemeral", "ttl": "1h" });
     }
@@ -206,20 +244,34 @@ fn parse_turn(v: &Value) -> AppResult<Turn> {
     }
     let u = &v["usage"];
     let usage = Usage {
-        input: u["input_tokens"].as_u64().unwrap_or(0) + u["cache_creation_input_tokens"].as_u64().unwrap_or(0),
+        input: u["input_tokens"].as_u64().unwrap_or(0)
+            + u["cache_creation_input_tokens"].as_u64().unwrap_or(0),
         cached: u["cache_read_input_tokens"].as_u64().unwrap_or(0),
         output: u["output_tokens"].as_u64().unwrap_or(0),
     };
     match v["stop_reason"].as_str() {
         Some("refusal") => Err("The model declined this request. Try rephrasing it.".into()),
-        stop => Ok(Turn { blocks, usage, truncated: stop == Some("max_tokens") }),
+        stop => Ok(Turn {
+            blocks,
+            usage,
+            truncated: stop == Some("max_tokens"),
+        }),
     }
 }
 
 /// Checks that a key works, with the cheapest call there is (listing one model). `base` is
 /// Anthropic's API or, for a SayQL credit key, SayQL's (which also needs credit left).
-pub(super) async fn check_key(http: &reqwest::Client, base: &str, api_key: &str, workspace_id: Option<&str>) -> AppResult<()> {
-    let access = Access::Key { api_key, workspace_id, base };
+pub(super) async fn check_key(
+    http: &reqwest::Client,
+    base: &str,
+    api_key: &str,
+    workspace_id: Option<&str>,
+) -> AppResult<()> {
+    let access = Access::Key {
+        api_key,
+        workspace_id,
+        base,
+    };
     let mut req = http
         .get(format!("{base}/v1/models?limit=1"))
         .header("x-api-key", api_key)
@@ -277,17 +329,30 @@ mod tests {
     fn api_errors_point_to_settings_when_the_fix_is_there() {
         let body = r#"{"type":"error","error":{"type":"authentication_error","message":"invalid x-api-key"}}"#;
         let e = api_error(401, body).to_string();
-        assert!(e.contains("invalid x-api-key") && e.contains("Settings"), "{e}");
+        assert!(
+            e.contains("invalid x-api-key") && e.contains("Settings"),
+            "{e}"
+        );
 
         let ws = r#"{"error":{"message":"...must include the anthropic-workspace-id header..."}}"#;
-        assert!(api_error(400, ws).to_string().contains("Workspace ID in Settings"));
+        assert!(
+            api_error(400, ws)
+                .to_string()
+                .contains("Workspace ID in Settings")
+        );
 
-        assert_eq!(api_error(500, "oops").to_string(), "Claude API error 500: oops");
+        assert_eq!(
+            api_error(500, "oops").to_string(),
+            "Claude API error 500: oops"
+        );
     }
 
     /// A one-request HTTP server at `http://127.0.0.1:<port>`: answers `status` + JSON `body`
     /// and hands back the raw request.
-    async fn one_reply(status: &'static str, body: &'static str) -> (String, tokio::sync::oneshot::Receiver<String>) {
+    async fn one_reply(
+        status: &'static str,
+        body: &'static str,
+    ) -> (String, tokio::sync::oneshot::Receiver<String>) {
         use tokio::io::{AsyncReadExt, AsyncWriteExt};
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let addr = listener.local_addr().unwrap();
@@ -296,7 +361,10 @@ mod tests {
             let (mut sock, _) = listener.accept().await.unwrap();
             let mut buf = [0u8; 8192];
             let n = sock.read(&mut buf).await.unwrap();
-            let reply = format!("HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len());
+            let reply = format!(
+                "HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                body.len()
+            );
             sock.write_all(reply.as_bytes()).await.unwrap();
             let _ = tx.send(String::from_utf8_lossy(&buf[..n]).to_string());
         });
@@ -306,42 +374,95 @@ mod tests {
     #[tokio::test]
     async fn a_credit_key_is_checked_at_sayql_and_says_when_credit_runs_out() {
         let http = reqwest::Client::new();
-        let (base, req) = one_reply("200 OK", r#"{"data":[{"id":"claude-haiku-5-5","type":"model"}],"has_more":false}"#).await;
+        let (base, req) = one_reply(
+            "200 OK",
+            r#"{"data":[{"id":"claude-haiku-5-5","type":"model"}],"has_more":false}"#,
+        )
+        .await;
         check_key(&http, &base, "sqlc_test", None).await.unwrap();
         let req = req.await.unwrap().to_ascii_lowercase();
         assert!(req.starts_with("get /v1/models?limit=1 "), "{req}");
-        assert!(req.contains("x-api-key: sqlc_test") && !req.contains("anthropic-workspace-id"), "{req}");
+        assert!(
+            req.contains("x-api-key: sqlc_test") && !req.contains("anthropic-workspace-id"),
+            "{req}"
+        );
 
         let (base, _) = one_reply("402 Payment Required", r#"{"type":"error","error":{"type":"billing_error","message":"This SayQL AI credit has run out."}}"#).await;
-        let e = check_key(&http, &base, "sqlc_test", None).await.unwrap_err().to_string();
-        assert!(e.contains("credit has run out") && e.contains("hello@azenvoc.com"), "{e}");
+        let e = check_key(&http, &base, "sqlc_test", None)
+            .await
+            .unwrap_err()
+            .to_string();
+        assert!(
+            e.contains("credit has run out") && e.contains("hello@azenvoc.com"),
+            "{e}"
+        );
 
         let (base, _) = one_reply("401 Unauthorized", r#"{"type":"error","error":{"type":"authentication_error","message":"That SayQL AI credit key isn't valid or was turned off."}}"#).await;
-        let e = check_key(&http, &base, "sqlc_bad", None).await.unwrap_err().to_string();
-        assert!(e.contains("isn't valid") && e.contains("credit key in Settings") && !e.contains("Claude API key"), "{e}");
+        let e = check_key(&http, &base, "sqlc_bad", None)
+            .await
+            .unwrap_err()
+            .to_string();
+        assert!(
+            e.contains("isn't valid")
+                && e.contains("credit key in Settings")
+                && !e.contains("Claude API key"),
+            "{e}"
+        );
     }
 
     #[tokio::test]
     async fn a_credit_key_sends_requests_to_sayql_with_the_same_body() {
         let (base, req) = one_reply("200 OK", "{}").await;
-        let access = Access::Key { api_key: "sqlc_test", workspace_id: None, base: &base };
-        let _ = access.post(&reqwest::Client::new(), &json!({ "model": "claude-sonnet-5-5" }), None).send().await;
+        let access = Access::Key {
+            api_key: "sqlc_test",
+            workspace_id: None,
+            base: &base,
+        };
+        let _ = access
+            .post(
+                &reqwest::Client::new(),
+                &json!({ "model": "claude-sonnet-5-5" }),
+                None,
+            )
+            .send()
+            .await;
         let req = req.await.unwrap().to_ascii_lowercase();
         assert!(req.starts_with("post /v1/messages "), "{req}");
-        assert!(req.contains("x-api-key: sqlc_test") && req.contains("anthropic-version: 2023-06-01"), "{req}");
+        assert!(
+            req.contains("x-api-key: sqlc_test") && req.contains("anthropic-version: 2023-06-01"),
+            "{req}"
+        );
     }
 
     #[test]
     fn tool_turns_round_trip() {
-        let tools = [ToolSpec { name: "run_query", description: "Run SQL", schema: json!({ "type": "object" }) }];
+        let tools = [ToolSpec {
+            name: "run_query",
+            description: "Run SQL",
+            schema: json!({ "type": "object" }),
+        }];
         let thinking = json!({ "type": "thinking", "thinking": "hmm", "signature": "sig" });
         let msgs = vec![
             Msg::user("Who owns it?"),
             Msg {
                 role: Role::Assistant,
-                blocks: vec![Block::Opaque(thinking.clone()), Block::ToolUse { id: "tu1".into(), name: "run_query".into(), input: json!({ "sql": "SELECT 1" }) }],
+                blocks: vec![
+                    Block::Opaque(thinking.clone()),
+                    Block::ToolUse {
+                        id: "tu1".into(),
+                        name: "run_query".into(),
+                        input: json!({ "sql": "SELECT 1" }),
+                    },
+                ],
             },
-            Msg { role: Role::User, blocks: vec![Block::ToolResult { id: "tu1".into(), content: "1 row".into(), is_error: false }] },
+            Msg {
+                role: Role::User,
+                blocks: vec![Block::ToolResult {
+                    id: "tu1".into(),
+                    content: "1 row".into(),
+                    is_error: false,
+                }],
+            },
         ];
         let body = turn_body("claude-opus-5-5", "sys", "schema", &tools, &msgs);
         assert_eq!(body["tools"][0]["cache_control"]["type"], "ephemeral");
@@ -356,7 +477,14 @@ mod tests {
         });
         let t = parse_turn(&reply).unwrap();
         assert_eq!(t.blocks.len(), 3);
-        assert_eq!(t.usage, Usage { input: 112, cached: 900, output: 30 });
+        assert_eq!(
+            t.usage,
+            Usage {
+                input: 112,
+                cached: 900,
+                output: 30
+            }
+        );
         assert_eq!(t.tool_uses().next().unwrap().1, "finish");
         assert!(parse_turn(&json!({ "content": [], "stop_reason": "refusal" })).is_err());
     }

@@ -33,7 +33,9 @@ pub struct MssqlConn<'a> {
 
 impl MssqlConn<'_> {
     pub fn client(&mut self) -> &mut MssqlClient {
-        self.guard.as_mut().expect("acquire() always opens a connection")
+        self.guard
+            .as_mut()
+            .expect("acquire() always opens a connection")
     }
 
     pub fn discard(mut self) {
@@ -44,14 +46,22 @@ impl MssqlConn<'_> {
 impl MssqlPool {
     /// Opens a first connection so bad settings fail here, not on the first query.
     pub async fn connect(cfg: &ConnConfig, password: Option<String>) -> AppResult<Self> {
-        let pool = MssqlPool { config: config(cfg, password)?, database: None, client: Arc::new(Mutex::new(None)) };
+        let pool = MssqlPool {
+            config: config(cfg, password)?,
+            database: None,
+            client: Arc::new(Mutex::new(None)),
+        };
         drop(pool.acquire().await?);
         Ok(pool)
     }
 
     /// A separate connection, with the same login, that works in `database`.
     pub async fn for_database(&self, database: &str) -> AppResult<Self> {
-        let pool = MssqlPool { config: self.config.clone(), database: Some(database.to_string()), client: Arc::new(Mutex::new(None)) };
+        let pool = MssqlPool {
+            config: self.config.clone(),
+            database: Some(database.to_string()),
+            client: Arc::new(Mutex::new(None)),
+        };
         drop(pool.acquire().await?);
         Ok(pool)
     }
@@ -79,8 +89,15 @@ fn config(cfg: &ConnConfig, password: Option<String>) -> AppResult<Config> {
         c.database(cfg.database.trim());
     }
     c.application_name("sayql");
-    c.authentication(AuthMethod::sql_server(cfg.user.trim(), password.unwrap_or_default()));
-    c.encryption(if cfg.ssl { EncryptionLevel::Required } else { EncryptionLevel::Off });
+    c.authentication(AuthMethod::sql_server(
+        cfg.user.trim(),
+        password.unwrap_or_default(),
+    ));
+    c.encryption(if cfg.ssl {
+        EncryptionLevel::Required
+    } else {
+        EncryptionLevel::Off
+    });
     if cfg.trust_cert {
         c.trust_cert();
     }
@@ -94,7 +111,14 @@ fn split_host(raw: &str, port: Option<u16>) -> AppResult<(String, u16)> {
         return Err("Named instances (server\\instance) aren't supported yet. Use the server name and the instance's port.".into());
     }
     let (host, explicit) = match raw.rsplit_once([',', ':']) {
-        Some((h, p)) if !h.is_empty() => (h, Some(p.trim().parse::<u16>().map_err(|_| format!("Invalid port in host: {p}"))?)),
+        Some((h, p)) if !h.is_empty() => (
+            h,
+            Some(
+                p.trim()
+                    .parse::<u16>()
+                    .map_err(|_| format!("Invalid port in host: {p}"))?,
+            ),
+        ),
         _ => (raw, None),
     };
     let host = if host.is_empty() { "localhost" } else { host };
@@ -157,10 +181,22 @@ mod tests {
 
     #[test]
     fn splits_sql_server_host_formats() {
-        assert_eq!(split_host("myserver.database.windows.net,1433", None).unwrap(), ("myserver.database.windows.net".into(), 1433));
-        assert_eq!(split_host("tcp:db.example.com,1500", Some(1433)).unwrap(), ("db.example.com".into(), 1500));
-        assert_eq!(split_host("db.internal:1444", None).unwrap(), ("db.internal".into(), 1444));
-        assert_eq!(split_host(" db.internal ", Some(1435)).unwrap(), ("db.internal".into(), 1435));
+        assert_eq!(
+            split_host("myserver.database.windows.net,1433", None).unwrap(),
+            ("myserver.database.windows.net".into(), 1433)
+        );
+        assert_eq!(
+            split_host("tcp:db.example.com,1500", Some(1433)).unwrap(),
+            ("db.example.com".into(), 1500)
+        );
+        assert_eq!(
+            split_host("db.internal:1444", None).unwrap(),
+            ("db.internal".into(), 1444)
+        );
+        assert_eq!(
+            split_host(" db.internal ", Some(1435)).unwrap(),
+            ("db.internal".into(), 1435)
+        );
         assert_eq!(split_host("", None).unwrap(), ("localhost".into(), 1433));
         assert!(split_host(r"db\SQLEXPRESS", None).is_err());
         assert!(split_host("db,notaport", None).is_err());

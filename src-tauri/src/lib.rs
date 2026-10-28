@@ -13,7 +13,10 @@ mod store;
 mod team;
 mod voice;
 
-use commands::{agent, app, connections, generation, handoff as handoffs, query, scripts, settings, skills, team as teams, updates};
+use commands::{
+    agent, app, connections, generation, handoff as handoffs, query, scripts, settings, skills,
+    team as teams, updates,
+};
 use state::AppState;
 use tauri::Manager;
 use tauri_plugin_deep_link::DeepLinkExt;
@@ -22,7 +25,9 @@ use tauri_plugin_deep_link::DeepLinkExt;
 pub fn run() {
     tauri::Builder::default()
         // First: a second launch (e.g. from a sayql:// link) hands its link to this one.
-        .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| handoffs::focus_main(app)))
+        .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+            handoffs::focus_main(app)
+        }))
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
@@ -34,7 +39,9 @@ pub fn run() {
             #[cfg(any(windows, target_os = "linux"))]
             let _ = app.deep_link().register_all();
             let handle = app.handle().clone();
-            app.deep_link().on_open_url(move |e| handoffs::receive(&handle, e.urls().into_iter().map(String::from)));
+            app.deep_link().on_open_url(move |e| {
+                handoffs::receive(&handle, e.urls().into_iter().map(String::from))
+            });
             if let Ok(Some(urls)) = app.deep_link().get_current() {
                 handoffs::receive(app.handle(), urls.into_iter().map(String::from));
             }

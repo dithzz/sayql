@@ -98,12 +98,18 @@ impl Store {
             entry.sql.push('…');
         }
         let path = self.dir().join(LOG_FILE);
-        if std::fs::metadata(&path).map(|m| m.len() > MAX_LOG_BYTES).unwrap_or(false) {
+        if std::fs::metadata(&path)
+            .map(|m| m.len() > MAX_LOG_BYTES)
+            .unwrap_or(false)
+        {
             let _ = std::fs::rename(&path, self.dir().join(OLD_LOG_FILE));
         }
         let mut line = serde_json::to_string(&entry)?;
         line.push('\n');
-        let mut file = std::fs::OpenOptions::new().create(true).append(true).open(&path)?;
+        let mut file = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&path)?;
         file.write_all(line.as_bytes())?;
         Ok(())
     }
@@ -114,7 +120,10 @@ impl Store {
         for name in [OLD_LOG_FILE, LOG_FILE] {
             match std::fs::File::open(self.dir().join(name)) {
                 Ok(f) => all.extend(
-                    std::io::BufReader::new(f).lines().map_while(Result::ok).filter_map(|l| serde_json::from_str::<Activity>(&l).ok()),
+                    std::io::BufReader::new(f)
+                        .lines()
+                        .map_while(Result::ok)
+                        .filter_map(|l| serde_json::from_str::<Activity>(&l).ok()),
                 ),
                 Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
                 Err(e) => return Err(e.into()),
@@ -137,7 +146,9 @@ impl Store {
     }
 
     pub fn is_app_blocked(&self, app: &str) -> bool {
-        self.read::<Apps>(APPS_FILE).map(|a| a.blocked.iter().any(|b| b.eq_ignore_ascii_case(app))).unwrap_or(false)
+        self.read::<Apps>(APPS_FILE)
+            .map(|a| a.blocked.iter().any(|b| b.eq_ignore_ascii_case(app)))
+            .unwrap_or(false)
     }
 
     pub fn set_app_blocked(&self, app: &str, blocked: bool) -> AppResult<()> {
@@ -153,13 +164,26 @@ impl Store {
     pub fn app_summaries(&self) -> AppResult<Vec<AppSummary>> {
         let mut by_name: BTreeMap<String, AppSummary> = BTreeMap::new();
         for a in self.app_activity(usize::MAX)? {
-            let s = by_name.entry(a.app.clone()).or_insert(AppSummary { name: a.app.clone(), blocked: false, queries: 0, last_used: None });
+            let s = by_name.entry(a.app.clone()).or_insert(AppSummary {
+                name: a.app.clone(),
+                blocked: false,
+                queries: 0,
+                last_used: None,
+            });
             s.queries += 1;
             s.last_used = s.last_used.max(Some(a.at));
         }
         let apps: Apps = self.read(APPS_FILE)?;
         for b in &apps.blocked {
-            by_name.entry(b.clone()).or_insert(AppSummary { name: b.clone(), blocked: true, queries: 0, last_used: None }).blocked = true;
+            by_name
+                .entry(b.clone())
+                .or_insert(AppSummary {
+                    name: b.clone(),
+                    blocked: true,
+                    queries: 0,
+                    last_used: None,
+                })
+                .blocked = true;
         }
         let mut list: Vec<AppSummary> = by_name.into_values().collect();
         list.sort_by(|a, b| b.last_used.cmp(&a.last_used).then(a.name.cmp(&b.name)));
@@ -177,18 +201,31 @@ mod tests {
     }
 
     fn entry(app: &str, at: u64, sql: &str) -> Activity {
-        Activity { at, sql: sql.into(), ..Activity::new(app, "run_query") }
+        Activity {
+            at,
+            sql: sql.into(),
+            ..Activity::new(app, "run_query")
+        }
     }
 
     #[test]
     fn logs_newest_first_and_survives_a_bad_line() {
         let (s, dir) = store();
         assert!(s.app_activity(10).unwrap().is_empty());
-        s.log_app_activity(entry("Claude Code", 1, "SELECT 1")).unwrap();
-        std::fs::OpenOptions::new().append(true).open(dir.join(LOG_FILE)).unwrap().write_all(b"not json\n").unwrap();
+        s.log_app_activity(entry("Claude Code", 1, "SELECT 1"))
+            .unwrap();
+        std::fs::OpenOptions::new()
+            .append(true)
+            .open(dir.join(LOG_FILE))
+            .unwrap()
+            .write_all(b"not json\n")
+            .unwrap();
         s.log_app_activity(entry("Cursor", 2, "SELECT 2")).unwrap();
         let log = s.app_activity(10).unwrap();
-        assert_eq!(log.iter().map(|a| a.app.as_str()).collect::<Vec<_>>(), ["Cursor", "Claude Code"]);
+        assert_eq!(
+            log.iter().map(|a| a.app.as_str()).collect::<Vec<_>>(),
+            ["Cursor", "Claude Code"]
+        );
         assert_eq!(s.app_activity(1).unwrap().len(), 1);
         s.clear_app_activity().unwrap();
         assert!(s.app_activity(10).unwrap().is_empty());
@@ -198,7 +235,8 @@ mod tests {
     #[test]
     fn long_sql_is_cut_and_big_logs_roll_over() {
         let (s, dir) = store();
-        s.log_app_activity(entry("A", 1, &"x".repeat(10_000))).unwrap();
+        s.log_app_activity(entry("A", 1, &"x".repeat(10_000)))
+            .unwrap();
         assert!(s.app_activity(1).unwrap()[0].sql.chars().count() <= MAX_SQL + 1);
         std::fs::write(dir.join(LOG_FILE), vec![b' '; MAX_LOG_BYTES as usize + 1]).unwrap();
         s.log_app_activity(entry("B", 2, "SELECT 1")).unwrap();
@@ -210,13 +248,31 @@ mod tests {
     #[test]
     fn blocking_is_per_app_and_listed() {
         let (s, dir) = store();
-        s.log_app_activity(entry("Claude Code", 5, "SELECT 1")).unwrap();
-        s.log_app_activity(entry("Claude Code", 9, "SELECT 2")).unwrap();
+        s.log_app_activity(entry("Claude Code", 5, "SELECT 1"))
+            .unwrap();
+        s.log_app_activity(entry("Claude Code", 9, "SELECT 2"))
+            .unwrap();
         s.set_app_blocked("Cursor", true).unwrap();
         assert!(s.is_app_blocked("cursor") && !s.is_app_blocked("Claude Code"));
         let apps = s.app_summaries().unwrap();
-        assert_eq!(apps[0], AppSummary { name: "Claude Code".into(), blocked: false, queries: 2, last_used: Some(9) });
-        assert_eq!(apps[1], AppSummary { name: "Cursor".into(), blocked: true, queries: 0, last_used: None });
+        assert_eq!(
+            apps[0],
+            AppSummary {
+                name: "Claude Code".into(),
+                blocked: false,
+                queries: 2,
+                last_used: Some(9)
+            }
+        );
+        assert_eq!(
+            apps[1],
+            AppSummary {
+                name: "Cursor".into(),
+                blocked: true,
+                queries: 0,
+                last_used: None
+            }
+        );
         s.set_app_blocked("Cursor", false).unwrap();
         assert!(!s.is_app_blocked("Cursor"));
         let _ = std::fs::remove_dir_all(dir);

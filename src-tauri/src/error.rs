@@ -46,7 +46,8 @@ impl fmt::Display for AppError {
 /// Values in them are masked before an error goes to the AI (see ai/redact.rs).
 fn database_error(e: &sqlx::Error) -> String {
     match e {
-        sqlx::Error::Database(db) => match db.try_downcast_ref::<sqlx::postgres::PgDatabaseError>() {
+        sqlx::Error::Database(db) => match db.try_downcast_ref::<sqlx::postgres::PgDatabaseError>()
+        {
             Some(pg) => {
                 let mut out = pg.message().to_string();
                 if let Some(detail) = pg.detail() {
@@ -71,7 +72,12 @@ fn database_error(e: &sqlx::Error) -> String {
 /// The error number and line go on a line of their own, as in SQL Server's own tools.
 fn sql_server_error(e: &tiberius::error::Error) -> String {
     match e {
-        tiberius::error::Error::Server(t) => format!("{}\n(SQL Server error {}, line {})", t.message(), t.code(), t.line()),
+        tiberius::error::Error::Server(t) => format!(
+            "{}\n(SQL Server error {}, line {})",
+            t.message(),
+            t.code(),
+            t.line()
+        ),
         other => other.to_string(),
     }
 }

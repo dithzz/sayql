@@ -1,7 +1,7 @@
+use crate::ai::Api;
 use crate::ai::agent::model::{Llm, ToolMode};
 use crate::ai::agent::run::{self, Event, Io, Reply, RunInput};
 use crate::ai::endpoint::endpoint;
-use crate::ai::Api;
 use crate::error::{AppError, AppResult};
 use crate::state::{AgentRun, AppState, Target};
 use crate::store::agent::{AgentAccess, Note};
@@ -42,11 +42,16 @@ pub async fn start_agent(
     }
     let mut access = effective_access(&state, &id)?.access;
     if !access.enabled {
-        return Err("Agent mode is off for this connection. Turn it on in its agent settings first.".into());
+        return Err(
+            "Agent mode is off for this connection. Turn it on in its agent settings first.".into(),
+        );
     }
     let target = Target::new(id.clone(), database.clone());
     let live = state.schema(&target)?;
-    let pool = state.target_pool(&target).await?.with_context(Source::Agent, Some(question.clone()));
+    let pool = state
+        .target_pool(&target)
+        .await?
+        .with_context(Source::Agent, Some(question.clone()));
     let mut settings = state.store.settings()?;
     let own = endpoint(&settings);
     let team_ai = state.team_ai_route(&id, "agent", own.is_ok());
@@ -59,22 +64,54 @@ pub async fn start_agent(
     // A team connection with team AI runs on the team's default model, through the team server.
     let (endpoint, model, provider) = match team_ai {
         Some((route, ai)) => (route, ai.default_model(), "team".to_string()),
-        None => (own?, settings.provider_settings(&settings.provider).agent().to_string(), settings.provider.clone()),
+        None => (
+            own?,
+            settings
+                .provider_settings(&settings.provider)
+                .agent()
+                .to_string(),
+            settings.provider.clone(),
+        ),
     };
     let mode_key = format!("{provider}/{model}");
-    let mode = if endpoint.is_openai() { settings.tool_modes.get(&mode_key).copied().unwrap_or(ToolMode::Native) } else { ToolMode::Native };
+    let mode = if endpoint.is_openai() {
+        settings
+            .tool_modes
+            .get(&mode_key)
+            .copied()
+            .unwrap_or(ToolMode::Native)
+    } else {
+        ToolMode::Native
+    };
     let skill = match skill {
         None => None,
         Some(slug) => Some(
-            state.store.skills()?.into_iter().find(|s| s.slug == slug).map(|s| s.instruction).ok_or_else(|| {
-                AppError::User(format!("There's no skill called /{slug}. Create it in Settings."))
-            })?,
+            state
+                .store
+                .skills()?
+                .into_iter()
+                .find(|s| s.slug == slug)
+                .map(|s| s.instruction)
+                .ok_or_else(|| {
+                    AppError::User(format!(
+                        "There's no skill called /{slug}. Create it in Settings."
+                    ))
+                })?,
         ),
     };
-    let notes = state.store.notes(&id, database.as_deref())?.into_iter().map(|n| n.text).collect();
+    let notes = state
+        .store
+        .notes(&id, database.as_deref())?
+        .into_iter()
+        .map(|n| n.text)
+        .collect();
     let focus = focus_tables.unwrap_or_default();
     let relevance = format!("{question} {}", focus.join(" "));
-    let history = if follow_up == Some(true) { state.agent_history(&slot) } else { None };
+    let history = if follow_up == Some(true) {
+        state.agent_history(&slot)
+    } else {
+        None
+    };
     let question = match &history {
         Some(_) => format!("Follow-up from the person: {question}"),
         None => question,
@@ -83,7 +120,11 @@ pub async fn start_agent(
         run_id: run_id.clone(),
         question,
         kind: pool.kind(),
-        schema_text: crate::ai::agent::prompt::agent_schema(&live.schema, &live.schema_text, &relevance),
+        schema_text: crate::ai::agent::prompt::agent_schema(
+            &live.schema,
+            &live.schema_text,
+            &relevance,
+        ),
         schema: live.schema.clone(),
         notes,
         focus,
@@ -94,12 +135,30 @@ pub async fn start_agent(
     };
     let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
     let stop = CancellationToken::new();
-    state.start_agent(&slot, AgentRun { run_id: run_id.clone(), replies: tx, stop: stop.clone() });
+    state.start_agent(
+        &slot,
+        AgentRun {
+            run_id: run_id.clone(),
+            replies: tx,
+            stop: stop.clone(),
+        },
+    );
     let emitter = app.clone();
-    let mut io = Io { emit: Arc::new(move |e: Event| { let _ = emitter.emit(EVENT, e); }), replies: rx, stop };
+    let mut io = Io {
+        emit: Arc::new(move |e: Event| {
+            let _ = emitter.emit(EVENT, e);
+        }),
+        replies: rx,
+        stop,
+    };
     let http = state.http.clone();
     tauri::async_runtime::spawn(async move {
-        let mut llm = Llm::Remote { http, endpoint, model, mode };
+        let mut llm = Llm::Remote {
+            http,
+            endpoint,
+            model,
+            mode,
+        };
         let outcome = run::run(&mut llm, &pool, input, &mut io).await;
         let state = app.state::<AppState>();
         state.finish_agent(&slot, &run_id, outcome.history);
@@ -124,7 +183,10 @@ pub fn stop_agent(state: State<'_, AppState>, run_id: String) {
 /// The person's reply to a paused run: Go on the plan, Send or Skip, or an answer.
 #[tauri::command]
 pub fn reply_agent(state: State<'_, AppState>, run_id: String, reply: Reply) -> AppResult<()> {
-    state.reply_agent(&run_id, reply).then_some(()).ok_or_else(|| "This run has already ended.".into())
+    state
+        .reply_agent(&run_id, reply)
+        .then_some(())
+        .ok_or_else(|| "This run has already ended.".into())
 }
 
 /// A connection's agent access as it applies, and on a team connection the admin's rules,
@@ -141,9 +203,15 @@ pub struct AccessView {
 fn effective_access(state: &AppState, id: &str) -> AppResult<AccessView> {
     let own = state.store.agent_access(id)?;
     Ok(match state.team_connection(id).map(|c| c.rules()) {
-        Some(rules) => AccessView { access: team::apply_rules(own, &rules), team: Some(rules) },
+        Some(rules) => AccessView {
+            access: team::apply_rules(own, &rules),
+            team: Some(rules),
+        },
         None if id.starts_with(team::ID_PREFIX) => return Err(team::SIGNED_OUT.into()),
-        None => AccessView { access: own, team: None },
+        None => AccessView {
+            access: own,
+            team: None,
+        },
     })
 }
 
@@ -155,7 +223,11 @@ pub fn agent_access(state: State<'_, AppState>, id: String) -> AppResult<AccessV
 /// Saves the person's choices. On a team connection the results setting can't go above the
 /// admin's, and the admin's never-send columns aren't saved (they're always added back).
 #[tauri::command]
-pub fn save_agent_access(state: State<'_, AppState>, id: String, access: AgentAccess) -> AppResult<AccessView> {
+pub fn save_agent_access(
+    state: State<'_, AppState>,
+    id: String,
+    access: AgentAccess,
+) -> AppResult<AccessView> {
     state.check_connection(&id)?;
     let access = match state.team_connection(&id) {
         Some(c) => team::own_access(access, &c.rules()),
@@ -166,17 +238,31 @@ pub fn save_agent_access(state: State<'_, AppState>, id: String, access: AgentAc
 }
 
 #[tauri::command]
-pub fn list_notes(state: State<'_, AppState>, id: String, database: Option<String>) -> AppResult<Vec<Note>> {
-    state.store.notes(&id, database.as_deref().filter(|d| !d.trim().is_empty()))
+pub fn list_notes(
+    state: State<'_, AppState>,
+    id: String,
+    database: Option<String>,
+) -> AppResult<Vec<Note>> {
+    state
+        .store
+        .notes(&id, database.as_deref().filter(|d| !d.trim().is_empty()))
 }
 
 /// Saves a database note: new (empty `id`) or edited.
 #[tauri::command]
 pub fn save_note(state: State<'_, AppState>, note: Note) -> AppResult<Note> {
     state.check_connection(&note.connection_id)?;
-    let id = if note.id.is_empty() { uuid::Uuid::new_v4().to_string() } else { note.id.clone() };
+    let id = if note.id.is_empty() {
+        uuid::Uuid::new_v4().to_string()
+    } else {
+        note.id.clone()
+    };
     let database = note.database.clone().filter(|d| !d.trim().is_empty());
-    state.store.save_note(Note { id, database, ..note })
+    state.store.save_note(Note {
+        id,
+        database,
+        ..note
+    })
 }
 
 #[tauri::command]

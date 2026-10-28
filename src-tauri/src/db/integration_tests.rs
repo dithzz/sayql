@@ -38,7 +38,13 @@ fn parse_url(url: &str) -> Target {
         None => (hostport.to_string(), None),
     };
     let database = database.split('?').next().unwrap_or("").to_string();
-    Target { host, port, user, password, database }
+    Target {
+        host,
+        port,
+        user,
+        password,
+        database,
+    }
 }
 
 pub(super) fn env_target(var: &str) -> Option<Target> {
@@ -54,12 +60,18 @@ pub(super) fn env_target(var: &str) -> Option<Target> {
 /// The connection settings and password from `var`, for tests outside this module.
 pub(crate) fn env_config(var: &str, kind: Kind) -> Option<(ConnConfig, Option<String>)> {
     let t = env_target(var)?;
-    let db = if kind == Kind::Postgres && t.database.is_empty() { "postgres".to_string() } else { t.database.clone() };
+    let db = if kind == Kind::Postgres && t.database.is_empty() {
+        "postgres".to_string()
+    } else {
+        t.database.clone()
+    };
     Some((config(kind, &t, &db), t.password))
 }
 
 pub(super) async fn open(kind: Kind, t: &Target, database: &str) -> DbPool {
-    connect(&config(kind, t, database), t.password.clone()).await.expect("connect")
+    connect(&config(kind, t, database), t.password.clone())
+        .await
+        .expect("connect")
 }
 
 fn config(kind: Kind, t: &Target, database: &str) -> ConnConfig {
@@ -81,15 +93,31 @@ fn config(kind: Kind, t: &Target, database: &str) -> ConnConfig {
 /// Runs a T-SQL batch outside read-only mode.
 async fn mssql_batch(pool: &MssqlPool, sql: &str) -> Result<(), String> {
     let mut conn = pool.acquire().await.map_err(|e| e.to_string())?;
-    let stream = conn.client().simple_query(sql).await.map_err(|e| e.to_string())?;
-    stream.into_results().await.map(|_| ()).map_err(|e| e.to_string())
+    let stream = conn
+        .client()
+        .simple_query(sql)
+        .await
+        .map_err(|e| e.to_string())?;
+    stream
+        .into_results()
+        .await
+        .map(|_| ())
+        .map_err(|e| e.to_string())
 }
 
 /// Runs a multi-statement setup script outside read-only mode.
 pub(super) async fn exec(pool: &DbPool, sql: &str) {
     let r = match pool {
-        DbPool::Pg(p) => sqlx::raw_sql(sqlx::AssertSqlSafe(sql)).execute(p).await.map(|_| ()).map_err(|e| e.to_string()),
-        DbPool::My(p) => sqlx::raw_sql(sqlx::AssertSqlSafe(sql)).execute(p).await.map(|_| ()).map_err(|e| e.to_string()),
+        DbPool::Pg(p) => sqlx::raw_sql(sqlx::AssertSqlSafe(sql))
+            .execute(p)
+            .await
+            .map(|_| ())
+            .map_err(|e| e.to_string()),
+        DbPool::My(p) => sqlx::raw_sql(sqlx::AssertSqlSafe(sql))
+            .execute(p)
+            .await
+            .map(|_| ())
+            .map_err(|e| e.to_string()),
         DbPool::Ms(p) => mssql_batch(p, sql).await,
         DbPool::Lite(_) | DbPool::Team(_) => unreachable!("covered by the unit tests"),
     };
@@ -97,7 +125,9 @@ pub(super) async fn exec(pool: &DbPool, sql: &str) {
 }
 
 async fn query(pool: &DbPool, sql: &str, read_only: bool) -> QueryResult {
-    run_query(pool, sql, read_only).await.unwrap_or_else(|e| panic!("{sql}: {e}"))
+    run_query(pool, sql, read_only)
+        .await
+        .unwrap_or_else(|e| panic!("{sql}: {e}"))
 }
 
 async fn scalar(pool: &DbPool, sql: &str) -> Value {
@@ -106,10 +136,13 @@ async fn scalar(pool: &DbPool, sql: &str) -> Value {
 
 /// Runs `sql` with a deadline, so a query stuck behind a leftover lock fails instead of hanging.
 async fn query_within(pool: &DbPool, sql: &str, read_only: bool) -> QueryResult {
-    tokio::time::timeout(std::time::Duration::from_secs(10), run_query(pool, sql, read_only))
-        .await
-        .unwrap_or_else(|_| panic!("{sql}: still waiting after 10 s"))
-        .unwrap_or_else(|e| panic!("{sql}: {e}"))
+    tokio::time::timeout(
+        std::time::Duration::from_secs(10),
+        run_query(pool, sql, read_only),
+    )
+    .await
+    .unwrap_or_else(|_| panic!("{sql}: still waiting after 10 s"))
+    .unwrap_or_else(|e| panic!("{sql}: {e}"))
 }
 
 /// Usage statistics (db/usage.rs) read from real servers: on Postgres a table's writes and the
@@ -117,7 +150,11 @@ async fn query_within(pool: &DbPool, sql: &str, read_only: bool) -> QueryResult 
 #[tokio::test]
 async fn usage_statistics_from_real_servers() {
     if let Some(t) = env_target("SAYQL_TEST_PG_URL") {
-        let db = if t.database.is_empty() { "postgres".to_string() } else { t.database.clone() };
+        let db = if t.database.is_empty() {
+            "postgres".to_string()
+        } else {
+            t.database.clone()
+        };
         let pool = open(Kind::Postgres, &t, &db).await;
         exec(&pool, "DROP SCHEMA IF EXISTS sayql_usage_it CASCADE; CREATE SCHEMA sayql_usage_it; \
                      CREATE TABLE sayql_usage_it.busy (id int PRIMARY KEY); CREATE TABLE sayql_usage_it.idle (id int); \
@@ -127,22 +164,40 @@ async fn usage_statistics_from_real_servers() {
         // Postgres publishes a session's counters shortly after its transaction ends.
         let mut out = String::new();
         for _ in 0..40 {
-            out = crate::readonly::describe_with(&schema, Some("sayql_usage_it"), &usage::read(&pool).await);
+            out = crate::readonly::describe_with(
+                &schema,
+                Some("sayql_usage_it"),
+                &usage::read(&pool).await,
+            );
             if out.contains("25 writes") {
                 break;
             }
             tokio::time::sleep(std::time::Duration::from_millis(250)).await;
         }
         assert!(out.contains("own statistics, since"), "{out}");
-        assert!(out.lines().any(|l| l.starts_with("sayql_usage_it.busy") && l.contains("25 writes")), "{out}");
-        assert!(out.lines().any(|l| l.starts_with("sayql_usage_it.idle") && l.contains("0 writes")), "{out}");
+        assert!(
+            out.lines()
+                .any(|l| l.starts_with("sayql_usage_it.busy") && l.contains("25 writes")),
+            "{out}"
+        );
+        assert!(
+            out.lines()
+                .any(|l| l.starts_with("sayql_usage_it.idle") && l.contains("0 writes")),
+            "{out}"
+        );
         exec(&pool, "DROP SCHEMA sayql_usage_it CASCADE").await;
     }
-    for (var, kind) in [("SAYQL_TEST_MYSQL_URL", Kind::Mysql), ("SAYQL_TEST_MSSQL_URL", Kind::Mssql)] {
+    for (var, kind) in [
+        ("SAYQL_TEST_MYSQL_URL", Kind::Mysql),
+        ("SAYQL_TEST_MSSQL_URL", Kind::Mssql),
+    ] {
         let Some(t) = env_target(var) else { continue };
         let pool = open(kind, &t, &t.database).await;
         let stats = usage::read(&pool).await;
-        assert!(matches!(stats, usage::Stats::Known(_) | usage::Stats::Unavailable), "{kind:?}: {stats:?}");
+        assert!(
+            matches!(stats, usage::Stats::Known(_) | usage::Stats::Unavailable),
+            "{kind:?}: {stats:?}"
+        );
         if let usage::Stats::Known(u) = &stats {
             assert!(u.since.is_some() || kind == Kind::Mysql, "{kind:?}: {u:?}");
         }
@@ -154,7 +209,11 @@ async fn usage_statistics_from_real_servers() {
 #[tokio::test]
 async fn confirmed_statements_commit_and_leave_no_session_state() {
     if let Some(t) = env_target("SAYQL_TEST_PG_URL") {
-        let db = if t.database.is_empty() { "postgres".to_string() } else { t.database.clone() };
+        let db = if t.database.is_empty() {
+            "postgres".to_string()
+        } else {
+            t.database.clone()
+        };
         let pool = open(Kind::Postgres, &t, &db).await;
         exec(&pool, "DROP SCHEMA IF EXISTS sayql_cw CASCADE; CREATE SCHEMA sayql_cw; CREATE TABLE sayql_cw.t (id int PRIMARY KEY, n int);
             INSERT INTO sayql_cw.t VALUES (1, 0);").await;
@@ -164,12 +223,21 @@ async fn confirmed_statements_commit_and_leave_no_session_state() {
         query_within(&pool, "SELECT pg_advisory_lock(4343)", false).await;
         for _ in 0..8 {
             // Committed, and seen from every pooled connection.
-            assert_eq!(query_within(&pool, "SELECT n FROM sayql_cw.t", true).await.rows, [[json!(1)]]);
+            assert_eq!(
+                query_within(&pool, "SELECT n FROM sayql_cw.t", true)
+                    .await
+                    .rows,
+                [[json!(1)]]
+            );
             let path = query_within(&pool, "SHOW search_path", true).await.rows[0][0].clone();
             assert_ne!(path, json!("sayql_cw"), "a confirmed SET carried over");
         }
         let locks = "SELECT count(*) FROM pg_locks WHERE locktype = 'advisory' AND objid = 4343";
-        assert_eq!(query_within(&pool, locks, true).await.rows, [[json!(0)]], "the session lock outlived its statement");
+        assert_eq!(
+            query_within(&pool, locks, true).await.rows,
+            [[json!(0)]],
+            "the session lock outlived its statement"
+        );
         exec(&pool, "DROP SCHEMA sayql_cw CASCADE").await;
     }
     if let Some(t) = env_target("SAYQL_TEST_MYSQL_URL") {
@@ -185,12 +253,29 @@ async fn confirmed_statements_commit_and_leave_no_session_state() {
         query_within(&pool, "SET SESSION sql_mode = 'ANSI_QUOTES'", false).await;
         query_within(&pool, "SELECT GET_LOCK('sayql_cw', 0)", false).await;
         for _ in 0..8 {
-            assert_eq!(query_within(&pool, "SELECT n FROM t", true).await.rows, [[json!(1)]]);
-            assert_eq!(query_within(&pool, "SELECT DATABASE()", true).await.rows, [[json!("sayql_cw")]]);
-            let mode = query_within(&pool, "SELECT @@SESSION.sql_mode", true).await.rows[0][0].clone();
-            assert!(!mode.as_str().unwrap_or("").contains("ANSI_QUOTES"), "a confirmed SET carried over: {mode}");
+            assert_eq!(
+                query_within(&pool, "SELECT n FROM t", true).await.rows,
+                [[json!(1)]]
+            );
+            assert_eq!(
+                query_within(&pool, "SELECT DATABASE()", true).await.rows,
+                [[json!("sayql_cw")]]
+            );
+            let mode = query_within(&pool, "SELECT @@SESSION.sql_mode", true)
+                .await
+                .rows[0][0]
+                .clone();
+            assert!(
+                !mode.as_str().unwrap_or("").contains("ANSI_QUOTES"),
+                "a confirmed SET carried over: {mode}"
+            );
         }
-        assert_eq!(query_within(&pool, "SELECT IS_FREE_LOCK('sayql_cw')", true).await.rows, [[json!(1)]]);
+        assert_eq!(
+            query_within(&pool, "SELECT IS_FREE_LOCK('sayql_cw')", true)
+                .await
+                .rows,
+            [[json!(1)]]
+        );
         exec(&admin, "DROP DATABASE sayql_cw").await;
     }
     if let Some(t) = env_target("SAYQL_TEST_MSSQL_URL") {
@@ -200,16 +285,47 @@ async fn confirmed_statements_commit_and_leave_no_session_state() {
         let pool = open(Kind::Mssql, &t, "sayql_cw").await;
         exec(&pool, "CREATE TABLE dbo.t (id int IDENTITY PRIMARY KEY, n int); INSERT INTO dbo.t (n) VALUES (0), (0);").await;
         // Rows a confirmed statement returns are shown, not dropped.
-        let w = query_within(&pool, "INSERT INTO dbo.t (n) OUTPUT inserted.id, inserted.n VALUES (5)", false).await;
-        assert_eq!((w.columns.clone(), w.rows.clone()), (vec!["id".to_string(), "n".to_string()], vec![vec![json!(3), json!(5)]]));
+        let w = query_within(
+            &pool,
+            "INSERT INTO dbo.t (n) OUTPUT inserted.id, inserted.n VALUES (5)",
+            false,
+        )
+        .await;
+        assert_eq!(
+            (w.columns.clone(), w.rows.clone()),
+            (
+                vec!["id".to_string(), "n".to_string()],
+                vec![vec![json!(3), json!(5)]]
+            )
+        );
         let w = query_within(&pool, "DECLARE @x int = 41; SELECT @x + 1 AS answer", false).await;
         assert_eq!(w.rows, [[json!(42)]]);
         // Statements without rows report how many rows they changed, across the whole batch.
-        let w = query_within(&pool, "UPDATE dbo.t SET n = n + 1 WHERE n = 0; DELETE FROM dbo.t WHERE n = 5", false).await;
+        let w = query_within(
+            &pool,
+            "UPDATE dbo.t SET n = n + 1 WHERE n = 0; DELETE FROM dbo.t WHERE n = 5",
+            false,
+        )
+        .await;
         assert_eq!((w.columns.len(), w.rows_affected), (0, Some(3)));
-        assert_eq!(query_within(&pool, "SELECT COUNT(*) AS c FROM dbo.t", true).await.rows, [[json!(2)]]);
-        query_within(&pool, "EXEC sp_set_session_context 'sayql', 'leftover'", false).await;
-        let ctx = query_within(&pool, "SELECT CAST(SESSION_CONTEXT(N'sayql') AS nvarchar(20)) AS v", true).await;
+        assert_eq!(
+            query_within(&pool, "SELECT COUNT(*) AS c FROM dbo.t", true)
+                .await
+                .rows,
+            [[json!(2)]]
+        );
+        query_within(
+            &pool,
+            "EXEC sp_set_session_context 'sayql', 'leftover'",
+            false,
+        )
+        .await;
+        let ctx = query_within(
+            &pool,
+            "SELECT CAST(SESSION_CONTEXT(N'sayql') AS nvarchar(20)) AS v",
+            true,
+        )
+        .await;
         assert_eq!(ctx.rows, [[Value::Null]], "session state carried over");
         drop(pool);
         exec(&admin, "ALTER DATABASE sayql_cw SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE sayql_cw").await;
@@ -224,12 +340,19 @@ fn table<'a>(tables: &'a [Table], schema: Option<&str>, name: &str) -> &'a Table
 }
 
 fn pk_columns(t: &Table) -> Vec<&str> {
-    t.columns.iter().filter(|c| c.primary_key).map(|c| c.name.as_str()).collect()
+    t.columns
+        .iter()
+        .filter(|c| c.primary_key)
+        .map(|c| c.name.as_str())
+        .collect()
 }
 
 fn fks(t: &Table) -> Vec<(String, String, String)> {
-    let mut v: Vec<_> =
-        t.foreign_keys.iter().map(|f| (f.column.clone(), f.ref_table.clone(), f.ref_column.clone())).collect();
+    let mut v: Vec<_> = t
+        .foreign_keys
+        .iter()
+        .map(|f| (f.column.clone(), f.ref_table.clone(), f.ref_column.clone()))
+        .collect();
     v.sort();
     v
 }
@@ -239,7 +362,10 @@ fn fk(c: &str, t: &str, rc: &str) -> (String, String, String) {
 }
 
 fn column<'a>(t: &'a Table, name: &str) -> &'a crate::schema::Column {
-    t.columns.iter().find(|c| c.name == name).unwrap_or_else(|| panic!("column {}.{name} missing", t.name))
+    t.columns
+        .iter()
+        .find(|c| c.name == name)
+        .unwrap_or_else(|| panic!("column {}.{name} missing", t.name))
 }
 
 fn is_placeholder(v: &Value) -> bool {
@@ -263,12 +389,22 @@ fn check_row(label: &str, r: &QueryResult, row: usize, expected: &Value) {
             bad.push(format!("  {name}: column missing from result"));
         }
     }
-    assert!(bad.is_empty(), "{label} row {row} mismatches:\n{}", bad.join("\n"));
+    assert!(
+        bad.is_empty(),
+        "{label} row {row} mismatches:\n{}",
+        bad.join("\n")
+    );
 }
 
 /// Read-only mode must be enforced by the database, survive multi-statement tricks,
 /// and leave pooled connections usable for normal writes afterwards.
-async fn check_read_only(pool: &DbPool, count_sql: &str, writes: &[&str], show_ro: &str, approved_write: &str) {
+async fn check_read_only(
+    pool: &DbPool,
+    count_sql: &str,
+    writes: &[&str],
+    show_ro: &str,
+    approved_write: &str,
+) {
     let before = scalar(pool, count_sql).await;
     for _ in 0..3 {
         for sql in writes {
@@ -276,12 +412,19 @@ async fn check_read_only(pool: &DbPool, count_sql: &str, writes: &[&str], show_r
             assert!(e.is_err(), "read-only mode allowed: {sql}");
         }
     }
-    assert_eq!(scalar(pool, count_sql).await, before, "a read-only statement changed data");
+    assert_eq!(
+        scalar(pool, count_sql).await,
+        before,
+        "a read-only statement changed data"
+    );
     // Run more queries than the pool has connections so every pooled connection is checked.
     for _ in 0..8 {
         let r = query(pool, show_ro, false).await;
         let v = r.rows[0].last().unwrap().clone();
-        assert!(v == json!("off") || v == json!("OFF") || v == json!(0), "connection left read-only: {v}");
+        assert!(
+            v == json!("off") || v == json!("OFF") || v == json!(0),
+            "connection left read-only: {v}"
+        );
     }
     let w = query(pool, approved_write, false).await;
     assert_eq!(w.rows_affected, Some(1), "{approved_write}");
@@ -293,14 +436,21 @@ async fn check_read_only(pool: &DbPool, count_sql: &str, writes: &[&str], show_r
 #[tokio::test]
 async fn read_only_refuses_effects_a_rollback_keeps() {
     if let Some(t) = env_target("SAYQL_TEST_PG_URL") {
-        let db = if t.database.is_empty() { "postgres".to_string() } else { t.database.clone() };
+        let db = if t.database.is_empty() {
+            "postgres".to_string()
+        } else {
+            t.database.clone()
+        };
         let pool = open(Kind::Postgres, &t, &db).await;
         for sql in [
             "SELECT pg_create_physical_replication_slot('sayql_it_slot')",
             "SELECT pg_advisory_lock(4242)",
             "SELECT pg_stat_reset()",
         ] {
-            assert!(run_query(&pool, sql, true).await.is_err(), "read-only mode allowed: {sql}");
+            assert!(
+                run_query(&pool, sql, true).await.is_err(),
+                "read-only mode allowed: {sql}"
+            );
         }
         let slots = "SELECT count(*) FROM pg_replication_slots WHERE slot_name = 'sayql_it_slot'";
         assert_eq!(scalar(&pool, slots).await, json!(0));
@@ -311,11 +461,24 @@ async fn read_only_refuses_effects_a_rollback_keeps() {
         let admin = open(Kind::Mysql, &t, &t.database).await;
         exec(&admin, "DROP DATABASE IF EXISTS sayql_ro; CREATE DATABASE sayql_ro; CREATE TABLE sayql_ro.t (id int PRIMARY KEY)").await;
         let pool = open(Kind::Mysql, &t, "sayql_ro").await;
-        assert!(run_query(&pool, "SELECT GET_LOCK('sayql_it', 0)", true).await.is_err());
-        assert_eq!(scalar(&pool, "SELECT IS_FREE_LOCK('sayql_it')").await, json!(1));
+        assert!(
+            run_query(&pool, "SELECT GET_LOCK('sayql_it', 0)", true)
+                .await
+                .is_err()
+        );
+        assert_eq!(
+            scalar(&pool, "SELECT IS_FREE_LOCK('sayql_it')").await,
+            json!(1)
+        );
         // Showing a table's CREATE statement is a read.
         let r = query(&pool, "SHOW CREATE TABLE t", true).await;
-        assert!(r.rows[0][1].as_str().is_some_and(|s| s.starts_with("CREATE TABLE `t`")), "{:?}", r.rows);
+        assert!(
+            r.rows[0][1]
+                .as_str()
+                .is_some_and(|s| s.starts_with("CREATE TABLE `t`")),
+            "{:?}",
+            r.rows
+        );
         exec(&admin, "DROP DATABASE sayql_ro").await;
     }
 }
@@ -436,11 +599,23 @@ fn pg_expected() -> Value {
 
 #[tokio::test]
 async fn postgres_integration() {
-    let Some(t) = env_target("SAYQL_TEST_PG_URL") else { return };
-    let db = if t.database.is_empty() { "postgres".to_string() } else { t.database.clone() };
+    let Some(t) = env_target("SAYQL_TEST_PG_URL") else {
+        return;
+    };
+    let db = if t.database.is_empty() {
+        "postgres".to_string()
+    } else {
+        t.database.clone()
+    };
     let pool = open(Kind::Postgres, &t, &db).await;
-    let list = list_databases(&pool).await.expect("list").expect("a server has databases");
-    assert!(list.databases.contains(&db) && !list.databases.iter().any(|d| d.starts_with("template")), "{list:?}");
+    let list = list_databases(&pool)
+        .await
+        .expect("list")
+        .expect("a server has databases");
+    assert!(
+        list.databases.contains(&db) && !list.databases.iter().any(|d| d.starts_with("template")),
+        "{list:?}"
+    );
     assert_eq!(list.current.as_deref(), Some(db.as_str()));
     exec(&pool, PG_SEED).await;
 
@@ -449,7 +624,11 @@ async fn postgres_integration() {
     let ours: Vec<String> = schema
         .tables
         .iter()
-        .filter(|t| t.schema.as_deref().is_some_and(|s| s.starts_with("sayql_it")))
+        .filter(|t| {
+            t.schema
+                .as_deref()
+                .is_some_and(|s| s.starts_with("sayql_it"))
+        })
         .map(|t| t.qualified_name())
         .collect();
     assert_eq!(
@@ -478,16 +657,25 @@ async fn postgres_integration() {
     assert_eq!(fks(orders), [fk("customer_id", "sayql_it.customers", "id")]);
     assert_eq!(
         fks(table(tb, Some("sayql_it"), "shipments")),
-        [fk("order_id", "sayql_it.orders", "id"), fk("warehouse_code", "sayql_it_inv.warehouses", "code")]
+        [
+            fk("order_id", "sayql_it.orders", "id"),
+            fk("warehouse_code", "sayql_it_inv.warehouses", "code")
+        ]
     );
     assert_eq!(
         fks(table(tb, Some("sayql_it_inv"), "movements")),
-        [fk("pid", "sayql_it_inv.stock", "product_id"), fk("wh", "sayql_it_inv.stock", "warehouse_code")]
+        [
+            fk("pid", "sayql_it_inv.stock", "product_id"),
+            fk("wh", "sayql_it_inv.stock", "warehouse_code")
+        ]
     );
     let status = column(orders, "status");
     // Non-public types are schema-qualified, as they must be written in a cast.
     assert_eq!(status.data_type, "sayql_it.order_status");
-    assert_eq!(status.enum_values.as_deref(), Some(&["pending", "paid", "shipped", "cancelled"].map(String::from)[..]));
+    assert_eq!(
+        status.enum_values.as_deref(),
+        Some(&["pending", "paid", "shipped", "cancelled"].map(String::from)[..])
+    );
     assert_eq!(
         column(stock, "state").enum_values.as_deref(),
         Some(&["in_stock", "backordered"].map(String::from)[..]),
@@ -498,14 +686,36 @@ async fn postgres_integration() {
     assert!(!column(orders, "total").nullable);
     assert!(column(customers, "profile").nullable);
     // Never-analyzed tables have no statistics yet: report "unknown", not a negative count.
-    for t in tb.iter().filter(|t| t.schema.as_deref().is_some_and(|s| s.starts_with("sayql_it"))) {
-        assert!(t.row_estimate.is_none_or(|n| n >= 0), "{}: row estimate {:?}", t.name, t.row_estimate);
+    for t in tb.iter().filter(|t| {
+        t.schema
+            .as_deref()
+            .is_some_and(|s| s.starts_with("sayql_it"))
+    }) {
+        assert!(
+            t.row_estimate.is_none_or(|n| n >= 0),
+            "{}: row estimate {:?}",
+            t.name,
+            t.row_estimate
+        );
     }
-    exec(&pool, "ANALYZE sayql_it.customers; ANALYZE sayql_it.orders;").await;
+    exec(
+        &pool,
+        "ANALYZE sayql_it.customers; ANALYZE sayql_it.orders;",
+    )
+    .await;
     let schema = introspect(&pool, Kind::Postgres).await.expect("introspect");
-    assert_eq!(table(&schema.tables, Some("sayql_it"), "customers").row_estimate, Some(200));
-    assert_eq!(table(&schema.tables, Some("sayql_it"), "orders").row_estimate, Some(1000));
-    assert_eq!(table(&schema.tables, Some("sayql_it"), "paid_orders").row_estimate, None);
+    assert_eq!(
+        table(&schema.tables, Some("sayql_it"), "customers").row_estimate,
+        Some(200)
+    );
+    assert_eq!(
+        table(&schema.tables, Some("sayql_it"), "orders").row_estimate,
+        Some(1000)
+    );
+    assert_eq!(
+        table(&schema.tables, Some("sayql_it"), "paid_orders").row_estimate,
+        None
+    );
 
     // ---- value decoding
     let r = query(&pool, "SELECT * FROM sayql_it.all_types ORDER BY id", true).await;
@@ -513,18 +723,47 @@ async fn postgres_integration() {
     assert!(r.rows[1][1..].iter().all(Value::is_null), "{:?}", r.rows[1]);
     assert!(!r.rows[0].iter().any(is_placeholder));
     // Approved writes that return rows decode the same way.
-    let w = query(&pool, "UPDATE sayql_it.all_types SET i4 = i4 WHERE id = 1 RETURNING *", false).await;
+    let w = query(
+        &pool,
+        "UPDATE sayql_it.all_types SET i4 = i4 WHERE id = 1 RETURNING *",
+        false,
+    )
+    .await;
     check_row("pg RETURNING", &w, 0, &pg_expected());
-    let r = query(&pool, "SELECT status, count(*) AS n, sum(total) AS s FROM sayql_it.orders GROUP BY 1 ORDER BY 1", true).await;
+    let r = query(
+        &pool,
+        "SELECT status, count(*) AS n, sum(total) AS s FROM sayql_it.orders GROUP BY 1 ORDER BY 1",
+        true,
+    )
+    .await;
     assert_eq!(r.columns, ["status", "n", "s"]);
-    assert_eq!(r.rows.iter().map(|row| row[1].as_i64().unwrap()).sum::<i64>(), 1000);
+    assert_eq!(
+        r.rows
+            .iter()
+            .map(|row| row[1].as_i64().unwrap())
+            .sum::<i64>(),
+        1000
+    );
     assert_eq!(r.rows[0][0], json!("pending"));
 
     // ---- other read-only statement kinds still work
-    assert_eq!(scalar(&pool, "SHOW transaction_read_only").await, json!("on"));
+    assert_eq!(
+        scalar(&pool, "SHOW transaction_read_only").await,
+        json!("on")
+    );
     assert_eq!(scalar(&pool, "VALUES (1)").await, json!(1));
-    assert_eq!(query(&pool, "TABLE sayql_it_inv.warehouses", true).await.columns, ["code", "name"]);
-    assert!(!query(&pool, "EXPLAIN SELECT * FROM sayql_it.orders", true).await.rows.is_empty());
+    assert_eq!(
+        query(&pool, "TABLE sayql_it_inv.warehouses", true)
+            .await
+            .columns,
+        ["code", "name"]
+    );
+    assert!(
+        !query(&pool, "EXPLAIN SELECT * FROM sayql_it.orders", true)
+            .await
+            .rows
+            .is_empty()
+    );
     assert_eq!(
         scalar(&pool, "WITH x AS (SELECT 41 AS v) SELECT v + 1 FROM x").await,
         json!(42)
@@ -532,7 +771,12 @@ async fn postgres_integration() {
 
     // ---- empty results keep their headers
     for ro in [true, false] {
-        let r = query(&pool, "SELECT id, email FROM sayql_it.customers WHERE false", ro).await;
+        let r = query(
+            &pool,
+            "SELECT id, email FROM sayql_it.customers WHERE false",
+            ro,
+        )
+        .await;
         assert_eq!(r.columns, ["id", "email"]);
         assert!(r.rows.is_empty());
         assert_eq!(r.rows_affected, None);
@@ -555,7 +799,11 @@ async fn postgres_integration() {
     )
     .await;
 
-    exec(&pool, "DROP SCHEMA sayql_it CASCADE; DROP SCHEMA sayql_it_inv CASCADE;").await;
+    exec(
+        &pool,
+        "DROP SCHEMA sayql_it CASCADE; DROP SCHEMA sayql_it_inv CASCADE;",
+    )
+    .await;
 }
 
 const PG_PARTS_SEED: &str = r#"
@@ -576,8 +824,14 @@ ANALYZE sayql_pt.events, sayql_pt.events_2024, sayql_pt.events_2025, sayql_pt.da
 /// only SELECT (the setup the docs recommend).
 #[tokio::test]
 async fn postgres_partitions_matviews_and_read_only_roles() {
-    let Some(t) = env_target("SAYQL_TEST_PG_URL") else { return };
-    let db = if t.database.is_empty() { "postgres".to_string() } else { t.database.clone() };
+    let Some(t) = env_target("SAYQL_TEST_PG_URL") else {
+        return;
+    };
+    let db = if t.database.is_empty() {
+        "postgres".to_string()
+    } else {
+        t.database.clone()
+    };
     let pool = open(Kind::Postgres, &t, &db).await;
     exec(&pool, PG_PARTS_SEED).await;
     let reader_pw = uuid::Uuid::new_v4().simple().to_string();
@@ -589,7 +843,11 @@ async fn postgres_partitions_matviews_and_read_only_roles() {
         ),
     )
     .await;
-    let reader_target = Target { user: "sayql_pt_reader".into(), password: Some(reader_pw), ..parse_url(&std::env::var("SAYQL_TEST_PG_URL").unwrap()) };
+    let reader_target = Target {
+        user: "sayql_pt_reader".into(),
+        password: Some(reader_pw),
+        ..parse_url(&std::env::var("SAYQL_TEST_PG_URL").unwrap())
+    };
     let reader = open(Kind::Postgres, &reader_target, &db).await;
 
     for (who, pool) in [("owner", &pool), ("reader", &reader)] {
@@ -601,32 +859,57 @@ async fn postgres_partitions_matviews_and_read_only_roles() {
             .map(|t| t.qualified_name())
             .collect();
         // Partitions are left out: queries go through the parent.
-        assert_eq!(ours, ["sayql_pt.daily", "sayql_pt.event_tags", "sayql_pt.events"], "{who}");
+        assert_eq!(
+            ours,
+            ["sayql_pt.daily", "sayql_pt.event_tags", "sayql_pt.events"],
+            "{who}"
+        );
         let tb = &schema.tables;
         let events = table(tb, Some("sayql_pt"), "events");
         assert_eq!(events.kind, "table");
         // A role with only SELECT still sees the keys.
         assert_eq!(pk_columns(events), ["id", "at"], "{who}");
-        assert_eq!(pk_columns(table(tb, Some("sayql_pt"), "event_tags")), ["event_id", "event_at", "tag"], "{who}");
+        assert_eq!(
+            pk_columns(table(tb, Some("sayql_pt"), "event_tags")),
+            ["event_id", "event_at", "tag"],
+            "{who}"
+        );
         // One foreign key to the parent, not one per partition.
         assert_eq!(
             fks(table(tb, Some("sayql_pt"), "event_tags")),
-            [fk("event_at", "sayql_pt.events", "at"), fk("event_id", "sayql_pt.events", "id")],
+            [
+                fk("event_at", "sayql_pt.events", "at"),
+                fk("event_id", "sayql_pt.events", "id")
+            ],
             "{who}"
         );
         // The parent's estimate covers all its partitions (on PG 13 its own estimate is 0).
         assert_eq!(events.row_estimate, Some(3000), "{who}");
         let daily = table(tb, Some("sayql_pt"), "daily");
         assert_eq!(daily.kind, "materialized view");
-        assert_eq!(daily.columns.iter().map(|c| c.name.as_str()).collect::<Vec<_>>(), ["at", "n"]);
+        assert_eq!(
+            daily
+                .columns
+                .iter()
+                .map(|c| c.name.as_str())
+                .collect::<Vec<_>>(),
+            ["at", "n"]
+        );
         assert_eq!(column(daily, "at").data_type, "date");
         assert_eq!(column(daily, "n").data_type, "bigint");
         assert_eq!(daily.row_estimate, Some(700), "{who}");
         let text = crate::schema::render_full(&schema);
-        assert!(text.contains("sayql_pt.daily [materialized view, ~700 rows](at date, n bigint)"), "{text}");
+        assert!(
+            text.contains("sayql_pt.daily [materialized view, ~700 rows](at date, n bigint)"),
+            "{text}"
+        );
     }
     drop(reader);
-    exec(&pool, "DROP SCHEMA sayql_pt CASCADE; DROP ROLE sayql_pt_reader;").await;
+    exec(
+        &pool,
+        "DROP SCHEMA sayql_pt CASCADE; DROP ROLE sayql_pt_reader;",
+    )
+    .await;
 }
 
 // ---------------------------------------------------------------- MySQL
@@ -714,30 +997,71 @@ async fn zero_dates_geometry_and_unnamed_columns() {
             CREATE TABLE sayql_val.zd (id int PRIMARY KEY, d date, dt datetime(6), ts timestamp NULL);
             CREATE TABLE sayql_val.geo (id int PRIMARY KEY, p point, g geometry, g4326 geometry);").await;
         // Zero dates need a non-strict sql_mode, on the same connection as the insert.
-        exec(&admin, "SET SESSION sql_mode = ''; INSERT INTO sayql_val.zd VALUES
+        exec(
+            &admin,
+            "SET SESSION sql_mode = ''; INSERT INTO sayql_val.zd VALUES
             (1, '0000-00-00', '0000-00-00 00:00:00', '0000-00-00 00:00:00'),
-            (2, '2024-00-15', '2024-02-00 10:00:05.5', NULL), (3, NULL, NULL, NULL);").await;
+            (2, '2024-00-15', '2024-02-00 10:00:05.5', NULL), (3, NULL, NULL, NULL);",
+        )
+        .await;
         exec(&admin, "INSERT INTO sayql_val.geo VALUES (1, POINT(1.5, -2), ST_GeomFromText('POLYGON((0 0,4 0,4 4,0 0))'),
             ST_GeomFromText('MULTIPOINT(1 2,3 4)'))").await;
         let pool = open(Kind::Mysql, &t, "sayql_val").await;
         let r = query(&pool, "SELECT d, dt, ts FROM zd ORDER BY id", true).await;
-        assert_eq!(r.rows[0], [json!("0000-00-00"), json!("0000-00-00 00:00:00"), json!("0000-00-00 00:00:00")]);
-        assert_eq!(r.rows[1], [json!("2024-00-15"), json!("2024-02-00 10:00:05.500000"), Value::Null]);
+        assert_eq!(
+            r.rows[0],
+            [
+                json!("0000-00-00"),
+                json!("0000-00-00 00:00:00"),
+                json!("0000-00-00 00:00:00")
+            ]
+        );
+        assert_eq!(
+            r.rows[1],
+            [
+                json!("2024-00-15"),
+                json!("2024-02-00 10:00:05.500000"),
+                Value::Null
+            ]
+        );
         assert_eq!(r.rows[2], [Value::Null, Value::Null, Value::Null]);
         let r = query(&pool, "SELECT p, g, g4326 FROM geo", true).await;
-        assert_eq!(r.rows[0], [json!("POINT(1.5 -2)"), json!("POLYGON((0 0,4 0,4 4,0 0))"), json!("MULTIPOINT((1 2),(3 4))")]);
+        assert_eq!(
+            r.rows[0],
+            [
+                json!("POINT(1.5 -2)"),
+                json!("POLYGON((0 0,4 0,4 4,0 0))"),
+                json!("MULTIPOINT((1 2),(3 4))")
+            ]
+        );
         exec(&admin, "DROP DATABASE sayql_val").await;
     }
     if let Some(t) = env_target("SAYQL_TEST_MSSQL_URL") {
         let pool = open(Kind::Mssql, &t, &t.database).await;
-        let r = query(&pool, "SELECT 1, 2 AS two, COUNT(*) FROM sys.databases WHERE 1 = 0", true).await;
+        let r = query(
+            &pool,
+            "SELECT 1, 2 AS two, COUNT(*) FROM sys.databases WHERE 1 = 0",
+            true,
+        )
+        .await;
         assert_eq!(r.columns, ["(No column name)", "two", "(No column name)"]);
         // money is exact to its 4 places, at the ends of its range too (tiberius is patched for it).
-        let r = query(&pool, "SELECT CAST(922337203685477.5807 AS money), CAST(-922337203685477.5808 AS money), \
-            CAST(-214748.3648 AS smallmoney), CAST(0.01 AS money), CAST(NULL AS money)", true).await;
+        let r = query(
+            &pool,
+            "SELECT CAST(922337203685477.5807 AS money), CAST(-922337203685477.5808 AS money), \
+            CAST(-214748.3648 AS smallmoney), CAST(0.01 AS money), CAST(NULL AS money)",
+            true,
+        )
+        .await;
         assert_eq!(
             r.rows[0],
-            [json!("922337203685477.5807"), json!("-922337203685477.5808"), json!("-214748.3648"), json!("0.0100"), Value::Null]
+            [
+                json!("922337203685477.5807"),
+                json!("-922337203685477.5808"),
+                json!("-214748.3648"),
+                json!("0.0100"),
+                Value::Null
+            ]
         );
         // geometry reads as SQL Server's own STAsText() writes it.
         for wkt in [
@@ -752,7 +1076,9 @@ async fn zero_dates_geometry_and_unnamed_columns() {
             "GEOMETRYCOLLECTION (POINT (1 2), LINESTRING (0 0, 1 1))",
             "POINT EMPTY",
         ] {
-            let sql = format!("SELECT g, g.STAsText() AS t FROM (SELECT geometry::STGeomFromText('{wkt}', 0) AS g) x");
+            let sql = format!(
+                "SELECT g, g.STAsText() AS t FROM (SELECT geometry::STGeomFromText('{wkt}', 0) AS g) x"
+            );
             let r = query(&pool, &sql, true).await;
             assert_eq!(r.rows[0][0], r.rows[0][1], "{wkt}");
         }
@@ -761,11 +1087,20 @@ async fn zero_dates_geometry_and_unnamed_columns() {
         let sql = "SELECT g, h, p FROM (VALUES (geography::Point(47.6, -122.3, 4326), hierarchyid::Parse('/1/2/'), \
                    geometry::STGeomFromText('LINESTRING (0 0, 3 4)', 4326)), (NULL, NULL, NULL)) x(g, h, p)";
         let want = [
-            vec![json!("POINT (-122.3 47.6)"), json!("/1/2/"), json!("LINESTRING (0 0, 3 4)")],
+            vec![
+                json!("POINT (-122.3 47.6)"),
+                json!("/1/2/"),
+                json!("LINESTRING (0 0, 3 4)"),
+            ],
             vec![Value::Null, Value::Null, Value::Null],
         ];
         assert_eq!(query(&pool, sql, true).await.rows, want);
-        assert_eq!(query(&pool, &format!("DECLARE @x int = 1; {sql}"), false).await.rows, want);
+        assert_eq!(
+            query(&pool, &format!("DECLARE @x int = 1; {sql}"), false)
+                .await
+                .rows,
+            want
+        );
     }
 }
 
@@ -786,12 +1121,21 @@ fn my_expected() -> Value {
 
 #[tokio::test]
 async fn mysql_integration() {
-    let Some(t) = env_target("SAYQL_TEST_MYSQL_URL") else { return };
+    let Some(t) = env_target("SAYQL_TEST_MYSQL_URL") else {
+        return;
+    };
     let admin = open(Kind::Mysql, &t, &t.database).await;
     exec(&admin, MY_SEED).await;
     let pool = open(Kind::Mysql, &t, "sayql_it").await;
-    let list = list_databases(&pool).await.expect("list").expect("a server has databases");
-    assert!(list.databases.contains(&"sayql_it".to_string()) && !list.databases.contains(&"mysql".to_string()), "{list:?}");
+    let list = list_databases(&pool)
+        .await
+        .expect("list")
+        .expect("a server has databases");
+    assert!(
+        list.databases.contains(&"sayql_it".to_string())
+            && !list.databases.contains(&"mysql".to_string()),
+        "{list:?}"
+    );
     assert_eq!(list.current.as_deref(), Some("sayql_it"));
 
     // ---- schema reading
@@ -799,7 +1143,16 @@ async fn mysql_integration() {
     // Sorted here: MySQL and MariaDB order `_` differently.
     let mut names: Vec<&str> = schema.tables.iter().map(|t| t.name.as_str()).collect();
     names.sort();
-    assert_eq!(names, ["all_types", "customers", "order_items", "orders", "paid_orders"]);
+    assert_eq!(
+        names,
+        [
+            "all_types",
+            "customers",
+            "order_items",
+            "orders",
+            "paid_orders"
+        ]
+    );
     let tb = &schema.tables;
     let customers = table(tb, None, "customers");
     let orders = table(tb, None, "orders");
@@ -807,29 +1160,56 @@ async fn mysql_integration() {
     assert_eq!(view.kind, "view");
     assert_eq!(customers.kind, "table");
     assert_eq!(pk_columns(customers), ["id"]);
-    assert_eq!(pk_columns(table(tb, None, "order_items")), ["order_id", "line"]);
+    assert_eq!(
+        pk_columns(table(tb, None, "order_items")),
+        ["order_id", "line"]
+    );
     assert!(pk_columns(view).is_empty());
     assert_eq!(fks(orders), [fk("customer_id", "customers", "id")]);
-    assert_eq!(fks(table(tb, None, "order_items")), [fk("order_id", "orders", "id")]);
+    assert_eq!(
+        fks(table(tb, None, "order_items")),
+        [fk("order_id", "orders", "id")]
+    );
     let status = column(orders, "status");
     assert_eq!(status.data_type, "enum");
-    assert_eq!(status.enum_values.as_deref(), Some(&["pending", "paid", "shipped", "it's late"].map(String::from)[..]));
-    assert_eq!(column(customers, "tier").enum_values.as_deref(), Some(&["free", "pro", "enterprise"].map(String::from)[..]));
+    assert_eq!(
+        status.enum_values.as_deref(),
+        Some(&["pending", "paid", "shipped", "it's late"].map(String::from)[..])
+    );
+    assert_eq!(
+        column(customers, "tier").enum_values.as_deref(),
+        Some(&["free", "pro", "enterprise"].map(String::from)[..])
+    );
     assert_eq!(column(orders, "total").data_type, "decimal(12,2)");
     // MySQL 5.7 and MariaDB still write display widths: `int(10) unsigned`.
-    assert_eq!(column(customers, "id").data_type.replace("(10)", ""), "int unsigned");
+    assert_eq!(
+        column(customers, "id").data_type.replace("(10)", ""),
+        "int unsigned"
+    );
     assert!(column(orders, "meta").nullable);
     assert!(!column(orders, "total").nullable);
     exec(&pool, "ANALYZE TABLE customers, orders").await;
     let schema = introspect(&pool, Kind::Mysql).await.expect("introspect");
     // InnoDB row counts are estimates; they should be in the right ballpark.
     let est = |name: &str| table(&schema.tables, None, name).row_estimate;
-    assert!(est("customers").is_some_and(|n| (150..=250).contains(&n)), "customers ~200: {:?}", est("customers"));
-    assert!(est("orders").is_some_and(|n| (800..=1200).contains(&n)), "orders ~1000: {:?}", est("orders"));
+    assert!(
+        est("customers").is_some_and(|n| (150..=250).contains(&n)),
+        "customers ~200: {:?}",
+        est("customers")
+    );
+    assert!(
+        est("orders").is_some_and(|n| (800..=1200).contains(&n)),
+        "orders ~1000: {:?}",
+        est("orders")
+    );
     assert_eq!(est("paid_orders"), None);
 
     // ---- value decoding, inside and outside the read-only transaction
-    let version = scalar(&pool, "SELECT VERSION()").await.as_str().unwrap_or_default().to_string();
+    let version = scalar(&pool, "SELECT VERSION()")
+        .await
+        .as_str()
+        .unwrap_or_default()
+        .to_string();
     // MariaDB stores JSON as LONGTEXT; sqlx-mysql is patched to read its JSON marker.
     let expected = my_expected();
     let r = query(&pool, "SELECT * FROM all_types ORDER BY id", true).await;
@@ -838,19 +1218,38 @@ async fn mysql_integration() {
     assert!(!r.rows[0].iter().any(is_placeholder));
     let w = query(&pool, "SELECT * FROM all_types ORDER BY id", false).await;
     check_row("mysql read-write", &w, 0, &expected);
-    let r = query(&pool, "SELECT status, COUNT(*) AS n, SUM(total) AS s FROM orders GROUP BY status ORDER BY status", true).await;
+    let r = query(
+        &pool,
+        "SELECT status, COUNT(*) AS n, SUM(total) AS s FROM orders GROUP BY status ORDER BY status",
+        true,
+    )
+    .await;
     assert_eq!(r.columns, ["status", "n", "s"]);
-    assert_eq!(r.rows.iter().map(|row| row[1].as_i64().unwrap()).sum::<i64>(), 1000);
+    assert_eq!(
+        r.rows
+            .iter()
+            .map(|row| row[1].as_i64().unwrap())
+            .sum::<i64>(),
+        1000
+    );
     assert_eq!(r.rows[0][0], json!("pending"));
     assert_eq!(r.rows[0][2], json!("62247.50"));
 
     // ---- other read-only statement kinds still work
     assert!(!query(&pool, "SHOW TABLES", true).await.rows.is_empty());
     assert!(!query(&pool, "DESCRIBE orders", true).await.rows.is_empty());
-    assert!(!query(&pool, "EXPLAIN SELECT * FROM orders", true).await.rows.is_empty());
+    assert!(
+        !query(&pool, "EXPLAIN SELECT * FROM orders", true)
+            .await
+            .rows
+            .is_empty()
+    );
     // MySQL 5.7 has no WITH.
     if !version.starts_with("5.7") {
-        assert_eq!(scalar(&pool, "WITH x AS (SELECT 41 AS v) SELECT v + 1 FROM x").await, json!(42));
+        assert_eq!(
+            scalar(&pool, "WITH x AS (SELECT 41 AS v) SELECT v + 1 FROM x").await,
+            json!(42)
+        );
     }
 
     // ---- empty results keep their headers
@@ -863,7 +1262,10 @@ async fn mysql_integration() {
 
     // ---- read-only enforcement
     // MariaDB before 11.1 calls it tx_read_only.
-    let show_ro = if run_query(&pool, "SELECT @@transaction_read_only", true).await.is_ok() {
+    let show_ro = if run_query(&pool, "SELECT @@transaction_read_only", true)
+        .await
+        .is_ok()
+    {
         "SELECT @@transaction_read_only"
     } else {
         "SELECT @@tx_read_only"
@@ -890,43 +1292,94 @@ async fn check_connection_errors(kind: Kind, t: &Target) {
     let db = t.database.clone();
     let base = config(kind, t, &db);
     let started = std::time::Instant::now();
-    let closed = ConnConfig { host: "127.0.0.1".into(), port: Some(1), ..base.clone() };
-    let err = connect(&closed, t.password.clone()).await.err().expect("closed port").to_string();
-    assert!(err.starts_with("Could not reach 127.0.0.1:1:"), "{err}");
-    assert!(started.elapsed() < std::time::Duration::from_secs(5), "took {:?}", started.elapsed());
-
-    let err = connect(&ConnConfig { host: "no-such-host.invalid".into(), ..base.clone() }, t.password.clone())
+    let closed = ConnConfig {
+        host: "127.0.0.1".into(),
+        port: Some(1),
+        ..base.clone()
+    };
+    let err = connect(&closed, t.password.clone())
         .await
         .err()
-        .expect("unknown host")
+        .expect("closed port")
         .to_string();
-    assert!(err.starts_with("Could not reach no-such-host.invalid:"), "{err}");
-
-    let err = connect(&base, Some("wrong-password".into())).await.err().expect("wrong password").to_string();
+    assert!(err.starts_with("Could not reach 127.0.0.1:1:"), "{err}");
     assert!(
-        err.contains("password authentication failed") || err.contains("Access denied") || err.starts_with("Wrong user or password"),
+        started.elapsed() < std::time::Duration::from_secs(5),
+        "took {:?}",
+        started.elapsed()
+    );
+
+    let err = connect(
+        &ConnConfig {
+            host: "no-such-host.invalid".into(),
+            ..base.clone()
+        },
+        t.password.clone(),
+    )
+    .await
+    .err()
+    .expect("unknown host")
+    .to_string();
+    assert!(
+        err.starts_with("Could not reach no-such-host.invalid:"),
         "{err}"
     );
 
-    let plain = connect(&base, t.password.clone()).await.expect("connect with SSL off");
+    let err = connect(&base, Some("wrong-password".into()))
+        .await
+        .err()
+        .expect("wrong password")
+        .to_string();
+    assert!(
+        err.contains("password authentication failed")
+            || err.contains("Access denied")
+            || err.starts_with("Wrong user or password"),
+        "{err}"
+    );
+
+    let plain = connect(&base, t.password.clone())
+        .await
+        .expect("connect with SSL off");
     // A server that offers TLS (MySQL 5.7 included) connects with SSL required, encrypted.
     // One without TLS fails with a message saying how to connect without it.
     let offers_tls = match kind {
         Kind::Postgres => scalar(&plain, "SHOW ssl").await == json!("on"),
         // MySQL 8.4 dropped `have_ssl`; it always has TLS unless built without it.
-        _ => query(&plain, "SHOW VARIABLES LIKE 'have_ssl'", true).await.rows.first().is_none_or(|r| r[1] == json!("YES")),
+        _ => query(&plain, "SHOW VARIABLES LIKE 'have_ssl'", true)
+            .await
+            .rows
+            .first()
+            .is_none_or(|r| r[1] == json!("YES")),
     };
     match connect(&ConnConfig { ssl: true, ..base }, t.password.clone()).await {
         Ok(tls) => {
-            assert!(offers_tls, "connected with SSL required to a server without TLS");
+            assert!(
+                offers_tls,
+                "connected with SSL required to a server without TLS"
+            );
             let cipher = match kind {
-                Kind::Postgres => scalar(&tls, "SELECT cipher FROM pg_stat_ssl WHERE pid = pg_backend_pid()").await,
-                _ => query(&tls, "SHOW SESSION STATUS LIKE 'Ssl_cipher'", true).await.rows[0][1].clone(),
+                Kind::Postgres => {
+                    scalar(
+                        &tls,
+                        "SELECT cipher FROM pg_stat_ssl WHERE pid = pg_backend_pid()",
+                    )
+                    .await
+                }
+                _ => query(&tls, "SHOW SESSION STATUS LIKE 'Ssl_cipher'", true)
+                    .await
+                    .rows[0][1]
+                    .clone(),
             };
-            assert!(cipher.as_str().is_some_and(|c| !c.is_empty()), "not encrypted: {cipher}");
+            assert!(
+                cipher.as_str().is_some_and(|c| !c.is_empty()),
+                "not encrypted: {cipher}"
+            );
         }
         Err(e) => {
-            assert!(!offers_tls, "the server offers TLS, but SSL required failed: {e}");
+            assert!(
+                !offers_tls,
+                "the server offers TLS, but SSL required failed: {e}"
+            );
             assert!(e.to_string().contains("Turn off \"Require SSL\""), "{e}");
         }
     }
@@ -964,7 +1417,9 @@ const MS_SEED: &[&str] = &[
 
 #[tokio::test]
 async fn mssql_integration() {
-    let Some(t) = env_target("SAYQL_TEST_MSSQL_URL") else { return };
+    let Some(t) = env_target("SAYQL_TEST_MSSQL_URL") else {
+        return;
+    };
     let admin = open(Kind::Mssql, &t, &t.database).await;
     exec(&admin, "IF DB_ID('sayql_it') IS NOT NULL BEGIN ALTER DATABASE sayql_it SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE sayql_it; END").await;
     exec(&admin, "CREATE DATABASE sayql_it").await;
@@ -974,12 +1429,36 @@ async fn mssql_integration() {
     }
 
     // ---- browsing databases: list them from the default connection, then switch with USE
-    let list = list_databases(&admin).await.expect("list").expect("a server has databases");
-    assert!(list.databases.contains(&"sayql_it".to_string()) && list.databases.contains(&"master".to_string()), "{list:?}");
+    let list = list_databases(&admin)
+        .await
+        .expect("list")
+        .expect("a server has databases");
+    assert!(
+        list.databases.contains(&"sayql_it".to_string())
+            && list.databases.contains(&"master".to_string()),
+        "{list:?}"
+    );
     assert_eq!(list.current.as_deref(), Some(t.database.as_str()));
-    let switched = open_database(&admin, &config(Kind::Mssql, &t, &t.database), t.password.clone(), "sayql_it").await.expect("open sayql_it");
-    assert_eq!(scalar(&switched, "SELECT DB_NAME()").await, json!("sayql_it"));
-    assert_eq!(introspect(&switched, Kind::Mssql).await.expect("introspect").tables.len(), 4);
+    let switched = open_database(
+        &admin,
+        &config(Kind::Mssql, &t, &t.database),
+        t.password.clone(),
+        "sayql_it",
+    )
+    .await
+    .expect("open sayql_it");
+    assert_eq!(
+        scalar(&switched, "SELECT DB_NAME()").await,
+        json!("sayql_it")
+    );
+    assert_eq!(
+        introspect(&switched, Kind::Mssql)
+            .await
+            .expect("introspect")
+            .tables
+            .len(),
+        4
+    );
     drop(switched);
 
     // ---- schema reading
@@ -987,16 +1466,36 @@ async fn mssql_integration() {
     assert_eq!(schema.dialect, "SQL Server");
     let tb = &schema.tables;
     let names: Vec<String> = tb.iter().map(|t| t.qualified_name()).collect();
-    assert_eq!(names, ["dbo.all_types", "dbo.customers", "sales.orders", "sales.paid_orders"]);
+    assert_eq!(
+        names,
+        [
+            "dbo.all_types",
+            "dbo.customers",
+            "sales.orders",
+            "sales.paid_orders"
+        ]
+    );
     let orders = table(tb, Some("sales"), "orders");
     assert_eq!(pk_columns(orders), ["id"]);
     assert_eq!(fks(orders), [fk("customer_id", "dbo.customers", "id")]);
     assert_eq!(column(orders, "total").data_type, "decimal(12,2)");
-    assert_eq!(column(table(tb, Some("dbo"), "customers"), "name").data_type, "nvarchar(100)");
-    assert_eq!(column(table(tb, Some("dbo"), "all_types"), "t_nvarchar").data_type, "nvarchar(max)");
+    assert_eq!(
+        column(table(tb, Some("dbo"), "customers"), "name").data_type,
+        "nvarchar(100)"
+    );
+    assert_eq!(
+        column(table(tb, Some("dbo"), "all_types"), "t_nvarchar").data_type,
+        "nvarchar(max)"
+    );
     // Types that report a length but don't take one are written bare.
-    assert_eq!(column(table(tb, Some("dbo"), "all_types"), "t_xml").data_type, "xml");
-    assert_eq!(column(table(tb, Some("dbo"), "all_types"), "t_bin").data_type, "varbinary(8)");
+    assert_eq!(
+        column(table(tb, Some("dbo"), "all_types"), "t_xml").data_type,
+        "xml"
+    );
+    assert_eq!(
+        column(table(tb, Some("dbo"), "all_types"), "t_bin").data_type,
+        "varbinary(8)"
+    );
     assert!(column(table(tb, Some("dbo"), "customers"), "email").nullable);
     assert!(!column(orders, "status").nullable);
     assert_eq!(table(tb, Some("sales"), "paid_orders").kind, "view");
@@ -1022,7 +1521,12 @@ async fn mssql_integration() {
     let r = query(&pool, "SELECT status, COUNT(*) AS n, SUM(total) AS s FROM sales.orders GROUP BY status ORDER BY status", true).await;
     assert_eq!(r.columns, ["status", "n", "s"]);
     assert_eq!(r.rows[0], [json!("paid"), json!(3), json!("15.51")]);
-    let r = query(&pool, "SELECT id, name FROM dbo.customers WHERE 1 = 0", true).await;
+    let r = query(
+        &pool,
+        "SELECT id, name FROM dbo.customers WHERE 1 = 0",
+        true,
+    )
+    .await;
     assert_eq!(r.columns, ["id", "name"]);
     assert!(r.rows.is_empty());
 
@@ -1036,31 +1540,56 @@ async fn mssql_integration() {
         "SELECT * INTO dbo.copied FROM sales.orders",
         "WITH x AS (SELECT 1 AS a) DELETE FROM sales.orders",
     ] {
-        assert!(run_query(&pool, sql, true).await.is_err(), "read-only mode allowed: {sql}");
+        assert!(
+            run_query(&pool, sql, true).await.is_err(),
+            "read-only mode allowed: {sql}"
+        );
     }
     assert_eq!(count().await, before, "a read-only statement changed data");
     // 1 is the read-only wrapper's own transaction; a leaked one from earlier would make it 2.
-    assert_eq!(scalar(&pool, "SELECT @@TRANCOUNT").await, json!(1), "transaction left open");
+    assert_eq!(
+        scalar(&pool, "SELECT @@TRANCOUNT").await,
+        json!(1),
+        "transaction left open"
+    );
 
     // ---- row cap: cut off at 5000 rows, and the connection still works afterwards
-    let big = query(&pool, "SELECT a.object_id FROM sys.all_objects a CROSS JOIN sys.all_objects b", true).await;
+    let big = query(
+        &pool,
+        "SELECT a.object_id FROM sys.all_objects a CROSS JOIN sys.all_objects b",
+        true,
+    )
+    .await;
     assert!(big.truncated);
     assert_eq!(big.rows.len(), MAX_ROWS);
     assert_eq!(scalar(&pool, "SELECT 40 + 2").await, json!(42));
 
     // ---- an approved write
-    let w = query(&pool, "UPDATE sales.orders SET status = 'paid' WHERE status = 'pending'", false).await;
+    let w = query(
+        &pool,
+        "UPDATE sales.orders SET status = 'paid' WHERE status = 'pending'",
+        false,
+    )
+    .await;
     assert_eq!(w.rows_affected, Some(1));
 
     drop(pool);
-    exec(&admin, "ALTER DATABASE sayql_it SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE sayql_it").await;
+    exec(
+        &admin,
+        "ALTER DATABASE sayql_it SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE sayql_it",
+    )
+    .await;
 }
 
 /// A failed statement's error text, and the same text masked for the AI. Reads run read-only
 /// and writes as confirmed, as in the app.
 async fn error_and_masked(pool: &DbPool, sql: &str) -> (String, String) {
     let read_only = is_read_only(sql, pool.kind());
-    let e = run_query(pool, sql, read_only).await.err().unwrap_or_else(|| panic!("{sql} succeeded")).to_string();
+    let e = run_query(pool, sql, read_only)
+        .await
+        .err()
+        .unwrap_or_else(|| panic!("{sql} succeeded"))
+        .to_string();
     let masked = crate::ai::mask_database_error(&e);
     (e, masked)
 }
@@ -1070,37 +1599,77 @@ async fn error_and_masked(pool: &DbPool, sql: &str) -> (String, String) {
 #[tokio::test]
 async fn database_errors_are_readable_and_masked_for_the_ai() {
     if let Some(t) = env_target("SAYQL_TEST_PG_URL") {
-        let db = if t.database.is_empty() { "postgres".to_string() } else { t.database.clone() };
+        let db = if t.database.is_empty() {
+            "postgres".to_string()
+        } else {
+            t.database.clone()
+        };
         let pool = open(Kind::Postgres, &t, &db).await;
-        exec(&pool, "DROP SCHEMA IF EXISTS sayql_err CASCADE; CREATE SCHEMA sayql_err;
+        exec(
+            &pool,
+            "DROP SCHEMA IF EXISTS sayql_err CASCADE; CREATE SCHEMA sayql_err;
             CREATE TABLE sayql_err.u (id int PRIMARY KEY, email text UNIQUE, n int CHECK (n > 0));
-            INSERT INTO sayql_err.u VALUES (1, 'ann@example.com', 5);").await;
-        let (e, m) = error_and_masked(&pool, "INSERT INTO sayql_err.u VALUES (2, 'ann@example.com', 5)").await;
+            INSERT INTO sayql_err.u VALUES (1, 'ann@example.com', 5);",
+        )
+        .await;
+        let (e, m) = error_and_masked(
+            &pool,
+            "INSERT INTO sayql_err.u VALUES (2, 'ann@example.com', 5)",
+        )
+        .await;
         assert_eq!(
             e,
             "duplicate key value violates unique constraint \"u_email_key\"\nDETAIL: Key (email)=(ann@example.com) already exists."
         );
-        assert_eq!(m, "duplicate key value violates unique constraint \"u_email_key\"\nDETAIL: Key (email)=(…) already exists.");
+        assert_eq!(
+            m,
+            "duplicate key value violates unique constraint \"u_email_key\"\nDETAIL: Key (email)=(…) already exists."
+        );
         let (e, m) = error_and_masked(&pool, "SELECT 'secret-abc'::int").await;
         assert_eq!(e, "invalid input syntax for type integer: \"secret-abc\"");
         assert_eq!(m, "invalid input syntax for type integer: \"…\"");
         let (e, m) = error_and_masked(&pool, "SELECT nme FROM sayql_err.u").await;
-        assert!(e.starts_with("column \"nme\" does not exist") && m.starts_with("column \"nme\" does not exist"), "{e}");
+        assert!(
+            e.starts_with("column \"nme\" does not exist")
+                && m.starts_with("column \"nme\" does not exist"),
+            "{e}"
+        );
         exec(&pool, "DROP SCHEMA sayql_err CASCADE").await;
     }
     if let Some(t) = env_target("SAYQL_TEST_MYSQL_URL") {
         let admin = open(Kind::Mysql, &t, &t.database).await;
-        exec(&admin, "DROP DATABASE IF EXISTS sayql_err; CREATE DATABASE sayql_err;
+        exec(
+            &admin,
+            "DROP DATABASE IF EXISTS sayql_err; CREATE DATABASE sayql_err;
             CREATE TABLE sayql_err.u (id int PRIMARY KEY, email varchar(100) UNIQUE, n int);
-            INSERT INTO sayql_err.u VALUES (1, 'ann@example.com', 5);").await;
+            INSERT INTO sayql_err.u VALUES (1, 'ann@example.com', 5);",
+        )
+        .await;
         let pool = open(Kind::Mysql, &t, "sayql_err").await;
-        let (e, m) = error_and_masked(&pool, "INSERT INTO u VALUES (2, 'ann@example.com', 5)").await;
-        assert!(e.starts_with("1062 (23000): Duplicate entry 'ann@example.com' for key"), "{e}");
-        assert!(m.starts_with("1062 (23000): Duplicate entry '…' for key"), "{m}");
-        let (_, m) = error_and_masked(&pool, "INSERT INTO u VALUES (3, 'b@example.com', 'secret-text')").await;
-        assert!(m.contains("Incorrect integer value: '…' for column") && !m.contains("secret"), "{m}");
+        let (e, m) =
+            error_and_masked(&pool, "INSERT INTO u VALUES (2, 'ann@example.com', 5)").await;
+        assert!(
+            e.starts_with("1062 (23000): Duplicate entry 'ann@example.com' for key"),
+            "{e}"
+        );
+        assert!(
+            m.starts_with("1062 (23000): Duplicate entry '…' for key"),
+            "{m}"
+        );
+        let (_, m) = error_and_masked(
+            &pool,
+            "INSERT INTO u VALUES (3, 'b@example.com', 'secret-text')",
+        )
+        .await;
+        assert!(
+            m.contains("Incorrect integer value: '…' for column") && !m.contains("secret"),
+            "{m}"
+        );
         let (_, m) = error_and_masked(&pool, "SELECT nme FROM u").await;
-        assert!(m.starts_with("1054 (42S22): Unknown column 'nme' in '"), "{m}");
+        assert!(
+            m.starts_with("1054 (42S22): Unknown column 'nme' in '"),
+            "{m}"
+        );
         assert!(!m.ends_with("'…'"), "the clause name is not a value: {m}");
         exec(&admin, "DROP DATABASE sayql_err").await;
     }
@@ -1111,7 +1680,8 @@ async fn database_errors_are_readable_and_masked_for_the_ai() {
         let pool = open(Kind::Mssql, &t, "sayql_err").await;
         exec(&pool, "CREATE TABLE dbo.u (id int PRIMARY KEY, email nvarchar(100) CONSTRAINT u_email UNIQUE, n int);
             INSERT INTO dbo.u VALUES (1, N'ann@example.com', 5);").await;
-        let (e, m) = error_and_masked(&pool, "INSERT INTO dbo.u VALUES (2, N'ann@example.com', 5)").await;
+        let (e, m) =
+            error_and_masked(&pool, "INSERT INTO dbo.u VALUES (2, N'ann@example.com', 5)").await;
         assert_eq!(
             e,
             "Violation of UNIQUE KEY constraint 'u_email'. Cannot insert duplicate key in object 'dbo.u'. \
@@ -1123,10 +1693,16 @@ async fn database_errors_are_readable_and_masked_for_the_ai() {
              The duplicate key value is (…).\n(SQL Server error 2627, line 1)"
         );
         let (_, m) = error_and_masked(&pool, "SELECT CAST('secret-abc' AS int)").await;
-        assert_eq!(m, "Conversion failed when converting the varchar value '…' to data type int.\n(SQL Server error 245, line 1)");
+        assert_eq!(
+            m,
+            "Conversion failed when converting the varchar value '…' to data type int.\n(SQL Server error 245, line 1)"
+        );
         let (_, m) = error_and_masked(&pool, "SELECT id\nFROM dbo.u\nWHERE nme = 1").await;
         // The column name stays; which line SQL Server reports depends on how the batch ran.
-        assert!(m.starts_with("Invalid column name 'nme'.\n(SQL Server error 207, line "), "{m}");
+        assert!(
+            m.starts_with("Invalid column name 'nme'.\n(SQL Server error 207, line "),
+            "{m}"
+        );
         drop(pool);
         exec(&admin, "ALTER DATABASE sayql_err SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE sayql_err").await;
     }
@@ -1134,21 +1710,42 @@ async fn database_errors_are_readable_and_masked_for_the_ai() {
 
 #[tokio::test]
 async fn mssql_connection_errors() {
-    let Some(t) = env_target("SAYQL_TEST_MSSQL_URL") else { return };
+    let Some(t) = env_target("SAYQL_TEST_MSSQL_URL") else {
+        return;
+    };
 
     // ---- TLS: the login is always encrypted, so an untrusted certificate fails with the hint
-    let untrusted = ConnConfig { trust_cert: false, ..config(Kind::Mssql, &t, &t.database) };
-    let err = connect(&untrusted, t.password.clone()).await.err().expect("untrusted certificate accepted").to_string();
+    let untrusted = ConnConfig {
+        trust_cert: false,
+        ..config(Kind::Mssql, &t, &t.database)
+    };
+    let err = connect(&untrusted, t.password.clone())
+        .await
+        .err()
+        .expect("untrusted certificate accepted")
+        .to_string();
     assert!(err.contains("Trust server certificate"), "{err}");
 
     // ---- an encrypted connection works end to end once the certificate is trusted
-    let encrypted = ConnConfig { ssl: true, ..config(Kind::Mssql, &t, &t.database) };
-    let pool = connect(&encrypted, t.password.clone()).await.expect("connect with encryption");
+    let encrypted = ConnConfig {
+        ssl: true,
+        ..config(Kind::Mssql, &t, &t.database)
+    };
+    let pool = connect(&encrypted, t.password.clone())
+        .await
+        .expect("connect with encryption");
     assert_eq!(scalar(&pool, "SELECT 40 + 2").await, json!(42));
 
     // ---- a wrong password gets the credentials hint
-    let err = connect(&config(Kind::Mssql, &t, &t.database), Some("wrong".into())).await.err().expect("wrong password accepted");
-    assert!(err.to_string().contains("didn't accept this user and password"), "{err}");
+    let err = connect(&config(Kind::Mssql, &t, &t.database), Some("wrong".into()))
+        .await
+        .err()
+        .expect("wrong password accepted");
+    assert!(
+        err.to_string()
+            .contains("didn't accept this user and password"),
+        "{err}"
+    );
 }
 
 /// The names in the schema text the AI sees must work when copied into a query: mixed case,
@@ -1163,7 +1760,11 @@ async fn check_quoted_names(pool: &DbPool, kind: Kind, schema: Option<&str>) {
         assert!(line.contains(&format!("{} ", q(name))), "{name} in {line}");
     }
     let cols: Vec<String> = t.columns.iter().map(|c| q(&c.name)).collect();
-    let sql = format!("SELECT {} FROM {}", cols.join(", "), crate::schema::render_name(t, dialect));
+    let sql = format!(
+        "SELECT {} FROM {}",
+        cols.join(", "),
+        crate::schema::render_name(t, dialect)
+    );
     let r = query(pool, &sql, true).await;
     assert_eq!(r.columns, ["Id", "first name", "order"], "{sql}");
     assert_eq!(r.rows, [[json!(1), json!("Ann"), json!(2)]], "{sql}");
@@ -1172,7 +1773,11 @@ async fn check_quoted_names(pool: &DbPool, kind: Kind, schema: Option<&str>) {
 #[tokio::test]
 async fn quoted_names_work_as_written() {
     if let Some(t) = env_target("SAYQL_TEST_PG_URL") {
-        let db = if t.database.is_empty() { "postgres".to_string() } else { t.database.clone() };
+        let db = if t.database.is_empty() {
+            "postgres".to_string()
+        } else {
+            t.database.clone()
+        };
         let pool = open(Kind::Postgres, &t, &db).await;
         exec(&pool, "DROP SCHEMA IF EXISTS \"Sayql Q\" CASCADE; CREATE SCHEMA \"Sayql Q\";
             CREATE TABLE \"Sayql Q\".\"Order Lines\" (\"Id\" int PRIMARY KEY, \"first name\" text, \"order\" int);
@@ -1199,7 +1804,11 @@ async fn quoted_names_work_as_written() {
             INSERT INTO [Sayql Q].[Order Lines] VALUES (1, N'Ann', 2);").await;
         check_quoted_names(&pool, Kind::Mssql, Some("Sayql Q")).await;
         drop(pool);
-        exec(&admin, "ALTER DATABASE sayql_q SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE sayql_q").await;
+        exec(
+            &admin,
+            "ALTER DATABASE sayql_q SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE sayql_q",
+        )
+        .await;
     }
 }
 
@@ -1217,8 +1826,16 @@ async fn check_cancel(pool: &DbPool, sql: &str, read_only: bool, running: &str) 
     let started = std::time::Instant::now();
     let r = run_query_with(pool, sql, read_only, MAX_ROWS, &cancel).await;
     timer.await.unwrap();
-    assert_eq!(r.err().map(|e| e.to_string()).as_deref(), Some(CANCELLED), "{sql}");
-    assert!(started.elapsed() < std::time::Duration::from_secs(10), "{sql}: took {:?}", started.elapsed());
+    assert_eq!(
+        r.err().map(|e| e.to_string()).as_deref(),
+        Some(CANCELLED),
+        "{sql}"
+    );
+    assert!(
+        started.elapsed() < std::time::Duration::from_secs(10),
+        "{sql}: took {:?}",
+        started.elapsed()
+    );
     // The server may take a moment to clear the request.
     let mut left = json!(-1);
     for _ in 0..20 {
@@ -1236,7 +1853,11 @@ async fn check_cancel(pool: &DbPool, sql: &str, read_only: bool, running: &str) 
 #[tokio::test]
 async fn cancelled_queries_stop_on_the_server() {
     if let Some(t) = env_target("SAYQL_TEST_PG_URL") {
-        let db = if t.database.is_empty() { "postgres".to_string() } else { t.database.clone() };
+        let db = if t.database.is_empty() {
+            "postgres".to_string()
+        } else {
+            t.database.clone()
+        };
         let pool = open(Kind::Postgres, &t, &db).await;
         let running = "SELECT count(*) FROM pg_stat_activity WHERE query = 'SELECT pg_sleep(30)' AND state = 'active'";
         check_cancel(&pool, "SELECT pg_sleep(30)", true, running).await;
@@ -1244,14 +1865,21 @@ async fn cancelled_queries_stop_on_the_server() {
     }
     if let Some(t) = env_target("SAYQL_TEST_MYSQL_URL") {
         let pool = open(Kind::Mysql, &t, &t.database).await;
-        let running = "SELECT COUNT(*) FROM information_schema.PROCESSLIST WHERE INFO = 'SELECT SLEEP(30)'";
+        let running =
+            "SELECT COUNT(*) FROM information_schema.PROCESSLIST WHERE INFO = 'SELECT SLEEP(30)'";
         check_cancel(&pool, "SELECT SLEEP(30)", true, running).await;
         check_cancel(&pool, "SELECT SLEEP(30)", false, running).await;
     }
     if let Some(t) = env_target("SAYQL_TEST_MSSQL_URL") {
         let pool = open(Kind::Mssql, &t, &t.database).await;
         let running = "SELECT COUNT(*) FROM sys.dm_exec_requests WHERE wait_type = 'WAITFOR' AND session_id <> @@SPID";
-        check_cancel(&pool, "SELECT 1 AS a; WAITFOR DELAY '00:00:30'", true, running).await;
+        check_cancel(
+            &pool,
+            "SELECT 1 AS a; WAITFOR DELAY '00:00:30'",
+            true,
+            running,
+        )
+        .await;
         check_cancel(&pool, "WAITFOR DELAY '00:00:30'", false, running).await;
     }
 }
@@ -1259,7 +1887,9 @@ async fn cancelled_queries_stop_on_the_server() {
 /// MariaDB accounts that use the ed25519 plugin sign in (sqlx-mysql is patched for it).
 #[tokio::test]
 async fn mariadb_ed25519_accounts_sign_in() {
-    let Some(t) = env_target("SAYQL_TEST_MYSQL_URL") else { return };
+    let Some(t) = env_target("SAYQL_TEST_MYSQL_URL") else {
+        return;
+    };
     let admin = open(Kind::Mysql, &t, &t.database).await;
     let version = scalar(&admin, "SELECT VERSION()").await;
     if !version.as_str().is_some_and(|v| v.contains("MariaDB")) {
@@ -1269,11 +1899,27 @@ async fn mariadb_ed25519_accounts_sign_in() {
     let _ = run_query(&admin, "INSTALL SONAME 'auth_ed25519'", false).await;
     let pw = format!("Ed-{}", uuid::Uuid::new_v4().simple());
     exec(&admin, "DROP USER IF EXISTS 'sayql_ed'@'%'").await;
-    exec(&admin, &format!("CREATE USER 'sayql_ed'@'%' IDENTIFIED VIA ed25519 USING PASSWORD('{pw}')")).await;
-    let user = Target { user: "sayql_ed".into(), password: Some(pw), ..parse_url(&std::env::var("SAYQL_TEST_MYSQL_URL").unwrap()) };
-    let pool = connect(&config(Kind::Mysql, &user, ""), user.password.clone()).await.expect("ed25519 sign-in");
-    assert_eq!(scalar(&pool, "SELECT CURRENT_USER()").await, json!("sayql_ed@%"));
-    let wrong = connect(&config(Kind::Mysql, &user, ""), Some("wrong".into())).await.err().expect("wrong password accepted");
+    exec(
+        &admin,
+        &format!("CREATE USER 'sayql_ed'@'%' IDENTIFIED VIA ed25519 USING PASSWORD('{pw}')"),
+    )
+    .await;
+    let user = Target {
+        user: "sayql_ed".into(),
+        password: Some(pw),
+        ..parse_url(&std::env::var("SAYQL_TEST_MYSQL_URL").unwrap())
+    };
+    let pool = connect(&config(Kind::Mysql, &user, ""), user.password.clone())
+        .await
+        .expect("ed25519 sign-in");
+    assert_eq!(
+        scalar(&pool, "SELECT CURRENT_USER()").await,
+        json!("sayql_ed@%")
+    );
+    let wrong = connect(&config(Kind::Mysql, &user, ""), Some("wrong".into()))
+        .await
+        .err()
+        .expect("wrong password accepted");
     assert!(wrong.to_string().contains("Access denied"), "{wrong}");
     drop(pool);
     exec(&admin, "DROP USER 'sayql_ed'@'%'").await;

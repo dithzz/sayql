@@ -42,13 +42,20 @@ pub async fn voice_download(app: AppHandle, state: State<'_, AppState>) -> AppRe
     }
     voice.cancel_download.store(false, Ordering::SeqCst);
     let mut last = Instant::now() - Duration::from_secs(1);
-    let result = model::download(&state.http, model::MODEL_URL, model::MODEL_SHA256, &voice.model_path, &voice.cancel_download, |received, total| {
-        // About 10 updates a second is plenty for a progress bar.
-        if last.elapsed() >= Duration::from_millis(100) || received == total {
-            last = Instant::now();
-            let _ = app.emit("voice://progress", Progress { received, total });
-        }
-    })
+    let result = model::download(
+        &state.http,
+        model::MODEL_URL,
+        model::MODEL_SHA256,
+        &voice.model_path,
+        &voice.cancel_download,
+        |received, total| {
+            // About 10 updates a second is plenty for a progress bar.
+            if last.elapsed() >= Duration::from_millis(100) || received == total {
+                last = Instant::now();
+                let _ = app.emit("voice://progress", Progress { received, total });
+            }
+        },
+    )
     .await;
     voice.downloading.store(false, Ordering::SeqCst);
     result

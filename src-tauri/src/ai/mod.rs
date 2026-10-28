@@ -1,8 +1,8 @@
 //! English → SQL generation, streamed to the UI as Tauri events. Claude goes over the
 //! Messages API; every other provider over the OpenAI-compatible Chat Completions API.
 
-pub(crate) mod anthropic;
 pub mod agent;
+pub(crate) mod anthropic;
 pub mod context;
 pub mod endpoint;
 mod models;
@@ -19,7 +19,10 @@ mod team_tests;
 
 pub use models::{DEFAULT_EXPERT_MODEL, DEFAULT_TYPING_MODEL, MODELS, is_known};
 pub use prompt::Task;
-pub use providers::{ANTHROPIC, Api, KeyNeed, PROVIDERS, Provider, SAYQL_CREDITS, clean_base_url, find as find_provider};
+pub use providers::{
+    ANTHROPIC, Api, KeyNeed, PROVIDERS, Provider, SAYQL_CREDITS, clean_base_url,
+    find as find_provider,
+};
 
 use crate::error::AppResult;
 use serde::Serialize;
@@ -35,8 +38,16 @@ const EVENT_RESET: &str = "ai://reset";
 pub enum Endpoint {
     /// Claude's API with a key: Anthropic's own (`base` = `anthropic::API_BASE`), or SayQL AI
     /// credits at SayQL's address.
-    Anthropic { api_key: String, workspace_id: Option<String>, base: String },
-    OpenAi { label: &'static str, base_url: String, api_key: Option<String> },
+    Anthropic {
+        api_key: String,
+        workspace_id: Option<String>,
+        base: String,
+    },
+    OpenAi {
+        label: &'static str,
+        base_url: String,
+        api_key: Option<String>,
+    },
     /// A team connection with team AI: through the team server, with the team token.
     Team(crate::team::ai::TeamAi),
 }
@@ -54,9 +65,15 @@ impl Endpoint {
     /// The Claude client's access for a Claude endpoint.
     pub(crate) fn claude(&self) -> Option<anthropic::Access<'_>> {
         match self {
-            Endpoint::Anthropic { api_key, workspace_id, base } => {
-                Some(anthropic::Access::Key { api_key, workspace_id: workspace_id.as_deref(), base })
-            }
+            Endpoint::Anthropic {
+                api_key,
+                workspace_id,
+                base,
+            } => Some(anthropic::Access::Key {
+                api_key,
+                workspace_id: workspace_id.as_deref(),
+                base,
+            }),
             Endpoint::Team(t) if t.api == Api::Anthropic => Some(anthropic::Access::Team(t)),
             _ => None,
         }
@@ -65,10 +82,22 @@ impl Endpoint {
     /// The OpenAI-compatible client's service for any other endpoint.
     pub(crate) fn openai(&self) -> Option<openai::Service<'_>> {
         match self {
-            Endpoint::OpenAi { label, base_url, api_key } => Some(openai::Service { label, base_url, api_key: api_key.as_deref(), team: None }),
-            Endpoint::Team(t) if t.api == Api::OpenAi => {
-                Some(openai::Service { label: "your team's AI", base_url: &t.base, api_key: Some(&t.token), team: Some(t) })
-            }
+            Endpoint::OpenAi {
+                label,
+                base_url,
+                api_key,
+            } => Some(openai::Service {
+                label,
+                base_url,
+                api_key: api_key.as_deref(),
+                team: None,
+            }),
+            Endpoint::Team(t) if t.api == Api::OpenAi => Some(openai::Service {
+                label: "your team's AI",
+                base_url: &t.base,
+                api_key: Some(&t.token),
+                team: Some(t),
+            }),
             _ => None,
         }
     }
@@ -127,7 +156,12 @@ struct Output<'a> {
 
 impl<'a> Output<'a> {
     fn new(sink: Sink<'a>, req_id: u64) -> Self {
-        Output { sink, req_id, start: Instant::now(), first: true }
+        Output {
+            sink,
+            req_id,
+            start: Instant::now(),
+            first: true,
+        }
     }
 
     fn text(&mut self, text: &str) {
@@ -138,7 +172,14 @@ impl<'a> Output<'a> {
         self.first = false;
         match &mut self.sink {
             Sink::App(app) => {
-                let _ = app.emit(EVENT_DELTA, Delta { req_id: self.req_id, text: text.to_string(), first_token_ms });
+                let _ = app.emit(
+                    EVENT_DELTA,
+                    Delta {
+                        req_id: self.req_id,
+                        text: text.to_string(),
+                        first_token_ms,
+                    },
+                );
             }
             #[cfg(test)]
             Sink::Collect(s) => s.push_str(text),
@@ -150,7 +191,12 @@ impl<'a> Output<'a> {
         self.first = true;
         match &mut self.sink {
             Sink::App(app) => {
-                let _ = app.emit(EVENT_RESET, Reset { req_id: self.req_id });
+                let _ = app.emit(
+                    EVENT_RESET,
+                    Reset {
+                        req_id: self.req_id,
+                    },
+                );
             }
             #[cfg(test)]
             Sink::Collect(s) => s.clear(),
@@ -170,16 +216,40 @@ pub async fn stream_sql(app: AppHandle, http: reqwest::Client, r: GenRequest) {
         Ok(cached) => (None, cached),
         Err(e) => (Some(e.to_string()), None),
     };
-    let done = Done { req_id: r.req_id, error, total_ms: out.start.elapsed().as_millis(), cache_read_tokens };
+    let done = Done {
+        req_id: r.req_id,
+        error,
+        total_ms: out.start.elapsed().as_millis(),
+        cache_read_tokens,
+    };
     let _ = app.emit(EVENT_DONE, done);
 }
 
 /// Checks a key for Claude's API at `base` (Anthropic's, or SayQL AI credits').
-pub async fn check_claude_key(http: &reqwest::Client, base: &str, api_key: &str, workspace_id: Option<&str>) -> AppResult<()> {
+pub async fn check_claude_key(
+    http: &reqwest::Client,
+    base: &str,
+    api_key: &str,
+    workspace_id: Option<&str>,
+) -> AppResult<()> {
     anthropic::check_key(http, base, api_key, workspace_id).await
 }
 
 /// The models an OpenAI-compatible service offers; also checks its key and URL.
-pub async fn list_models(http: &reqwest::Client, label: &str, base_url: &str, api_key: Option<&str>) -> AppResult<Vec<String>> {
-    openai::list_models(http, &openai::Service { label, base_url, api_key, team: None }).await
+pub async fn list_models(
+    http: &reqwest::Client,
+    label: &str,
+    base_url: &str,
+    api_key: Option<&str>,
+) -> AppResult<Vec<String>> {
+    openai::list_models(
+        http,
+        &openai::Service {
+            label,
+            base_url,
+            api_key,
+            team: None,
+        },
+    )
+    .await
 }

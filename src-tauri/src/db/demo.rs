@@ -9,8 +9,13 @@ pub async fn ensure_demo(path: &std::path::Path) -> AppResult<()> {
     if let Some(dir) = path.parent() {
         std::fs::create_dir_all(dir)?;
     }
-    let o = SqliteConnectOptions::new().filename(path).create_if_missing(true);
-    let pool = SqlitePoolOptions::new().max_connections(1).connect_with(o).await?;
+    let o = SqliteConnectOptions::new()
+        .filename(path)
+        .create_if_missing(true);
+    let pool = SqlitePoolOptions::new()
+        .max_connections(1)
+        .connect_with(o)
+        .await?;
     let seed = include_str!("demo.sql");
     if let Err(e) = sqlx::raw_sql(seed).execute(&pool).await {
         pool.close().await;
