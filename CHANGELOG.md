@@ -3,7 +3,7 @@
 All notable changes to SayQL are listed here. Downloads are on the
 [releases page](https://github.com/dithzz/sayql-releases/releases).
 
-## 0.4.4 (unreleased)
+## 0.4.4 (2026-10-28)
 
 - **Table usage in `describe_schema`:** AI apps using SayQL over MCP now see, after each table, how much it is
   used according to the database's own statistics: reads and writes (PostgreSQL `pg_stat_user_tables`, SQL Server
