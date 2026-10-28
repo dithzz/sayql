@@ -3,6 +3,23 @@
 All notable changes to SayQL are listed here. Downloads are on the
 [releases page](https://github.com/dithzz/sayql-releases/releases).
 
+## 0.4.3 (2026-10-27)
+
+- **SayQL AI credits:** a new AI provider in **Settings → AI provider** for Claude without an Anthropic account.
+  Paste a prepaid credit key from SayQL (it starts with `sqlc_`); SayQL checks it before saving. Requests go
+  through SayQL's service to Anthropic and are charged to your credit; SayQL keeps only token counts, never
+  your questions or the answers. When the credit runs out, SayQL says so.
+- **Choose what AI apps may see:** Claude, Cursor and other apps using SayQL over MCP now get counts and
+  summaries of query results by default, not your rows. In **Settings → AI apps (MCP)**, choose per connection:
+  nothing, counts and summaries, rows with personal data masked, or all rows. CSV export works only where you
+  allow all rows, and below that, values quoted in database errors are masked. **If an AI app relied on seeing
+  rows,** set that connection to **All rows**.
+- **Agent activity:** **Settings → AI apps (MCP)** now lists what each AI app ran through SayQL: when, which app,
+  the connection, the SQL, and whether it ran or was refused and why. SQL and counts only, never rows; kept on
+  your computer, with **Clear the log**.
+- **Block an AI app:** each app SayQL has seen has a **Block** button; a blocked app is refused everything until
+  you allow it again.
+
 ## 0.4.2 (2026-10-27)
 
 - **Easier to join your team:** paste the whole invite link into **Settings → Team → Sign in** and it fills in the

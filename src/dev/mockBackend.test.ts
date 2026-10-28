@@ -18,7 +18,7 @@ beforeAll(async () => {
 const COMMANDS = [
   "init", "save_connection", "delete_connection", "test_connection", "open_database", "refresh_schema",
   "list_databases", "run_query", "cancel_query", "generate_sql", "cancel_generation", "list_scripts", "save_script",
-  "delete_script", "list_skills", "save_skill", "delete_skill", "mcp_setup", "take_handoffs", "app_info", "check_update",
+  "delete_script", "list_skills", "save_skill", "delete_skill", "mcp_setup", "mcp_activity", "mcp_apps", "set_mcp_app_blocked", "clear_mcp_activity", "take_handoffs", "app_info", "check_update",
   "install_update", "save_settings", "finish_onboarding", "list_models", "voice_status", "voice_download",
   "voice_cancel_download", "voice_delete_model", "voice_start", "voice_stop", "voice_cancel",
   "agent_access", "save_agent_access", "start_agent", "reply_agent", "stop_agent", "list_notes", "save_note", "delete_note",
@@ -40,11 +40,12 @@ describe("mock backend", () => {
       save_script: { script: { id: "s" } },
       save_skill: { skill: { slug: "a", description: "d", instruction: "i" }, original: null },
       save_settings: { provider: "anthropic", typingModel: "m", expertModel: "m", baseUrl: "" },
-      save_agent_access: { id: "demo", access: { enabled: true, results: "counts", askBeforeSend: false, neverSend: [] } },
+      save_agent_access: { id: "demo", access: { enabled: true, results: "counts", apps: "counts", askBeforeSend: false, neverSend: [] } },
       start_agent: { id: "demo", runId: "r1", question: "Why did paid orders drop?" },
       reply_agent: { runId: "r1", reply: { type: "go", plan: null } },
       stop_agent: { runId: "r1" },
       choose_model: { provider: "anthropic", model: "claude-sonnet-5-5", purpose: "agent" },
+      set_mcp_app_blocked: { name: "Cursor", blocked: true },
       save_note: { note: { id: "", connectionId: "demo", database: null, text: "status 'paid' = not shipped", updatedAt: 0 } },
     };
     for (const cmd of COMMANDS) {

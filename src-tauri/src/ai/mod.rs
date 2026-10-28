@@ -19,7 +19,7 @@ mod team_tests;
 
 pub use models::{DEFAULT_EXPERT_MODEL, DEFAULT_TYPING_MODEL, MODELS, is_known};
 pub use prompt::Task;
-pub use providers::{ANTHROPIC, Api, KeyNeed, PROVIDERS, Provider, clean_base_url, find as find_provider};
+pub use providers::{ANTHROPIC, Api, KeyNeed, PROVIDERS, Provider, SAYQL_CREDITS, clean_base_url, find as find_provider};
 
 use crate::error::AppResult;
 use serde::Serialize;
@@ -33,7 +33,9 @@ const EVENT_RESET: &str = "ai://reset";
 
 /// Where a request goes, with what it needs to authenticate.
 pub enum Endpoint {
-    Anthropic { api_key: String, workspace_id: Option<String> },
+    /// Claude's API with a key: Anthropic's own (`base` = `anthropic::API_BASE`), or SayQL AI
+    /// credits at SayQL's address.
+    Anthropic { api_key: String, workspace_id: Option<String>, base: String },
     OpenAi { label: &'static str, base_url: String, api_key: Option<String> },
     /// A team connection with team AI: through the team server, with the team token.
     Team(crate::team::ai::TeamAi),
@@ -52,7 +54,9 @@ impl Endpoint {
     /// The Claude client's access for a Claude endpoint.
     pub(crate) fn claude(&self) -> Option<anthropic::Access<'_>> {
         match self {
-            Endpoint::Anthropic { api_key, workspace_id } => Some(anthropic::Access::Key { api_key, workspace_id: workspace_id.as_deref() }),
+            Endpoint::Anthropic { api_key, workspace_id, base } => {
+                Some(anthropic::Access::Key { api_key, workspace_id: workspace_id.as_deref(), base })
+            }
             Endpoint::Team(t) if t.api == Api::Anthropic => Some(anthropic::Access::Team(t)),
             _ => None,
         }
@@ -170,9 +174,9 @@ pub async fn stream_sql(app: AppHandle, http: reqwest::Client, r: GenRequest) {
     let _ = app.emit(EVENT_DONE, done);
 }
 
-/// Checks a Claude API key.
-pub async fn check_claude_key(http: &reqwest::Client, api_key: &str, workspace_id: Option<&str>) -> AppResult<()> {
-    anthropic::check_key(http, api_key, workspace_id).await
+/// Checks a key for Claude's API at `base` (Anthropic's, or SayQL AI credits').
+pub async fn check_claude_key(http: &reqwest::Client, base: &str, api_key: &str, workspace_id: Option<&str>) -> AppResult<()> {
+    anthropic::check_key(http, base, api_key, workspace_id).await
 }
 
 /// The models an OpenAI-compatible service offers; also checks its key and URL.

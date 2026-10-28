@@ -28,7 +28,11 @@ impl Agent {
         let model = std::env::var("SAYQL_EVAL_MODEL").ok();
         if std::env::var("SAYQL_EVAL_ANTHROPIC_KEY").is_ok() {
             let endpoint: fn() -> Endpoint =
-                || Endpoint::Anthropic { api_key: std::env::var("SAYQL_EVAL_ANTHROPIC_KEY").unwrap(), workspace_id: None };
+                || Endpoint::Anthropic {
+                    api_key: std::env::var("SAYQL_EVAL_ANTHROPIC_KEY").unwrap(),
+                    workspace_id: None,
+                    base: crate::ai::anthropic::API_BASE.into(),
+                };
             return Some(Agent { endpoint, model: model.unwrap_or_else(|| crate::ai::DEFAULT_EXPERT_MODEL.into()), records: Mutex::default() });
         }
         // The Claude key saved in SayQL itself, read from the keychain (macOS may ask to allow it).
@@ -39,6 +43,7 @@ impl Agent {
                 Endpoint::Anthropic {
                     api_key: crate::store::secrets::api_key(crate::ai::ANTHROPIC).expect("no Claude API key saved in SayQL"),
                     workspace_id: Some(workspace).filter(|w| !w.is_empty()),
+                    base: crate::ai::anthropic::API_BASE.into(),
                 }
             };
             return Some(Agent { endpoint, model: model.unwrap_or_else(|| crate::ai::DEFAULT_EXPERT_MODEL.into()), records: Mutex::default() });
@@ -78,7 +83,7 @@ impl Answerer for Agent {
             notes: Vec::new(),
             focus: Vec::new(),
             skill: None,
-            access: AgentAccess { enabled: true, results: results_setting(), ask_before_send: false, never_send: Vec::new() },
+            access: AgentAccess { enabled: true, results: results_setting(), ask_before_send: false, never_send: Vec::new(), ..Default::default() },
             limits: AgentSettings { skip_plan: true, ..Default::default() },
             history: None,
         };

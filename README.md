@@ -164,7 +164,7 @@ database, and sends data only to services you configure:
 | You ask in plain English | Your question, the schema (table and column names, types, keys), and the current SQL for follow-ups | Your AI provider |
 | A query fails and SayQL fixes it | The query and the database's error message | Your AI provider |
 | You use agent mode on a connection where you turned it on | The agent's queries and, per your setting, row counts, column summaries, or up to 20 masked rows per query | Your AI provider |
-| An AI app uses SayQL through MCP | The schemas, database notes and query results it asks for (never the values of never-send columns) | That AI app (for example Claude or Cursor) |
+| An AI app uses SayQL through MCP | The schemas and database notes, and what you allow it to see of query results on that connection: by default counts and summaries, no row values (never the values of never-send columns) | That AI app (for example Claude or Cursor) |
 | You run a query | Your SQL | Your database |
 | SayQL starts | The app version and your operating system, to check for updates | GitHub (dithzz/sayql-releases) |
 | You first use voice input | A one-time download of the speech model (no audio) | Hugging Face |
@@ -204,12 +204,15 @@ never sent anywhere. Details: [PRIVACY.md](PRIVACY.md).
 
 SayQL includes an MCP server, `sayql-mcp`, that lets Claude Code, Claude Desktop, Cursor and other MCP apps
 use the connections you saved in SayQL: `list_connections`, `list_databases`, `describe_schema` and
-`run_query`. It's read-only, with the same checks as the app. Results come in pages (100 rows by default,
-1,000 at most) and are sent to that app. Passwords never are.
+`run_query`. It's read-only, with the same checks as the app. Passwords never go to the app.
+
+**You choose what the app gets back**, per connection, in **Settings → AI apps (MCP)**: nothing but row counts,
+counts and column summaries (the default: no row values), rows with likely personal data masked, or all rows
+(in pages of 100 by default, 1,000 at most). Below all rows, values quoted in database errors are masked too.
 
 - `list_scripts` lists your saved scripts, with their SQL.
-- `export_csv` saves a read-only query's rows (up to 100,000) to a new CSV in your Downloads folder. The rows
-  aren't sent to the app, only the file path.
+- `export_csv` saves a read-only query's rows (up to 100,000) to a new CSV in your Downloads folder, on
+  connections where you allow all rows. The rows aren't sent to the app, only the file path.
 
 Three more tools hand work to you in SayQL instead of doing it:
 

@@ -9,6 +9,8 @@ import type {
   DatabaseList,
   GenerationTask,
   Handoff,
+  McpActivity,
+  McpApp,
   McpSetup,
   QueryResult,
   QuerySource,
@@ -102,6 +104,10 @@ export const commands = {
   teamAi: () => invoke<TeamAiStatus | null>("team_ai"),
 
   mcpSetup: () => invoke<McpSetup>("mcp_setup"),
+  mcpActivity: (limit?: number) => invoke<McpActivity[]>("mcp_activity", { limit }),
+  mcpApps: () => invoke<McpApp[]>("mcp_apps"),
+  setMcpAppBlocked: (name: string, blocked: boolean) => invoke<McpApp[]>("set_mcp_app_blocked", { name, blocked }),
+  clearMcpActivity: () => invoke<void>("clear_mcp_activity"),
   /** Handoffs from AI apps waiting to be shown (see the `handoff://new` event). */
   takeHandoffs: () => invoke<Handoff[]>("take_handoffs"),
 

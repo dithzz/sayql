@@ -280,7 +280,7 @@ fn server_addresses_are_cleaned_and_https_is_required_off_this_computer() {
 #[test]
 fn the_admin_rules_win() {
     let rules = TeamRules { max_results: Results::Counts, never_send: vec!["patients.ssn".into()] };
-    let mine = AgentAccess { enabled: true, results: Results::Rows, ask_before_send: false, never_send: vec!["notes".into()] };
+    let mine = AgentAccess { enabled: true, results: Results::Rows, ask_before_send: false, never_send: vec!["notes".into()], ..Default::default() };
     let applied = apply_rules(mine.clone(), &rules);
     assert_eq!(applied.results, Results::Counts, "can't be set above the admin's");
     assert_eq!(applied.never_send, ["notes", "patients.ssn"]);
