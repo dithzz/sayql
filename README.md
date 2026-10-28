@@ -7,10 +7,10 @@
 </picture>
 </h1>
 
-### Ask production anything. Break nothing.
+### Ask your database anything. Break nothing.
 
-The safe way for people and AI to query production databases.<br>
-Any AI, any database, read-only by default, and nothing changes unless you say so.
+The safe way for people and AI to query any database, even production.<br>
+Any AI, read-only by default, and nothing changes unless you say so.
 
 [![Latest release](https://img.shields.io/github/v/release/dithzz/sayql-releases?label=release&color=1f6feb)](https://github.com/dithzz/sayql-releases/releases/latest)
 [![CI](https://github.com/dithzz/sayql/actions/workflows/ci.yml/badge.svg)](https://github.com/dithzz/sayql/actions/workflows/ci.yml)
@@ -30,7 +30,7 @@ Any AI, any database, read-only by default, and nothing changes unless you say s
 
 ## Why SayQL
 
-**SayQL is the safe way for people and AI to query production databases.** It's for analysts, product
+**SayQL is the safe way for people and AI to query any database, even production.** It's for analysts, product
 managers, support and operations teams, developers who only touch the database now and then, and the AI apps
 they work with. Asking an engineer takes time; general chatbots don't know your schema and can't run anything
 safely; and an AI agent with a database password can do anything. SayQL keeps the AI on your rules.
