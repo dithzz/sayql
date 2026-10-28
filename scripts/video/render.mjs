@@ -38,8 +38,8 @@ const S = WIN.w / view.width; // CSS px → stage px
 // (the terminal scenes), and `speed` plays its animation faster.
 const EDITS = {
   full: [
-    { card: "hook", dur: 4.7 },
-    { card: "title", dur: 3.9 },
+    { card: "hook", dur: 5.8 },
+    { card: "title", dur: 4.8 },
     { card: "agentCounts", dur: 10.2 },
     { card: "agentRefused", dur: 7.5, join: true },
     { scene: "guard", speed: 1.12 },
