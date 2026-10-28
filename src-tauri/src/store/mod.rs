@@ -208,13 +208,25 @@ pub struct Skill {
 #[derive(Clone)]
 pub struct Store {
     dir: PathBuf,
+    /// Move unreadable files aside (the app). The MCP server reads the app's files but never
+    /// renames or replaces them: an unreadable file is only an error there.
+    repair: bool,
 }
 
 impl Store {
     pub fn new(dir: PathBuf) -> Self {
         let _ = std::fs::create_dir_all(&dir);
         copy_legacy_files(&dir);
-        Store { dir }
+        Store { dir, repair: true }
+    }
+
+    /// A store that never moves or replaces an unreadable file (for the MCP server, which
+    /// runs beside the app and must leave its files to it).
+    pub fn without_repair(self) -> Self {
+        Store {
+            repair: false,
+            ..self
+        }
     }
 
     /// A missing file reads as the default. A file that doesn't parse is moved aside (see
@@ -226,7 +238,18 @@ impl Store {
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(T::default()),
             Err(e) => return Err(e.into()),
         };
-        serde_json::from_str(&text).map_err(|_| self.set_aside(name))
+        serde_json::from_str(&text).map_err(|_| self.unreadable(name))
+    }
+
+    /// The error for a file that doesn't parse: moved aside in the app, left alone elsewhere.
+    fn unreadable(&self, name: &str) -> AppError {
+        if self.repair {
+            self.set_aside(name)
+        } else {
+            AppError::User(format!(
+                "SayQL's saved file {name} couldn't be read. Open SayQL to fix it."
+            ))
+        }
     }
 
     /// Renames an unreadable file to `<name>.corrupt-<timestamp>` so nothing overwrites it,
@@ -260,7 +283,7 @@ impl Store {
         if let Ok(text) = std::fs::read_to_string(&path)
             && serde_json::from_str::<serde_json::Value>(&text).is_err()
         {
-            return Err(self.set_aside(name));
+            return Err(self.unreadable(name));
         }
         let tmp = self
             .dir

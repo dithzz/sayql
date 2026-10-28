@@ -1,16 +1,24 @@
 import { useState } from "react";
-import type { AgentAccess, AgentResults } from "../../api";
-import { Alert, Button, Checkbox, Dialog, Field } from "../../components/ui";
+import type { AgentAccess, AgentResults, Target } from "../../api";
+import { Alert, Button, Checkbox, Dialog } from "../../components/ui";
 import { cx } from "../../lib/cx";
 import styles from "./AgentAccessDialog.module.css";
+import { NeverSendPicker } from "./NeverSendPicker";
 
 export interface AgentAccessDialogProps {
   connectionName: string;
+  /** The database whose tables the never-send picker shows (access itself is per connection). */
+  target: Target;
   provider: { label: string; local: boolean };
   access: AgentAccess;
   /** Saves and closes; rejects with a message to show. */
   onSave: (access: AgentAccess) => Promise<void>;
   onClose: () => void;
+  /**
+   * Only the never-send columns (Settings → AI apps): agent mode stays as it is, on or off.
+   * Never-send applies to agent mode and to AI apps over MCP alike.
+   */
+  neverSendOnly?: boolean;
 }
 
 const RANK: Record<AgentResults, number> = { off: 0, counts: 1, rows: 2 };
@@ -34,8 +42,8 @@ const RESULTS: { value: AgentResults; label: string; detail: string }[] = [
 ];
 
 /** Turns agent mode on for a connection and says exactly what it may send to the AI. */
-export function AgentAccessDialog({ connectionName, provider, access, onSave, onClose }: AgentAccessDialogProps) {
-  const first = !access.enabled;
+export function AgentAccessDialog({ connectionName, target, provider, access, onSave, onClose, neverSendOnly = false }: AgentAccessDialogProps) {
+  const first = !access.enabled && !neverSendOnly;
   const [results, setResults] = useState<AgentResults>(access.results);
   // Ask before send starts on for cloud providers, off for ones on this computer.
   const [ask, setAsk] = useState(first ? !provider.local : access.askBeforeSend);
@@ -43,15 +51,14 @@ export function AgentAccessDialog({ connectionName, provider, access, onSave, on
   const team = access.team ?? null;
   const adminColumn = (c: string) => !!team?.neverSend.some((t) => t.toLowerCase() === c.toLowerCase());
   const allowed = (r: AgentResults) => !team || RANK[r] <= RANK[team.maxResults];
-  const [neverSend, setNeverSend] = useState(access.neverSend.filter((c) => !adminColumn(c)).join("\n"));
+  const [neverSend, setNeverSend] = useState(() => access.neverSend.filter((c) => !adminColumn(c)));
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   const save = (enabled: boolean) => {
     setSaving(true);
     setError(null);
-    const list = neverSend.split(/[\n,]/).map((c) => c.trim()).filter(Boolean);
-    onSave({ enabled, results, apps: access.apps, askBeforeSend: ask, neverSend: list }).then(onClose, (e) => {
+    onSave({ enabled, results, apps: access.apps, askBeforeSend: ask, neverSend }).then(onClose, (e) => {
       setSaving(false);
       setError(String(e));
     });
@@ -64,10 +71,14 @@ export function AgentAccessDialog({ connectionName, provider, access, onSave, on
 
   return (
     <Dialog
-      title={first ? `Turn on agent mode for ${connectionName}` : `Agent settings for ${connectionName}`}
+      title={
+        neverSendOnly ? `Never send on ${connectionName}` : first ? `Turn on agent mode for ${connectionName}` : `Agent settings for ${connectionName}`
+      }
       onClose={onClose}
+      size="lg"
       secondaryActions={
-        !first && (
+        !first &&
+        !neverSendOnly && (
           <Button variant="dangerGhost" disabled={saving} onClick={() => save(false)}>
             Turn off agent mode
           </Button>
@@ -76,55 +87,69 @@ export function AgentAccessDialog({ connectionName, provider, access, onSave, on
       actions={
         <>
           <Button onClick={onClose}>Cancel</Button>
-          <Button variant="primary" disabled={saving} onClick={() => save(true)}>
+          <Button variant="primary" disabled={saving} onClick={() => save(neverSendOnly ? access.enabled : true)}>
             {first ? "Turn on" : "Save"}
           </Button>
         </>
       }
     >
       <div className={styles.body}>
-        <p className={styles.lead}>
-          The agent answers in several read-only steps with <strong>{provider.label}</strong>. It never changes data: a write is
-          shown as SQL for you to review. Choose what it may see of query results on this connection.
-        </p>
-        <div role="radiogroup" aria-label="Results sent to the AI" className={styles.options}>
-          {RESULTS.map((r) => (
-            <label key={r.value} className={cx(styles.option, results === r.value && styles.chosen, !allowed(r.value) && styles.locked)}>
-              <input
-                type="radio"
-                name="results"
-                value={r.value}
-                checked={results === r.value}
-                disabled={!allowed(r.value)}
-                onChange={() => setResults(r.value)}
-              />
-              <span>
-                <strong>
-                  {r.label}
-                  {!allowed(r.value) && <span className={styles.admin}> · Set by your team admin</span>}
-                </strong>
-                <span className={styles.detail}>{r.detail}</span>
-              </span>
-            </label>
-          ))}
-        </div>
-        {goesOut && <Alert tone="warning">{goesOut}</Alert>}
-        <Checkbox label="Ask before each send (shows exactly what would go, with Send and Skip)" checked={ask} onChange={setAsk} />
+        {neverSendOnly ? (
+          <p className={styles.lead}>
+            Columns picked here never leave SayQL: queries that use them are refused, for AI apps over MCP and for agent
+            mode. Agent mode stays {access.enabled ? "on" : "off"} for this connection.
+          </p>
+        ) : (
+          <>
+            <p className={styles.lead}>
+              The agent answers in several read-only steps with <strong>{provider.label}</strong>. It never changes data: a write is
+              shown as SQL for you to review. Choose what it may see of query results on this connection.
+            </p>
+            <div role="radiogroup" aria-label="Results sent to the AI" className={styles.options}>
+              {RESULTS.map((r) => (
+                <label key={r.value} className={cx(styles.option, results === r.value && styles.chosen, !allowed(r.value) && styles.locked)}>
+                  <input
+                    type="radio"
+                    name="results"
+                    value={r.value}
+                    checked={results === r.value}
+                    disabled={!allowed(r.value)}
+                    onChange={() => setResults(r.value)}
+                  />
+                  <span>
+                    <strong>
+                      {r.label}
+                      {!allowed(r.value) && <span className={styles.admin}> · Set by your team admin</span>}
+                    </strong>
+                    <span className={styles.detail}>{r.detail}</span>
+                  </span>
+                </label>
+              ))}
+            </div>
+            {goesOut && <Alert tone="warning">{goesOut}</Alert>}
+            <Checkbox label="Ask before each send (shows exactly what would go, with Send and Skip)" checked={ask} onChange={setAsk} />
+          </>
+        )}
         {team && team.neverSend.length > 0 && (
           <p className={styles.detail}>
             Set by your team admin, never sent: <span className={styles.adminColumns}>{team.neverSend.join(", ")}</span>. Your team's
             server also leaves them out of results.
           </p>
         )}
-        <Field label={team?.neverSend.length ? "Also never send these columns" : "Never send these columns"} hint="One per line, as column or table.column. Queries that use them are refused." optional>
-          {(id) => (
-            <textarea id={id} className={styles.textarea} rows={3} value={neverSend} onChange={(e) => setNeverSend(e.target.value)} placeholder={"patients.notes\ndiagnosis"} />
-          )}
-        </Field>
-        <p className={styles.detail}>
-          Masking is best effort: a free-text column can hold anything. For health or production data, keep results Off or
-          Counts, or mark such columns never send.
-        </p>
+        <NeverSendPicker
+          target={target}
+          label={team?.neverSend.length ? "Also never send these columns" : "Never send these columns"}
+          value={neverSend}
+          onChange={setNeverSend}
+          locked={team?.neverSend ?? []}
+          autoFocus={neverSendOnly}
+        />
+        {!neverSendOnly && (
+          <p className={styles.detail}>
+            Masking is best effort: a free-text column can hold anything. For health or production data, keep results Off or
+            Counts, or mark such columns never send.
+          </p>
+        )}
         {error && <Alert tone="danger">{error}</Alert>}
       </div>
     </Dialog>

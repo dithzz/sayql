@@ -3,6 +3,72 @@
 All notable changes to SayQL are listed here. Downloads are on the
 [releases page](https://github.com/dithzz/sayql-releases/releases).
 
+## 0.4.5 (unreleased)
+
+### Security: AI apps (MCP) and agent mode
+
+An end-to-end test of what AI apps can get through SayQL found ways around its limits. All are fixed:
+
+- **Database errors no longer carry values.** Messages such as `unrecognized configuration parameter "…"` or an
+  XML or JSON parse error could quote a value from your rows, even where AI apps may see nothing. Below **All
+  rows** (and at All rows for a query on a table with never-send columns), AI apps and agent mode now get a fixed
+  description chosen from the database's error code (a syntax error and where, a column that doesn't exist, a
+  value that couldn't be converted, …), naming only what is in their own SQL. The activity log keeps only that
+  form. When you ask the AI to fix your own query, quoted text in the error is kept only if it is in the query.
+- **Never-send columns can't be read in another form.** Whole rows as JSON or text (`row_to_json(c)`, `c::text`,
+  `jsonb_each_text`), computed JSON keys, `U&"…"` names, column alias lists, `*` inside a subquery or CTE, and set
+  operations are refused on tables with never-send columns. On PostgreSQL, SayQL checks the query's plan
+  (`EXPLAIN`, not run) so it also follows views and renames; a never-send column passed straight to the result is
+  withheld. `export_csv` and agent mode use the same check. Entries written `table.column` now apply to that
+  table only; a bare `column` applies to every table. `describe_schema` marks never-send columns.
+- **Counts and summaries:** a renamed personal column (`date_of_birth AS d`) no longer gets a min and max, and
+  min/max are now given only for a table's own number and date columns and counts, sums, averages, minimums and
+  maximums of them, not for computed expressions (which could carry text, a few bytes at a time).
+- **Masked rows:** text whose source SayQL can't trace (column alias lists, `VALUES`, `LATERAL`, `(row).field`,
+  `unnest`, JSON access, `UNION`) is masked.
+- **Unreadable settings fail closed.** If `agent.json` or `mcp-apps.json` can't be read, every MCP request is
+  refused until SayQL fixes it; the MCP server no longer moves the app's files aside (which reset every
+  connection's AI settings) or treats a damaged block list as "nothing blocked".
+- AI apps and agent mode can no longer call functions that read the server's files or reach outside the
+  database (`pg_read_file`, `pg_ls_dir`, large objects, `dblink`, `load_file`, `OPENROWSET`, …), whatever the
+  saved login may do.
+- `list_scripts` shows as much SQL as the connection allows: all of it at All rows, with string literals masked
+  at Counts and Masked, names only at Off.
+- `add_connection` refuses a URL or `user:password` in `host` or `user`.
+- The activity log also lists schema reads, listings and hand-offs (with the SQL an app opened for you), never
+  stores error text with values or suggested note text, and logs suggestions for unknown connections.
+- Hand-offs from an app SayQL doesn't recognise show the name it reported, marked *(unverified)*; the display
+  title an app sends is ignored. Blocking goes by that reported name and is documented as a convenience, not a
+  security boundary.
+- Suggested notes that hold a long number, an amount or what looks like a person's name are refused, as the
+  refusal message already said.
+- The docs now say plainly what the levels do: they keep rows from reaching an AI app by accident, but a count is
+  still a fact about your rows; never send is the firm line.
+
+### Settings → AI apps
+
+- **Settings → AI apps, in tabs:** the page formerly called **AI apps (MCP)** is now **AI apps** (for Claude Code,
+  Cursor and other MCP apps), with three tabs:
+  - **Access:** each app that has connected, allowed or blocked, with when it was last seen; a compact table of
+    your connections with what AI apps get back (each level explained once, above the table) and the never-send
+    columns as chips, with **Edit** (the same list agent mode uses; editing it here doesn't turn agent mode on or
+    off); and **Connect an app**, the setup for Claude Code and Claude Desktop, open until an app has connected.
+  - **Activity:** the log at full width, filtered by app, connection or refused queries only. Click a row for its
+    full SQL and details. Still the SQL and row counts, never rows; **Clear the log** asks first, as before.
+  - **Suggestions:** notes AI apps suggested, with **Accept** and **Dismiss**, and how many are waiting on the tab.
+- **Only allow apps I've approved:** a new setting at the top of **Access → Apps**. When it's on, an app you
+  haven't approved is refused every tool (and told to ask you to approve it), logged as refused (*not approved*)
+  and listed as **Waiting for approval** with **Approve** and **Block**. Turning it on approves the apps already
+  listed that aren't blocked, so the ones you use keep working. Blocked still wins over approved. Apps are
+  recognised by the name they report, so this keeps out unknown apps but isn't a security boundary against
+  software that lies about its name. Off by default; existing settings carry over unchanged.
+- **Suggested notes waiting** are counted on **AI apps** in the Settings sidebar and on the settings (gear) button,
+  which then opens straight to **AI apps → Suggestions**.
+- **Never-send columns are picked, not typed:** a searchable list of your tables and columns, with likely
+  personal or secret columns suggested and **Add all suggested**. Picked columns show as chips;
+  `table.column` now applies to that table only, and a bare column name to every table.
+
+
 ## 0.4.4 (2026-10-28)
 
 - **Table usage in `describe_schema`:** AI apps using SayQL over MCP now see, after each table, how much it is

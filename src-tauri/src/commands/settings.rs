@@ -3,7 +3,7 @@ use crate::ai::{self, Api, KeyNeed};
 use crate::error::{AppError, AppResult};
 use crate::state::AppState;
 use crate::store::agent::AgentSettings;
-use crate::store::apps::{Activity, AppSummary};
+use crate::store::apps::{Activity, AppList};
 use crate::store::{ProviderSettings, Settings, secrets};
 use serde::Serialize;
 use tauri::State;
@@ -351,10 +351,18 @@ pub fn mcp_activity(state: State<'_, AppState>, limit: Option<usize>) -> AppResu
     state.store.app_activity(limit.unwrap_or(100).min(1000))
 }
 
-/// The AI apps in the log or on the blocked list.
+/// The AI apps in the log, blocked or approved, and whether only approved apps are let in.
 #[tauri::command]
-pub fn mcp_apps(state: State<'_, AppState>) -> AppResult<Vec<AppSummary>> {
+pub fn mcp_apps(state: State<'_, AppState>) -> AppResult<AppList> {
     state.store.app_summaries()
+}
+
+fn app_name(name: &str) -> AppResult<&str> {
+    let name = name.trim();
+    if name.is_empty() {
+        return Err(AppError::User("Which app? The name is empty.".into()));
+    }
+    Ok(name)
 }
 
 /// Blocks or allows one AI app; returns the updated list.
@@ -363,12 +371,22 @@ pub fn set_mcp_app_blocked(
     state: State<'_, AppState>,
     name: String,
     blocked: bool,
-) -> AppResult<Vec<AppSummary>> {
-    let name = name.trim();
-    if name.is_empty() {
-        return Err(AppError::User("Which app? The name is empty.".into()));
-    }
-    state.store.set_app_blocked(name, blocked)?;
+) -> AppResult<AppList> {
+    state.store.set_app_blocked(app_name(&name)?, blocked)?;
+    state.store.app_summaries()
+}
+
+/// Approves one AI app (for when only approved apps are let in); returns the updated list.
+#[tauri::command]
+pub fn approve_mcp_app(state: State<'_, AppState>, name: String) -> AppResult<AppList> {
+    state.store.approve_app(app_name(&name)?)?;
+    state.store.app_summaries()
+}
+
+/// Turns "only allow apps I've approved" on or off; returns the updated list.
+#[tauri::command]
+pub fn set_mcp_only_approved(state: State<'_, AppState>, on: bool) -> AppResult<AppList> {
+    state.store.set_only_approved_apps(on)?;
     state.store.app_summaries()
 }
 

@@ -43,6 +43,38 @@ pub async fn run_limited_with(
     limit: Duration,
     stop: &CancellationToken,
 ) -> Result<QueryResult, String> {
+    run_limited_checked(pool, sql, cap, limit, stop)
+        .await
+        .map_err(|f| f.full)
+}
+
+/// Why a query failed: the database's full message, and the form an AI that may not see
+/// row values gets (see `ai::redact::safe_error`).
+#[derive(Debug, Clone)]
+pub struct QueryFailure {
+    pub full: String,
+    pub safe: String,
+}
+
+impl QueryFailure {
+    /// A message SayQL wrote itself, the same in both forms.
+    pub fn own(message: impl Into<String>) -> Self {
+        let m = message.into();
+        QueryFailure {
+            full: m.clone(),
+            safe: m,
+        }
+    }
+}
+
+/// `run_limited_with`, keeping the safe form of the error too.
+pub async fn run_limited_checked(
+    pool: &DbPool,
+    sql: &str,
+    cap: usize,
+    limit: Duration,
+    stop: &CancellationToken,
+) -> Result<QueryResult, QueryFailure> {
     let cancel = stop.child_token();
     let timer = tokio::spawn({
         let cancel = cancel.clone();
@@ -54,13 +86,16 @@ pub async fn run_limited_with(
     let out = db::run_query_with(pool, sql, true, cap, &cancel).await;
     timer.abort();
     out.map_err(|e| match e.to_string() {
-        e if e == db::CANCELLED && stop.is_cancelled() => STOPPED.to_string(),
-        e if e == db::CANCELLED => format!(
+        m if m == db::CANCELLED && stop.is_cancelled() => QueryFailure::own(STOPPED),
+        m if m == db::CANCELLED => QueryFailure::own(format!(
             "The query was still running after {} seconds, so SayQL stopped it. Narrow it (a WHERE clause, \
              fewer joins, LIMIT/TOP) and try again, or run it in the SayQL app.",
             limit.as_secs()
-        ),
-        e => e,
+        )),
+        m => QueryFailure {
+            safe: crate::ai::redact::safe_error(&e, sql),
+            full: m,
+        },
     })
 }
 

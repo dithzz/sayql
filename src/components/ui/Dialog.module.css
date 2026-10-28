@@ -24,6 +24,9 @@
 .md {
   max-width: 540px;
 }
+.lg {
+  max-width: 720px;
+}
 
 .header {
   display: flex;
@@ -63,4 +66,8 @@
 }
 .spacer {
   flex: 1;
+}
+
+.dialog:focus {
+  outline: none;
 }

@@ -431,6 +431,7 @@ export function QueryTab(props: QueryTabProps) {
       {active && accessDialog && access && (
         <AgentAccessDialog
           connectionName={label}
+          target={tab.target}
           provider={teamAi ? teamAiDestination(teamAi) : { label: provider?.label ?? settings.provider, local: provider?.local ?? false }}
           access={access}
           onSave={async (a) => {

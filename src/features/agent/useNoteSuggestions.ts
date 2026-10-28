@@ -43,3 +43,6 @@ export function useNoteSuggestions() {
   };
   return { suggestions, accept, dismiss, reload: load };
 }
+
+/** What `useNoteSuggestions` returns, for views that show the list one hook already holds. */
+export type NoteSuggestionsApi = ReturnType<typeof useNoteSuggestions>;

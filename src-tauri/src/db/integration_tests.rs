@@ -1590,7 +1590,7 @@ async fn error_and_masked(pool: &DbPool, sql: &str) -> (String, String) {
         .err()
         .unwrap_or_else(|| panic!("{sql} succeeded"))
         .to_string();
-    let masked = crate::ai::mask_database_error(&e);
+    let masked = crate::ai::mask_database_error(&e, sql);
     (e, masked)
 }
 
@@ -1621,12 +1621,16 @@ async fn database_errors_are_readable_and_masked_for_the_ai() {
             e,
             "duplicate key value violates unique constraint \"u_email_key\"\nDETAIL: Key (email)=(ann@example.com) already exists."
         );
+        // The constraint's name isn't in the SQL, so it is masked too.
         assert_eq!(
             m,
-            "duplicate key value violates unique constraint \"u_email_key\"\nDETAIL: Key (email)=(…) already exists."
+            "duplicate key value violates unique constraint \"…\"\nDETAIL: Key (email)=(…) already exists."
         );
-        let (e, m) = error_and_masked(&pool, "SELECT 'secret-abc'::int").await;
-        assert_eq!(e, "invalid input syntax for type integer: \"secret-abc\"");
+        let (e, m) = error_and_masked(&pool, "SELECT email::int FROM sayql_err.u").await;
+        assert_eq!(
+            e,
+            "invalid input syntax for type integer: \"ann@example.com\""
+        );
         assert_eq!(m, "invalid input syntax for type integer: \"…\"");
         let (e, m) = error_and_masked(&pool, "SELECT nme FROM sayql_err.u").await;
         assert!(
@@ -1646,8 +1650,7 @@ async fn database_errors_are_readable_and_masked_for_the_ai() {
         )
         .await;
         let pool = open(Kind::Mysql, &t, "sayql_err").await;
-        let (e, m) =
-            error_and_masked(&pool, "INSERT INTO u VALUES (2, 'ann@example.com', 5)").await;
+        let (e, m) = error_and_masked(&pool, "INSERT INTO u SELECT 2, email, 5 FROM u").await;
         assert!(
             e.starts_with("1062 (23000): Duplicate entry 'ann@example.com' for key"),
             "{e}"
@@ -1658,13 +1661,10 @@ async fn database_errors_are_readable_and_masked_for_the_ai() {
         );
         let (_, m) = error_and_masked(
             &pool,
-            "INSERT INTO u VALUES (3, 'b@example.com', 'secret-text')",
+            "INSERT INTO u SELECT 3, 'b@example.com', email FROM u",
         )
         .await;
-        assert!(
-            m.contains("Incorrect integer value: '…' for column") && !m.contains("secret"),
-            "{m}"
-        );
+        assert!(m.contains("value: '…'") && !m.contains("ann@"), "{m}");
         let (_, m) = error_and_masked(&pool, "SELECT nme FROM u").await;
         assert!(
             m.starts_with("1054 (42S22): Unknown column 'nme' in '"),
@@ -1681,7 +1681,7 @@ async fn database_errors_are_readable_and_masked_for_the_ai() {
         exec(&pool, "CREATE TABLE dbo.u (id int PRIMARY KEY, email nvarchar(100) CONSTRAINT u_email UNIQUE, n int);
             INSERT INTO dbo.u VALUES (1, N'ann@example.com', 5);").await;
         let (e, m) =
-            error_and_masked(&pool, "INSERT INTO dbo.u VALUES (2, N'ann@example.com', 5)").await;
+            error_and_masked(&pool, "INSERT INTO dbo.u SELECT 2, email, 5 FROM dbo.u").await;
         assert_eq!(
             e,
             "Violation of UNIQUE KEY constraint 'u_email'. Cannot insert duplicate key in object 'dbo.u'. \
@@ -1689,13 +1689,15 @@ async fn database_errors_are_readable_and_masked_for_the_ai() {
         );
         assert_eq!(
             m,
-            "Violation of UNIQUE KEY constraint 'u_email'. Cannot insert duplicate key in object 'dbo.u'. \
+            "Violation of UNIQUE KEY constraint '…'. Cannot insert duplicate key in object 'dbo.u'. \
              The duplicate key value is (…).\n(SQL Server error 2627, line 1)"
         );
-        let (_, m) = error_and_masked(&pool, "SELECT CAST('secret-abc' AS int)").await;
-        assert_eq!(
-            m,
-            "Conversion failed when converting the varchar value '…' to data type int.\n(SQL Server error 245, line 1)"
+        let (_, m) = error_and_masked(&pool, "SELECT CAST(email AS int) FROM dbo.u").await;
+        assert!(
+            m.starts_with(
+                "Conversion failed when converting the nvarchar value '…' to data type int."
+            ) && !m.contains("ann@"),
+            "{m}"
         );
         let (_, m) = error_and_masked(&pool, "SELECT id\nFROM dbo.u\nWHERE nme = 1").await;
         // The column name stays; which line SQL Server reports depends on how the batch ran.

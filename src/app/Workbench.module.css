@@ -25,6 +25,29 @@
   padding: 0 var(--space-2) 0 var(--space-3);
   background: var(--color-surface-muted);
 }
+.settingsButton {
+  position: relative;
+  display: inline-flex;
+}
+/* Suggested notes waiting, on the settings button. */
+.settingsBadge {
+  position: absolute;
+  top: -1px;
+  right: -3px;
+  min-width: 13px;
+  height: 13px;
+  padding: 0 3px;
+  border: 1.5px solid var(--color-surface-muted);
+  border-radius: 8px;
+  box-sizing: content-box;
+  background: var(--color-accent);
+  color: var(--color-text-on-accent);
+  font-size: 9px;
+  font-weight: var(--font-weight-semibold);
+  line-height: 13px;
+  text-align: center;
+  pointer-events: none;
+}
 .brand {
   display: inline-flex;
   align-items: center;

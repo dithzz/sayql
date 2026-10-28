@@ -7,7 +7,7 @@ import { ConnectionDialog, DATABASE_KINDS, newConnection, targetKey, useConnecti
 import { DatabaseNavigator, type NavigatorScript } from "../features/navigator";
 import { CloseTabDialog, CloseTabsDialog, SaveScriptDialog, useScripts } from "../features/scripts";
 import { selectAllSql } from "../features/schema/sql";
-import { SettingsPage, useSettings, type SettingsSection } from "../features/settings";
+import { SettingsPage, useSettings, type AiAppsTab, type SettingsSection } from "../features/settings";
 import { useSkills } from "../features/skills";
 import { hasUnsavedChanges, useTabs, type EditorTab } from "../features/tabs";
 import { useUpdate } from "../features/updates";
@@ -27,7 +27,7 @@ type OpenDialog =
   /** `note`: where the details came from, for a handoff from an AI app. */
   | { kind: "connection"; config: ConnectionConfig; fromSetup?: boolean; note?: string; key?: string }
   /** `createSkill`: opened from "Create skill…" in the Ask box. */
-  | { kind: "settings"; section?: SettingsSection; createSkill?: boolean }
+  | { kind: "settings"; section?: SettingsSection; aiAppsTab?: AiAppsTab; createSkill?: boolean }
   | { kind: "saveScript"; tabId: string; closeAfter: boolean }
   | { kind: "closeTab"; tabId: string }
   | { kind: "closeTabs"; tabIds: string[] }
@@ -266,8 +266,8 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
   /** A name to suggest when a tab is saved for the first time. */
   const suggestedName = (t: EditorTab) => t.title || t.question.trim().slice(0, 60) || `${tabLabel(t).db ?? tabLabel(t).name} query`;
 
-  const openSettings = () => {
-    setDialog({ kind: "settings" });
+  const openSettings = (at?: { section: SettingsSection; aiAppsTab?: AiAppsTab }) => {
+    setDialog({ kind: "settings", ...at });
     // Team AI's limits and usage may have changed since: ask again (only when signed in).
     if (settings.team) commands.teamAi().then(setTeamAi, () => {});
   };
@@ -301,7 +301,9 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
         databaseName={databaseName}
         schema={schema}
         onNewConnection={openNewConnection}
-        onOpenSettings={openSettings}
+        pendingSuggestions={noteSuggestions.suggestions.length}
+        // With suggested notes waiting, the gear opens them: Settings → AI apps → Suggestions.
+        onOpenSettings={() => openSettings(noteSuggestions.suggestions.length > 0 ? { section: "mcp", aiAppsTab: "suggestions" } : undefined)}
       />
 
       {notice && (
@@ -420,7 +422,7 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
                       settings={settings}
                       modelNames={modelNames}
                       onChange={(patch) => tabs.update(t.id, patch)}
-                      onOpenSettings={openSettings}
+                      onOpenSettings={() => openSettings()}
                       skills={skills.skills}
                       onCreateSkill={() => setDialog({ kind: "settings", section: "skills", createSkill: true })}
                       onSave={() => requestSave(t)}
@@ -545,6 +547,7 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
       {dialog?.kind === "agentAccess" && dialogAccess && (
         <AgentAccessDialog
           connectionName={dialog.connection.name}
+          target={{ connectionId: dialog.connection.id, database: target?.connectionId === dialog.connection.id ? target.database : null }}
           provider={(() => {
             const ai = teamAiFor(dialog.connection.id);
             if (ai) return teamAiDestination(ai);
@@ -636,6 +639,8 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
           connections={conn.connections}
           skills={skills}
           section={dialog.section}
+          aiAppsTab={dialog.aiAppsTab}
+          noteSuggestions={noteSuggestions}
           createSkill={dialog.createSkill}
           onShowSetup={() => {
             setDialog(null);
@@ -677,7 +682,7 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
           }}
           examples={exampleQuestions(schema, active?.id === "demo")}
           onTry={trySetupQuestion}
-          onOpenSettings={openSettings}
+          onOpenSettings={() => openSettings()}
           onFinish={finishSetup}
         />
       )}
