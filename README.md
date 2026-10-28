@@ -7,7 +7,7 @@
 </picture>
 </h1>
 
-### Say what you need. It knows your schema.
+### Ask production anything. Break nothing.
 
 The safe way for people and AI to query production databases.<br>
 Any AI, any database, read-only by default, and nothing changes unless you say so.
