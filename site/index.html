@@ -528,6 +528,14 @@ section.block { padding: 80px 0 0; }
 }
 
 /* features: alternating rows, with only the app window boxed */
+.gov-apps { display: grid; gap: 1px; background: var(--color-border-subtle); border-bottom: 1px solid var(--color-border); }
+.gov-app { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: var(--color-surface); font-size: 12.5px; }
+.gov-app span { color: var(--color-text-muted); font-size: 12px; }
+.gov-app .gov-blocked { color: var(--color-danger); font-weight: 500; }
+.gov-btn { margin-left: auto; padding: 3px 9px; border-radius: 4px; color: var(--color-danger) !important; border: 1px solid transparent; }
+.gov-btn.allow { color: var(--color-text) !important; border-color: var(--color-border); background: var(--color-surface); }
+.feature-row .gov-mock { height: auto; }
+.gov-mock .grid td:nth-child(3) { white-space: nowrap; color: var(--color-text-muted); font-size: 11.5px; }
 .feature-rows { margin-top: 56px; display: grid; gap: 88px; }
 .feature-row { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 56px; align-items: center; }
 .feature-row:nth-child(even) { grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); }
@@ -863,11 +871,36 @@ section.block { padding: 80px 0 0; }
 <section class="block" id="features">
   <div class="wrap">
     <div class="head">
-      <h2>Ask. Check. Run.</h2>
-      <p>SayQL writes the query. You see it before anything runs.</p>
+      <h2>Safe for agents. Simple for people.</h2>
+      <p>Read-only, private columns kept out, and every query in plain sight.</p>
     </div>
 
     <div class="feature-rows">
+      <article class="feature-row">
+        <div class="feature-text">
+          <h3>Govern your agents</h3>
+          <p>Claude Code, Cursor and other agents query through SayQL, read-only. By default they get counts and summaries, not your rows, and columns you mark private never reach them. See everything they ran, and block any app in one click.</p>
+          <p class="fine">Free on your computer. For your whole company, <a href="#teams">SayQL for teams</a> gives each agent its own key and puts every query in one audit log.</p>
+        </div>
+        <div class="app mini admin-mock gov-mock" role="img" aria-label="SayQL's AI apps settings: Claude Code is allowed and Cursor is blocked; the activity log shows a query that ran as counts, one refused for a private column, one refused because it could change data, and one from the blocked app">
+          <div class="titlebar"><div class="lights"><i></i><i></i><i></i></div>Settings · AI apps (MCP)</div>
+          <div class="gov-apps">
+            <div class="gov-app"><b>Claude Code</b><span>24 queries · counts and summaries</span><span class="gov-btn">Block</span></div>
+            <div class="gov-app"><b>Cursor</b><span class="gov-blocked">Blocked</span><span class="gov-btn allow">Allow</span></div>
+          </div>
+          <div class="grid">
+            <table>
+              <thead><tr><th>When</th><th>App</th><th>Result</th><th>SQL</th></tr></thead>
+              <tbody>
+                <tr><td>10:42</td><td>Claude Code</td><td><span class="st ok">OK</span> 1 row</td><td class="sql">SELECT country, COUNT(*) FROM customers…</td></tr>
+                <tr class="refused"><td>10:41</td><td>Claude Code</td><td><span class="st no">Refused</span> private column</td><td class="sql">SELECT email FROM customers…</td></tr>
+                <tr class="refused"><td>10:39</td><td>Claude Code</td><td><span class="st no">Refused</span> could change data</td><td class="sql">DELETE FROM orders WHERE…</td></tr>
+                <tr class="refused"><td>10:30</td><td>Cursor</td><td><span class="st no">Refused</span> app blocked</td><td class="sql">list_connections</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </article>
       <article class="feature-row">
         <div class="feature-text">
           <h3>Agent mode <span class="note-badge tag">beta</span></h3>
@@ -938,7 +971,6 @@ section.block { padding: 80px 0 0; }
           <li><b>Just say it</b><span>Ask out loud; it’s transcribed on your computer.</span></li>
           <li><b>Type / for commands</b><span>/explain, /fix, /improve and more.</span></li>
           <li><b>Skills</b><span>Save a rule like “never select email” once.</span></li>
-          <li><b>Agents without your data</b><span>Claude Code and Cursor get counts, not rows, by default.</span></li>
         </ul>
       </div>
       <div class="fact-group">
