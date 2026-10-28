@@ -20,6 +20,15 @@ All notable changes to SayQL are listed here. Downloads are on the
 - **Last audit.** **Settings → AI apps → Access** shows when an app last fetched the audit prompt for each
   connection, says **Run an audit** when it's never been run or not in 30 days, and has **Copy prompt** for apps
   without MCP prompts.
+- **Audit with Claude Code.** One button runs the audit for you: SayQL starts Claude Code in the project folder
+  you choose (remembered per connection), read-only, with the audit for that connection, shows its progress as it
+  reads and searches, and ends with how many notes it suggested and **Review suggestions**. Read-only is enforced
+  with Claude Code's own options: only file read, search and list tools, no shell commands, edits or web, and
+  only SayQL's MCP server, given to that run without changing your Claude Code setup. It uses your own Claude Code
+  sign-in and subscription (2.1.259 or later); **Cancel** stops it, and **Open in Terminal** runs the same thing in
+  your terminal. It's in **Teach SayQL this database**, next to **Copy prompt** in **Settings → AI apps → Access**
+  and on the empty **Suggestions** tab. Codex, Gemini and Cursor CLIs aren't offered: SayQL can't keep them
+  read-only from the command line yet, so use **Copy audit prompt** with them.
 - **Teach SayQL this database.** Until a connection has been audited, the navigator offers the three steps
   (connect an app, run the audit, approve the notes) with the command for that connection; it can be hidden for
   good. The same steps show on the **Suggestions** tab while none are waiting.

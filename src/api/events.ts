@@ -1,5 +1,5 @@
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import type { AgentEvent, AiDelta, AiDone, VoiceProgress } from "./types";
+import type { AgentEvent, AiDelta, AiDone, AuditEvent, VoiceProgress } from "./types";
 
 /** Must match EVENT in src-tauri/src/commands/agent.rs. */
 export const AGENT_EVENT = "agent://event";
@@ -47,4 +47,12 @@ export async function subscribeToVoice(handlers: VoiceEventHandlers): Promise<Un
     listen<string>("voice://blocked", (e) => handlers.blocked?.(e.payload)),
   ]);
   return () => unlisten.forEach((u) => u());
+}
+
+/** Must match EVENT in src-tauri/src/commands/audit.rs. */
+export const AUDIT_EVENT = "audit://event";
+
+/** Subscribes to "Audit with…" runs' progress; filter it by `runId`. */
+export function subscribeToAudit(handler: (e: AuditEvent) => void): Promise<UnlistenFn> {
+  return listen<AuditEvent>(AUDIT_EVENT, (e) => handler(e.payload));
 }

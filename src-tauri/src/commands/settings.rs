@@ -330,16 +330,21 @@ pub struct McpSetup {
     appimage: bool,
 }
 
-/// The MCP server ships next to the app's own executable (release builds bundle it).
-#[tauri::command]
-pub fn mcp_setup() -> AppResult<McpSetup> {
+/// Where the `sayql-mcp` binary is: next to the app's own executable.
+pub(crate) fn mcp_binary() -> AppResult<std::path::PathBuf> {
     let exe = std::env::current_exe()?;
     let name = if cfg!(windows) {
         "sayql-mcp.exe"
     } else {
         "sayql-mcp"
     };
-    let path = exe.with_file_name(name);
+    Ok(exe.with_file_name(name))
+}
+
+/// The MCP server ships next to the app's own executable (release builds bundle it).
+#[tauri::command]
+pub fn mcp_setup() -> AppResult<McpSetup> {
+    let path = mcp_binary()?;
     Ok(McpSetup {
         exists: path.exists(),
         path: path.to_string_lossy().into_owned(),
@@ -412,11 +417,7 @@ pub fn audit_prompt(
     database: Option<String>,
 ) -> AppResult<String> {
     let conn = state.store.connection(&id)?;
-    let database = if conn.kind == crate::db::Kind::Sqlite {
-        None
-    } else {
-        audit::notes_database(&state.store, &conn.id, database.as_deref())
-    };
+    let database = audit::target_database(&state.store, &conn, database.as_deref());
     Ok(audit::instructions(
         Some(&audit::Target {
             connection_id: &conn.id,

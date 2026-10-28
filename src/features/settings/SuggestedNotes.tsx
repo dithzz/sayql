@@ -23,7 +23,7 @@ export function SuggestedNotes({ connections, suggestions, accept, dismiss, onSe
         under Notes in the navigator.
       </p>
       <NoteSuggestions suggestions={suggestions} place={place} onAccept={accept} onDismiss={dismiss} />
-      {suggestions.length === 0 && <TeachSayql onSetUp={onSetUp} />}
+      {suggestions.length === 0 && <TeachSayql onSetUp={onSetUp} connections={connections} />}
     </div>
   );
 }

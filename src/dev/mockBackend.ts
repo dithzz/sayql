@@ -2,7 +2,7 @@
 // for design work without the Rust backend. Never loaded inside the Tauri app.
 import { emit } from "@tauri-apps/api/event";
 import { mockIPC } from "@tauri-apps/api/mocks";
-import type { AgentAccess, AgentReply, AgentStep, AiProvider, AuditRun, Bootstrap, DbNote, NoteSuggestion, QueryResult, Schema, Settings, Skill, Table } from "../api";
+import type { AgentAccess, AgentReply, AgentStep, AiProvider, AuditAgent, AuditRun, Bootstrap, DbNote, NoteSuggestion, QueryResult, Schema, Settings, Skill, Table } from "../api";
 import { EXAMPLE_SKILLS, skillError } from "../features/skills";
 import { version } from "../../package.json";
 import { isReadOnly } from "./readOnly";
@@ -453,6 +453,65 @@ async function mockAgentRun(runId: string, question: string, access: AgentAccess
   void question;
 }
 
+/**
+ * "Audit with…": `?agents=none` finds no coding agent, `?agents=old` an outdated Claude Code;
+ * otherwise Claude Code is ready and Codex is found but not offered.
+ */
+const AGENTS = new URLSearchParams(window.location.search).get("agents");
+function auditAgents(): AuditAgent[] {
+  const none = AGENTS === "none";
+  const old = AGENTS === "old";
+  return [
+    { id: "claude", label: "Claude Code", path: none ? null : "/Users/you/.local/bin/claude", version: none ? null : old ? "2.0.14 (Claude Code)" : "2.1.267 (Claude Code)",
+      supported: true, ready: !none && !old, installUrl: "https://code.claude.com/docs/en/setup",
+      problem: old ? "Claude Code 2.0.14 is too old to run read-only from SayQL. Update it to 2.1.259 or later: run `claude update` in a terminal." : null },
+    { id: "codex", label: "Codex CLI", path: none ? null : "/opt/homebrew/bin/codex", version: null, supported: false, ready: false, installUrl: "https://developers.openai.com/codex/cli",
+      problem: none ? null : "Codex reads code by running shell commands, so SayQL can't limit it to reading files. Copy the audit prompt into Codex instead." },
+    { id: "gemini", label: "Gemini CLI", path: null, version: null, supported: false, ready: false, installUrl: "https://geminicli.com", problem: null },
+    { id: "cursor", label: "Cursor CLI", path: null, version: null, supported: false, ready: false, installUrl: "https://cursor.com/cli", problem: null },
+  ];
+}
+const auditFolders = new Map<string, string>([["pg", "/Users/you/code/analytics"]]);
+const auditStops = new Set<string>();
+
+/** A scripted audit: schema, searches, reads, two suggestions, a summary. */
+async function mockAuditRun(runId: string, connectionId: string, database: string | null) {
+  const pause = () => new Promise((r) => setTimeout(r, 650));
+  const line = (kind: "step" | "note" | "warn", text: string) => emit("audit://event", { type: "line", runId, kind, text });
+  const done = (e: Record<string, unknown>) => emit("audit://event", { type: "done", runId, suggested: 0, summary: null, error: null, ...e });
+  const steps: ["step" | "note" | "warn", string][] = [
+    ["step", "Started, with SayQL's tools"],
+    ["step", "Reading the schema, usage and saved notes"],
+    ["step", "Listing files matching **/*.{ts,sql}"],
+    ["step", "Searching for “legacy_orders” in api"],
+    ["step", "Reading api/orders/status.ts"],
+    ["step", "Searching for “status” in api/orders"],
+    ["note", "Suggested a note: orders.status 'refunded' is set by api/orders/refund.ts; there is no refunds table"],
+    ["step", "Reading db/migrations/0042_reviews.sql"],
+    ["note", "Suggested a note: reviews.rating is 1 to 5; 0 means the review was removed"],
+  ];
+  let suggested = 0;
+  for (const [kind, text] of steps) {
+    await pause();
+    if (auditStops.delete(runId)) return done({ outcome: "cancelled", suggested });
+    await line(kind, text);
+    if (kind === "note") {
+      suggested += 1;
+      suggestions = [...suggestions, { id: `sug-audit-${runId}-${suggested}`, connectionId, database, app: "Claude Code", createdAt: Date.now(),
+        text: text.replace(/^Suggested a note: /, ""), evidence: "Found by the audit in the preview." }];
+    }
+  }
+  await pause();
+  const i = audits.findIndex((x) => x.connectionId === connectionId && x.database === database);
+  if (i >= 0) audits.splice(i, 1);
+  audits.push({ connectionId, database, app: "Claude Code", at: Date.now() });
+  return done({
+    outcome: "ok",
+    suggested,
+    summary: "I suggested 2 notes: what a refunded order is, and what a 0 rating means. I couldn't check git history in this run, so I left out when legacy_orders stopped being used.",
+  });
+}
+
 export function installMockBackend() {
   mockIPC(
     async (cmd, args) => {
@@ -546,6 +605,29 @@ export function installMockBackend() {
             "Use the SayQL MCP server's tools for this (describe_schema, suggest_note). (The app gives the full instructions; the browser preview shortens them.)"
           );
         }
+        case "audit_agents":
+          await new Promise((r) => setTimeout(r, 250));
+          return auditAgents();
+        case "audit_folder":
+          return auditFolders.get(a.id as string) ?? null;
+        case "choose_audit_folder": {
+          const folder = a.id === "demo" ? "/Users/you/code/shop" : "/Users/you/code/analytics";
+          auditFolders.set(a.id as string, folder);
+          return folder;
+        }
+        case "start_audit": {
+          const agent = auditAgents().find((x) => x.id === a.agent);
+          if (!agent?.ready) return Promise.reject(agent?.problem ?? "Claude Code isn't installed on this computer, or SayQL can't find it.");
+          if (!a.folder) return Promise.reject("Choose the project folder: the one with this database's code.");
+          auditFolders.set(a.id as string, a.folder as string);
+          void mockAuditRun(a.runId as string, a.id as string, (a.database as string | null) ?? null);
+          return null;
+        }
+        case "cancel_audit":
+          auditStops.add(a.runId as string);
+          return null;
+        case "open_audit_in_terminal":
+          return null;
         case "dismiss_note_suggestion":
           suggestions = suggestions.filter((x) => x.id !== a.id);
           return null;

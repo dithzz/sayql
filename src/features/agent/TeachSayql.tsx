@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { Check, Copy, X } from "lucide-react";
-import { commands } from "../../api";
+import { commands, type ConnectionConfig } from "../../api";
 import { Button, IconButton } from "../../components/ui";
 import { cx } from "../../lib/cx";
 import { errorText } from "../../lib/errors";
 import { auditCommand, copyAuditPrompt, type AuditTarget } from "./audit";
+import { AuditButton } from "./AuditRun";
 import styles from "./TeachSayql.module.css";
 
 export interface TeachSayqlProps {
@@ -16,6 +17,12 @@ export interface TeachSayqlProps {
   heading?: boolean;
   /** Hides the card for good, where it can be hidden. */
   onDismiss?: () => void;
+  /** Without a target: the connections "Audit with…" offers. */
+  connections?: ConnectionConfig[];
+  /** Shows the suggestions, from a finished audit run. */
+  onReview?: () => void;
+  /** Opens "Audit with…" somewhere else (in place of the dialog the card is in). */
+  onAudit?: () => void;
 }
 
 /** Whether an AI app has used SayQL over MCP on this computer. */
@@ -40,7 +47,7 @@ function useAppConnected(): boolean {
  * "Teach SayQL your database": connect a coding agent, run the audit in your project, approve
  * the notes it suggests. Shown on first use and as the empty state of suggested notes.
  */
-export function TeachSayql({ onSetUp, target, heading = true, onDismiss }: TeachSayqlProps) {
+export function TeachSayql({ onSetUp, target, heading = true, onDismiss, connections, onReview, onAudit }: TeachSayqlProps) {
   const connected = useAppConnected();
   const [copied, setCopied] = useState<"command" | "prompt" | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -101,7 +108,12 @@ export function TeachSayql({ onSetUp, target, heading = true, onDismiss }: Teach
             2
           </span>
           <div className={styles.body}>
-            <strong>Run an audit in your project.</strong> In Claude Code, type{" "}
+            <strong>Run an audit in your project.</strong> Let SayQL start your coding agent in the project folder,
+            read-only, with no setup:
+            <div className={styles.copy}>
+              <AuditButton target={target} connections={connections} onReview={onReview} onOpen={onAudit} variant="primary" />
+            </div>
+            Or in Claude Code, type{" "}
             <code className={styles.command}>{command}</code>
             <IconButton
               icon={copied === "command" ? Check : Copy}

@@ -39,6 +39,16 @@ pub fn notes_database(
     }
 }
 
+/// The database an audit of `conn` is for: none for a SQLite file (one database, its notes
+/// kept without one), else as [`notes_database`].
+pub fn target_database(store: &Store, conn: &ConnConfig, database: Option<&str>) -> Option<String> {
+    if conn.kind == crate::db::Kind::Sqlite {
+        None
+    } else {
+        notes_database(store, &conn.id, database)
+    }
+}
+
 /// The saved connection `wanted` names: its id, else its name (any case).
 pub fn find_connection<'a>(list: &'a [ConnConfig], wanted: &str) -> Result<&'a ConnConfig, String> {
     let wanted = wanted.trim();

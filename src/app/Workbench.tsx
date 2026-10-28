@@ -8,6 +8,7 @@ import {
   NoteSuggestions,
   SUGGESTIONS_CHANGED,
   TeachSayql,
+  AuditDialog,
   lastAudit,
   saveAgentAccess,
   suggestionFor,
@@ -52,6 +53,8 @@ type OpenDialog =
   | { kind: "noteSuggestions" }
   /** "Teach SayQL your database", from the navigator. */
   | { kind: "teach" }
+  /** "Audit with…", from "Teach SayQL your database". */
+  | { kind: "audit" }
   /** From a sayql://team-join invite link. */
   | { kind: "teamSignIn"; server: string; code: string; key: string }
   | null;
@@ -629,8 +632,16 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
             heading={false}
             target={{ connectionId: active.id, name: active.name, database: target?.database ?? null }}
             onSetUp={() => openSettings({ section: "mcp", aiAppsTab: "access" })}
+            onAudit={() => setDialog({ kind: "audit" })}
           />
         </Dialog>
+      )}
+      {dialog?.kind === "audit" && active && (
+        <AuditDialog
+          target={{ connectionId: active.id, name: active.name, database: target?.database ?? null }}
+          onReview={() => setDialog({ kind: "noteSuggestions" })}
+          onClose={() => setDialog(null)}
+        />
       )}
       {dialog?.kind === "deleteScript" && (
         <Dialog

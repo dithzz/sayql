@@ -4,7 +4,7 @@ import { commands, type AgentAccess, type AppResults, type ConnectionConfig } fr
 import { Alert, Badge, Button, Select } from "../../components/ui";
 import { cx } from "../../lib/cx";
 import { errorText } from "../../lib/errors";
-import { AgentAccessDialog, NeverSendLabel, auditAge, auditCommand, auditStale, copyAuditPrompt, lastAudit, saveAgentAccess, useAudits } from "../agent";
+import { AgentAccessDialog, AuditButton, NeverSendLabel, auditAge, auditCommand, auditStale, copyAuditPrompt, lastAudit, saveAgentAccess, useAudits } from "../agent";
 import { DATABASE_KINDS } from "../connections";
 import styles from "./ClaudeIntegration.module.css";
 
@@ -24,7 +24,16 @@ export const APP_RESULTS: { value: AppResults; label: string; detail: string }[]
 ];
 
 /** Per saved connection: what AI apps over MCP get back from a query, and the columns never sent. */
-export function AppAccessList({ connections, provider }: { connections: ConnectionConfig[]; provider: { label: string; local: boolean } }) {
+export function AppAccessList({
+  connections,
+  provider,
+  onReview,
+}: {
+  connections: ConnectionConfig[];
+  provider: { label: string; local: boolean };
+  /** Shows the suggestions, from a finished audit run. */
+  onReview?: () => void;
+}) {
   // MCP serves the connections saved on this computer, not a team's.
   const local = connections.filter((c) => !c.id.startsWith("team:"));
   const [access, setAccess] = useState<Record<string, AgentAccess>>({});
@@ -73,7 +82,8 @@ export function AppAccessList({ connections, provider }: { connections: Connecti
       <p className={styles.intro}>
         Per connection, choose what an AI app gets back from a query. Never-send columns are always kept out: queries
         that use them are refused. They apply to agent mode too. <strong>Last audit</strong> is when an AI app last fetched
-        the audit prompt, which teaches SayQL about the database from your code; run it again after big changes.
+        the audit prompt or ran it from here, which teaches SayQL about the database from your code; run it again after
+        big changes. <strong>Audit with…</strong> starts your coding agent (Claude Code) read-only in the project folder.
       </p>
       <dl className={styles.legend} aria-label="What each choice sends">
         {APP_RESULTS.map((r) => (
@@ -169,6 +179,7 @@ export function AppAccessList({ connections, provider }: { connections: Connecti
                         >
                           {copied === c.id ? "Copied" : "Copy prompt"}
                         </Button>
+                        <AuditButton variant="ghost" target={{ connectionId: c.id, name: c.name, database: null }} onReview={onReview} />
                       </div>
                     </td>
                   </tr>

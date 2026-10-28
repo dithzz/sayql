@@ -84,7 +84,15 @@ function ConnectApp({ setup, open, onToggle }: { setup: McpSetup | null; open: b
 }
 
 /** The Access tab: which apps connected, what they get back per connection, and setting up a new app. */
-function AccessTab({ connections, provider }: { connections: ConnectionConfig[]; provider: { label: string; local: boolean } }) {
+function AccessTab({
+  connections,
+  provider,
+  onReview,
+}: {
+  connections: ConnectionConfig[];
+  provider: { label: string; local: boolean };
+  onReview: () => void;
+}) {
   const [setup, setSetup] = useState<McpSetup | null>(null);
   const [apps, setApps] = useState<McpApps | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -126,7 +134,7 @@ function AccessTab({ connections, provider }: { connections: ConnectionConfig[];
         onOnlyApproved={(on) => update(commands.setMcpOnlyApproved(on))}
       />
       {error && <Alert tone="danger">{error}</Alert>}
-      <AppAccessList connections={connections} provider={provider} />
+      <AppAccessList connections={connections} provider={provider} onReview={onReview} />
       {connectOpen !== null && <ConnectApp setup={setup} open={connectOpen} onToggle={() => setConnectOpen(!connectOpen)} />}
     </>
   );
@@ -206,7 +214,7 @@ export function ClaudeIntegration({ connections, provider, suggestions, tab: ini
         ))}
       </div>
       <div id={`${base}-${tab}-panel`} role="tabpanel" aria-labelledby={`${base}-${tab}-tab`} className={styles.panel}>
-        {tab === "access" && <AccessTab connections={connections} provider={provider} />}
+        {tab === "access" && <AccessTab connections={connections} provider={provider} onReview={() => setTab("suggestions")} />}
         {tab === "activity" && <AgentActivity />}
         {tab === "suggestions" && <SuggestedNotes connections={connections} {...suggestions} onSetUp={() => setTab("access")} />}
       </div>

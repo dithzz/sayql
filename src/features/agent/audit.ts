@@ -52,6 +52,9 @@ export async function copyAuditPrompt(target: Pick<AuditTarget, "connectionId" |
   await navigator.clipboard.writeText(text);
 }
 
+/** Fired on window when an audit run in the app ends, so "Last audit" reads again. */
+export const AUDITS_CHANGED = "sayql:audits-changed";
+
 /** When AI apps last fetched the audit prompt, read again when SayQL comes to the front. */
 export function useAudits() {
   const [audits, setAudits] = useState<AuditRun[]>([]);
@@ -63,7 +66,11 @@ export function useAudits() {
   useEffect(() => {
     load();
     window.addEventListener("focus", load);
-    return () => window.removeEventListener("focus", load);
+    window.addEventListener(AUDITS_CHANGED, load);
+    return () => {
+      window.removeEventListener("focus", load);
+      window.removeEventListener(AUDITS_CHANGED, load);
+    };
   }, [load]);
   return audits;
 }

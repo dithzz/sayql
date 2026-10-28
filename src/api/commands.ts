@@ -3,6 +3,7 @@ import type {
   AgentAccess,
   AgentReply,
   AgentSettings,
+  AuditAgent,
   AuditRun,
   Bootstrap,
   DbNote,
@@ -125,6 +126,19 @@ export const commands = {
   mcpAudits: () => invoke<AuditRun[]>("mcp_audits"),
   /** The audit instructions for a connection, to paste into an AI app without MCP prompts. */
   auditPrompt: (connectionId: string, database: string | null) => invoke<string>("audit_prompt", { id: connectionId, database }),
+  /** The coding agents SayQL knows, whether each is installed and can run an audit read-only. */
+  auditAgents: () => invoke<AuditAgent[]>("audit_agents"),
+  /** The project folder last used to audit this connection. */
+  auditFolder: (connectionId: string) => invoke<string | null>("audit_folder", { id: connectionId }),
+  /** Asks for the project folder and remembers it; null when the person cancels. */
+  chooseAuditFolder: (connectionId: string) => invoke<string | null>("choose_audit_folder", { id: connectionId }),
+  /** Runs the audit with `agent` in `folder`, read-only; progress comes as `audit://event`. */
+  startAudit: (runId: string, agent: string, connectionId: string, database: string | null, folder: string) =>
+    invoke<void>("start_audit", { runId, agent, id: connectionId, database, folder }),
+  cancelAudit: (runId: string) => invoke<void>("cancel_audit", { runId }),
+  /** Opens the system terminal in `folder` running the same read-only audit interactively. */
+  openAuditInTerminal: (agent: string, connectionId: string, database: string | null, folder: string) =>
+    invoke<void>("open_audit_in_terminal", { agent, id: connectionId, database, folder }),
   /** Handoffs from AI apps waiting to be shown (see the `handoff://new` event). */
   takeHandoffs: () => invoke<Handoff[]>("take_handoffs"),
 

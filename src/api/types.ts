@@ -253,6 +253,35 @@ export interface AuditRun {
   at: number;
 }
 
+/** A coding agent "Audit with…" knows; mirrors `commands::audit::AgentView`. */
+export interface AuditAgent {
+  id: string;
+  label: string;
+  /** Where it's installed; null when it isn't found. */
+  path: string | null;
+  version: string | null;
+  /** SayQL can keep it read-only (only these can run an audit). */
+  supported: boolean;
+  /** Found, supported and recent enough. */
+  ready: boolean;
+  /** Why it can't run, when found but not ready. */
+  problem: string | null;
+  installUrl: string;
+}
+
+/** Progress of an audit run, as `audit://event`; mirrors `commands::audit::AuditEvent`. */
+export type AuditEvent =
+  | { type: "line"; runId: string; kind: "step" | "note" | "warn"; text: string }
+  | {
+      type: "done";
+      runId: string;
+      outcome: "ok" | "error" | "cancelled" | "timeout";
+      /** Suggestions SayQL received for review. */
+      suggested: number;
+      summary: string | null;
+      error: string | null;
+    };
+
 export interface AgentUsage {
   input: number;
   cached: number;

@@ -14,5 +14,6 @@ export { SUGGESTIONS_CHANGED, suggestionFor, useNoteSuggestions } from "./useNot
 export type { NoteSuggestionsApi } from "./useNoteSuggestions";
 export { AgentSettingsSection } from "./AgentSettingsSection";
 export { TeachSayql } from "./TeachSayql";
-export { AUDIT_STALE_DAYS, auditAge, auditCommand, auditStale, copyAuditPrompt, lastAudit, useAudits } from "./audit";
+export { AuditButton, AuditDialog, auditButtonLabel, useAuditAgents } from "./AuditRun";
+export { AUDITS_CHANGED, AUDIT_STALE_DAYS, auditAge, auditCommand, auditStale, copyAuditPrompt, lastAudit, useAudits } from "./audit";
 export type { AuditTarget } from "./audit";
