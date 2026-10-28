@@ -3,24 +3,24 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>SayQL — Free AI SQL client: plain English to safe SQL</title>
-<meta name="description" content="Ask your database in plain English: SayQL writes the SQL and runs it read-only. Free, open-source text-to-SQL for PostgreSQL, MySQL, SQLite and SQL Server.">
+<title>SayQL — Let agents into your database, not your data</title>
+<meta name="description" content="SayQL sits between AI agents and your database: Claude Code, Cursor and others get your schema and the numbers they need, not your rows, unless you say so. Ask in plain English too. Free, open source, read-only by default.">
 <link rel="canonical" href="https://sayql.dev/">
 <!-- Google Search Console ownership (keep: removing it unverifies the site). -->
 <meta name="google-site-verification" content="ktg5VtoD0k50gmQBolDbm-8qMUjWoKcPVF8dPizsTO4">
 <meta name="robots" content="index, follow, max-image-preview:large">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="SayQL">
-<meta property="og:title" content="SayQL — Free AI SQL client: plain English to safe SQL">
-<meta property="og:description" content="Ask your database in plain English: SayQL writes the SQL and runs it read-only. Free, open-source text-to-SQL for PostgreSQL, MySQL, SQLite and SQL Server.">
+<meta property="og:title" content="SayQL — Let agents into your database, not your data">
+<meta property="og:description" content="SayQL sits between AI agents and your database: Claude Code, Cursor and others get your schema and the numbers they need, not your rows, unless you say so. Ask in plain English too. Free, open source, read-only by default.">
 <meta property="og:url" content="https://sayql.dev/">
 <meta property="og:image" content="https://sayql.dev/og.png">
 <meta property="og:image:width" content="1280">
 <meta property="og:image:height" content="640">
-<meta property="og:image:alt" content="SayQL: Say what you need. It knows your schema.">
+<meta property="og:image:alt" content="SayQL: Let agents into your database. Not your data.">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="SayQL — Free AI SQL client: plain English to safe SQL">
-<meta name="twitter:description" content="Ask your database in plain English: SayQL writes the SQL and runs it read-only. Free, open-source text-to-SQL for PostgreSQL, MySQL, SQLite and SQL Server.">
+<meta name="twitter:description" content="SayQL sits between AI agents and your database: Claude Code, Cursor and others get your schema and the numbers they need, not your rows, unless you say so. Ask in plain English too. Free, open source, read-only by default.">
 <meta name="twitter:image" content="https://sayql.dev/og.png">
 <meta name="theme-color" content="#f6f7f9" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#17191d" media="(prefers-color-scheme: dark)">
@@ -62,6 +62,7 @@
   --color-app-accent-soft: #e5efff;
   --color-ai: #7048e8;
   --color-ai-soft: #f1ecff;
+  --hero-grid: 4.5%; --hero-glow: 13%; --hero-glow-ai: 6%;
   --color-success: #1a7f37;
   --color-success-soft: #e6f4ea;
   --color-warning: #9a6700;
@@ -87,6 +88,7 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
+    --hero-grid: 6%; --hero-glow: 22%; --hero-glow-ai: 11%;
     --color-page: #17191d;
     --color-surface: #1f2227;
     --color-surface-muted: #24272d;
@@ -130,6 +132,7 @@
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
+  --hero-grid: 6%; --hero-glow: 22%; --hero-glow-ai: 11%;
   --color-page: #17191d;
   --color-surface: #1f2227;
   --color-surface-muted: #24272d;
@@ -229,7 +232,39 @@ p { text-wrap: pretty; }
 @media (max-width: 520px) { .nav-links { display: none; } }
 
 /* hero */
-.hero { padding: 88px 0 0; }
+.hero { padding: 88px 0 0; position: relative; isolation: isolate; overflow: clip; }
+/* Hero background: faint grid lines, like a schema canvas, that fade out downwards, and a spotlight
+ * from above that shades from the logo's blue into the AI purple. Both follow the theme. */
+:root {
+  --grid-lines:
+    linear-gradient(color-mix(in srgb, var(--color-text) var(--hero-grid), transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--color-text) var(--hero-grid), transparent) 1px, transparent 1px);
+}
+.hero::before, .hero::after { content: ""; position: absolute; z-index: -1; pointer-events: none; }
+/* Teams: the same grid, fainter, fading in behind the section heading. */
+#teams { position: relative; isolation: isolate; }
+#teams::before {
+  content: ""; position: absolute; inset: 0 0 auto; height: 520px; z-index: -1; pointer-events: none;
+  background-image: radial-gradient(ellipse 35% 45% at 22% 40%, color-mix(in srgb, var(--color-accent) var(--hero-glow-ai), transparent), transparent), var(--grid-lines);
+  background-size: auto, 56px 56px; background-position: 0 0, center top;
+  -webkit-mask-image: radial-gradient(ellipse 45% 50% at 22% 40%, #000 10%, transparent 75%);
+  mask-image: radial-gradient(ellipse 45% 50% at 22% 40%, #000 10%, transparent 75%);
+}
+.hero::before {
+  inset: 0;
+  background-image: var(--grid-lines);
+  background-size: 56px 56px;
+  background-position: center top;
+  -webkit-mask-image: radial-gradient(ellipse 70% 55% at 50% 18%, #000 20%, transparent 75%);
+  mask-image: radial-gradient(ellipse 70% 55% at 50% 18%, #000 20%, transparent 75%);
+}
+.hero::after {
+  left: 50%; top: -200px; width: min(1400px, 170vw); height: 900px; transform: translateX(-50%);
+  background: radial-gradient(closest-side,
+    color-mix(in srgb, var(--color-accent) var(--hero-glow), transparent),
+    color-mix(in srgb, var(--color-ai) var(--hero-glow-ai), transparent) 55%,
+    transparent);
+}
 .hero h1 { font-size: clamp(36px, 6vw, 60px); line-height: 1.05; letter-spacing: -0.035em; }
 .hero h1 span { display: block; color: var(--color-text-muted); }
 .hero .lede { margin-top: 20px; max-width: 34em; font-size: 19px; color: var(--color-text-muted); }
@@ -373,8 +408,8 @@ p { text-wrap: pretty; }
 .dbtn.focus { box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-app-accent) 45%, transparent); }
 .dbtn.danger { background: var(--color-danger); border-color: var(--color-danger); color: #fff; }
 
-.providers { padding: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.prov { border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: 8px 10px; transition: border-color 200ms, background 200ms, box-shadow 200ms; min-width: 0; }
+.providers { padding: 10px 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.prov { border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: 6px 9px; transition: border-color 200ms, background 200ms, box-shadow 200ms; min-width: 0; }
 .prov b { font-size: 12.5px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .prov span { display: block; font-size: 11.5px; color: var(--color-text-muted); margin-top: 2px; }
 .prov.on { border-color: var(--color-app-accent); background: var(--color-app-accent-soft); box-shadow: 0 0 0 1px var(--color-app-accent); }
@@ -446,10 +481,11 @@ p { text-wrap: pretty; }
 @media (max-width: 640px) { .support-row { grid-template-columns: minmax(0, 1fr); gap: 8px; } }
 
 /* sections */
-section.block { padding: 96px 0 0; }
+section.block { padding: 80px 0 0; }
 .head { max-width: 36em; }
 .head h2 { font-size: clamp(28px, 3.6vw, 36px); line-height: 1.15; }
 .head p { margin-top: 12px; font-size: 17px; color: var(--color-text-muted); }
+.head p a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
 .demo-video {
   display: block; width: 100%; aspect-ratio: 16 / 9; margin-top: 40px; background: #0b0f17;
   border: 1px solid var(--color-border); border-radius: var(--radius-card); box-shadow: var(--shadow-window);
@@ -491,13 +527,36 @@ section.block { padding: 96px 0 0; }
   .mini { margin-left: 12px; margin-right: 12px; }
 }
 
-.facts { margin-top: 16px; display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid var(--color-border); border-radius: var(--radius-card); background: var(--color-surface); overflow: hidden; }
-.fact { padding: 24px; border-right: 1px solid var(--color-border-subtle); border-bottom: 1px solid var(--color-border-subtle); }
-.fact:nth-child(3n) { border-right: 0; }
-.fact:nth-last-child(-n+3) { border-bottom: 0; }
-.fact h3 { display: flex; align-items: center; gap: 8px; font-size: 15px; letter-spacing: -0.01em; }
-.fact h3 .icon { color: var(--color-text-subtle); }
-.fact p { margin-top: 6px; font-size: 14px; color: var(--color-text-muted); }
+/* features: alternating rows, with only the app window boxed */
+.gov-apps { display: grid; gap: 1px; background: var(--color-border-subtle); border-bottom: 1px solid var(--color-border); }
+.gov-app { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: var(--color-surface); font-size: 12.5px; }
+.gov-app span { color: var(--color-text-muted); font-size: 12px; }
+.gov-app .gov-blocked { color: var(--color-danger); font-weight: 500; }
+.gov-btn { margin-left: auto; padding: 3px 9px; border-radius: 4px; color: var(--color-danger) !important; border: 1px solid transparent; }
+.gov-btn.allow { color: var(--color-text) !important; border-color: var(--color-border); background: var(--color-surface); }
+.feature-row .gov-mock { height: auto; }
+.gov-mock .grid td:nth-child(3) { white-space: nowrap; color: var(--color-text-muted); font-size: 11.5px; }
+.feature-rows { margin-top: 56px; display: grid; gap: 88px; }
+.feature-row { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 56px; align-items: center; }
+.feature-row:nth-child(even) { grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); }
+.feature-row:nth-child(even) .feature-text { order: 2; }
+.feature-text h3 { font-size: 22px; line-height: 1.25; letter-spacing: -0.02em; }
+.feature-text h3 .tag { margin-left: 6px; vertical-align: 3px; }
+.feature-text p { margin-top: 10px; color: var(--color-text-muted); font-size: 16px; }
+.feature-text .fine { margin-top: 12px; font-size: 14px; color: var(--color-text-subtle); }
+.feature-row .mini { height: 300px; margin: 0; border-bottom: 1px solid var(--color-border); border-radius: var(--radius-card); box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 12px 32px -12px rgba(15, 23, 42, 0.14); }
+@media (max-width: 860px) {
+  .feature-rows { gap: 64px; }
+  .feature-row, .feature-row:nth-child(even) { grid-template-columns: 1fr; gap: 20px; }
+  .feature-row:nth-child(even) .feature-text { order: 0; }
+}
+.facts { margin-top: 96px; padding-top: 40px; border-top: 1px solid var(--color-border-subtle); display: grid; grid-template-columns: repeat(3, 1fr); gap: 32px 48px; }
+.fact-group h3 { font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-text-subtle); }
+.fact-group ul { margin: 16px 0 0; padding: 0; list-style: none; display: grid; gap: 14px; }
+.fact-group li b { display: block; font-size: 15px; font-weight: 500; }
+.fact-group li span { display: block; margin-top: 2px; font-size: 14px; color: var(--color-text-muted); }
+@media (max-width: 860px) { .facts { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 560px) { .facts { grid-template-columns: 1fr; } }
 .tag { font: 500 11px/1 var(--font-sans); color: var(--color-ai); background: var(--color-ai-soft); padding: 4px 7px; border-radius: 999px; letter-spacing: 0; }
 @media (max-width: 860px) {
   .facts { grid-template-columns: 1fr 1fr; }
@@ -519,18 +578,11 @@ section.block { padding: 96px 0 0; }
 .note { margin: 0; padding: 4px 0 4px 24px; border-left: 2px solid var(--color-border); color: var(--color-text-muted); }
 .note footer { margin-top: 12px; font-size: 14px; color: var(--color-text-subtle); }
 @media (max-width: 760px) { .free { grid-template-columns: 1fr; gap: 32px; } }
-.teams { display: grid; grid-template-columns: 1.1fr 1fr; gap: 48px; align-items: start; }
 .team-points { margin: 28px 0 0; padding: 0; list-style: none; display: grid; gap: 18px; }
 .team-points li { display: grid; grid-template-columns: 20px 1fr; gap: 12px; }
 .team-points .icon { margin-top: 3px; color: var(--color-accent); }
 .team-points strong { display: block; font-weight: 500; }
 .team-points span { color: var(--color-text-muted); }
-.team-side { display: grid; gap: 20px; min-width: 0; }
-.install { padding: 24px; border: 1px solid var(--color-accent); border-radius: var(--radius-lg); background: var(--color-surface); display: grid; gap: 12px; }
-.install h3 { font-size: 18px; }
-.install p, .install ol { margin: 0; color: var(--color-text-muted); }
-.install ol { padding-left: 20px; display: grid; gap: 6px; font-size: 14px; }
-.install .small { margin-top: 0; }
 .install-cmd { display: flex; align-items: center; gap: 8px; padding: 6px 6px 6px 12px; border: 1px solid var(--color-border-strong); border-radius: var(--radius-md); background: var(--color-page); }
 .install-cmd code { flex: 1; min-width: 0; overflow-x: auto; white-space: nowrap; font: 400 13px/1.6 var(--font-mono); color: var(--color-text); }
 .btn-sm { height: 28px; padding: 0 10px; font-size: 13px; }
@@ -544,10 +596,95 @@ section.block { padding: 96px 0 0; }
 .waitlist .small { margin-top: 0; }
 .waitlist-status { min-height: 1.4em; font-size: 14px; color: var(--color-text-muted); }
 .waitlist-status.ok { color: var(--color-text); }
-@media (max-width: 760px) { .teams { grid-template-columns: 1fr; gap: 32px; } }
+
+/* teams: the admin page, drawn like the app demos */
+.admin-mock .grid { overflow-x: auto; }
+/* Teams: the same row as the features, then one panel to get started */
+.teams-row .head p { font-size: 16px; }
+.teams-row .team-points { margin-top: 28px; gap: 16px; }
+.teams-row .admin-mock { height: auto; }
+.team-next { margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--color-border-subtle); font-size: 14px; color: var(--color-text-subtle); }
+.team-next b { font-weight: 500; color: var(--color-text-muted); }
+.team-start { margin-top: 56px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); border: 1px solid var(--color-border); border-radius: var(--radius-card); background: var(--color-surface); }
+.team-start > * { padding: 28px; min-width: 0; }
+.team-try { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; align-content: start; }
+.team-start h3 { font-size: 17px; }
+.team-start p { margin: 0; color: var(--color-text-muted); font-size: 15px; }
+.team-try .fine { font-size: 13.5px; color: var(--color-text-subtle); }
+.team-try .fine a { text-decoration: underline; text-underline-offset: 2px; }
+.team-start .waitlist { border: 0; border-left: 1px solid var(--color-border-subtle); border-radius: 0; background: none; gap: 12px; align-content: start; }
+@media (max-width: 860px) {
+  .team-start { grid-template-columns: minmax(0, 1fr); }
+  .team-start .waitlist { border-left: 0; border-top: 1px solid var(--color-border-subtle); }
+}
+.waitlist-row { display: flex; gap: 8px; }
+.waitlist-row > * { min-width: 0; }
+.waitlist-row .btn { height: 40px; flex: none; }
+@media (max-width: 560px) { .waitlist-row { flex-wrap: wrap; } .waitlist-row .btn { width: 100%; } }
+@media (max-width: 560px) { .admin-mock .titlebar .tag { display: none; } .admin-tabs { overflow: hidden; } }
+.admin-mock .titlebar .tag { position: absolute; right: 12px; }
+.admin-tabs { display: flex; gap: 2px; padding: 0 10px; border-bottom: 1px solid var(--color-border); background: var(--color-surface-muted); font-size: 12.5px; }
+.admin-tabs span { white-space: nowrap; padding: 7px 9px; color: var(--color-text-muted); border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.admin-tabs span.on { color: var(--color-text); border-bottom-color: var(--color-app-accent); font-weight: 500; }
+.admin-mock .grid table { width: 100%; }
+.admin-mock .grid tbody tr { opacity: 1; }
+.admin-mock .grid td.sql { font-size: 11.5px; color: var(--color-text-muted); max-width: 240px; overflow: hidden; text-overflow: ellipsis; }
+.st { display: inline-block; font: 600 10.5px/1 var(--font-sans); padding: 3px 6px; border-radius: 3px; letter-spacing: 0.2px; }
+.st.ok { color: var(--color-success); background: var(--color-success-soft); }
+.st.no { color: var(--color-danger); background: var(--color-danger-soft); }
+.admin-mock .grid tr.refused td { background: var(--color-danger-soft); }
+
+/* pricing */
+.plans { margin-top: 32px; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.plan { padding: 28px; border: 1px solid var(--color-border); border-radius: var(--radius-card); background: var(--color-surface); display: flex; flex-direction: column; gap: 14px; }
+.plan.featured { border-color: var(--color-accent); box-shadow: 0 0 0 1px var(--color-accent); }
+.plan h3 { font-size: 18px; display: flex; align-items: center; gap: 8px; }
+.price { font-size: 36px; font-weight: 600; letter-spacing: -0.03em; line-height: 1; }
+.price small { font-size: 15px; font-weight: 400; letter-spacing: 0; color: var(--color-text-muted); }
+.plan ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; font-size: 15px; color: var(--color-text-muted); }
+.plan li { display: grid; grid-template-columns: 18px 1fr; gap: 8px; }
+.plan li .icon { margin-top: 3px; width: 16px; height: 16px; color: var(--color-success); }
+.plan .actions { margin-top: auto; padding-top: 6px; }
+.plans-note { margin-top: 16px; font-size: 13.5px; color: var(--color-text-subtle); }
+@media (max-width: 760px) { .plans { grid-template-columns: 1fr; } }
+
+/* hero: what's new, and where the download goes */
+.eyebrow { display: inline-flex; align-items: center; gap: 8px; margin-bottom: 20px; padding: 4px 12px 4px 4px; border: 1px solid var(--color-border); border-radius: 999px; background: var(--color-surface); font-size: 13.5px; color: var(--color-text-muted); }
+.eyebrow:hover { border-color: var(--color-border-strong); color: var(--color-text); }
+.eyebrow .tag { color: var(--color-accent); background: var(--color-app-accent-soft); }
+.meta a { text-decoration: underline; text-underline-offset: 2px; }
+.meta a:hover { color: var(--color-text); }
+.meta + .meta { margin-top: 4px; }
+
+/* closing band */
+.closing { overflow: clip; }
+.closing .wrap { position: relative; isolation: isolate; }
+.closing .wrap::before {
+  content: ""; position: absolute; z-index: -1; pointer-events: none; left: 50%; top: 50%; width: min(1200px, 150vw); height: 340px; transform: translate(-50%, -50%);
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--color-accent) var(--hero-glow), transparent), color-mix(in srgb, var(--color-ai) var(--hero-glow-ai), transparent) 55%, transparent);
+}
+.closing-card { position: relative; isolation: isolate; }
+.closing-card::before {
+  content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background-image: var(--grid-lines); background-size: 56px 56px; background-position: center;
+  -webkit-mask-image: radial-gradient(ellipse 55% 120% at 85% 50%, #000 10%, transparent 75%);
+  mask-image: radial-gradient(ellipse 55% 120% at 85% 50%, #000 10%, transparent 75%);
+}
+.closing-card { display: flex; align-items: center; justify-content: space-between; gap: 24px 40px; flex-wrap: wrap; padding: 36px 40px; border: 1px solid var(--color-border); border-radius: var(--radius-card); background-color: var(--color-surface); }
+.closing-card h2 { font-size: clamp(24px, 3vw, 30px); line-height: 1.2; }
+.closing-card p { margin-top: 8px; color: var(--color-text-muted); }
+.closing-card .actions { margin-top: 0; }
+@media (max-width: 560px) { .closing-card { padding: 28px 24px; } }
+.small.tight { margin-top: 4px; }
+.free .small { max-width: 44em; }
+@media (max-width: 520px) { .eyebrow .long { display: none; } }
 
 /* faq */
-.faq { margin-top: 32px; border-top: 1px solid var(--color-border); max-width: 760px; }
+.faq-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 32px 64px; align-items: start; }
+.faq-layout .head p { font-size: 15px; }
+@media (min-width: 861px) { .faq-layout .head { position: sticky; top: 96px; } }
+@media (max-width: 860px) { .faq-layout { grid-template-columns: 1fr; } }
+.faq { border-top: 1px solid var(--color-border); }
 .faq details { border-bottom: 1px solid var(--color-border); }
 .faq summary { list-style: none; cursor: pointer; padding: 18px 0; font-weight: 500; display: flex; justify-content: space-between; gap: 16px; }
 .faq summary::-webkit-details-marker { display: none; }
@@ -556,7 +693,7 @@ section.block { padding: 96px 0 0; }
 .faq details p { padding: 0 32px 20px 0; color: var(--color-text-muted); }
 
 /* footer */
-.site-footer { margin-top: 112px; border-top: 1px solid var(--color-border-subtle); padding: 32px 0 calc(32px + env(safe-area-inset-bottom, 0px)); font-size: 14px; color: var(--color-text-muted); }
+.site-footer { margin-top: 96px; border-top: 1px solid var(--color-border-subtle); padding: 32px 0 calc(32px + env(safe-area-inset-bottom, 0px)); font-size: 14px; color: var(--color-text-muted); }
 .site-footer .wrap { display: flex; flex-wrap: wrap; align-items: center; gap: 16px 28px; }
 .site-footer nav { display: flex; flex-wrap: wrap; gap: 8px 20px; margin-left: auto; }
 .site-footer a:hover { color: var(--color-text); }
@@ -565,9 +702,9 @@ section.block { padding: 96px 0 0; }
 </style>
 <!-- Vercel Web Analytics: page views only, no cookies, no personal data. -->
 <script defer src="/_vercel/insights/script.js"></script>
-<script type="application/ld+json">{"@context": "https://schema.org", "@type": "SoftwareApplication", "name": "SayQL", "alternateName": "SayQL Community Edition", "description": "Ask your database in plain English: SayQL writes the SQL and runs it read-only. Free, open-source text-to-SQL for PostgreSQL, MySQL, SQLite and SQL Server.", "url": "https://sayql.dev/", "image": "https://sayql.dev/og.png", "applicationCategory": "DeveloperApplication", "operatingSystem": "macOS, Windows, Linux", "downloadUrl": "https://github.com/dithzz/sayql-releases/releases/latest", "license": "https://www.apache.org/licenses/LICENSE-2.0", "isAccessibleForFree": true, "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}, "author": {"@type": "Person", "name": "Adith L S", "url": "https://github.com/dithzz"}, "sameAs": ["https://github.com/dithzz/sayql"]}</script>
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "SoftwareApplication", "name": "SayQL", "alternateName": "SayQL Community Edition", "description": "SayQL sits between AI agents and your database: Claude Code, Cursor and others get your schema and the numbers they need, not your rows, unless you say so. Ask in plain English too. Free, open source, read-only by default.", "url": "https://sayql.dev/", "image": "https://sayql.dev/og.png", "applicationCategory": "DeveloperApplication", "operatingSystem": "macOS, Windows, Linux", "downloadUrl": "https://github.com/dithzz/sayql-releases/releases/latest", "license": "https://www.apache.org/licenses/LICENSE-2.0", "isAccessibleForFree": true, "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}, "author": {"@type": "Person", "name": "Adith L S", "url": "https://github.com/dithzz"}, "sameAs": ["https://github.com/dithzz/sayql"]}</script>
 <script type="application/ld+json">{"@context": "https://schema.org", "@type": "WebSite", "name": "SayQL", "url": "https://sayql.dev/"}</script>
-<!-- faq-jsonld --><script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "What is SayQL?", "acceptedAnswer": {"@type": "Answer", "text": "A free, open-source desktop app that turns plain English into SQL (text-to-SQL) for PostgreSQL, MySQL, SQLite and SQL Server. It knows your schema and runs queries read-only."}}, {"@type": "Question", "name": "Do I need to know SQL?", "acceptedAnswer": {"@type": "Answer", "text": "No. The SQL is always in front of you, so you’ll pick it up along the way."}}, {"@type": "Question", "name": "What does the AI see?", "acceptedAnswer": {"@type": "Answer", "text": "Your question and your table and column names. When a query fails, the SQL and the error too. Never the rows in your tables, unless you turn on agent mode for a connection, and then only what you allow for it. With Ollama or LM Studio, nothing leaves your computer."}}, {"@type": "Question", "name": "Can it break my database?", "acceptedAnswer": {"@type": "Answer", "text": "Queries run read-only, and the database enforces it too. An UPDATE or DELETE always stops for your confirmation first."}}, {"@type": "Question", "name": "What does it cost?", "acceptedAnswer": {"@type": "Answer", "text": "SayQL is free. You pay your AI provider for what you use, with your own key, or nothing with a local model. SayQL for teams, a server your company runs for shared connections and an audit log, is free for 30 days and paid after that."}}, {"@type": "Question", "name": "Why does my computer warn me on first launch?", "acceptedAnswer": {"@type": "Answer", "text": "Early-access builds aren’t code-signed with Apple or Microsoft yet. Confirm the first launch once and it opens normally after that. Updates are signed with SayQL’s own key."}}]}</script><!-- /faq-jsonld -->
+<!-- faq-jsonld --><script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "What is SayQL?", "acceptedAnswer": {"@type": "Answer", "text": "A free, open-source desktop app that lets you and your AI apps query databases in plain English (text-to-SQL) without handing your data to the AI: it sees your schema, not your rows, unless you choose. It works with PostgreSQL, MySQL, SQLite and SQL Server and the AI you pick, including one that runs on your computer, and runs queries read-only. SayQL for teams adds a server you run, with rules for the AI and a record of every query."}}, {"@type": "Question", "name": "Do I need to know SQL?", "acceptedAnswer": {"@type": "Answer", "text": "No. The SQL is always in front of you, so you’ll pick it up along the way."}}, {"@type": "Question", "name": "What does the AI see?", "acceptedAnswer": {"@type": "Answer", "text": "Your question and your table and column names. When a query fails, the SQL and the error, with any values in it masked. Never the rows in your tables, unless you allow it per connection, for agent mode or for AI apps over MCP, and then only what you allow. With Ollama or LM Studio, nothing leaves your computer."}}, {"@type": "Question", "name": "Can it break my database?", "acceptedAnswer": {"@type": "Answer", "text": "Queries run read-only, and the database enforces it too. An UPDATE or DELETE always stops for your confirmation first."}}, {"@type": "Question", "name": "How do we govern our AI agents with SayQL?", "acceptedAnswer": {"@type": "Answer", "text": "With SayQL for teams, add each agent on your server's admin page: a name, the databases it may use and what it gets back from a query (counts and summaries by default, no row values). It connects over MCP with its own key, read-only; columns marked never send are withheld on the server, and every query it runs or tries is in the audit log under its name. Revoke the key and it stops at once. On your own computer, without a team server, Claude Code, Cursor and other MCP apps can also query through the SayQL app, under the limits you set per connection."}}, {"@type": "Question", "name": "What does it cost?", "acceptedAnswer": {"@type": "Answer", "text": "SayQL is free. You pay your AI provider for what you use, with your own key, or nothing with a local model. SayQL for teams, a server your company runs for shared connections and an audit log, is free for 30 days, then $149 a month for up to 10 people."}}, {"@type": "Question", "name": "Can I use SayQL without an AI key?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. Run a model on your computer with Ollama or LM Studio, at no cost, or use SayQL AI credits: prepaid Claude from SayQL, with no Anthropic account. With credits, your question and table names go through SayQL to Anthropic, and SayQL keeps only token counts."}}, {"@type": "Question", "name": "Where does my data go with SayQL for teams?", "acceptedAnswer": {"@type": "Answer", "text": "Nowhere near us. The server runs on your machines: passwords, queries and the audit log stay there, and the licence is checked offline. The one exception is SayQL AI credits, if your admin chooses them: AI requests then pass through SayQL on their way to Anthropic, and only token counts are kept."}}, {"@type": "Question", "name": "What happens when the trial ends?", "acceptedAnswer": {"@type": "Answer", "text": "Queries on team connections pause until an admin pastes a licence key on the admin page. Nothing is deleted, and everyone’s own SayQL keeps working as before."}}, {"@type": "Question", "name": "Why does my computer warn me on first launch?", "acceptedAnswer": {"@type": "Answer", "text": "Early-access builds aren’t code-signed with Apple or Microsoft yet. Confirm the first launch once and it opens normally after that. Updates are signed with SayQL’s own key."}}]}</script><!-- /faq-jsonld -->
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -620,6 +757,7 @@ section.block { padding: 96px 0 0; }
       <a href="#features">Features</a>
       <a href="#demo">Demo</a>
       <a href="#teams">Teams</a>
+      <a href="#pricing">Pricing</a>
       <a href="/docs/">Docs</a>
     </nav>
     <div class="nav-end">
@@ -636,13 +774,15 @@ section.block { padding: 96px 0 0; }
 <main>
 <section class="hero">
   <div class="wrap">
-    <h1>Say what you need. <span>It knows your schema.</span></h1>
-    <p class="lede">The safe way to query production databases, without being a SQL expert.</p>
+    <a class="eyebrow" href="#teams"><span class="tag">New</span><span>SayQL for teams<span class="long">: one command, free for 30 days</span></span></a>
+    <h1>Let agents into your database. <span>Not your data.</span></h1>
+    <p class="lede">The governance layer between AI agents and your databases. They get your schema and the numbers they need, not your rows, unless you say so.</p>
     <div class="actions">
-      <a class="btn btn-primary btn-lg" href="/download/"><svg class="icon"><use href="#i-download"/></svg>Download for free</a>
+      <a class="btn btn-primary btn-lg" href="/download/" data-dl="auto"><svg class="icon"><use href="#i-download"/></svg><span data-dl-label>Download for free</span></a>
       <a class="btn btn-lg" href="https://github.com/dithzz/sayql"><svg class="icon"><use href="#i-github"/></svg>View on GitHub</a>
     </div>
-    <p class="meta">macOS, Windows and Linux · Open source, Apache 2.0<span data-downloads hidden> · <span data-downloads-count></span> downloads</span></p>
+    <p class="meta"><span data-dl-meta>macOS, Windows and Linux</span> · Open source, Apache 2.0<span data-downloads hidden> · <span data-downloads-count></span> downloads</span><span data-stars hidden> · <a href="https://github.com/dithzz/sayql/stargazers">★ <span data-stars-count></span> on GitHub</a></span></p>
+    <p class="meta" data-dl-other hidden></p>
 
     <div class="app window" id="hero-demo" role="img" aria-label="Demo: SayQL turns a plain-English question and the /pii-safe skill into SQL as you type, then runs it read-only; with /agent it investigates a question in read-only steps and answers with the queries behind it">
       <div class="titlebar"><div class="lights"><i></i><i></i><i></i></div>SayQL</div>
@@ -731,13 +871,38 @@ section.block { padding: 96px 0 0; }
 <section class="block" id="features">
   <div class="wrap">
     <div class="head">
-      <h2>Ask. Check. Run.</h2>
-      <p>SayQL writes the query. You see it before anything runs.</p>
+      <h2>Safe for agents. Simple for people.</h2>
+      <p>Read-only, private columns kept out, and every query in plain sight.</p>
     </div>
 
-    <div class="cards bento">
-      <article class="card b-6 b-wide">
-        <div class="card-text">
+    <div class="feature-rows">
+      <article class="feature-row">
+        <div class="feature-text">
+          <h3>Govern your agents</h3>
+          <p>Claude Code, Cursor and other agents query through SayQL, read-only. By default they get counts and summaries, not your rows, and columns you mark private never reach them. See everything they ran, and block any app in one click.</p>
+          <p class="fine">Free on your computer. For your whole company, <a href="#teams">SayQL for teams</a> gives each agent its own key and puts every query in one audit log.</p>
+        </div>
+        <div class="app mini admin-mock gov-mock" role="img" aria-label="SayQL's AI apps settings: Claude Code is allowed and Cursor is blocked; the activity log shows a query that ran as counts, one refused for a private column, one refused because it could change data, and one from the blocked app">
+          <div class="titlebar"><div class="lights"><i></i><i></i><i></i></div>Settings · AI apps (MCP)</div>
+          <div class="gov-apps">
+            <div class="gov-app"><b>Claude Code</b><span>24 queries · counts and summaries</span><span class="gov-btn">Block</span></div>
+            <div class="gov-app"><b>Cursor</b><span class="gov-blocked">Blocked</span><span class="gov-btn allow">Allow</span></div>
+          </div>
+          <div class="grid">
+            <table>
+              <thead><tr><th>When</th><th>App</th><th>Result</th><th>SQL</th></tr></thead>
+              <tbody>
+                <tr><td>10:42</td><td>Claude Code</td><td><span class="st ok">OK</span> 1 row</td><td class="sql">SELECT country, COUNT(*) FROM customers…</td></tr>
+                <tr class="refused"><td>10:41</td><td>Claude Code</td><td><span class="st no">Refused</span> private column</td><td class="sql">SELECT email FROM customers…</td></tr>
+                <tr class="refused"><td>10:39</td><td>Claude Code</td><td><span class="st no">Refused</span> could change data</td><td class="sql">DELETE FROM orders WHERE…</td></tr>
+                <tr class="refused"><td>10:30</td><td>Cursor</td><td><span class="st no">Refused</span> app blocked</td><td class="sql">list_connections</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </article>
+      <article class="feature-row">
+        <div class="feature-text">
           <h3>Agent mode <span class="note-badge tag">beta</span></h3>
           <p>Type <code>/agent</code> and a question that needs looking around: “why did paid orders drop last week?”. SayQL shows its plan, works through it in read-only steps, checks its own work and answers with every sentence linked to the query behind it.</p>
           <p class="fine">Off until you turn it on for a connection. You choose what the AI sees of results: nothing, counts only, or 20 rows with personal data masked.</p>
@@ -748,10 +913,10 @@ section.block { padding: 96px 0 0; }
           <div class="agent" data-agent></div>
         </div>
       </article>
-      <article class="card b-4">
-        <div class="card-text">
+      <article class="feature-row">
+        <div class="feature-text">
           <h3>Read-only unless you say so</h3>
-          <p>Anything that may change data stops and asks first.</p>
+          <p>Anything that may change data stops and asks first, so an UPDATE or DELETE never runs by accident.</p>
         </div>
         <div class="app mini" id="demo-confirm" role="img" aria-label="Demo: SayQL asks for confirmation before running an UPDATE">
           <div class="ed-h"><svg class="i"><use href="#i-file"/></svg><b>SQL Editor</b><span class="sub">Production</span><span class="end"><span class="run-btn" data-run><svg class="i"><use href="#i-play"/></svg>Run</span></span></div>
@@ -765,75 +930,8 @@ section.block { padding: 96px 0 0; }
           </div>
         </div>
       </article>
-      <article class="card b-2">
-        <div class="card-text">
-          <h3>Just say it</h3>
-          <p>Click the mic and ask out loud. Speech turns into text on your computer; the audio never leaves it.</p>
-        </div>
-        <div class="app mini" id="demo-voice" role="img" aria-label="Demo: a question is spoken, transcribed on the computer, and the SQL is written">
-          <div class="askbox" data-ask><div class="q-line" style="margin-top:0"><svg class="i spark"><use href="#i-sparkles"/></svg><span class="q" data-q></span><svg class="i mic end" data-mic aria-hidden="true"><use href="#i-mic"/></svg></div></div>
-          <div class="voice-strip" data-strip hidden><span class="rec" data-rec></span><span data-label>Listening…</span><span class="meter" data-meter><i></i><i></i><i></i><i></i><i></i></span><span class="esc"><span class="kbd">esc</span> cancel</span></div>
-          <div class="code" data-code></div>
-        </div>
-      </article>
-      <article class="card b-2">
-        <div class="card-text">
-          <h3>Type / for commands</h3>
-          <p>/explain, /fix, /improve, /new and /followup, right in the Ask box.</p>
-        </div>
-        <div class="app mini" id="demo-slash" role="img" aria-label="Demo: typing / opens the command menu, and /explain explains the current query">
-          <div class="askbox" data-ask><div class="q-line" style="margin-top:0"><svg class="i spark"><use href="#i-sparkles"/></svg><span class="cmd-chip" data-chip hidden></span><span class="q" data-q></span></div></div>
-          <div class="slash-menu" data-menu hidden></div>
-          <div class="explain" data-explain hidden><svg class="i"><use href="#i-book"/></svg><span data-explain-text></span></div>
-          <div class="code" data-code></div>
-        </div>
-      </article>
-      <article class="card b-2">
-        <div class="card-text">
-          <h3>Skills</h3>
-          <p>Save an instruction once, like “never select email, phone or address columns”, and add it to any question.</p>
-        </div>
-        <div class="app mini" id="demo-skill" role="img" aria-label="Demo: the /pii-safe skill keeps personal columns out of the query">
-          <div class="askbox" data-ask><div class="q-line" style="margin-top:0"><svg class="i spark"><use href="#i-sparkles"/></svg><span class="cmd-chip skill" data-chip hidden></span><span class="q" data-q></span></div></div>
-          <div class="slash-menu" data-menu hidden></div>
-          <div class="code" data-code></div>
-        </div>
-      </article>
-      <article class="card b-2">
-        <div class="card-text">
-          <h3>Any AI, or a local one</h3>
-          <p>Bring your own key, or run a model with Ollama or LM Studio.</p>
-        </div>
-        <div class="app mini" id="demo-ai" role="img" aria-label="Demo: choosing an AI provider in SayQL">
-          <div class="providers">
-            <div class="prov" data-p><b>Anthropic Claude <span class="badge rec">Recommended</span></b><span>Tuned for SayQL.</span></div>
-            <div class="prov" data-p><b>OpenAI</b><span>GPT models with your key.</span></div>
-            <div class="prov" data-p><b>Google Gemini</b><span>Gemini with an AI Studio key.</span></div>
-            <div class="prov" data-p><b>Ollama <span class="badge local">On this computer</span></b><span>Nothing leaves your machine.</span></div>
-          </div>
-          <div class="fieldset">
-            <span data-label></span>
-            <div class="field" data-field></div>
-            <small data-help></small>
-          </div>
-        </div>
-      </article>
-      <article class="card b-3">
-        <div class="card-text">
-          <h3>Half a statement never runs</h3>
-          <p>Run a selection that cuts a statement short and SayQL runs the whole statement. A DELETE never loses its WHERE.</p>
-        </div>
-        <div class="app mini" id="demo-select" role="img" aria-label="Demo: a half-selected query is widened to the full statement before it runs">
-          <div class="ed-h"><svg class="i"><use href="#i-file"/></svg><b>SQL Editor</b><span class="sub">Demo store (SQLite)</span><span class="end"><span class="run-btn" data-run><svg class="i"><use href="#i-play"/></svg><span data-run-label>Run</span></span></span></div>
-          <div class="code" data-code></div>
-          <div class="results mini-results">
-            <div class="pane-h"><svg class="i"><use href="#i-table"/></svg>Results <span class="note-badge" data-note hidden>Ran the full statement</span></div>
-            <div class="grid" data-grid></div>
-          </div>
-        </div>
-      </article>
-      <article class="card b-3">
-        <div class="card-text">
+      <article class="feature-row">
+        <div class="feature-text">
           <h3>Errors fix themselves</h3>
           <p>If the database rejects a query, SayQL corrects it and runs it again, in plain sight.</p>
         </div>
@@ -845,43 +943,52 @@ section.block { padding: 96px 0 0; }
           <div class="bar ok" data-ok hidden><svg class="i"><use href="#i-check"/></svg><span>Fixed: used <b class="mono">signed_up_at</b> and ran it again</span></div>
         </div>
       </article>
-      <article class="card b-6 b-wide">
-        <div class="card-text">
-          <h3>Works with Claude and Cursor</h3>
-          <p>AI apps can query through SayQL, read-only, or hand you a query to review. You click Run.</p>
+      <article class="feature-row">
+        <div class="feature-text">
+          <h3>Any AI, or a local one</h3>
+          <p>Bring your own key for Claude or OpenAI, run a model on your computer with Ollama or LM Studio, or use SayQL AI credits.</p>
         </div>
-        <div class="app mini" id="demo-mcp" role="img" aria-label="Demo: Claude hands a query to SayQL, which opens it in a new tab without running it">
-          <div class="ed-h"><svg class="i"><use href="#i-file"/></svg><b>SQL Editor</b><span class="sub">Demo store (SQLite)</span><span class="origin-badge" data-origin hidden>From Claude (MCP)</span><span class="end"><span class="run-btn" data-run><svg class="i"><use href="#i-play"/></svg>Run</span></span></div>
-          <div class="code" data-code></div>
-          <div class="bar ok" data-note hidden><svg class="i"><use href="#i-check"/></svg><span>Opened from Claude. Nothing has run.</span></div>
+        <div class="app mini" id="demo-ai" role="img" aria-label="Demo: choosing an AI provider in SayQL">
+          <div class="providers">
+            <div class="prov" data-p><b>Anthropic Claude <span class="badge rec">Recommended</span></b><span>Tuned for SayQL.</span></div>
+            <div class="prov" data-p><b>OpenAI</b><span>GPT models with your key.</span></div>
+            <div class="prov" data-p><b>SayQL AI credits</b><span>Prepaid Claude, no account.</span></div>
+            <div class="prov" data-p><b>Ollama <span class="badge local">On this computer</span></b><span>Nothing leaves your machine.</span></div>
+          </div>
+          <div class="fieldset">
+            <span data-label></span>
+            <div class="field" data-field></div>
+            <small data-help></small>
+          </div>
         </div>
       </article>
     </div>
 
     <div class="facts">
-      <div class="fact">
-        <h3><svg class="icon"><use href="#i-lock"/></svg>Your rows stay with you</h3>
-        <p>The AI sees your question and table names, never your data, unless you turn on agent mode for a connection.</p>
+      <div class="fact-group">
+        <h3>Asking</h3>
+        <ul>
+          <li><b>Just say it</b><span>Ask out loud; it’s transcribed on your computer.</span></li>
+          <li><b>Type / for commands</b><span>/explain, /fix, /improve and more.</span></li>
+          <li><b>Skills</b><span>Save a rule like “never select email” once.</span></li>
+        </ul>
       </div>
-      <div class="fact">
-        <h3><svg class="icon"><use href="#i-key"/></svg>Secrets in your keychain</h3>
-        <p>Passwords and API keys are never stored in files.</p>
+      <div class="fact-group">
+        <h3>Safe by default</h3>
+        <ul>
+          <li><b>Half a statement never runs</b><span>A DELETE never loses its WHERE.</span></li>
+          <li><b>Your rows stay with you</b><span>The AI sees table names, not rows, unless agent mode is on.</span></li>
+          <li><b>Secrets in your keychain</b><span>Passwords and keys are never stored in files.</span></li>
+          <li><b>Straight to your database</b><span>No SayQL server in between.</span></li>
+        </ul>
       </div>
-      <div class="fact">
-        <h3><svg class="icon"><use href="#i-monitor"/></svg>No server in between</h3>
-        <p>A desktop app that connects straight to your database.</p>
-      </div>
-      <div class="fact">
-        <h3><svg class="icon"><use href="#i-table"/></svg>Scripts, step by step</h3>
-        <p>Each statement gets its own results tab, and the run stops at the first error.</p>
-      </div>
-      <div class="fact">
-        <h3><svg class="icon"><use href="#i-save"/></svg>Tabs and saved scripts</h3>
-        <p>Keep many queries open and reuse the ones you need.</p>
-      </div>
-      <div class="fact">
-        <h3><svg class="icon"><use href="#i-github"/></svg>Open source</h3>
-        <p>Apache-2.0. Read every line on GitHub.</p>
+      <div class="fact-group">
+        <h3>Everyday</h3>
+        <ul>
+          <li><b>Scripts, step by step</b><span>Each statement gets its own results tab.</span></li>
+          <li><b>Tabs and saved scripts</b><span>Keep queries open and reuse them.</span></li>
+          <li><b>Open source</b><span>Apache-2.0. Read every line on GitHub.</span></li>
+        </ul>
       </div>
     </div>
   </div>
@@ -908,11 +1015,12 @@ section.block { padding: 96px 0 0; }
         <p>SayQL Community Edition is free for personal and commercial use. No account, no telemetry.</p>
       </div>
       <div class="actions">
-        <a class="btn btn-primary btn-lg" href="/download/">macOS</a>
-        <a class="btn btn-lg" href="/download/">Windows</a>
-        <a class="btn btn-lg" href="/download/">Linux</a>
+        <a class="btn btn-primary btn-lg" href="/download/" data-dl="mac">macOS</a>
+        <a class="btn btn-lg" href="/download/" data-dl="windows">Windows</a>
+        <a class="btn btn-lg" href="/download/" data-dl="linux">Linux</a>
       </div>
-      <p class="small">Linux: .AppImage, .deb or .rpm. Early-access builds aren’t code-signed yet, so confirm the first launch once (<a href="/docs/install/">how</a>). Updates are signed.</p>
+      <p class="small"><span data-version hidden>Version <span data-version-number></span> · </span>macOS for Apple silicon (<a href="/download/" data-dl="mac-intel">Intel</a>) · Linux .AppImage (<a href="/download/">.deb, .rpm</a>)</p>
+      <p class="small tight">Not code-signed yet: confirm the first launch once (<a href="/docs/install/">how</a>). Updates are signed.</p>
     </div>
     <blockquote class="note">
       <p>“I knew what I wanted to ask my databases, but not always how to write it. So I built SayQL, and made it free.”</p>
@@ -922,60 +1030,119 @@ section.block { padding: 96px 0 0; }
 </section>
 
 <section class="block" id="teams">
-  <div class="wrap teams">
-    <div>
+  <div class="wrap">
+    <div class="feature-row teams-row">
       <div class="head">
         <h2>SayQL for teams</h2>
-        <p>Let analysts, support and product get answers from production, with the controls your security lead needs. It runs on your own servers, so your data never reaches us.</p>
+        <p>Govern every AI agent that touches your databases. It runs on your servers, so your data never reaches us.</p>
+        <ul class="team-points">
+          <li><svg class="icon"><use href="#i-key"/></svg><div><strong>Every agent on a leash</strong><span>Its own key, only the databases you choose, counts not rows by default. Revoke in one click.</span></div></li>
+          <li><svg class="icon"><use href="#i-scroll"/></svg><div><strong>Every query on record</strong><span>Which person or agent asked what, allowed or refused.</span></div></li>
+          <li><svg class="icon"><use href="#i-lock"/></svg><div><strong>Private columns stay put</strong><span>Mark <code>users.email</code> private: it never leaves your server, not to an agent, not to a laptop.</span></div></li>
+        </ul>
+        <p class="team-next">Works with Claude Code, Cursor and any MCP agent.</p>
       </div>
-      <ul class="team-points">
-        <li><svg class="icon"><use href="#i-key"/></svg><div><strong>Shared connections</strong><span>Your team queries the databases you choose. Nobody sees the password.</span></div></li>
-        <li><svg class="icon"><use href="#i-scroll"/></svg><div><strong>Every query on record</strong><span>An audit log of who asked what, kept on your server.</span></div></li>
-        <li><svg class="icon"><use href="#i-lock"/></svg><div><strong>Rules the AI can't cross</strong><span>You decide what agent mode may see and which columns are never sent. Nobody can loosen it.</span></div></li>
-      </ul>
-      <p class="small">The desktop app stays free and open source. Paid plans add control for teams; nothing free ever moves behind a paywall (<a href="https://github.com/dithzz/sayql#how-sayql-is-funded">our principles</a>).</p>
+      <div class="app mini admin-mock" role="img" aria-label="The SayQL server's admin page: the audit log lists which person or agent ran which query, including a refused UPDATE and an agent refused a private column">
+        <div class="titlebar"><div class="lights"><i></i><i></i><i></i></div>sayql.acme.com/admin<span class="tag">Your server</span></div>
+        <div class="admin-tabs"><span>Overview</span><span>Connections</span><span>People</span><span>Agents</span><span class="on">Audit log</span></div>
+        <div class="grid">
+          <table>
+            <thead><tr><th>When</th><th>Who</th><th>Source</th><th>Status</th><th>Query</th></tr></thead>
+            <tbody>
+              <tr><td>09:42</td><td>ana@acme.com</td><td>Ask</td><td><span class="st ok">OK</span></td><td class="sql">SELECT country, COUNT(*) FROM customers…</td></tr>
+              <tr><td>09:41</td><td>agent: Support bot</td><td>MCP</td><td><span class="st ok">OK</span></td><td class="sql">SELECT date(created_at), COUNT(*) FROM orders…</td></tr>
+              <tr class="refused"><td>09:39</td><td>agent: Support bot</td><td>MCP</td><td><span class="st no">Refused</span></td><td class="sql">SELECT email, ssn FROM customers…</td></tr>
+              <tr class="refused"><td>09:37</td><td>sam@acme.com</td><td>Editor</td><td><span class="st no">Refused</span></td><td class="sql">UPDATE orders SET status = 'shipped'…</td></tr>
+              <tr><td>09:31</td><td>ana@acme.com</td><td>Ask</td><td><span class="st ok">OK</span></td><td class="sql">SELECT plan, SUM(mrr) FROM subscriptions…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
-    <div class="team-side">
-    <div class="install">
-      <h3>Try it free for 30 days</h3>
-      <p>On any machine with Docker that can reach your database, run:</p>
-      <div class="install-cmd"><code id="install-cmd">curl -fsSL https://sayql.dev/install | sh</code><button class="btn btn-sm" type="button" id="install-copy">Copy</button></div>
-      <ol>
-        <li>Open the admin link it prints.</li>
-        <li>Add a database. The page shows the SQL for a read-only login.</li>
-        <li>Invite your team. Each link opens the SayQL app and signs them in.</li>
-      </ol>
-      <p class="small">Up to 10 people, no card or licence key needed. Give it a domain and HTTPS is set up for you. When you're ready to buy, email <a href="mailto:hello@azenvoc.com">hello@azenvoc.com</a>. <a href="/docs/teams/#set-up-a-team-server">Setup guide</a></p>
-    </div>
-    <form class="waitlist" id="waitlist" novalidate>
-      <h3>Want news, or help setting up?</h3>
-      <label>Work email<input type="email" name="email" autocomplete="email" required placeholder="you@company.com"></label>
-      <label>Interested in<select name="interest">
-        <option value="team">SayQL for my team</option>
-        <option value="gateway">Safe database access for our AI agents</option>
-        <option value="both">Both</option>
-      </select></label>
-      <label>Team size<select name="size">
-        <option value="1-9">1 to 9 people</option>
-        <option value="10-49">10 to 49</option>
-        <option value="50-249">50 to 249</option>
-        <option value="250+">250 or more</option>
-      </select></label>
-      <input class="hp" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
-      <button class="btn btn-lg" type="submit">Keep me posted</button>
-      <p class="waitlist-status" id="waitlist-status" role="status"></p>
-      <p class="small">We only email you about SayQL for teams. Unsubscribe any time.</p>
-    </form>
+
+    <div class="team-start">
+      <div class="team-try">
+        <h3>Try it free for 30 days</h3>
+        <p>On any machine with Docker that can reach your database:</p>
+        <div class="install-cmd"><code id="install-cmd">curl -fsSL https://sayql.dev/install | sh</code><button class="btn btn-sm" type="button" id="install-copy">Copy</button></div>
+        <p class="fine">Open the admin link it prints, add a database and invite your team. Up to 10 people, no card. No company AI key? Use SayQL AI credits. <a href="/docs/teams/#set-up-a-team-server">Setup guide</a></p>
+      </div>
+      <form class="waitlist" id="waitlist" novalidate>
+        <h3>Want news, or help setting up?</h3>
+        <p>We'll reply in person. Only about SayQL for teams; unsubscribe any time.</p>
+        <div class="waitlist-row">
+          <input type="email" name="email" autocomplete="email" required placeholder="you@company.com" aria-label="Work email">
+          <button class="btn btn-primary" type="submit">Keep me posted</button>
+        </div>
+        <div class="waitlist-row">
+          <select name="interest" aria-label="Interested in">
+            <option value="team">For my team</option>
+            <option value="gateway">For our AI agents</option>
+            <option value="both">Both</option>
+          </select>
+          <select name="size" aria-label="Team size">
+            <option value="1-9">1 to 9 people</option>
+            <option value="10-49">10 to 49</option>
+            <option value="50-249">50 to 249</option>
+            <option value="250+">250 or more</option>
+          </select>
+        </div>
+        <input class="hp" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
+        <p class="waitlist-status" id="waitlist-status" role="status"></p>
+      </form>
     </div>
   </div>
 </section>
+
+<section class="block" id="pricing">
+  <div class="wrap">
+    <div class="head">
+      <h2>Pricing</h2>
+      <p>Free for you. Paid when your team needs control. Nothing free ever moves behind a paywall (<a href="https://github.com/dithzz/sayql#how-sayql-is-funded">our principles</a>).</p>
+    </div>
+    <div class="plans">
+      <article class="plan">
+        <h3>Community</h3>
+        <div class="price">$0 <small>forever</small></div>
+        <ul>
+          <li><svg class="icon"><use href="#i-check"/></svg>Everything one person needs, at work too</li>
+          <li><svg class="icon"><use href="#i-check"/></svg>Ask box, agent mode, skills, MCP and voice</li>
+          <li><svg class="icon"><use href="#i-check"/></svg>Your own AI key, a local model, or SayQL AI credits</li>
+          <li><svg class="icon"><use href="#i-check"/></svg>Open source, Apache 2.0</li>
+        </ul>
+        <div class="actions"><a class="btn btn-lg" href="#download">Download</a></div>
+      </article>
+      <article class="plan featured">
+        <h3>Team</h3>
+        <div class="price">$149 <small>a month, up to 10 people</small></div>
+        <ul>
+          <li><svg class="icon"><use href="#i-check"/></svg>An agent gateway: each AI agent its own key and rules</li>
+          <li><svg class="icon"><use href="#i-check"/></svg>A record of every query, from people and agents</li>
+          <li><svg class="icon"><use href="#i-check"/></svg>Private columns that never leave your server</li>
+          <li><svg class="icon"><use href="#i-check"/></svg>One company AI key with monthly limits</li>
+          <li><svg class="icon"><use href="#i-check"/></svg>Runs on your servers; your data never reaches us</li>
+        </ul>
+        <div class="actions">
+          <a class="btn btn-primary btn-lg" href="#teams">Try free for 30 days</a>
+          <a class="btn btn-lg" href="mailto:hello@azenvoc.com?subject=SayQL%20for%20teams">Buy</a>
+        </div>
+      </article>
+    </div>
+    <p class="plans-note">No card for the trial. To buy, email <a href="mailto:hello@azenvoc.com">hello@azenvoc.com</a> for a licence key. AI credits are optional and prepaid.</p>
+  </div>
+</section>
+
 <section class="block" id="faq">
   <div class="wrap">
-    <div class="head"><h2>Questions</h2></div>
+    <div class="faq-layout">
+    <div class="head">
+      <h2>Questions</h2>
+      <p>Something else? Email <a href="mailto:hello@azenvoc.com">hello@azenvoc.com</a> or ask on <a href="https://github.com/dithzz/sayql/discussions">GitHub</a>.</p>
+    </div>
     <div class="faq">
       <details>
         <summary>What is SayQL?<svg class="icon"><use href="#i-plus"/></svg></summary>
-        <p>A free, open-source desktop app that turns plain English into SQL (text-to-SQL) for PostgreSQL, MySQL, SQLite and SQL Server. It knows your schema and runs queries read-only.</p>
+        <p>A free, open-source desktop app that lets you and your AI apps query databases in plain English (text-to-SQL) without handing your data to the AI: it sees your schema, not your rows, unless you choose. It works with PostgreSQL, MySQL, SQLite and SQL Server and the AI you pick, including one that runs on your computer, and runs queries read-only. SayQL for teams adds a server you run, with rules for the AI and a record of every query.</p>
       </details>
       <details>
         <summary>Do I need to know SQL?<svg class="icon"><use href="#i-plus"/></svg></summary>
@@ -983,20 +1150,52 @@ section.block { padding: 96px 0 0; }
       </details>
       <details>
         <summary>What does the AI see?<svg class="icon"><use href="#i-plus"/></svg></summary>
-        <p>Your question and your table and column names. When a query fails, the SQL and the error too. Never the rows in your tables, unless you turn on agent mode for a connection, and then only what you allow for it. With Ollama or LM Studio, nothing leaves your computer.</p>
+        <p>Your question and your table and column names. When a query fails, the SQL and the error, with any values in it masked. Never the rows in your tables, unless you allow it per connection, for agent mode or for AI apps over MCP, and then only what you allow. With Ollama or LM Studio, nothing leaves your computer.</p>
       </details>
       <details>
         <summary>Can it break my database?<svg class="icon"><use href="#i-plus"/></svg></summary>
         <p>Queries run read-only, and the database enforces it too. An UPDATE or DELETE always stops for your confirmation first.</p>
       </details>
       <details>
+        <summary>How do we govern our AI agents with SayQL?<svg class="icon"><use href="#i-plus"/></svg></summary>
+        <p>With SayQL for teams, add each agent on your server's admin page: a name, the databases it may use and what it gets back from a query (counts and summaries by default, no row values). It connects over MCP with its own key, read-only; columns marked never send are withheld on the server, and every query it runs or tries is in the audit log under its name. Revoke the key and it stops at once. On your own computer, without a team server, Claude Code, Cursor and other MCP apps can also query through the SayQL app, under the limits you set per connection.</p>
+      </details>
+      <details>
         <summary>What does it cost?<svg class="icon"><use href="#i-plus"/></svg></summary>
-        <p>SayQL is free. You pay your AI provider for what you use, with your own key, or nothing with a local model. SayQL for teams, a server your company runs for shared connections and an audit log, is free for 30 days and paid after that.</p>
+        <p>SayQL is free. You pay your AI provider for what you use, with your own key, or nothing with a local model. SayQL for teams, a server your company runs for shared connections and an audit log, is free for 30 days, then $149 a month for up to 10 people.</p>
+      </details>
+      <details>
+        <summary>Can I use SayQL without an AI key?<svg class="icon"><use href="#i-plus"/></svg></summary>
+        <p>Yes. Run a model on your computer with Ollama or LM Studio, at no cost, or use SayQL AI credits: prepaid Claude from SayQL, with no Anthropic account. With credits, your question and table names go through SayQL to Anthropic, and SayQL keeps only token counts.</p>
+      </details>
+      <details>
+        <summary>Where does my data go with SayQL for teams?<svg class="icon"><use href="#i-plus"/></svg></summary>
+        <p>Nowhere near us. The server runs on your machines: passwords, queries and the audit log stay there, and the licence is checked offline. The one exception is SayQL AI credits, if your admin chooses them: AI requests then pass through SayQL on their way to Anthropic, and only token counts are kept.</p>
+      </details>
+      <details>
+        <summary>What happens when the trial ends?<svg class="icon"><use href="#i-plus"/></svg></summary>
+        <p>Queries on team connections pause until an admin pastes a licence key on the admin page. Nothing is deleted, and everyone’s own SayQL keeps working as before.</p>
       </details>
       <details>
         <summary>Why does my computer warn me on first launch?<svg class="icon"><use href="#i-plus"/></svg></summary>
         <p>Early-access builds aren’t code-signed with Apple or Microsoft yet. Confirm the first launch once and it opens normally after that. Updates are signed with SayQL’s own key.</p>
       </details>
+    </div>
+    </div>
+  </div>
+</section>
+
+<section class="block closing">
+  <div class="wrap">
+    <div class="closing-card">
+      <div>
+        <h2>Ask your database something.</h2>
+        <p>Free for you on macOS, Windows and Linux. For your team, rules for the AI and a record of every query, free for 30 days.</p>
+      </div>
+      <div class="actions">
+        <a class="btn btn-primary btn-lg" href="#download"><svg class="icon"><use href="#i-download"/></svg>Download SayQL</a>
+        <a class="btn btn-lg" href="#teams">Try SayQL for teams</a>
+      </div>
     </div>
   </div>
 </section>
@@ -1006,6 +1205,8 @@ section.block { padding: 96px 0 0; }
   <div class="wrap">
     <a class="brand" href="/"><svg class="wordmark" width="45" height="20" aria-hidden="true"><use href="#i-wordmark"/></svg></a>
     <nav aria-label="Footer">
+      <a href="#teams">Teams</a>
+      <a href="#pricing">Pricing</a>
       <a href="/docs/">Docs</a>
       <a href="https://github.com/dithzz/sayql-releases/releases">Changelog</a>
       <a href="https://github.com/dithzz/sayql">GitHub</a>
@@ -1271,34 +1472,6 @@ section.block { padding: 96px 0 0; }
     }, function () { q.textContent = AGENT.question; stillAgent(box); });
   })();
 
-  /* ---------- run selection: a cut statement snaps to the whole statement ---------- */
-  (function () {
-    var el = document.getElementById("demo-select");
-    var $ = function (s) { return el.querySelector(s); };
-    var code = $("[data-code]"), run = $("[data-run]"), label = $("[data-run-label]"), note = $("[data-note]"), grid = $("[data-grid]");
-    var SQL = "SELECT first_name, last_name\nFROM customers\nWHERE country = 'Canada'\nORDER BY last_name;";
-    var ROWS = [["Sofia", "Haddad"], ["Liam", "Tremblay"]];
-    function mark(cls, upTo) { Array.prototype.forEach.call(code.children, function (l, i) { l.className = "line" + (i <= upTo ? " " + cls : ""); }); }
-    function showRows() {
-      grid.innerHTML = '<table><thead><tr><th></th><th>first_name</th><th>last_name</th></tr></thead><tbody>' +
-        ROWS.map(function (r, i) { return '<tr class="in"><td class="idx">' + (i + 1) + "</td><td>" + r[0] + "</td><td>" + r[1] + "</td></tr>"; }).join("") + "</tbody></table>";
-      note.hidden = false;
-    }
-    function still() { code.innerHTML = lines(SQL); mark("snap", 3); label.textContent = "Run"; showRows(); }
-    demo(el, function (later, loop) {
-      code.innerHTML = lines(SQL);
-      label.textContent = "Run"; note.hidden = true;
-      grid.innerHTML = '<div class="empty">Run a query to see rows here</div>';
-      // Select the first two lines only, which cuts the statement before its WHERE.
-      later(function () { mark("sel", 0); label.textContent = "Run selection"; }, 700);
-      later(function () { mark("sel", 1); }, 1000);
-      later(function () { pressRun(run); }, 1900);
-      later(function () { mark("snap", 3); label.textContent = "Run"; }, 2200);
-      later(showRows, 2500);
-      later(loop, 6800);
-    }, still);
-  })();
-
   /* ---------- confirm before anything that may change data ---------- */
   (function () {
     var el = document.getElementById("demo-confirm");
@@ -1332,129 +1505,16 @@ section.block { padding: 96px 0 0; }
     }, function () { fixed(); ok.hidden = false; });
   })();
 
-  /* ---------- "/" menu: the built-ins and skills from src/features/ask/slashCommands.ts ---------- */
-  var COMMANDS = [
-    ["followup", "Change the current query", "i-corner"],
-    ["new", "Start fresh, ignore the last query", "i-rotate"],
-    ["explain", "Explain the current query", "i-book"],
-    ["fix", "Fix the current query or its error", "i-wrench"],
-    ["improve", "Review and improve the current query", "i-wand"],
-    ["pii-safe", "Leave out personal data", "i-scroll"]
-  ];
-  // Items whose slug starts with `query`, then "Create skill…", like the app's menu.
-  function renderMenu(menu, query, active) {
-    var items = COMMANDS.filter(function (c) { return c[0].indexOf(query) === 0; });
-    menu.innerHTML = items.map(function (c, i) {
-      return '<div class="slash-item' + (i === active ? " on" : "") + '"><svg class="i"><use href="#' + c[2] + '"/></svg><span class="slug">/' + c[0] + '</span><span class="desc">' + c[1] + "</span></div>";
-    }).join("") + '<div class="slash-sep"></div><div class="slash-item"><svg class="i"><use href="#i-plus"/></svg><span class="desc" style="color:inherit">Create skill…</span></div>';
-  }
-
-  /* ---------- slash commands: /explain ---------- */
-  (function () {
-    var el = document.getElementById("demo-slash");
-    var $ = function (s) { return el.querySelector(s); };
-    var ask = $("[data-ask]"), q = $("[data-q]"), chip = $("[data-chip]"), menu = $("[data-menu]"), code = $("[data-code]"),
-        explain = $("[data-explain]"), explainText = $("[data-explain-text]");
-    var SQL = "SELECT country, COUNT(*) AS customers\nFROM customers\nGROUP BY country\nORDER BY customers DESC\nLIMIT 5;";
-    var ANSWER = "Counts the customers in each country and shows the five countries with the most, largest first.";
-    function still() {
-      code.innerHTML = lines(SQL);
-      menu.hidden = true; chip.hidden = false; chip.textContent = "/explain"; q.textContent = "";
-      explain.hidden = false; explainText.textContent = ANSWER;
-    }
-    demo(el, function (later, loop) {
-      code.innerHTML = lines(SQL);
-      menu.hidden = true; chip.hidden = true; explain.hidden = true;
-      q.innerHTML = '<span class="caret"></span>';
-      ask.classList.add("live");
-      later(function () { q.innerHTML = '/<span class="caret"></span>'; renderMenu(menu, "", 0); menu.hidden = false; }, 700);
-      // ↓ ↓ to /explain, then ↵.
-      later(function () { renderMenu(menu, "", 1); }, 1400);
-      later(function () { renderMenu(menu, "", 2); }, 1900);
-      later(function () { menu.hidden = true; chip.hidden = false; chip.textContent = "/explain"; q.innerHTML = '<span class="caret"></span>'; }, 2600);
-      later(function () { ask.classList.remove("live"); q.textContent = ""; explain.hidden = false; explainText.textContent = "…"; }, 3200);
-      var words = ANSWER.split(" ");
-      words.forEach(function (_, k) { later(function () { explainText.textContent = words.slice(0, k + 1).join(" "); }, 3500 + k * 70); });
-      later(loop, 3500 + words.length * 70 + 4200);
-    }, still);
-  })();
-
-  /* ---------- skills: /pii-safe ---------- */
-  (function () {
-    var el = document.getElementById("demo-skill");
-    var $ = function (s) { return el.querySelector(s); };
-    var ask = $("[data-ask]"), q = $("[data-q]"), chip = $("[data-chip]"), menu = $("[data-menu]"), code = $("[data-code]");
-    var QUESTION = "new customers this month";
-    var SQL = "SELECT first_name, last_name, country,\n       signed_up_at\nFROM customers\nWHERE signed_up_at >= date('now', 'start of month')\nORDER BY signed_up_at DESC;";
-    function setSql(sql) { code.innerHTML = highlight(sql); }
-    function still() { menu.hidden = true; chip.hidden = false; chip.textContent = "/pii-safe"; q.textContent = QUESTION; setSql(SQL); }
-    demo(el, function (later, loop) {
-      menu.hidden = true; chip.hidden = true; setSql("");
-      q.innerHTML = '<span class="caret"></span>';
-      ask.classList.add("live");
-      ["/", "/p", "/pi"].forEach(function (typed, k) {
-        later(function () { q.innerHTML = esc(typed) + '<span class="caret"></span>'; renderMenu(menu, typed.slice(1), 0); menu.hidden = false; }, 700 + k * 260);
-      });
-      later(function () { menu.hidden = true; chip.hidden = false; chip.textContent = "/pii-safe"; q.innerHTML = '<span class="caret"></span>'; }, 1900);
-      var t = typeInto(q, QUESTION, 2100, later);
-      var tokens = SQL.match(/\s+|[^\s]+/g), shown = "", start = t - 500;
-      tokens.forEach(function (tok, k) { later(function () { shown += tok; setSql(shown); }, start + k * 30); });
-      var end = Math.max(t, start + tokens.length * 30) + 250;
-      later(function () { ask.classList.remove("live"); q.textContent = QUESTION; }, end);
-      later(loop, end + 4500);
-    }, still);
-  })();
-
-  /* ---------- voice: listen, transcribe on this computer, write the SQL ---------- */
-  (function () {
-    var el = document.getElementById("demo-voice");
-    var $ = function (s) { return el.querySelector(s); };
-    var ask = $("[data-ask]"), q = $("[data-q]"), mic = $("[data-mic]"), strip = $("[data-strip]"),
-        label = $("[data-label]"), rec = $("[data-rec]"), meter = $("[data-meter]"), code = $("[data-code]");
-    var bars = meter.querySelectorAll("i");
-    var QUESTION = "orders shipped to Canada last week";
-    var SQL = "SELECT o.id, o.created_at, o.status\nFROM orders o\nJOIN customers c ON c.id = o.customer_id\nWHERE c.country = 'Canada'\n  AND o.status = 'shipped'\n  AND o.created_at >= date('now', '-7 days');";
-    function still() { strip.hidden = true; mic.classList.remove("on"); q.textContent = QUESTION; code.innerHTML = highlight(SQL); }
-    demo(el, function (later, loop) {
-      strip.hidden = true; mic.classList.remove("on"); q.textContent = ""; code.innerHTML = "";
-      later(function () { mic.classList.add("on"); ask.classList.add("live"); strip.hidden = false; label.textContent = "Listening…"; rec.hidden = false; meter.hidden = false; }, 600);
-      for (var k = 0; k < 14; k++) {
-        later(function () { bars.forEach(function (b) { b.style.height = (4 + Math.round(Math.random() * 10)) + "px"; }); }, 700 + k * 150);
-      }
-      later(function () { mic.classList.remove("on"); label.textContent = "Transcribing…"; rec.hidden = true; meter.hidden = true; }, 2900);
-      later(function () { strip.hidden = true; q.innerHTML = esc(QUESTION) + '<span class="caret"></span>'; }, 3500);
-      var tokens = SQL.match(/\s+|[^\s]+/g), shown = "";
-      tokens.forEach(function (tok, i) { later(function () { shown += tok; code.innerHTML = highlight(shown); }, 3800 + i * 30); });
-      var end = 3800 + tokens.length * 30 + 300;
-      later(function () { ask.classList.remove("live"); q.textContent = QUESTION; }, end);
-      later(loop, end + 4000);
-    }, still);
-  })();
-
-  /* ---------- MCP: Claude hands a query over; nothing runs until you click Run ---------- */
-  (function () {
-    var el = document.getElementById("demo-mcp");
-    var code = el.querySelector("[data-code]"), origin = el.querySelector("[data-origin]"), note = el.querySelector("[data-note]");
-    var SQL = "SELECT category, SUM(quantity) AS units\nFROM order_items oi\nJOIN products p ON p.id = oi.product_id\nGROUP BY category\nORDER BY units DESC;";
-    function still() { origin.hidden = false; note.hidden = false; code.innerHTML = lines(SQL); }
-    demo(el, function (later, loop) {
-      origin.hidden = true; note.hidden = true; code.innerHTML = "";
-      later(function () { origin.hidden = false; code.innerHTML = lines(SQL); }, 900);
-      later(function () { note.hidden = false; }, 1500);
-      later(loop, 6500);
-    }, still);
-  })();
-
   /* ---------- pick your AI ---------- */
   (function () {
     var el = document.getElementById("demo-ai");
     var cards = el.querySelectorAll("[data-p]"), label = el.querySelector("[data-label]"), field = el.querySelector("[data-field]"), help = el.querySelector("[data-help]");
-    var KEYCHAIN = "Stored in your system keychain, never in a file.";
+    var KEYCHAIN = "Stored in your system keychain.";
     var STATES = [
       ["Anthropic Claude API key", "Saved in Keychain", KEYCHAIN],
       ["OpenAI API key", "Saved in Keychain", KEYCHAIN],
-      ["Google Gemini API key", "Saved in Keychain", KEYCHAIN],
-      ["Ollama address", "http://localhost:11434", "No key needed. Nothing leaves your machine."]
+      ["Credit key", "Saved in Keychain", "Prepaid. Goes via SayQL to Anthropic."],
+      ["Ollama address", "http://localhost:11434", "No key. Nothing leaves your machine."]
     ];
     function select(i) {
       cards.forEach(function (c, j) { c.classList.toggle("on", i === j); });
@@ -1466,37 +1526,114 @@ section.block { padding: 96px 0 0; }
     }, function () { select(0); });
   })();
 
-  /* download count
-   * Installer downloads across all published releases, from GitHub's public API.
-   * Update packages and signatures aren't counted. Hidden below MIN_DOWNLOADS. */
+  /* downloads: count, current version and direct installer links
+   * From GitHub's public API, cached for an hour (60 unauthenticated requests an hour per visitor).
+   * The count covers installers only, not update packages or signatures, and is hidden below
+   * MIN_DOWNLOADS. Without the API (offline, rate-limited) every button keeps going to /download/. */
   var RELEASES_API = "https://api.github.com/repos/dithzz/sayql-releases/releases?per_page=100";
+  var REPO_API = "https://api.github.com/repos/dithzz/sayql";
   var MIN_DOWNLOADS = 100;
+  var MIN_STARS = 25;
   var INSTALLER = /\.(dmg|exe|msi|AppImage|deb|rpm)$/i;
-  var CACHE_KEY = "sayql-site-downloads";
+  var CACHE_KEY = "sayql-site-releases";
+  var BUILDS = {
+    mac: { match: /_aarch64\.dmg$/, label: "macOS", note: "Apple silicon" },
+    "mac-intel": { match: /_x64\.dmg$/, label: "macOS", note: "Intel" },
+    windows: { match: /_x64-setup\.exe$/, label: "Windows", note: "64-bit" },
+    linux: { match: /_amd64\.AppImage$/, label: "Linux", note: ".AppImage" }
+  };
 
-  function showDownloads(n) {
-    if (!(n >= MIN_DOWNLOADS)) return;
-    document.querySelectorAll("[data-downloads-count]").forEach(function (el) { el.textContent = n.toLocaleString("en-US"); });
-    document.querySelectorAll("[data-downloads]").forEach(function (el) { el.hidden = false; });
+  function cache(key, fetcher, use) {
+    try {
+      var hit = JSON.parse(localStorage.getItem(key) || "null");
+      if (hit && Date.now() - hit.at < 3600 * 1000) return use(hit.v);
+    } catch (e) {}
+    if (!window.fetch) return;
+    fetcher().then(function (v) {
+      try { localStorage.setItem(key, JSON.stringify({ v: v, at: Date.now() })); } catch (e) {}
+      use(v);
+    }).catch(function () {});
   }
-  try {
-    var cached = JSON.parse(localStorage.getItem(CACHE_KEY) || "null");
-    // GitHub allows 60 unauthenticated requests an hour per visitor; an hour's cache is plenty.
-    if (cached && Date.now() - cached.at < 3600 * 1000) { showDownloads(cached.n); return; }
-  } catch (e) {}
-  if (!window.fetch) return;
-  fetch(RELEASES_API, { headers: { Accept: "application/vnd.github+json" } })
-    .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
-    .then(function (releases) {
-      var n = 0;
+  function getJson(url) {
+    return fetch(url, { headers: { Accept: "application/vnd.github+json" } }).then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); });
+  }
+
+  /* Which build this visitor wants. Browsers that say so tell Intel Macs apart; others get Apple silicon. */
+  function detect() {
+    var ua = navigator.userAgent || "", p = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || "";
+    if (/android|iphone|ipad|ipod/i.test(ua)) return Promise.resolve(null);
+    if (/mac/i.test(p)) {
+      var uad = navigator.userAgentData;
+      if (uad && uad.getHighEntropyValues) {
+        return uad.getHighEntropyValues(["architecture"]).then(function (v) { return v.architecture === "x86" ? "mac-intel" : "mac"; }, function () { return "mac"; });
+      }
+      return Promise.resolve("mac");
+    }
+    if (/win/i.test(p)) return Promise.resolve("windows");
+    if (/linux/i.test(p)) return Promise.resolve("linux");
+    return Promise.resolve(null);
+  }
+
+  cache(CACHE_KEY, function () {
+    return getJson(RELEASES_API).then(function (releases) {
+      var n = 0, latest = null;
       releases.forEach(function (rel) {
         if (rel.draft) return;
+        if (!latest && !rel.prerelease) latest = rel;
         (rel.assets || []).forEach(function (a) { if (INSTALLER.test(a.name)) n += a.download_count || 0; });
       });
-      try { localStorage.setItem(CACHE_KEY, JSON.stringify({ n: n, at: Date.now() })); } catch (e) {}
-      showDownloads(n);
-    })
-    .catch(function () { /* offline or rate-limited: no count */ });
+      var links = {};
+      if (latest) {
+        Object.keys(BUILDS).forEach(function (k) {
+          (latest.assets || []).forEach(function (a) { if (BUILDS[k].match.test(a.name)) links[k] = a.browser_download_url; });
+        });
+      }
+      return { n: n, version: latest ? latest.tag_name.replace(/^v/, "") : null, links: links };
+    });
+  }, function (v) {
+    if (v.n >= MIN_DOWNLOADS) {
+      document.querySelectorAll("[data-downloads-count]").forEach(function (el) { el.textContent = v.n.toLocaleString("en-US"); });
+      document.querySelectorAll("[data-downloads]").forEach(function (el) { el.hidden = false; });
+    }
+    if (v.version) {
+      document.querySelectorAll("[data-version-number]").forEach(function (el) { el.textContent = v.version; });
+      document.querySelectorAll("[data-version]").forEach(function (el) { el.hidden = false; });
+    }
+    // The download section's buttons go straight to each installer.
+    document.querySelectorAll("[data-dl]").forEach(function (a) {
+      var k = a.getAttribute("data-dl");
+      if (v.links[k]) a.href = v.links[k];
+    });
+    // The hero button: this visitor's installer, named, with the version.
+    detect().then(function (k) {
+      var hero = document.querySelector('[data-dl="auto"]');
+      if (!k || !v.links[k] || !hero) return;
+      hero.href = v.links[k];
+      hero.querySelector("[data-dl-label]").textContent = "Download for " + BUILDS[k].label;
+      document.querySelector("[data-dl-meta]").textContent = "Version " + v.version + " · " + BUILDS[k].note;
+      var other = document.querySelector("[data-dl-other]"), alt = k === "mac" ? "mac-intel" : k === "mac-intel" ? "mac" : null;
+      other.textContent = "";
+      if (alt && v.links[alt]) {
+        var a = document.createElement("a");
+        a.href = v.links[alt];
+        a.textContent = alt === "mac-intel" ? "Intel Mac?" : "Apple silicon Mac?";
+        other.append(a, " · ");
+      }
+      var all = document.createElement("a");
+      all.href = "/download/";
+      all.textContent = "Other systems and formats";
+      other.append(all);
+      other.hidden = false;
+    });
+  });
+
+  cache("sayql-site-stars", function () {
+    return getJson(REPO_API).then(function (repo) { return repo.stargazers_count; });
+  }, function (stars) {
+    if (!(stars >= MIN_STARS)) return;
+    document.querySelectorAll("[data-stars-count]").forEach(function (el) { el.textContent = stars.toLocaleString("en-US"); });
+    document.querySelectorAll("[data-stars]").forEach(function (el) { el.hidden = false; });
+  });
 })();
 </script>
 </body>
