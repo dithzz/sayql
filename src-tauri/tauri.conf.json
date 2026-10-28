@@ -31,8 +31,8 @@
     "publisher": "SayQL",
     "copyright": "Copyright © 2026 Adith L S. SayQL Community Edition, open source under the Apache License 2.0.",
     "category": "DeveloperTool",
-    "shortDescription": "The safe way to query production databases",
-    "longDescription": "SayQL Community Edition is a free desktop database client for PostgreSQL, MySQL, SQLite, SQL Server and Azure SQL. Ask a question in plain English and get SQL as you type, written by the AI you choose, then run it read-only, so nothing changes unless you say so.",
+    "shortDescription": "The safe way for people and AI to query production databases",
+    "longDescription": "SayQL Community Edition is a free desktop database client for PostgreSQL, MySQL, SQLite, SQL Server and Azure SQL. Ask a question in plain English and get SQL as you type, written by the AI you choose, then run it read-only, so nothing changes unless you say so. AI apps such as Claude and Cursor can query through it too, within the limits you set.",
     "licenseFile": "../LICENSE",
     "resources": {
       "../LICENSE": "LICENSE",

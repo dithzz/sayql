@@ -9,8 +9,8 @@
 
 ### Say what you need. It knows your schema.
 
-The safe way to query production databases, without being a SQL expert.<br>
-The right SQL in seconds, and nothing changes unless you say so.
+The safe way for people and AI to query production databases.<br>
+Any AI, any database, read-only by default, and nothing changes unless you say so.
 
 [![Latest release](https://img.shields.io/github/v/release/dithzz/sayql-releases?label=release&color=1f6feb)](https://github.com/dithzz/sayql-releases/releases/latest)
 [![CI](https://github.com/dithzz/sayql/actions/workflows/ci.yml/badge.svg)](https://github.com/dithzz/sayql/actions/workflows/ci.yml)
@@ -30,9 +30,10 @@ The right SQL in seconds, and nothing changes unless you say so.
 
 ## Why SayQL
 
-**SayQL is for people who need answers from production databases but don't write SQL every day:** analysts,
-product managers, support and operations teams, and developers who only touch the database now and then.
-Asking an engineer takes time; general chatbots don't know your schema and can't run anything safely.
+**SayQL is the safe way for people and AI to query production databases.** It's for analysts, product
+managers, support and operations teams, developers who only touch the database now and then, and the AI apps
+they work with. Asking an engineer takes time; general chatbots don't know your schema and can't run anything
+safely; and an AI agent with a database password can do anything. SayQL keeps the AI on your rules.
 
 - **Safe on production, by design.** Queries run read-only, and the database itself enforces it. Anything that
   could change data stops and shows you the exact statement first.
@@ -44,9 +45,14 @@ Asking an engineer takes time; general chatbots don't know your schema and can't
 - **Answers to the harder questions.** Switch the Ask box from Quick to Agent and ask "why did signups drop?"
   or "who owns this tenant?": the agent investigates in read-only steps and answers with the queries behind
   every sentence. Off until you turn it on per connection, with you in control of what the AI may see.
-- **Your AI, your data.** Use Claude, OpenAI, Gemini or any OpenAI-compatible API with your own key, or a local
-  model so nothing leaves your computer, and switch models right in the Ask box. The Ask box never sends table
-  rows to the AI.
+- **Any AI, any database.** Use Claude, OpenAI, Gemini or any OpenAI-compatible API with your own key, a local
+  model so nothing leaves your computer, or SayQL AI credits, on PostgreSQL, MySQL, SQLite or SQL Server. Switch
+  models right in the Ask box. The Ask box never sends table rows to the AI.
+- **AI apps on a leash.** Claude, Cursor and other MCP apps can query through SayQL, read-only, with your
+  never-send columns kept private, or hand you a query to review before anything runs.
+- **Rules and a record for teams.** [SayQL for teams](https://sayql.dev/#teams) is a server you run: shared
+  connections without passwords on laptops, rules the AI can't cross, and a record of every query, from people
+  and from agent mode. Your data never reaches us.
 - **Say it instead.** Click the mic and say your question. Speech is turned into text on your computer, and
   the audio never leaves it.
 - **Everything in one place.** Browse your tables, keep tabs open and save the queries you reuse. You see every
