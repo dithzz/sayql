@@ -91,7 +91,7 @@ describe("docs links", () => {
       expect(slugs.has(slug), `docs page ${slug}`).toBe(true);
       if (anchor) {
         const headings = [...slugs.get(slug)!.matchAll(/<h[23]>(.*?)<\/h[23]>/g)].map((m) =>
-          m[1].replace(/<[^>]+>/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""),
+          (new DOMParser().parseFromString(m[1], "text/html").body.textContent ?? "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""),
         );
         expect(headings, `#${anchor} on ${slug}`).toContain(anchor);
       }
