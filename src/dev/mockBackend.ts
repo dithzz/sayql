@@ -6,9 +6,16 @@ import type { AgentAccess, AgentReply, AgentStep, AiProvider, AuditAgent, AuditR
 import { EXAMPLE_SKILLS, skillError } from "../features/skills";
 import { version } from "../../package.json";
 import { isReadOnly } from "./readOnly";
+import { setStorageNamespace } from "../lib/storage";
 
 /** `?video`: answers and a saved skill for the explainer video (scripts/video), with slower streaming. */
 const VIDEO = new URLSearchParams(window.location.search).has("video");
+/**
+ * `?firstrun`: a real first run. Only the demo connection, AI not set up, the setup not done,
+ * no notes, suggestions, audits or AI-app activity, and remembered tabs and preferences kept
+ * apart from the normal preview's and emptied on every load (see `setStorageNamespace`).
+ */
+const FIRSTRUN = new URLSearchParams(window.location.search).has("firstrun");
 
 const col = (name: string, data_type: string, primary_key = false) => ({
   name,
@@ -89,6 +96,14 @@ const settings: Settings = {
       hasKey: true,
       ready: true,
     }),
+    provider("sayql", "SayQL AI credits", {
+      api: "anthropic",
+      note: "Claude without an Anthropic account: prepaid credit from SayQL. Requests go through SayQL to Anthropic.",
+      keyPlaceholder: "sqlc_…",
+      defaultBaseUrl: "https://sayql.dev/api/ai",
+      typingModel: "claude-haiku-5-5",
+      expertModel: "claude-opus-5-5",
+    }),
     provider("openai", "OpenAI", { note: "GPT models with an OpenAI API key.", keyPlaceholder: "sk-…" }),
     provider("gemini", "Google Gemini", { note: "Gemini models with a Google AI Studio key.", keyPlaceholder: "AIza…" }),
     provider("ollama", "Ollama", {
@@ -107,12 +122,19 @@ const settings: Settings = {
 const boot: Bootstrap = {
   connections: [
     { id: "demo", name: "Demo store (SQLite)", kind: "sqlite", host: "", port: null, database: "", user: "", file: "/demo.sqlite", ssl: false, trustCert: false },
-    { id: "pg", name: "analytics@prod-replica", kind: "postgres", host: "db.internal", port: 5432, database: "analytics", user: "readonly", file: "", ssl: true, trustCert: false },
+    { id: "pg", name: "analytics@prod-replica", kind: "postgres", host: "db.internal", port: 5432, database: "analytics", user: "readonly", file: "", ssl: true, trustCert: false, production: true },
     { id: "my", name: "shop@localhost", kind: "mysql", host: "localhost", port: 3306, database: "shop", user: "root", file: "", ssl: false, trustCert: false },
     { id: "ms", name: "sales@azure", kind: "mssql", host: "contoso.database.windows.net", port: 1433, database: "sales", user: "reader", file: "", ssl: true, trustCert: false },
   ],
   settings,
 };
+
+if (FIRSTRUN) {
+  boot.connections = boot.connections.filter((c) => c.id === "demo");
+  settings.aiReady = false;
+  settings.onboarded = false;
+  settings.providers = settings.providers.map((p) => (p.id === "anthropic" ? { ...p, hasKey: false, ready: false } : p));
+}
 
 const names = ["Ava Smith", "Liam Patel", "Noah Garcia", "Emma Kim", "Olivia Nguyen", "Arjun Müller", "Priya Rossi", "Mateo Silva"];
 const result: QueryResult = {
@@ -321,7 +343,7 @@ const agentAccess = new Map<string, AgentAccess>(
   VIDEO ? [["demo", { enabled: true, results: "counts", apps: "counts", askBeforeSend: false, neverSend: [] }]] : [],
 );
 // Two saved notes on the demo store, which suggestions below correct and remove (outside the video).
-let notes: DbNote[] = VIDEO
+let notes: DbNote[] = VIDEO || FIRSTRUN
   ? []
   : [
       { id: "1f3a9c2e-5b7d-4e8f-9a01-2c3d4e5f6a7b", connectionId: "demo", database: null, updatedAt: Date.now() - 90 * 86_400_000,
@@ -330,9 +352,11 @@ let notes: DbNote[] = VIDEO
         text: "Use legacy_orders for orders before 2024" },
     ];
 // When AI apps last fetched the audit prompt (none in the video).
-const audits: AuditRun[] = VIDEO ? [] : [{ connectionId: "pg", database: "analytics", app: "Claude Code", at: Date.now() - 3 * 86_400_000 }];
+const audits: AuditRun[] = VIDEO || FIRSTRUN ? [] : [{ connectionId: "pg", database: "analytics", app: "Claude Code", at: Date.now() - 3 * 86_400_000 }];
 // Notes AI apps suggested over MCP, waiting in the navigator and Settings → AI apps.
-let suggestions: NoteSuggestion[] = VIDEO
+let suggestions: NoteSuggestion[] = FIRSTRUN
+  ? []
+  : VIDEO
   ? [
       { id: "sug-1", connectionId: "demo", database: null, app: "Claude Code", createdAt: Date.now() - 20_000,
         text: "Refunds are orders.status = 'refunded'; there is no refunds table",
@@ -363,7 +387,9 @@ const mcpBlocked = new Set<string>();
 const mcpApproved = new Set<string>();
 let mcpOnlyApproved = false;
 // The video's log matches its terminal scene: Claude Code gets a count, then is refused a private column.
-const mcpActivity = VIDEO
+const mcpActivity = FIRSTRUN
+  ? []
+  : VIDEO
   ? [
       { at: Date.now() - 30_000, app: "Claude Code", tool: "run_query", connectionId: "demo", connection: "Demo store (SQLite)", sql: "SELECT c.email FROM customers c JOIN orders o ON o.customer_id = c.id WHERE o.status = 'refunded'", status: "refused", detail: "never-send column email", maySee: "counts" },
       { at: Date.now() - 75_000, app: "Claude Code", tool: "run_query", connectionId: "demo", connection: "Demo store (SQLite)", sql: "SELECT COUNT(*) AS refunded, COUNT(DISTINCT customer_id) AS customers FROM orders WHERE status = 'refunded' AND ordered_at >= '2026-10-01'", status: "ok", rows: 1, maySee: "counts" },
@@ -530,6 +556,8 @@ async function mockAuditRun(runId: string, connectionId: string, database: strin
 }
 
 export function installMockBackend() {
+  // Before the app reads its remembered tabs: a first run remembers nothing.
+  if (FIRSTRUN) setStorageNamespace("sayql-firstrun:", true);
   mockIPC(
     async (cmd, args) => {
       const a = (args ?? {}) as Record<string, unknown>;
@@ -765,12 +793,15 @@ export function installMockBackend() {
           const providers = settings.providers.map((p) =>
             p.id === id ? { ...p, typingModel: a.typingModel as string, expertModel: a.expertModel as string, baseUrl: a.baseUrl as string, hasKey: p.hasKey || !!a.apiKey } : p,
           );
+          const chosen = providers.find((p) => p.id === id);
           Object.assign(settings, {
             provider: id,
             typingModel: a.typingModel,
             expertModel: (a.expertModel as string) || a.typingModel,
             workspaceId: a.workspaceId,
             providers,
+            // Like the backend: ready once the provider has what it needs (a key, unless it needs none).
+            aiReady: !!chosen && (chosen.key !== "required" || chosen.hasKey),
           });
           return { ...settings };
         }
