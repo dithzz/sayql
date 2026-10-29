@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { ArrowRight, Check, Database, HardDrive, MessageSquareText, Plug, ShieldCheck, Sparkles } from "lucide-react";
+import { ArrowRight, Bot, Check, Database, HardDrive, MessageSquareText, Plug, ShieldCheck, Sparkles, Wand2 } from "lucide-react";
 import { commands, type AiProvider, type Settings } from "../../api";
 import { Alert, BrandMark, Button, Dialog, Field, Select, TextInput } from "../../components/ui";
 import { cx } from "../../lib/cx";
@@ -9,8 +9,10 @@ import styles from "./OnboardingDialog.module.css";
 export type OnboardingStep = "welcome" | "ai" | "database" | "try";
 const STEPS: OnboardingStep[] = ["welcome", "ai", "database", "try"];
 
+/** SayQL AI credits (src-tauri/src/ai/providers.rs `SAYQL_CREDITS`): Claude through SayQL with a prepaid key. */
+const SAYQL_CREDITS = "sayql";
 /** Shown as cards; every other provider is in the "More providers" list. */
-const FEATURED = ["anthropic", "openai", "gemini", "ollama"];
+const FEATURED = ["anthropic", "openai", "gemini", "ollama", SAYQL_CREDITS];
 
 export interface OnboardingDialogProps {
   settings: Settings;
@@ -26,6 +28,10 @@ export interface OnboardingDialogProps {
   /** Opens a tab that asks `question` and runs the answer; ends the setup. */
   onTry: (question: string) => void;
   onOpenSettings: () => void;
+  /** Ends the setup and opens Settings → AI apps → Access, to connect Claude Code, Cursor or another app. */
+  onOpenAiApps: () => void;
+  /** Ends the setup and opens "Teach SayQL your database"; absent when there's no database to teach. */
+  onTeach?: () => void;
   /** Ends the setup (finished, skipped or closed). */
   onFinish: () => void;
 }
@@ -158,12 +164,13 @@ function ChooseAi(p: OnboardingDialogProps) {
             type="button"
             role="radio"
             aria-checked={x.id === provider.id}
-            className={cx(styles.card, x.id === provider.id && styles.cardOn)}
+            className={cx(styles.card, x.id === provider.id && styles.cardOn, x.id === SAYQL_CREDITS && styles.cardWide)}
             onClick={() => choose(x.id)}
           >
             <span className={styles.cardTitle}>
               {x.label}
               {x.id === "anthropic" && <span className={styles.tag}>Recommended</span>}
+              {x.id === SAYQL_CREDITS && <span className={styles.tag}>No Anthropic account</span>}
               {x.local && <span className={cx(styles.tag, styles.tagLocal)}>On this computer</span>}
             </span>
             <span className={styles.cardNote}>{x.note}</span>
@@ -176,16 +183,23 @@ function ChooseAi(p: OnboardingDialogProps) {
             id={id}
             value={FEATURED.includes(provider.id) ? "" : provider.id}
             onChange={(v) => v && choose(v)}
-            options={[{ value: "", label: "OpenRouter, Mistral, Groq, DeepSeek, LM Studio, other…" }, ...more.map((x) => ({ value: x.id, label: x.label }))]}
+            options={[
+              { value: "", label: more.length ? `${more.slice(0, 5).map((x) => x.label.replace(/ \(.*\)$/, "")).join(", ")}, other…` : "Other…" },
+              ...more.map((x) => ({ value: x.id, label: x.label })),
+            ]}
           />
         )}
       </Field>
 
       {provider.key !== "none" && (
         <Field
-          label={`${provider.label} API key`}
+          label={provider.id === SAYQL_CREDITS ? "Credit key" : `${provider.label} API key`}
           optional={provider.key === "optional"}
-          hint="Stored in your system keychain, never in a file."
+          hint={
+            provider.id === SAYQL_CREDITS
+              ? "A prepaid credit key from SayQL: ask hello@azenvoc.com. Stored in your system keychain, never in a file."
+              : "Stored in your system keychain, never in a file."
+          }
         >
           {(id) => (
             <TextInput
@@ -267,7 +281,7 @@ function ChooseDatabase(p: OnboardingDialogProps) {
           </span>
           <span>
             <b>Connect my own database</b>
-            <span>PostgreSQL, MySQL, SQLite, SQL Server or Azure SQL.</span>
+            <span>PostgreSQL, MySQL, SQLite or SQL Server (including Azure SQL).</span>
           </span>
           <ArrowRight size={16} className={styles.choiceArrow} />
         </button>
@@ -277,10 +291,43 @@ function ChooseDatabase(p: OnboardingDialogProps) {
           Back
         </Button>
         <Button variant="ghost" onClick={p.onFinish}>
-          Skip
+          Skip for now
         </Button>
       </Footer>
     </>
+  );
+}
+
+/**
+ * The end of the setup: AI agents (Claude Code, Cursor, …) can use SayQL too, under rules set
+ * per connection. Short, and every button is optional.
+ */
+function AgentsPanel(p: OnboardingDialogProps) {
+  return (
+    <section className={styles.agents} aria-labelledby="setup-agents">
+      <span className={styles.choiceIcon}>
+        <Bot size={16} />
+      </span>
+      <div>
+        <h3 id="setup-agents" className={styles.agentsTitle}>
+          Let AI agents in safely
+        </h3>
+        <p className={styles.agentsText}>
+          Connect Claude Code, Cursor or another AI app to SayQL, choose what they may see per connection (counts and
+          summaries by default, not your rows), and teach SayQL your database with an audit of your code.
+        </p>
+        <div className={styles.agentsActions}>
+          <Button size="sm" icon={Plug} onClick={p.onOpenAiApps}>
+            Connect an AI app
+          </Button>
+          {p.onTeach && (
+            <Button size="sm" variant="ghost" icon={Wand2} onClick={p.onTeach}>
+              Teach SayQL
+            </Button>
+          )}
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -290,6 +337,7 @@ function TryIt(p: OnboardingDialogProps) {
       <>
         <Alert tone="warning">AI is off, so SayQL can't write SQL yet. You can still browse tables and run your own SQL.</Alert>
         <p className={styles.intro}>Add an AI provider any time in Settings to turn plain English into SQL.</p>
+        <AgentsPanel {...p} />
         <Footer>
           <Button
             variant="ghost"
@@ -324,6 +372,7 @@ function TryIt(p: OnboardingDialogProps) {
         ))}
         {p.examples.length === 0 && <p className={styles.intro}>Type a question in the Ask box above the editor to get started.</p>}
       </div>
+      <AgentsPanel {...p} />
       <Footer>
         <Button variant="primary" onClick={p.onFinish}>
           I'll type my own

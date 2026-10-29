@@ -763,6 +763,18 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
           examples={exampleQuestions(schema, active?.id === "demo")}
           onTry={trySetupQuestion}
           onOpenSettings={() => openSettings()}
+          onOpenAiApps={() => {
+            finishSetup();
+            openSettings({ section: "mcp", aiAppsTab: "access" });
+          }}
+          onTeach={
+            active && !active.id.startsWith("team:")
+              ? () => {
+                  finishSetup();
+                  setDialog({ kind: "teach" });
+                }
+              : undefined
+          }
           onFinish={finishSetup}
         />
       )}

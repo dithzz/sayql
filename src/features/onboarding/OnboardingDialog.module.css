@@ -175,3 +175,34 @@
 .footer > :only-child {
   margin-right: 0;
 }
+
+/* SayQL AI credits: the fifth card takes the whole row. */
+.cardWide {
+  grid-column: 1 / -1;
+}
+
+/* "Let AI agents in safely", at the end of the setup. */
+.agents {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-lg);
+}
+.agentsTitle {
+  margin: 0 0 2px;
+  font-size: var(--font-size-md, inherit);
+  font-weight: var(--font-weight-semibold);
+}
+.agentsText {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+.agentsActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
