@@ -3,7 +3,7 @@ import { ArrowLeft, ArrowRight, Bot, Check, Database, HardDrive, MessageSquareTe
 import { commands, type AiProvider, type Settings } from "../../api";
 import { Alert, BrandMark, Button, Dialog, Field, Select, TextInput } from "../../components/ui";
 import { cx } from "../../lib/cx";
-import { ClaudePlanCheck } from "../settings/ClaudePlanCheck";
+import { ClaudePlanCheck } from "../settings";
 import { errorText } from "../../lib/errors";
 import styles from "./OnboardingDialog.module.css";
 

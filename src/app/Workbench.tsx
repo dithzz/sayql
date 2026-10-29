@@ -20,7 +20,7 @@ import { usePersistentState } from "../hooks/usePersistentState";
 import { ConnectionDialog, DATABASE_KINDS, ProdBadge, newConnection, targetKey, useConnections } from "../features/connections";
 import { DatabaseNavigator, type NavigatorScript } from "../features/navigator";
 import { CloseTabDialog, CloseTabsDialog, SaveScriptDialog, useScripts } from "../features/scripts";
-import { selectAllSql } from "../features/schema/sql";
+import { selectAllSql } from "../features/schema";
 import { SettingsPage, useSettings, type AiAppsTab, type SettingsSection } from "../features/settings";
 import { useSkills } from "../features/skills";
 import { hasUnsavedChanges, isPristine, useTabs, type EditorTab } from "../features/tabs";

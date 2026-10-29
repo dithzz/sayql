@@ -1,4 +1,4 @@
-import type { SettingsSection } from "../settings/SettingsPage";
+import type { SettingsSection } from "../settings/sections";
 
 /** SayQL's docs site; pages are built from docs-site/pages (their `slug`). */
 export const DOCS_URL = "https://sayql.dev/docs/";
