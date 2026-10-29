@@ -131,6 +131,29 @@
   color: var(--color-success);
 }
 
+/* The privacy indicator: what can reach an AI from the active connection. */
+.privacy {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 7px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  background: var(--color-success-soft);
+  color: var(--color-success);
+  font: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.privacy:hover {
+  border-color: currentColor;
+}
+.privacy-masked,
+.privacy-all {
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
+}
+
 /* The agent step in the SQL editor's toolbar while a run goes. */
 .agentLabel {
   max-width: 260px;

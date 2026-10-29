@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { AGENT_OPTIONS, APP_OPTIONS, LEVELS, NEVER_SEND_SCOPE, agentLevelShort, appLevelShort, withDefault } from "./resultLevels";
+import { AGENT_OPTIONS, APP_OPTIONS, LEVELS, NEVER_SEND_SCOPE, agentLevelShort, privacySummary, appLevelShort, withDefault } from "./resultLevels";
 import { describeAccess } from "./useAgentAccess";
 
 describe("one vocabulary for what the AI gets back", () => {
@@ -49,5 +49,26 @@ describe("one vocabulary for what the AI gets back", () => {
   it("says never-send covers Investigate and AI apps", () => {
     expect(NEVER_SEND_SCOPE).toMatch(/Investigate/);
     expect(NEVER_SEND_SCOPE).toMatch(/AI apps over MCP/);
+  });
+});
+
+describe("the status bar's privacy indicator", () => {
+  const base = { enabled: false, results: "off", apps: "counts", askBeforeSend: true, neverSend: [] as string[] } as const;
+
+  it("says the most that can reach an AI, from Investigate or AI apps", () => {
+    expect(privacySummary({ ...base, apps: "off" }, null).label).toBe("No rows to AI");
+    expect(privacySummary(base, null).label).toBe("Counts to AI");
+    expect(privacySummary({ ...base, enabled: true, results: "rows" }, null).label).toBe("Masked rows to AI");
+    // Investigate's setting counts only while it's on.
+    expect(privacySummary({ ...base, enabled: false, results: "rows", apps: "off" }, null).level).toBe("nothing");
+    expect(privacySummary({ ...base, apps: "all" }, null).label).toBe("All rows to AI apps");
+  });
+
+  it("has a line for the Ask box, Investigate, AI apps and never-send columns", () => {
+    const s = privacySummary({ ...base, enabled: true, results: "counts", neverSend: ["users.email"] }, { label: "Ollama", local: true });
+    expect(s.lines[0]).toMatch(/Ollama, on this computer\. No rows\./);
+    expect(s.lines[1]).toBe("Investigate: counts and summaries, to Ollama, on this computer.");
+    expect(s.lines[2]).toBe("AI apps over MCP: counts and summaries.");
+    expect(s.lines[3]).toMatch(/1 never-send column:/);
   });
 });

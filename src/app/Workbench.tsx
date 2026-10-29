@@ -127,6 +127,7 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
   const teachHere = !!active && !active.id.startsWith("team:") && !teachHidden && lastAudit(audits, active.id) === null;
   const agentAccessConnection = dialog?.kind === "agentAccess" ? dialog.connection.id : null;
   const dialogAccess = useAgentAccess(agentAccessConnection);
+  const currentProvider = settings.aiReady ? settings.providers.find((p) => p.id === settings.provider) : undefined;
 
   // SayQL Team: the team's shared connections, fetched only while signed in.
   const setTeam = (team: TeamAccount | null) => setSettings((s) => ({ ...s, team }));
@@ -566,6 +567,8 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
         aiReady={settings.aiReady}
         updates={updates}
         onFeedback={() => setDialog({ kind: "feedback" })}
+        provider={currentProvider ? { label: currentProvider.label, local: currentProvider.local } : null}
+        onPrivacy={() => active && setDialog({ kind: "agentAccess", connection: active })}
       />
 
       {dialog?.kind === "connection" && (
