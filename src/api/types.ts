@@ -255,7 +255,7 @@ export interface AuditRun {
   at: number;
 }
 
-/** A coding agent "Audit with…" knows; mirrors `commands::audit::AgentView`. */
+/** A coding agent "Run audit" knows; mirrors `commands::audit::AgentView`. */
 export interface AuditAgent {
   id: string;
   label: string;
@@ -274,7 +274,7 @@ export interface AuditAgent {
 /** The model an audit runs on; mirrors `audit_runner::AuditModel`. "default" is the person's own Claude Code default. */
 export type AuditModel = "sonnet" | "opus" | "default";
 
-/** Who pays for an audit run; mirrors `audit_runner::AuditPayment`. "credits" sends Claude Code's requests through SayQL AI credits. */
+/** Who pays for an audit run; mirrors `audit_runner::AuditPayment`. "credits" (paying with SayQL AI credits) is off for now: the app always runs on "subscription". */
 export type AuditPayment = "subscription" | "credits";
 
 /** The saved payment choice, and whether a SayQL credit key is saved; mirrors `commands::audit::AuditPaymentView`. */

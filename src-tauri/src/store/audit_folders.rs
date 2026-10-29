@@ -1,4 +1,4 @@
-//! The project folder an audit last ran in, per connection, so "Audit with…" opens on it
+//! The project folder an audit last ran in, per connection, so "Run audit" opens on it
 //! again, and the model the audit runs on. Only the path is kept; nothing is read from the
 //! folder here.
 
@@ -39,7 +39,7 @@ impl Store {
         self.write(FILE, &all)
     }
 
-    /// The model "Audit with Claude Code" runs on (Sonnet until the person picks another).
+    /// The model the audit run uses (Sonnet until the person picks another).
     pub fn audit_model(&self) -> AppResult<AuditModel> {
         Ok(self.read::<AuditPrefs>(PREFS)?.model)
     }
@@ -50,7 +50,8 @@ impl Store {
         self.write(PREFS, &prefs)
     }
 
-    /// Who pays for "Audit with Claude Code": the person's own sign-in until they pick credits.
+    /// Who pays for the audit run: the person's own sign-in unless they picked credits (a saved
+    /// choice that is ignored while `audit_runner::CREDITS_RUNS` is off).
     pub fn audit_payment(&self) -> AppResult<AuditPayment> {
         Ok(self.read::<AuditPrefs>(PREFS)?.payment)
     }

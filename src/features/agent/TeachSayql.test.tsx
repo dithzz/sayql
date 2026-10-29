@@ -41,11 +41,11 @@ afterEach(cleanup);
 
 const pick = (id: string) => fireEvent.change(screen.getByRole("combobox", { name: "Your coding agent" }), { target: { value: id } });
 
-it("defaults to Claude Code: the setup command, Audit with Claude Code and the slash command", async () => {
+it("defaults to Claude Code: the setup command, Run audit and the slash command", async () => {
   render(<TeachSayql target={target} />);
   expect(await screen.findByText("Connect Claude Code to SayQL.")).toBeTruthy();
   expect(await screen.findByText(`claude mcp add --scope user sayql -- ${PATH}`)).toBeTruthy();
-  expect(await screen.findByRole("button", { name: /Audit with Claude Code/ })).toBeTruthy();
+  expect(await screen.findByRole("button", { name: /^Run audit/ })).toBeTruthy();
   expect(screen.getByText("/mcp__sayql__audit Shop")).toBeTruthy();
   expect(screen.getByRole("button", { name: "Copy audit prompt" })).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "Copy the setup command" }));
@@ -74,7 +74,7 @@ it("Cursor: Open in Cursor, the config behind a disclosure, and the / menu", asy
   expect(screen.getByText(/"mcpServers"/)).toBeTruthy();
   expect(screen.getByText(/type \/ and pick SayQL's audit/)).toBeTruthy();
   // Only Claude Code is run by SayQL.
-  expect(screen.queryByRole("button", { name: /Audit with/ })).toBeNull();
+  expect(screen.queryByRole("button", { name: /^Run audit/ })).toBeNull();
   expect(screen.queryByText(/mcp__sayql__audit/)).toBeNull();
   expect(screen.getByRole("button", { name: "Copy audit prompt" })).toBeTruthy();
 });
@@ -94,7 +94,7 @@ it("Codex: no MCP prompts, so the audit prompt is pasted", async () => {
   expect(screen.getByText(/Copy the audit prompt and paste it into Codex/)).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "Copy audit prompt" }));
   await waitFor(() => expect(writeText).toHaveBeenCalledWith("Audit c1"));
-  expect(screen.queryByRole("button", { name: /Audit with/ })).toBeNull();
+  expect(screen.queryByRole("button", { name: /^Run audit/ })).toBeNull();
 });
 
 it("Other: the generic config to copy, and paste the prompt", async () => {

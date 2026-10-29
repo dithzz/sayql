@@ -56,7 +56,7 @@ type OpenDialog =
   | { kind: "noteSuggestions" }
   /** "Teach SayQL your database", from the navigator. */
   | { kind: "teach" }
-  /** "Audit with…", from "Teach SayQL your database". */
+  /** "Run audit", from "Teach SayQL your database". */
   | { kind: "audit" }
   /** From a sayql://team-join invite link. */
   | { kind: "teamSignIn"; server: string; code: string; key: string }
@@ -706,7 +706,6 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
           target={{ connectionId: active.id, name: active.name, database: target?.database ?? null }}
           onReview={() => setDialog({ kind: "noteSuggestions" })}
           onClose={() => setDialog(null)}
-          onOpenAiSettings={() => openSettings({ section: "ai" })}
         />
       )}
       {dialog?.kind === "deleteScript" && (

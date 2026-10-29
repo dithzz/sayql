@@ -1316,7 +1316,7 @@ mod tests {
     use super::*;
     use tokio_util::sync::CancellationToken;
 
-    /// "Audit with Claude Code" allows or denies every tool this server offers by name, so a
+    /// The audit run ("Run audit") allows or denies every tool this server offers by name, so a
     /// new tool can't slip into the run unlisted.
     #[test]
     fn the_audit_allows_or_denies_every_tool() {

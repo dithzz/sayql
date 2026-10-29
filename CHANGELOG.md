@@ -5,6 +5,17 @@ All notable changes to SayQL are listed here. Downloads are on the
 
 ## Unreleased
 
+### The audit: Run audit, on your own Claude Code sign-in
+
+- **"Audit with Claude Code" is now "Run audit"**, everywhere it appears (Teach SayQL this database, Settings → AI
+  apps → Access, the Suggestions tab), and its dialog is **Run an audit**. What it does hasn't changed: it runs your
+  installed Claude Code, read-only, in your project folder, and the dialog and tooltip say so.
+- **The audit runs on your own Claude Code sign-in; paying for it with SayQL AI credits is off for now.** The
+  **Pay with** choice is gone from the dialog. A saved credits choice from 0.4.7 now runs on your own sign-in (or
+  however your Claude Code is set up): SayQL gives Claude Code no API key, token or endpoint, and never reads your
+  Claude credentials. **Open in Terminal** is always available again. SayQL AI credits still work for the Ask box and
+  agent mode.
+
 ### Safer around production
 
 - **Nothing connects on its own.** Tabs you had open come back when SayQL starts, but they wait, dimmed, with

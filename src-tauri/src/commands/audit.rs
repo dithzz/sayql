@@ -1,4 +1,4 @@
-//! "Audit with…": finds the person's coding agents, runs one read-only in a project folder
+//! "Run audit": finds the person's coding agents, runs one read-only in a project folder
 //! with the audit instructions, streams its progress to the window as `audit://event`, and
 //! opens the same run in a terminal instead. See src/audit_runner.rs for what's enforced.
 
@@ -181,10 +181,10 @@ pub struct AuditPaymentView {
     has_credit_key: bool,
 }
 
-/// Credits are chosen only while a credit key is saved; without one the run uses the person's
-/// own sign-in, and the dialog shows that.
+/// Credits count only while paying with them is on ([`runner::CREDITS_RUNS`], off for now) and
+/// a credit key is saved; otherwise the run uses the person's own sign-in.
 fn effective(stored: AuditPayment, has_credit_key: bool) -> AuditPayment {
-    if has_credit_key {
+    if runner::CREDITS_RUNS && has_credit_key {
         stored
     } else {
         AuditPayment::Subscription
@@ -218,7 +218,11 @@ struct Credits {
 
 /// The credits a run uses: `None` when it's paid with the person's own sign-in.
 fn credits(state: &AppState) -> AppResult<Option<Credits>> {
-    if state.store.audit_payment().unwrap_or_default() != AuditPayment::Credits {
+    // Off for now (see `runner::CREDITS_RUNS`): a saved credits preference counts as the
+    // person's own sign-in, and nothing points Claude Code at the credits service.
+    if !runner::CREDITS_RUNS
+        || state.store.audit_payment().unwrap_or_default() != AuditPayment::Credits
+    {
         return Ok(None);
     }
     // No key saved any more: the person's own sign-in, as the dialog shows (see `effective`).
@@ -711,4 +715,23 @@ fn launch_terminal(
         .current_dir(&p.folder)
         .spawn()?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Paying with credits is off: a saved credits choice, even with a credit key, runs on the
+    /// person's own sign-in.
+    #[test]
+    fn a_saved_credits_choice_runs_on_the_persons_own_sign_in() {
+        assert_eq!(
+            effective(AuditPayment::Credits, true),
+            AuditPayment::Subscription
+        );
+        assert_eq!(
+            effective(AuditPayment::Credits, false),
+            AuditPayment::Subscription
+        );
+    }
 }

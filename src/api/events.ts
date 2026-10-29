@@ -60,7 +60,7 @@ export async function subscribeToVoice(handlers: VoiceEventHandlers): Promise<Un
 /** Must match EVENT in src-tauri/src/commands/audit.rs. */
 export const AUDIT_EVENT = "audit://event";
 
-/** Subscribes to "Audit with…" runs' progress; filter it by `runId`. */
+/** Subscribes to "Run audit" runs' progress; filter it by `runId`. */
 export function subscribeToAudit(handler: (e: AuditEvent) => void): Promise<UnlistenFn> {
   return listen<AuditEvent>(AUDIT_EVENT, (e) => handler(e.payload));
 }

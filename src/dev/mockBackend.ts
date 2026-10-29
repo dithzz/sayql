@@ -492,7 +492,7 @@ function installedCodingAgents(): string[] {
 }
 
 /**
- * "Audit with…": `?agents=none` finds no coding agent, `?agents=old` an outdated Claude Code;
+ * "Run audit": `?agents=none` finds no coding agent, `?agents=old` an outdated Claude Code;
  * otherwise Claude Code is ready and Codex is found but not offered.
  */
 const AGENTS = new URLSearchParams(window.location.search).get("agents");
@@ -512,7 +512,6 @@ function auditAgents(): AuditAgent[] {
 const auditFolders = new Map<string, string>([["pg", "/Users/you/code/analytics"]]);
 const auditStops = new Set<string>();
 let auditModel = "sonnet";
-let auditPayment = "subscription";
 // `?nocredits` in the mock's URL: no SayQL credit key saved.
 const mockCreditKey = typeof location === "undefined" || !location.search.includes("nocredits");
 
@@ -674,9 +673,9 @@ export function installMockBackend() {
           auditModel = a.model as string;
           return null;
         case "audit_payment":
-          return { payment: mockCreditKey ? auditPayment : "subscription", hasCreditKey: mockCreditKey };
+          // As the app: paying for the audit with credits is off, so it's always the person's own sign-in.
+          return { payment: "subscription", hasCreditKey: mockCreditKey };
         case "set_audit_payment":
-          auditPayment = a.payment as string;
           return null;
         case "cancel_audit":
           auditStops.add(a.runId as string);
