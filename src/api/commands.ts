@@ -3,6 +3,9 @@ import type {
   AgentAccess,
   AgentReply,
   AgentSettings,
+  AuditAgent,
+  AuditModel,
+  AuditRun,
   Bootstrap,
   DbNote,
   ConnectionConfig,
@@ -80,8 +83,11 @@ export const commands = {
   deleteNote: (id: string) => invoke<void>("delete_note", { id }),
   /** Notes AI apps suggested over MCP, on every connection, oldest first. */
   listNoteSuggestions: () => invoke<NoteSuggestion[]>("list_note_suggestions"),
-  /** Saves the suggestion as a note (the usual note checks apply) and removes it. */
-  acceptNoteSuggestion: (id: string) => invoke<DbNote>("accept_note_suggestion", { id }),
+  /**
+   * Applies the suggestion and removes it: saves it as a note (the usual note checks apply),
+   * replaces the note it corrects, or deletes the note it removes (then null).
+   */
+  acceptNoteSuggestion: (id: string) => invoke<DbNote | null>("accept_note_suggestion", { id }),
   dismissNoteSuggestion: (id: string) => invoke<void>("dismiss_note_suggestion", { id }),
   /** From the Ask box: switch to a ready provider and use `model` for typing (Quick) or agent mode. */
   chooseModel: (provider: string, model: string, purpose: "typing" | "agent") =>
@@ -110,6 +116,10 @@ export const commands = {
   teamAi: () => invoke<TeamAiStatus | null>("team_ai"),
 
   mcpSetup: () => invoke<McpSetup>("mcp_setup"),
+  /** Ids (from features/agent/agents.ts) of the coding agents that look installed; nothing is run to find them. */
+  installedCodingAgents: () => invoke<string[]>("installed_coding_agents"),
+  /** Opens Cursor's or VS Code's link that adds SayQL's MCP server (refuses any other link). */
+  openInstallLink: (url: string) => invoke<void>("open_install_link", { url }),
   mcpActivity: (limit?: number) => invoke<McpActivity[]>("mcp_activity", { limit }),
   mcpApps: () => invoke<McpApps>("mcp_apps"),
   setMcpAppBlocked: (name: string, blocked: boolean) => invoke<McpApps>("set_mcp_app_blocked", { name, blocked }),
@@ -117,6 +127,26 @@ export const commands = {
   /** Turning it on approves the apps already seen that aren't blocked. */
   setMcpOnlyApproved: (on: boolean) => invoke<McpApps>("set_mcp_only_approved", { on }),
   clearMcpActivity: () => invoke<void>("clear_mcp_activity"),
+  /** When an AI app last fetched the audit prompt, per connection and database. */
+  mcpAudits: () => invoke<AuditRun[]>("mcp_audits"),
+  /** The audit instructions for a connection, to paste into an AI app without MCP prompts. */
+  auditPrompt: (connectionId: string, database: string | null) => invoke<string>("audit_prompt", { id: connectionId, database }),
+  /** The coding agents SayQL knows, whether each is installed and can run an audit read-only. */
+  auditAgents: () => invoke<AuditAgent[]>("audit_agents"),
+  /** The project folder last used to audit this connection. */
+  auditFolder: (connectionId: string) => invoke<string | null>("audit_folder", { id: connectionId }),
+  /** Asks for the project folder and remembers it; null when the person cancels. */
+  chooseAuditFolder: (connectionId: string) => invoke<string | null>("choose_audit_folder", { id: connectionId }),
+  /** Runs the audit with `agent` in `folder`, read-only; progress comes as `audit://event`. */
+  startAudit: (runId: string, agent: string, connectionId: string, database: string | null, folder: string) =>
+    invoke<void>("start_audit", { runId, agent, id: connectionId, database, folder }),
+  cancelAudit: (runId: string) => invoke<void>("cancel_audit", { runId }),
+  /** The model audits run on (Sonnet until the person picks another). */
+  auditModel: () => invoke<AuditModel>("audit_model"),
+  setAuditModel: (model: AuditModel) => invoke<void>("set_audit_model", { model }),
+  /** Opens the system terminal in `folder` running the same read-only audit interactively. */
+  openAuditInTerminal: (agent: string, connectionId: string, database: string | null, folder: string) =>
+    invoke<void>("open_audit_in_terminal", { agent, id: connectionId, database, folder }),
   /** Handoffs from AI apps waiting to be shown (see the `handoff://new` event). */
   takeHandoffs: () => invoke<Handoff[]>("take_handoffs"),
 

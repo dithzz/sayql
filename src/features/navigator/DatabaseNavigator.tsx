@@ -71,6 +71,10 @@ export interface DatabaseNavigatorProps {
   suggestedNotes?: number;
   /** Opens the suggested notes to accept or dismiss. */
   onReviewSuggestions?: () => void;
+  /** Opens "Teach SayQL your database"; set while it should show under the open database. */
+  onTeach?: () => void;
+  /** Hides "Teach SayQL your database" for good. */
+  onHideTeach?: () => void;
   /** Agent mode's settings for a connection: what it may send to the AI. */
   onAgentSettings: (c: ConnectionConfig) => void;
   /** Opens "Sign in to your team"; set only while not signed in to a team. */
@@ -333,6 +337,16 @@ export function DatabaseNavigator(p: DatabaseNavigatorProps) {
                 />
               ))}
           </div>
+        )}
+        {p.onTeach && (
+          <TreeRow
+            depth={depth}
+            icon={<Wand2 size={14} className={styles.suggested} />}
+            label={<span className={styles.suggested}>Teach SayQL this database</span>}
+            title="Let Claude Code or Cursor read your code and suggest notes: which tables are retired, what a status means."
+            actions={p.onHideTeach && <IconButton icon={X} label="Don't show again" size="sm" onClick={p.onHideTeach} />}
+            onClick={p.onTeach}
+          />
         )}
         {tables.length + views.length === 0 && (
           <TreeRow depth={depth} label={<span className={styles.message}>{query ? "No matches" : "No tables"}</span>} />

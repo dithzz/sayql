@@ -32,7 +32,7 @@ export function useNoteSuggestions() {
     };
   }, [load]);
   const changed = () => window.dispatchEvent(new Event(SUGGESTIONS_CHANGED));
-  const accept = async (id: string): Promise<DbNote> => {
+  const accept = async (id: string): Promise<DbNote | null> => {
     const note = await commands.acceptNoteSuggestion(id);
     changed();
     return note;

@@ -3,6 +3,7 @@
 
 pub mod agent;
 pub mod app;
+pub mod audit;
 pub mod connections;
 pub mod generation;
 pub mod handoff;

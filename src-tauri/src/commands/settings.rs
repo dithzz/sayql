@@ -1,9 +1,11 @@
 use crate::ai::endpoint::{address, endpoint, valid_workspace_id};
 use crate::ai::{self, Api, KeyNeed};
+use crate::audit;
 use crate::error::{AppError, AppResult};
 use crate::state::AppState;
 use crate::store::agent::AgentSettings;
 use crate::store::apps::{Activity, AppList};
+use crate::store::audits::AuditRun;
 use crate::store::{ProviderSettings, Settings, secrets};
 use serde::Serialize;
 use tauri::State;
@@ -326,23 +328,72 @@ pub struct McpSetup {
     /// True when running from an AppImage, which mounts at a new path on every launch,
     /// so a path given to an MCP app would stop working after a restart.
     appimage: bool,
+    /// "macos", "windows" or "linux": which config paths and shell quoting the setup shows.
+    os: &'static str,
 }
 
-/// The MCP server ships next to the app's own executable (release builds bundle it).
-#[tauri::command]
-pub fn mcp_setup() -> AppResult<McpSetup> {
+/// Where the `sayql-mcp` binary is: next to the app's own executable.
+pub(crate) fn mcp_binary() -> AppResult<std::path::PathBuf> {
     let exe = std::env::current_exe()?;
     let name = if cfg!(windows) {
         "sayql-mcp.exe"
     } else {
         "sayql-mcp"
     };
-    let path = exe.with_file_name(name);
+    Ok(exe.with_file_name(name))
+}
+
+/// The MCP server ships next to the app's own executable (release builds bundle it).
+#[tauri::command]
+pub fn mcp_setup() -> AppResult<McpSetup> {
+    let path = mcp_binary()?;
     Ok(McpSetup {
         exists: path.exists(),
         path: path.to_string_lossy().into_owned(),
         appimage: std::env::var_os("APPIMAGE").is_some(),
+        os: std::env::consts::OS,
     })
+}
+
+/// The coding agents that look installed (ids from src/features/agent/agents.ts), to preselect
+/// one in the setup. Only checks for files; runs nothing.
+#[tauri::command]
+pub async fn installed_coding_agents() -> AppResult<Vec<&'static str>> {
+    tauri::async_runtime::spawn_blocking(crate::coding_agents::installed)
+        .await
+        .map_err(|e| AppError::User(format!("Could not look for coding agents: {e}")))
+}
+
+/// The install links SayQL may open: Cursor's and VS Code's own "add an MCP server" links.
+const INSTALL_LINKS: [&str; 2] = [
+    "cursor://anysphere.cursor-deeplink/mcp/install?",
+    "vscode:mcp/install?",
+];
+
+/// Whether `url` is one of the install links, with only URL-encoded text after it.
+pub(crate) fn install_link_ok(url: &str) -> bool {
+    INSTALL_LINKS.iter().any(|p| {
+        url.strip_prefix(p).is_some_and(|rest| {
+            !rest.is_empty()
+                && rest
+                    .chars()
+                    .all(|c| c.is_ascii_alphanumeric() || "%-_.~=&".contains(c))
+        })
+    })
+}
+
+/// Opens Cursor's or VS Code's link that adds SayQL's MCP server; the app asks before adding it.
+#[tauri::command]
+pub fn open_install_link(app: tauri::AppHandle, url: String) -> AppResult<()> {
+    use tauri_plugin_opener::OpenerExt;
+    if !install_link_ok(&url) {
+        return Err(AppError::User(
+            "SayQL only opens Cursor's and VS Code's MCP install links.".into(),
+        ));
+    }
+    app.opener()
+        .open_url(url, None::<&str>)
+        .map_err(|e| AppError::User(format!("Could not open the link: {e}")))
 }
 
 /// The newest entries in the activity log of AI apps using SayQL over MCP.
@@ -395,9 +446,55 @@ pub fn clear_mcp_activity(state: State<'_, AppState>) -> AppResult<()> {
     state.store.clear_app_activity()
 }
 
+/// When an AI app last fetched the audit prompt, per connection and database.
+#[tauri::command]
+pub fn mcp_audits(state: State<'_, AppState>) -> AppResult<Vec<AuditRun>> {
+    state.store.audits()
+}
+
+/// The audit instructions for one saved connection, to paste into an AI app that can't fetch
+/// MCP prompts. The same text as the `audit` prompt, plus which tools to use.
+#[tauri::command]
+pub fn audit_prompt(
+    state: State<'_, AppState>,
+    id: String,
+    database: Option<String>,
+) -> AppResult<String> {
+    let conn = state.store.connection(&id)?;
+    let database = audit::target_database(&state.store, &conn, database.as_deref());
+    Ok(audit::instructions(
+        Some(&audit::Target {
+            connection_id: &conn.id,
+            name: &conn.name,
+            database: database.as_deref(),
+        }),
+        true,
+    ))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn only_cursor_and_vscode_install_links_open() {
+        assert!(install_link_ok(
+            "cursor://anysphere.cursor-deeplink/mcp/install?name=sayql&config=eyJjb21tYW5kIjoiL0EifQ%3D%3D"
+        ));
+        assert!(install_link_ok(
+            "vscode:mcp/install?%7B%22name%22%3A%22sayql%22%7D"
+        ));
+        assert!(!install_link_ok("vscode:mcp/install?"));
+        assert!(!install_link_ok(
+            "https://example.com/?vscode:mcp/install?x"
+        ));
+        assert!(!install_link_ok("vscode:extension/evil"));
+        assert!(!install_link_ok("vscode:mcp/install?{\"name\":\"x\"}"));
+        assert!(!install_link_ok(
+            "cursor://anysphere.cursor-deeplink/mcp/install?a b"
+        ));
+        assert!(!install_link_ok("file:///etc/passwd"));
+    }
 
     #[test]
     fn the_ask_box_switches_only_to_providers_that_are_ready() {

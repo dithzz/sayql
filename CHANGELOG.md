@@ -3,6 +3,72 @@
 All notable changes to SayQL are listed here. Downloads are on the
 [releases page](https://github.com/dithzz/sayql-releases/releases).
 
+## Unreleased
+
+### Connect your coding agent, whichever it is
+
+- **Pick your coding agent.** **Teach SayQL this database** and **Settings → AI apps → Access → Connect an app**
+  now ask for **Your coding agent**: Claude Code, Cursor, VS Code (GitHub Copilot), Codex CLI, Gemini CLI, GitHub
+  Copilot CLI, opencode, Windsurf / Devin Desktop, Zed, Cline, Roo Code, Continue, Amp, JetBrains AI Assistant,
+  Claude Desktop, or any other MCP app. Each shows its own setup with the path to `sayql-mcp` filled in and quoted
+  for your shell: the command to run, **Open in Cursor** or **Open in VS Code** (their own install links, which ask
+  before adding SayQL), or the config to copy and the file it goes in.
+- **The right way to run the audit in it.** Claude Code keeps **Audit with Claude Code** and `/mcp__sayql__audit`.
+  VS Code shows `/mcp.sayql.audit`, opencode `/sayql:audit` and Gemini CLI `/audit`; Cursor and Continue say to
+  pick SayQL's audit from the `/` menu. Agents without documented MCP prompts get **Copy audit prompt** to paste
+  into their chat. Only Claude Code is started by SayQL, since it's the only one SayQL can keep read-only.
+- **A sensible first pick.** SayQL starts with the agent you picked last time, else the installed agent that last
+  connected over MCP, else one it finds installed (it checks for the app or command, and runs nothing), else the app
+  that last connected, else Claude Code. Step 1 says when the agent you picked is the one connected.
+
+### Fixes from a real "Audit with Claude Code" run
+
+- **Suggested notes can hold codes and file names again.** The check for values from rows refused schema facts
+  the audit asks for: `1=Pending, 2=Paid`, `status IN (2,3)`, `divide by 100` and
+  `migrations/2026_03_01_merge_orders_legacy.sql`. Small numbers and enum codes, capitalised enum and status
+  words, SQL, file paths with dates or digits in them, short commit hashes, dates and units now pass. Still
+  refused: emails, phone, card, ID and account (IBAN) numbers, IP addresses, UUIDs and other long ids or keys,
+  standalone numbers of six or more digits or with thousands separators, money amounts with a currency symbol,
+  and people's names (two capitalised words in prose that aren't enum, schema or product words, or a common first
+  name and a surname). The same check now covers notes you write, agent mode's suggestions and `suggest_note`,
+  and the refusal says what's fine and what isn't.
+- **The audit runs on Sonnet by default.** **Model** in the audit dialog picks Sonnet (the default, cheaper),
+  Opus or your Claude Code default, and is remembered. It still uses your own Claude plan.
+- **The run panel shows a suggestion once SayQL has taken it.** A refused one shows only as refused, with the
+  start of its text, instead of first as suggested.
+- **The audit's closing summary is formatted:** headings, lists, bold and code show as such.
+- `list_scripts` is denied to the audit run by name, like the other tools it doesn't need, and a test checks
+  that every SayQL tool is either allowed or denied.
+- The PATH SayQL gives Claude Code lists each folder once.
+
+### Audit: teach SayQL your database
+
+- **The `audit` prompt.** SayQL's MCP server now offers a prompt, `audit` (`/mcp__sayql__audit` in Claude Code,
+  with the connection's name or id and optionally a database). Run in your project, it has the coding agent read
+  the schema, its usage figures and the saved notes, search your code for where each table and column is used,
+  and suggest notes with evidence: retired tables, what status codes and flags mean, relationships that aren't
+  foreign keys, units and time zones. It keeps to the 10 to 20 most useful notes and needs no rows. Fetching it
+  is blocked and approved like the tools, and logged.
+- **Fixing outdated notes.** `describe_schema` now lists saved notes with a short id (`[n_1a2b3c4d]`), and
+  `suggest_note` takes `replaces` (the note it corrects) and `remove: true` (to delete it; the text says why).
+  Suggestions show **Replaces:** or **Remove note:** with the old text, and **Replace note** or **Remove note**
+  applies them. **Dismiss** leaves the note as it is.
+- **Last audit.** **Settings → AI apps → Access** shows when an app last fetched the audit prompt for each
+  connection, says **Run an audit** when it's never been run or not in 30 days, and has **Copy prompt** for apps
+  without MCP prompts.
+- **Audit with Claude Code.** One button runs the audit for you: SayQL starts Claude Code in the project folder
+  you choose (remembered per connection), read-only, with the audit for that connection, shows its progress as it
+  reads and searches, and ends with how many notes it suggested and **Review suggestions**. Read-only is enforced
+  with Claude Code's own options: only file read, search and list tools, no shell commands, edits or web, and
+  only SayQL's MCP server, given to that run without changing your Claude Code setup. It uses your own Claude Code
+  sign-in and subscription (2.1.259 or later); **Cancel** stops it, and **Open in Terminal** runs the same thing in
+  your terminal. It's in **Teach SayQL this database**, next to **Copy prompt** in **Settings → AI apps → Access**
+  and on the empty **Suggestions** tab. Codex, Gemini and Cursor CLIs aren't offered: SayQL can't keep them
+  read-only from the command line yet, so use **Copy audit prompt** with them.
+- **Teach SayQL this database.** Until a connection has been audited, the navigator offers the three steps
+  (connect an app, run the audit, approve the notes) with the command for that connection; it can be hidden for
+  good. The same steps show on the **Suggestions** tab while none are waiting.
+
 ## 0.4.5 (2026-10-28)
 
 ### Security: AI apps (MCP) and agent mode

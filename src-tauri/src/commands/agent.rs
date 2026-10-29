@@ -276,9 +276,10 @@ pub fn list_note_suggestions(state: State<'_, AppState>) -> AppResult<Vec<NoteSu
     state.store.note_suggestions()
 }
 
-/// Saves a suggested note as an ordinary note.
+/// Applies a suggested note: saves it as an ordinary note, replaces the note it corrects, or
+/// deletes the note it removes (then `None`).
 #[tauri::command]
-pub fn accept_note_suggestion(state: State<'_, AppState>, id: String) -> AppResult<Note> {
+pub fn accept_note_suggestion(state: State<'_, AppState>, id: String) -> AppResult<Option<Note>> {
     state.store.accept_note_suggestion(&id)
 }
 

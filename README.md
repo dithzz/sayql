@@ -233,14 +233,30 @@ live table from an abandoned one: counts and dates only, never row values. SQLit
 
 With `suggest_note`, an AI app can suggest a note (a schema-level fact, never row values) along with the
 evidence it checked. It is saved only when you **Accept** it, under **Notes → Suggested by AI apps** in the
-navigator or in **Settings → AI apps → Suggestions**; **Dismiss** drops it. Columns you marked **never send** in a connection's agent settings stay private over MCP too: queries
+navigator or in **Settings → AI apps → Suggestions**; **Dismiss** drops it. `describe_schema` lists the saved
+notes with short ids (`[n_1a2b3c4d]`), so an app can also suggest replacing a note that looks out of date
+(`replaces`) or removing it (`remove: true`); accepting one changes or deletes that note.
+
+**Audit: teach SayQL your database.** In your project, type `/mcp__sayql__audit` in Claude Code (add the
+connection's name or id when you have more than one), `/mcp.sayql.audit` in VS Code's Copilot Chat, `/sayql:audit`
+in opencode or `/audit` in Gemini CLI; in Cursor and Continue, type `/` and pick SayQL's audit. The `audit` prompt has the agent read the schema, its usage
+figures and the saved notes, check them against your code, and suggest notes: retired tables, what status codes
+and flags mean, relationships without foreign keys, units and time zones, and fixes to notes that look outdated,
+each with its evidence. It needs no rows. For apps without MCP prompts, **Copy prompt** on a connection in
+**Settings → AI apps → Access** copies the same instructions. The **Last audit** column there shows when each
+connection was last audited and nudges you to run it again after 30 days: code moves on and notes go stale.
+
+Columns you marked **never send** in a connection's agent settings stay private over MCP too: queries
 naming them are refused and their values are withheld. The AI app writes the SQL itself, so MCP never uses
 your SayQL AI key; SQL it opens in SayQL isn't fixed automatically by SayQL's AI either.
 
 Passwords and writes never go through MCP.
 
-`sayql-mcp` ships inside the app: **Settings → AI apps → Access → Connect an app** shows the path and the setup
-for each AI app. The **Activity** tab shows what each app ran (the SQL and row counts, never rows).
+`sayql-mcp` ships inside the app: **Settings → AI apps → Access → Connect an app** asks for your coding agent and
+shows its exact setup, with the path filled in: a command for Claude Code, Codex CLI, Gemini CLI, GitHub Copilot
+CLI and Amp; an install link for Cursor and VS Code; and the config file for Claude Desktop, Windsurf / Devin
+Desktop, opencode, Zed, Cline, Roo Code, Continue, JetBrains AI Assistant and any other MCP app. The
+[MCP docs](https://sayql.dev/docs/mcp/#connect-your-coding-agent) have the table. The **Activity** tab shows what each app ran (the SQL and row counts, never rows).
 
 > **Note:** on Linux, use the `.deb` or `.rpm` for MCP: the AppImage opens from a new folder each time, so the
 > path would change.

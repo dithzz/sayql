@@ -5,6 +5,8 @@ import type { AgentAccess, McpApp, NoteSuggestion } from "../../api";
 import type { NoteSuggestionsApi } from "../agent";
 import { ClaudeIntegration } from "./ClaudeIntegration";
 
+const PATH = "/Applications/SayQL.app/Contents/MacOS/sayql-mcp";
+let setupFails = false;
 let apps: McpApp[] = [];
 let onlyApproved = false;
 const list = () => Promise.resolve({ onlyApproved, apps });
@@ -25,15 +27,20 @@ const access: AgentAccess = { enabled: false, results: "off", apps: "counts", as
 vi.mock("../../api", async (orig) => ({
   ...(await orig<typeof import("../../api")>()),
   commands: {
-    mcpSetup: () => Promise.resolve({ path: "/Applications/SayQL.app/Contents/MacOS/sayql-mcp", exists: true, appimage: false }),
+    mcpSetup: () => (setupFails ? Promise.reject("no path") : Promise.resolve({ path: PATH, exists: true, appimage: false, os: "macos" })),
+    installedCodingAgents: () => Promise.resolve([]),
     mcpApps: () => list(),
     setMcpAppBlocked: (n: string, b: boolean) => setMcpAppBlocked(n, b),
     approveMcpApp: (n: string) => approveMcpApp(n),
     setMcpOnlyApproved: (on: boolean) => setMcpOnlyApproved(on),
     mcpActivity: () => Promise.resolve([]),
     agentAccess: () => Promise.resolve(access),
+    mcpAudits: () => Promise.resolve(audits),
+    auditPrompt: (id: string, database: string | null) => auditPrompt(id, database),
   },
 }));
+let audits: { connectionId: string; database: string | null; app: string; at: number }[] = [];
+const auditPrompt = vi.fn((id: string, _database: string | null) => Promise.resolve(`Audit ${id}`));
 
 const suggestion: NoteSuggestion = { id: "s1", connectionId: "c1", database: null, text: "status 3 = cancelled", evidence: "enum in api/", app: "Cursor", createdAt: 1 };
 const api = (suggestions: NoteSuggestion[]): NoteSuggestionsApi => ({
@@ -46,7 +53,10 @@ const connections = [{ id: "c1", name: "Shop", kind: "sqlite" } as never];
 const provider = { label: "Anthropic", local: false };
 
 beforeEach(() => {
+  setupFails = false;
+  localStorage.clear();
   apps = [];
+  audits = [];
   onlyApproved = false;
   setMcpAppBlocked.mockClear();
   approveMcpApp.mockClear();
@@ -90,7 +100,8 @@ it("shows the setup open when no app has connected, closed once one has", async 
   const { unmount } = render(<ClaudeIntegration connections={connections} provider={provider} suggestions={api([])} />);
   const toggle = await screen.findByRole("button", { name: "Connect an app" });
   await waitFor(() => expect(toggle.getAttribute("aria-expanded")).toBe("true"));
-  expect(screen.getByText(/claude mcp add --scope user sayql/)).toBeTruthy();
+  // Nothing installed or connected: Claude Code.
+  expect(await screen.findByText(`claude mcp add --scope user sayql -- ${PATH}`)).toBeTruthy();
   unmount();
 
   apps = [{ name: "Cursor", blocked: false, approved: false, queries: 4, lastUsed: 1 }];
@@ -98,9 +109,24 @@ it("shows the setup open when no app has connected, closed once one has", async 
   expect(await screen.findByText(/4 requests in the log/)).toBeTruthy();
   const closed = await screen.findByRole("button", { name: "Connect an app" });
   expect(closed.getAttribute("aria-expanded")).toBe("false");
-  expect(screen.queryByText(/claude mcp add/)).toBeNull();
+  expect(screen.queryByRole("combobox", { name: "Your coding agent" })).toBeNull();
   fireEvent.click(closed);
-  expect(screen.getByText(/claude mcp add --scope user sayql/)).toBeTruthy();
+  // The app that connected is picked: Cursor's link and its config file.
+  expect(await screen.findByRole("button", { name: "Open in Cursor" })).toBeTruthy();
+  expect(screen.getByText(/Add to ~\/\.cursor\/mcp\.json/)).toBeTruthy();
+});
+
+it("shows the setup for the agent picked, Claude Desktop included", async () => {
+  render(<ClaudeIntegration connections={connections} provider={provider} suggestions={api([])} />);
+  const picker = await screen.findByRole("combobox", { name: "Your coding agent" });
+  fireEvent.change(picker, { target: { value: "claude-desktop" } });
+  expect(await screen.findByText(/Add to ~\/Library\/Application Support\/Claude\/claude_desktop_config\.json/)).toBeTruthy();
+  expect(JSON.parse(screen.getByText(/"mcpServers"/).textContent!)).toEqual({ mcpServers: { sayql: { command: PATH, args: [] } } });
+  expect(screen.getByText(/Quit Claude Desktop fully/)).toBeTruthy();
+
+  fireEvent.change(picker, { target: { value: "codex" } });
+  expect(screen.getByText(`codex mcp add sayql -- ${PATH}`)).toBeTruthy();
+  expect(screen.getByText(/\[mcp_servers\.sayql\]/)).toBeTruthy();
 });
 
 it("blocks and allows an app", async () => {
@@ -148,4 +174,45 @@ it("shows an unapproved app as waiting, with Approve and Block", async () => {
   expect(await screen.findByText("Allowed")).toBeTruthy();
   expect(screen.queryByText("Waiting for approval")).toBeNull();
   expect(screen.queryByRole("button", { name: "Approve Windsurf" })).toBeNull();
+});
+
+it("shows when each connection was last audited, nudges, and copies the audit prompt", async () => {
+  const writeText = vi.fn(() => Promise.resolve());
+  Object.assign(navigator, { clipboard: { writeText } });
+  const two = [...connections, { id: "c2", name: "Warehouse", kind: "postgres" } as never];
+  audits = [{ connectionId: "c2", database: "sales", app: "Cursor", at: Date.now() - 3 * 86_400_000 }];
+  render(<ClaudeIntegration connections={two} provider={provider} suggestions={api([])} tab="access" />);
+  expect(await screen.findByRole("columnheader", { name: "Last audit" })).toBeTruthy();
+  expect(await screen.findByText("3 days ago")).toBeTruthy();
+  expect(screen.getByText("Never")).toBeTruthy();
+  // Only the connection never audited is nudged.
+  expect(screen.getAllByText("Run an audit")).toHaveLength(1);
+
+  fireEvent.click(screen.getByRole("button", { name: "Copy the audit prompt for Shop" }));
+  await waitFor(() => expect(writeText).toHaveBeenCalledWith("Audit c1"));
+  expect(auditPrompt).toHaveBeenCalledWith("c1", null);
+  expect(await screen.findByText("Copied")).toBeTruthy();
+});
+
+it("teaches the audit when no suggestions wait, with step 1 done once an app connected", async () => {
+  const { unmount } = render(<ClaudeIntegration connections={connections} provider={provider} suggestions={api([])} tab="suggestions" />);
+  expect(screen.getByText("Teach SayQL your database")).toBeTruthy();
+  expect(await screen.findByText("Connect Claude Code to SayQL.")).toBeTruthy();
+  expect(await screen.findByText(`claude mcp add --scope user sayql -- ${PATH}`)).toBeTruthy();
+  unmount();
+
+  apps = [{ name: "Claude Code", blocked: false, approved: false, queries: 2, lastUsed: 5 }];
+  render(<ClaudeIntegration connections={connections} provider={provider} suggestions={api([])} tab="suggestions" />);
+  expect(await screen.findByText("Claude Code is connected.")).toBeTruthy();
+  expect(screen.queryByText(/claude mcp add/)).toBeNull();
+  fireEvent.click(screen.getByRole("tab", { name: "Access" }));
+});
+
+it("links to the setup in Settings when the server's path is unknown", async () => {
+  setupFails = true;
+  render(<ClaudeIntegration connections={connections} provider={provider} suggestions={api([])} tab="suggestions" />);
+  // "Set it up" goes to the Access tab, where the setup is.
+  fireEvent.click(await screen.findByRole("button", { name: "Set it up" }));
+  expect(screen.getByRole("tab", { name: "Access" }).getAttribute("aria-selected")).toBe("true");
+  expect(await screen.findByText(/Couldn't find the MCP server's path/)).toBeTruthy();
 });

@@ -6,6 +6,7 @@
 //! they run. `export_csv` writes a read-only query's rows to a new file in Downloads.
 
 use crate::ai::agent::mask::Masker;
+use crate::audit;
 use crate::db::{self, Kind, QueryResult};
 use crate::handoff::{self, Action, Handoff, ScriptRef};
 use crate::never_send::{self, Guard};
@@ -16,10 +17,15 @@ use crate::schema::Schema;
 use crate::state::{AppState, Target};
 use crate::store::agent::{AgentAccess, AppResults};
 use crate::store::apps::{Activity, AppGate, NOT_APPROVED, UNKNOWN_APP};
+use crate::store::suggestions::Change;
 use rmcp::handler::server::{router::tool::ToolRouter, wrapper::Parameters};
-use rmcp::model::{Implementation, ServerCapabilities, ServerConfig};
+use rmcp::model::{
+    GetPromptRequestParams, GetPromptResponse, GetPromptResult, Implementation, ListPromptsResult,
+    PaginatedRequestParams, Prompt, PromptArgument, PromptMessage, Role, ServerCapabilities,
+    ServerConfig,
+};
 use rmcp::service::RequestContext;
-use rmcp::{RoleServer, ServerHandler, ServiceExt, tool, tool_handler, tool_router};
+use rmcp::{ErrorData, RoleServer, ServerHandler, ServiceExt, tool, tool_handler, tool_router};
 use schemars::JsonSchema;
 use serde::Deserialize;
 use serde_json::{Map, Value, json};
@@ -53,7 +59,9 @@ trust them. It also shows each table's usage from the database's own statistics 
 and the period they cover), so you can tell a live table from an abandoned one. When you learn a lasting \
 schema-level fact (a table is unused and replaced, what a status code means, how two tables relate), call \
 suggest_note with the note and your evidence: notes describe the database, never row values or personal data, \
-and a suggestion only becomes a note when the user accepts it in SayQL. Some columns are marked never to send to AI \
+and a suggestion only becomes a note when the user accepts it in SayQL. To correct a saved note (describe_schema shows \
+each with an id such as [n_1a2b3c4d]), pass its id as `replaces`; add `remove: true` to suggest deleting it. The `audit` \
+prompt walks through checking a database against the code in the user's project. Some columns are marked never to send to AI \
 (describe_schema shows them as [never sent to AI]): a query that could read them in any form (named, in WHERE or COUNT, \
 a whole row such as row_to_json(t) or t::text, * inside a subquery, a column alias list) is refused, so name the \
 columns you need and leave those out; SELECT * returns them withheld. \
@@ -109,6 +117,13 @@ struct SuggestNoteParams {
     /// Why it's true, at most 600 characters: what you checked, e.g. "no references in api/ since
     /// commit a1b2c3 (2026-03-12); describe_schema usage: 0 writes since 2026-01-01".
     evidence: String,
+    /// To correct a saved note that's wrong or outdated: its id from describe_schema's notes,
+    /// e.g. "n_1a2b3c4d". `text` is then the corrected note.
+    #[serde(default)]
+    replaces: Option<String>,
+    /// With `replaces`: suggest deleting that note because it no longer applies; `text` says why.
+    #[serde(default)]
+    remove: Option<bool>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -248,8 +263,10 @@ impl SayqlServer {
         description = "Suggest a note about a database for the user to approve: a lasting schema-level fact that \
                           helps later questions (a table is unused and replaced, what a code means, how tables \
                           relate), with the evidence you checked. Never row values or personal data: notes \
-                          that look like values are refused. It waits in SayQL until the user accepts it; \
-                          accepted notes appear in describe_schema for every later session and AI app."
+                          that look like values are refused. To correct a saved note, pass its id from \
+                          describe_schema as `replaces`; add `remove: true` to suggest deleting it (`text` says \
+                          why). It waits in SayQL until the user accepts it; accepted notes appear in \
+                          describe_schema for every later session and AI app."
     )]
     async fn suggest_note(
         &self,
@@ -793,7 +810,8 @@ impl SayqlServer {
     }
 
     async fn describe(&self, p: SchemaParams) -> Result<String, String> {
-        let notes = self.state.store.notes_text(
+        // With their short ids, so an app can suggest replacing or removing one.
+        let notes = self.state.store.notes_text_with_refs(
             &p.connection_id,
             self.notes_database(&p.connection_id, p.database.as_deref())
                 .as_deref(),
@@ -813,16 +831,7 @@ impl SayqlServer {
     /// The database notes are kept under: the one named, else the connection's default, as the
     /// app saves them (its tabs name the default database), so both see the same notes.
     fn notes_database(&self, connection_id: &str, database: Option<&str>) -> Option<String> {
-        match database.map(str::trim).filter(|d| !d.is_empty()) {
-            Some(d) => Some(d.to_string()),
-            None => self
-                .state
-                .store
-                .connection(connection_id)
-                .ok()
-                .map(|c| c.database.trim().to_string())
-                .filter(|d| !d.is_empty()),
-        }
+        audit::notes_database(&self.state.store, connection_id, database)
     }
 
     /// Stores a suggested note for the user to accept or dismiss, and logs it.
@@ -848,21 +857,51 @@ impl SayqlServer {
             connection: conn.name.clone(),
             ..Activity::new(app, "suggest_note")
         };
-        let result = self
-            .state
-            .store
-            .suggest_note(&conn.id, self.notes_database(&conn.id, p.database.as_deref()).as_deref(), &p.text, &p.evidence, app)
-            .map(|_| {
-                format!(
-                    "Suggested the note for {:?}. It waits in SayQL until the user accepts it; once accepted it \
-                     appears in describe_schema.",
-                    conn.name
-                )
-            })
-            .map_err(|e| e.to_string());
-        // The note itself waits in SayQL for the user; the log says only that one was suggested.
+        let remove = p.remove.unwrap_or(false);
+        let target = p
+            .replaces
+            .as_deref()
+            .map(str::trim)
+            .filter(|r| !r.is_empty());
+        let change = match (target, remove) {
+            (None, false) => Ok(Change::Add),
+            (Some(r), false) => Ok(Change::Replace(r)),
+            (Some(r), true) => Ok(Change::Remove(r)),
+            (None, true) => Err(
+                "To suggest removing a note, set `replaces` to its id from describe_schema's notes.".to_string(),
+            ),
+        };
+        let database = self.notes_database(&conn.id, p.database.as_deref());
+        let result = change.and_then(|change| {
+            self.state
+                .store
+                .suggest_note_change(&conn.id, database.as_deref(), &p.text, &p.evidence, app, change)
+                .map(|_| {
+                    let what = match change {
+                        Change::Add => "the note",
+                        Change::Replace(_) => "replacing the note",
+                        Change::Remove(_) => "removing the note",
+                    };
+                    format!(
+                        "Suggested {what} for {:?}. It waits in SayQL until the user accepts it; describe_schema \
+                         shows the notes as they are until then.",
+                        conn.name
+                    )
+                })
+                .map_err(|e| e.to_string())
+        });
+        // The note itself waits in SayQL for the user; the log says only what was suggested.
         match &result {
-            Ok(_) => log.detail = Some("suggested a note".into()),
+            Ok(_) => {
+                log.detail = Some(
+                    match (target.is_some(), remove) {
+                        (false, _) => "suggested a note",
+                        (true, false) => "suggested replacing a note",
+                        (true, true) => "suggested removing a note",
+                    }
+                    .into(),
+                )
+            }
             Err(e) => {
                 log.status = "refused".into();
                 log.detail = Some(e.chars().take(160).collect());
@@ -870,6 +909,70 @@ impl SayqlServer {
         }
         let _ = self.state.store.log_app_activity(log);
         result
+    }
+
+    /// The audit instructions for an app the gate let in, for the connection `connection`
+    /// names (id or name; the only one when there's one and none is named). The audit is
+    /// recorded for "Last audit" in Settings → AI apps, and logged.
+    fn audit_prompt(&self, app: &str, args: Option<&Map<String, Value>>) -> Result<String, String> {
+        let arg = |k: &str| {
+            args.and_then(|a| a.get(k))
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .map(str::to_string)
+        };
+        let mut log = Activity::new(app, audit::PROMPT);
+        let found = self
+            .state
+            .store
+            .connections()
+            .map_err(|e| e.to_string())
+            .and_then(|list| {
+                Ok(match arg("connection") {
+                    Some(wanted) => Some(audit::find_connection(&list, &wanted)?.clone()),
+                    None if list.len() == 1 => list.into_iter().next(),
+                    None => None,
+                })
+            });
+        let conn = match found {
+            Ok(c) => c,
+            Err(e) => {
+                log.status = "error".into();
+                log.detail = Some(e.chars().take(160).collect());
+                let _ = self.state.store.log_app_activity(log);
+                return Err(e);
+            }
+        };
+        let Some(conn) = conn else {
+            // The app picks the connection; nothing to record until it names one.
+            log.detail = Some("audit prompt, connection not named".into());
+            let _ = self.state.store.log_app_activity(log);
+            return Ok(audit::instructions(None, false));
+        };
+        // A SQLite file is one database: its notes are kept without one.
+        let database = if conn.kind == Kind::Sqlite {
+            None
+        } else {
+            self.notes_database(&conn.id, arg("database").as_deref())
+        };
+        // A record that can't be written doesn't stop the audit.
+        let _ = self
+            .state
+            .store
+            .record_audit(&conn.id, database.as_deref(), app);
+        log.connection_id = conn.id.clone();
+        log.connection = conn.name.clone();
+        log.detail = Some("audit prompt".into());
+        let _ = self.state.store.log_app_activity(log);
+        Ok(audit::instructions(
+            Some(&audit::Target {
+                connection_id: &conn.id,
+                name: &conn.name,
+                database: database.as_deref(),
+            }),
+            false,
+        ))
     }
 
     /// Runs a read-only query for an AI app and returns what the connection lets it see.
@@ -1109,10 +1212,73 @@ impl SayqlServer {
 #[tool_handler(router = self.tool_router)]
 impl ServerHandler for SayqlServer {
     fn get_info(&self) -> ServerConfig {
-        ServerConfig::new(ServerCapabilities::builder().enable_tools().build())
-            .with_server_info(Implementation::new("sayql", env!("CARGO_PKG_VERSION")))
-            .with_instructions(INSTRUCTIONS)
+        ServerConfig::new(
+            ServerCapabilities::builder()
+                .enable_tools()
+                .enable_prompts()
+                .build(),
+        )
+        .with_server_info(Implementation::new("sayql", env!("CARGO_PKG_VERSION")))
+        .with_instructions(INSTRUCTIONS)
     }
+
+    /// One prompt, `audit` (`/mcp__sayql__audit` in Claude Code). Listing it is open to any
+    /// app, like the tool list; fetching it goes through the gate.
+    async fn list_prompts(
+        &self,
+        _request: Option<PaginatedRequestParams>,
+        _ctx: RequestContext<RoleServer>,
+    ) -> Result<ListPromptsResult, ErrorData> {
+        Ok(ListPromptsResult::with_all_items(vec![audit_prompt_info()]))
+    }
+
+    async fn get_prompt(
+        &self,
+        request: GetPromptRequestParams,
+        ctx: RequestContext<RoleServer>,
+    ) -> Result<GetPromptResponse, ErrorData> {
+        if request.name != audit::PROMPT {
+            return Err(ErrorData::invalid_params(
+                format!(
+                    "SayQL has no prompt called {:?}; its prompt is \"audit\".",
+                    request.name
+                ),
+                None,
+            ));
+        }
+        let app = self
+            .gate(&ctx, audit::PROMPT)
+            .map_err(|e| ErrorData::invalid_request(e, None))?;
+        let text = self
+            .audit_prompt(&app, request.arguments.as_ref())
+            .map_err(|e| ErrorData::invalid_params(e, None))?;
+        Ok(
+            GetPromptResult::new(vec![PromptMessage::new_text(Role::User, text)])
+                .with_description(audit::DESCRIPTION)
+                .into(),
+        )
+    }
+}
+
+/// The `audit` prompt as prompts/list shows it.
+fn audit_prompt_info() -> Prompt {
+    Prompt::new(
+        audit::PROMPT,
+        Some(audit::DESCRIPTION),
+        Some(vec![
+            PromptArgument::new("connection")
+                .with_description(
+                    "The SayQL connection to audit: its name or id. Optional when only one is saved; otherwise the app picks it with list_connections.",
+                )
+                .with_required(false),
+            PromptArgument::new("database")
+                .with_description(
+                    "A database on that connection's server. Omit for the connection's default (and for SQLite).",
+                )
+                .with_required(false),
+        ]),
+    )
+    .with_title("Audit: teach SayQL your database")
 }
 
 /// Where the SayQL app keeps its files; `SAYQL_CONFIG_DIR` overrides (for tests).
@@ -1149,6 +1315,36 @@ pub async fn serve_stdio() -> Result<(), Box<dyn std::error::Error>> {
 mod tests {
     use super::*;
     use tokio_util::sync::CancellationToken;
+
+    /// "Audit with Claude Code" allows or denies every tool this server offers by name, so a
+    /// new tool can't slip into the run unlisted.
+    #[test]
+    fn the_audit_allows_or_denies_every_tool() {
+        use crate::audit_runner::{CLAUDE_DENIED, SAYQL_TOOLS};
+        let offered: Vec<String> = SayqlServer::tool_router()
+            .list_all()
+            .into_iter()
+            .map(|t| format!("mcp__sayql__{}", t.name))
+            .collect();
+        assert!(offered.len() >= 10, "{offered:?}");
+        let allowed: Vec<String> = SAYQL_TOOLS
+            .iter()
+            .map(|t| format!("mcp__sayql__{t}"))
+            .collect();
+        for tool in &offered {
+            let a = allowed.contains(tool);
+            let d = CLAUDE_DENIED.contains(&tool.as_str());
+            assert!(a ^ d, "{tool}: allowed {a}, denied {d}");
+        }
+        for listed in allowed.iter().map(String::as_str).chain(
+            CLAUDE_DENIED
+                .iter()
+                .copied()
+                .filter(|t| t.starts_with("mcp__")),
+        ) {
+            assert!(offered.iter().any(|t| t == listed), "{listed} isn't a tool");
+        }
+    }
 
     fn add_params(args: Value) -> Result<AddConnectionParams, serde_json::Error> {
         serde_json::from_value(args)
@@ -1653,6 +1849,8 @@ mod tests {
             database: None,
             text: "status 3 = cancelled".into(),
             evidence: String::new(),
+            replaces: None,
+            remove: None,
         };
         server.suggest("Cursor", on_pg).unwrap();
         let s = server.state.store.note_suggestions().unwrap().remove(0);
@@ -1664,6 +1862,8 @@ mod tests {
             database: None,
             text: text.into(),
             evidence: evidence.into(),
+            replaces: None,
+            remove: None,
         };
         let ok = server
             .suggest(
@@ -1731,6 +1931,184 @@ mod tests {
                 .contains("orders_legacy is unused"),
             "accepted notes reach describe_schema"
         );
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    fn sqlite_conn(id: &str, name: &str) -> db::ConnConfig {
+        db::ConnConfig {
+            id: id.into(),
+            name: name.into(),
+            kind: Kind::Sqlite,
+            host: String::new(),
+            port: None,
+            database: String::new(),
+            user: String::new(),
+            file: "/tmp/none.sqlite".into(),
+            ssl: false,
+            trust_cert: false,
+        }
+    }
+
+    #[test]
+    fn the_audit_prompt_names_the_connection_and_is_recorded() {
+        let dir = std::env::temp_dir().join(format!("sayql-mcp-audit-{}", uuid::Uuid::new_v4()));
+        let state = AppState::new(dir.clone(), dir.clone()).unwrap();
+        let pg = db::ConnConfig {
+            kind: Kind::Postgres,
+            database: "shop".into(),
+            file: String::new(),
+            ..sqlite_conn("pg", "Warehouse")
+        };
+        state
+            .store
+            .save_connections(&[sqlite_conn("c1", "Shop"), pg])
+            .unwrap();
+        let server = SayqlServer::new(state);
+        let store = &server.state.store;
+        let args = |v: Value| v.as_object().cloned();
+
+        // By name, any case; a SQLite file has no database, whatever the app passes.
+        let text = server
+            .audit_prompt(
+                "Claude Code",
+                args(json!({ "connection": "shop", "database": "x" })).as_ref(),
+            )
+            .unwrap();
+        assert!(
+            text.contains("connection_id \"c1\"") && !text.contains("\"x\""),
+            "{text}"
+        );
+        // By id, on the server's default database.
+        let text = server
+            .audit_prompt("Cursor", args(json!({ "connection": "pg" })).as_ref())
+            .unwrap();
+        assert!(text.contains("database \"shop\""), "{text}");
+        let mut audits = store.audits().unwrap();
+        audits.sort_by(|a, b| a.connection_id.cmp(&b.connection_id));
+        assert_eq!(
+            audits
+                .iter()
+                .map(|a| (
+                    a.connection_id.as_str(),
+                    a.database.as_deref(),
+                    a.app.as_str()
+                ))
+                .collect::<Vec<_>>(),
+            [("c1", None, "Claude Code"), ("pg", Some("shop"), "Cursor")]
+        );
+        // No connection named with two saved: the app picks one; nothing recorded.
+        let open = server.audit_prompt("Cursor", None).unwrap();
+        assert!(open.contains("call list_connections"), "{open}");
+        assert_eq!(store.audits().unwrap().len(), 2);
+        let e = server
+            .audit_prompt("Cursor", args(json!({ "connection": "crm" })).as_ref())
+            .unwrap_err();
+        assert!(e.contains("\"Warehouse\""), "{e}");
+
+        let log = store.app_activity(10).unwrap();
+        assert_eq!(
+            log.iter()
+                .map(|l| (l.tool.as_str(), l.status.as_str(), l.connection.as_str()))
+                .collect::<Vec<_>>(),
+            [
+                ("audit", "error", ""),
+                ("audit", "ok", ""),
+                ("audit", "ok", "Warehouse"),
+                ("audit", "ok", "Shop"),
+            ]
+        );
+        // The gate applies: a blocked app gets nothing.
+        store.set_app_blocked("Cursor", true).unwrap();
+        assert!(
+            server
+                .gate_app("Cursor".into(), audit::PROMPT)
+                .unwrap_err()
+                .contains("blocked Cursor")
+        );
+        assert_eq!(audit_prompt_info().name, "audit");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn suggest_note_can_replace_or_remove_a_saved_note() {
+        let dir = std::env::temp_dir().join(format!("sayql-mcp-replace-{}", uuid::Uuid::new_v4()));
+        let state = AppState::new(dir.clone(), dir.clone()).unwrap();
+        state
+            .store
+            .save_connections(&[sqlite_conn("c1", "Shop")])
+            .unwrap();
+        let server = SayqlServer::new(state);
+        let store = &server.state.store;
+        let note = store
+            .save_note(crate::store::agent::Note {
+                id: "1A2B3C4D-0000-4000-8000-000000000000".into(),
+                connection_id: "c1".into(),
+                database: None,
+                text: "orders_v1 is the live orders table".into(),
+                updated_at: 0,
+            })
+            .unwrap();
+        assert!(
+            store
+                .notes_text_with_refs("c1", None)
+                .contains("[n_1a2b3c4d] orders_v1 is the live orders table")
+        );
+        let p = |text: &str, replaces: Option<&str>, remove: Option<bool>| SuggestNoteParams {
+            connection_id: "c1".into(),
+            database: None,
+            text: text.into(),
+            evidence: "api/orders.ts reads orders_v2 only".into(),
+            replaces: replaces.map(str::to_string),
+            remove,
+        };
+        let ok = server
+            .suggest(
+                "Claude Code",
+                p(
+                    "orders_v2 is the live orders table",
+                    Some("n_1a2b3c4d"),
+                    None,
+                ),
+            )
+            .unwrap();
+        assert!(ok.contains("Suggested replacing the note"), "{ok}");
+        assert!(
+            server
+                .suggest("Claude Code", p("gone", None, Some(true)))
+                .unwrap_err()
+                .contains("set `replaces`")
+        );
+        assert!(
+            server
+                .suggest("Claude Code", p("gone", Some("n_ffffffff"), Some(true)))
+                .unwrap_err()
+                .contains("No saved note")
+        );
+        server
+            .suggest(
+                "Claude Code",
+                p("orders_v1 was dropped", Some("[n_1a2b3c4d]"), Some(true)),
+            )
+            .unwrap();
+        let waiting = store.note_suggestions().unwrap();
+        assert_eq!(
+            waiting
+                .iter()
+                .map(|s| (s.replaces.as_deref(), s.remove))
+                .collect::<Vec<_>>(),
+            [
+                (Some(note.id.as_str()), false),
+                (Some(note.id.as_str()), true)
+            ]
+        );
+        let details: Vec<_> = store
+            .app_activity(10)
+            .unwrap()
+            .into_iter()
+            .filter_map(|l| l.detail)
+            .collect();
+        assert!(details.contains(&"suggested replacing a note".to_string()));
+        assert!(details.contains(&"suggested removing a note".to_string()));
         let _ = std::fs::remove_dir_all(dir);
     }
 

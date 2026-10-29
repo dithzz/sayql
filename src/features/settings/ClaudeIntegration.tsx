@@ -1,10 +1,10 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
-import { Check, ChevronRight, Copy } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import { commands, type ConnectionConfig, type McpApps, type McpSetup } from "../../api";
-import { Alert, Button } from "../../components/ui";
+import { Alert } from "../../components/ui";
 import { cx } from "../../lib/cx";
 import { errorText } from "../../lib/errors";
-import type { NoteSuggestionsApi } from "../agent";
+import { AgentPicker, AgentSetupView, useCodingAgent, type NoteSuggestionsApi } from "../agent";
 import { AgentActivity } from "./AgentActivity";
 import { AppAccessList } from "./AppAccessList";
 import { AppsList } from "./AppsList";
@@ -22,30 +22,10 @@ const TABS: { id: AiAppsTab; label: string }[] = [
 /** The tab last open, so coming back to Settings → AI apps in this session lands on it. */
 let lastTab: AiAppsTab = "access";
 
-function CopyBlock({ label, text }: { label: string; text: string }) {
-  const [copied, setCopied] = useState(false);
-  const copy = async () => {
-    await navigator.clipboard.writeText(text);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1500);
-  };
-  return (
-    <div className={styles.block}>
-      <div className={styles.blockHead}>
-        <span>{label}</span>
-        <Button size="sm" variant="ghost" icon={copied ? Check : Copy} onClick={copy}>
-          {copied ? "Copied" : "Copy"}
-        </Button>
-      </div>
-      <pre className={styles.code}>{text}</pre>
-    </div>
-  );
-}
-
-/** How to add SayQL to Claude Code or Claude Desktop, in a section that opens and closes. */
+/** How to add SayQL to the person's coding agent, in a section that opens and closes. */
 function ConnectApp({ setup, open, onToggle }: { setup: McpSetup | null; open: boolean; onToggle: () => void }) {
   const bodyId = useId();
-  const desktopConfig = setup && JSON.stringify({ mcpServers: { sayql: { command: setup.path } } }, null, 2);
+  const { agent, choose, context } = useCodingAgent();
   return (
     <section className={styles.group}>
       <button type="button" className={styles.disclosure} aria-expanded={open} aria-controls={bodyId} onClick={onToggle}>
@@ -69,11 +49,9 @@ function ConnectApp({ setup, open, onToggle }: { setup: McpSetup | null; open: b
               .deb or .rpm to use MCP.
             </Alert>
           )}
-          {setup && desktopConfig ? (
-            <>
-              <CopyBlock label="Claude Code — run in a terminal" text={`claude mcp add --scope user sayql -- "${setup.path}"`} />
-              <CopyBlock label="Claude Desktop — merge into claude_desktop_config.json" text={desktopConfig} />
-            </>
+          <AgentPicker agent={agent} onChoose={choose} />
+          {context ? (
+            <AgentSetupView key={agent.id} agent={agent} context={context} />
           ) : (
             <p className={styles.detail}>Couldn&apos;t find the MCP server&apos;s path.</p>
           )}
@@ -84,7 +62,15 @@ function ConnectApp({ setup, open, onToggle }: { setup: McpSetup | null; open: b
 }
 
 /** The Access tab: which apps connected, what they get back per connection, and setting up a new app. */
-function AccessTab({ connections, provider }: { connections: ConnectionConfig[]; provider: { label: string; local: boolean } }) {
+function AccessTab({
+  connections,
+  provider,
+  onReview,
+}: {
+  connections: ConnectionConfig[];
+  provider: { label: string; local: boolean };
+  onReview: () => void;
+}) {
   const [setup, setSetup] = useState<McpSetup | null>(null);
   const [apps, setApps] = useState<McpApps | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -126,7 +112,7 @@ function AccessTab({ connections, provider }: { connections: ConnectionConfig[];
         onOnlyApproved={(on) => update(commands.setMcpOnlyApproved(on))}
       />
       {error && <Alert tone="danger">{error}</Alert>}
-      <AppAccessList connections={connections} provider={provider} />
+      <AppAccessList connections={connections} provider={provider} onReview={onReview} />
       {connectOpen !== null && <ConnectApp setup={setup} open={connectOpen} onToggle={() => setConnectOpen(!connectOpen)} />}
     </>
   );
@@ -206,9 +192,9 @@ export function ClaudeIntegration({ connections, provider, suggestions, tab: ini
         ))}
       </div>
       <div id={`${base}-${tab}-panel`} role="tabpanel" aria-labelledby={`${base}-${tab}-tab`} className={styles.panel}>
-        {tab === "access" && <AccessTab connections={connections} provider={provider} />}
+        {tab === "access" && <AccessTab connections={connections} provider={provider} onReview={() => setTab("suggestions")} />}
         {tab === "activity" && <AgentActivity />}
-        {tab === "suggestions" && <SuggestedNotes connections={connections} {...suggestions} />}
+        {tab === "suggestions" && <SuggestedNotes connections={connections} {...suggestions} onSetUp={() => setTab("access")} />}
       </div>
     </div>
   );

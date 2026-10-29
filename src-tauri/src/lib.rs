@@ -1,6 +1,9 @@
 //! SayQL backend: wires the Tauri app together. Logic lives in the modules below.
 
 mod ai;
+mod audit;
+mod audit_runner;
+mod coding_agents;
 mod commands;
 mod db;
 mod error;
@@ -16,8 +19,8 @@ mod team;
 mod voice;
 
 use commands::{
-    agent, app, connections, generation, handoff as handoffs, query, scripts, settings, skills,
-    team as teams, updates,
+    agent, app, audit as audits, connections, generation, handoff as handoffs, query, scripts,
+    settings, skills, team as teams, updates,
 };
 use state::AppState;
 use tauri::Manager;
@@ -32,11 +35,13 @@ pub fn run() {
         }))
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
             let state = AppState::new(app.path().app_config_dir()?, app.path().app_data_dir()?)?;
             app.manage(state);
             app.manage(handoffs::PendingHandoffs::default());
+            app.manage(audits::AuditRuns::default());
             // Installers register sayql:// on Windows and Linux; this covers AppImages and dev builds.
             #[cfg(any(windows, target_os = "linux"))]
             let _ = app.deep_link().register_all();
@@ -86,12 +91,24 @@ pub fn run() {
             settings::list_models,
             settings::finish_onboarding,
             settings::mcp_setup,
+            settings::installed_coding_agents,
+            settings::open_install_link,
             settings::mcp_activity,
             settings::mcp_apps,
             settings::set_mcp_app_blocked,
             settings::approve_mcp_app,
             settings::set_mcp_only_approved,
             settings::clear_mcp_activity,
+            settings::mcp_audits,
+            settings::audit_prompt,
+            audits::audit_agents,
+            audits::audit_folder,
+            audits::choose_audit_folder,
+            audits::start_audit,
+            audits::cancel_audit,
+            audits::open_audit_in_terminal,
+            audits::audit_model,
+            audits::set_audit_model,
             updates::check_update,
             updates::install_update,
             teams::team_sign_in,

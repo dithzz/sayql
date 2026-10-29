@@ -1,0 +1,122 @@
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-sunken);
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+}
+/* In a dialog, which has its own frame and title. */
+.bare {
+  padding: 0;
+  border: 0;
+  background: none;
+}
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.title {
+  margin: 0;
+  font-size: var(--font-size-md);
+  font-weight: 600;
+}
+.lead {
+  margin: 0;
+  color: var(--color-text-muted);
+}
+.steps {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.steps li {
+  display: flex;
+  gap: var(--space-2);
+  align-items: flex-start;
+}
+.marker {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  margin-top: 1px;
+  border-radius: 50%;
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+}
+.done .marker {
+  background: var(--color-success-soft);
+  color: var(--color-success);
+}
+.done .body {
+  color: var(--color-text-muted);
+}
+.body {
+  min-width: 0;
+  user-select: text;
+}
+.command {
+  padding: 1px 4px;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-subtle);
+  font-size: var(--font-size-xs);
+  white-space: nowrap;
+}
+.link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-accent);
+  font: inherit;
+  cursor: pointer;
+}
+.link:hover {
+  text-decoration: underline;
+}
+.copy {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-top: var(--space-1);
+}
+.hint {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+.again {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+.error {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-danger);
+}
+.link {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.chevron {
+  flex: none;
+  transition: transform 120ms ease;
+}
+.chevronOpen {
+  transform: rotate(90deg);
+}

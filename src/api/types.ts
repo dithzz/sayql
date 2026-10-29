@@ -236,7 +236,54 @@ export interface NoteSuggestion {
   app: string;
   /** Milliseconds since the Unix epoch. */
   createdAt: number;
+  /** The id of the saved note this one replaces (or removes, with `remove`). */
+  replaces?: string | null;
+  /** That note's text when the suggestion was made. */
+  replacedText?: string | null;
+  /** Accepting deletes the note in `replaces`; `text` says why. */
+  remove?: boolean;
 }
+
+/** When an AI app last fetched the audit prompt for a database; mirrors `store::audits::AuditRun`. */
+export interface AuditRun {
+  connectionId: string;
+  database: string | null;
+  app: string;
+  /** Milliseconds since the Unix epoch. */
+  at: number;
+}
+
+/** A coding agent "Audit with…" knows; mirrors `commands::audit::AgentView`. */
+export interface AuditAgent {
+  id: string;
+  label: string;
+  /** Where it's installed; null when it isn't found. */
+  path: string | null;
+  version: string | null;
+  /** SayQL can keep it read-only (only these can run an audit). */
+  supported: boolean;
+  /** Found, supported and recent enough. */
+  ready: boolean;
+  /** Why it can't run, when found but not ready. */
+  problem: string | null;
+  installUrl: string;
+}
+
+/** The model an audit runs on; mirrors `audit_runner::AuditModel`. "default" is the person's own Claude Code default. */
+export type AuditModel = "sonnet" | "opus" | "default";
+
+/** Progress of an audit run, as `audit://event`; mirrors `commands::audit::AuditEvent`. */
+export type AuditEvent =
+  | { type: "line"; runId: string; kind: "step" | "note" | "warn"; text: string }
+  | {
+      type: "done";
+      runId: string;
+      outcome: "ok" | "error" | "cancelled" | "timeout";
+      /** Suggestions SayQL received for review. */
+      suggested: number;
+      summary: string | null;
+      error: string | null;
+    };
 
 export interface AgentUsage {
   input: number;
@@ -355,6 +402,8 @@ export interface McpSetup {
   exists: boolean;
   /** Running from an AppImage, whose path changes on every launch. */
   appimage: boolean;
+  /** Which config paths and shell quoting the setup shows. */
+  os: "macos" | "windows" | "linux";
 }
 
 /** Something an AI app did, or tried, over MCP; mirrors `store::apps::Activity`. Holds SQL and counts, never rows. */

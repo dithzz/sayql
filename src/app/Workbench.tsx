@@ -2,7 +2,21 @@ import { useEffect, useRef, useState } from "react";
 import { Copy, Database, FileCode2, Plus, Save, Server, Table2, X } from "lucide-react";
 import { TEAM_SIGNED_OUT, commands, type Bootstrap, type ConnectionConfig, type DbNote, type Script, type Table, type TeamAccount, type TeamAiStatus, type Target } from "../api";
 import { Alert, Button, Dialog, EmptyState, ErrorBoundary, Spinner, SplitPane, TabBar, type MenuEntry, type TabItem } from "../components/ui";
-import { AgentAccessDialog, NoteDialog, NoteSuggestions, SUGGESTIONS_CHANGED, saveAgentAccess, suggestionFor, useAgentAccess, useNoteSuggestions } from "../features/agent";
+import {
+  AgentAccessDialog,
+  NoteDialog,
+  NoteSuggestions,
+  SUGGESTIONS_CHANGED,
+  TeachSayql,
+  AuditDialog,
+  lastAudit,
+  saveAgentAccess,
+  suggestionFor,
+  useAgentAccess,
+  useAudits,
+  useNoteSuggestions,
+} from "../features/agent";
+import { usePersistentState } from "../hooks/usePersistentState";
 import { ConnectionDialog, DATABASE_KINDS, newConnection, targetKey, useConnections } from "../features/connections";
 import { DatabaseNavigator, type NavigatorScript } from "../features/navigator";
 import { CloseTabDialog, CloseTabsDialog, SaveScriptDialog, useScripts } from "../features/scripts";
@@ -37,6 +51,10 @@ type OpenDialog =
   | { kind: "agentAccess"; connection: ConnectionConfig }
   | { kind: "note"; note: DbNote | null }
   | { kind: "noteSuggestions" }
+  /** "Teach SayQL your database", from the navigator. */
+  | { kind: "teach" }
+  /** "Audit with…", from "Teach SayQL your database". */
+  | { kind: "audit" }
   /** From a sayql://team-join invite link. */
   | { kind: "teamSignIn"; server: string; code: string; key: string }
   | null;
@@ -91,6 +109,11 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
     window.addEventListener(SUGGESTIONS_CHANGED, bump);
     return () => window.removeEventListener(SUGGESTIONS_CHANGED, bump);
   }, []);
+  // "Teach SayQL your database" shows under the open database until it's hidden or an AI app
+  // has audited the connection. MCP serves the connections saved here, not a team's.
+  const [teachHidden, setTeachHidden] = usePersistentState("sayql.teachHidden", false);
+  const audits = useAudits();
+  const teachHere = !!active && !active.id.startsWith("team:") && !teachHidden && lastAudit(audits, active.id) === null;
   const agentAccessConnection = dialog?.kind === "agentAccess" ? dialog.connection.id : null;
   const dialogAccess = useAgentAccess(agentAccessConnection);
 
@@ -394,6 +417,8 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
               onDeleteNote={(note) => void commands.deleteNote(note.id).then(() => setNotesVersion((v) => v + 1))}
               suggestedNotes={suggestionsHere.length}
               onReviewSuggestions={() => setDialog({ kind: "noteSuggestions" })}
+              onTeach={teachHere ? () => setDialog({ kind: "teach" }) : undefined}
+              onHideTeach={() => setTeachHidden(true)}
               onAgentSettings={(connection) => setDialog({ kind: "agentAccess", connection })}
               onTeamSignIn={settings.team ? undefined : () => setDialog({ kind: "teamSignIn", server: "", code: "", key: crypto.randomUUID() })}
             />
@@ -583,6 +608,40 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
           </p>
           <NoteSuggestions suggestions={suggestionsHere} onAccept={noteSuggestions.accept} onDismiss={noteSuggestions.dismiss} />
         </Dialog>
+      )}
+      {dialog?.kind === "teach" && active && (
+        <Dialog
+          title="Teach SayQL your database"
+          onClose={() => setDialog(null)}
+          actions={
+            <>
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setTeachHidden(true);
+                  setDialog(null);
+                }}
+              >
+                Don&apos;t show again
+              </Button>
+              <Button onClick={() => setDialog(null)}>Done</Button>
+            </>
+          }
+        >
+          <TeachSayql
+            heading={false}
+            target={{ connectionId: active.id, name: active.name, database: target?.database ?? null }}
+            onSetUp={() => openSettings({ section: "mcp", aiAppsTab: "access" })}
+            onAudit={() => setDialog({ kind: "audit" })}
+          />
+        </Dialog>
+      )}
+      {dialog?.kind === "audit" && active && (
+        <AuditDialog
+          target={{ connectionId: active.id, name: active.name, database: target?.database ?? null }}
+          onReview={() => setDialog({ kind: "noteSuggestions" })}
+          onClose={() => setDialog(null)}
+        />
       )}
       {dialog?.kind === "deleteScript" && (
         <Dialog
