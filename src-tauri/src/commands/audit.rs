@@ -2,12 +2,16 @@
 //! with the audit instructions, streams its progress to the window as `audit://event`, and
 //! opens the same run in a terminal instead. See src/audit_runner.rs for what's enforced.
 
+use crate::ai::{SAYQL_CREDITS, endpoint};
 use crate::audit::{self, Target};
-use crate::audit_runner::{self as runner, AgentSpec, AuditModel, ClaudeStream, RunFiles};
+use crate::audit_runner::{
+    self as runner, AgentSpec, AuditModel, AuditPayment, ClaudeStream, RunFiles,
+};
 use crate::commands::settings::mcp_binary;
 use crate::error::{AppError, AppResult};
 use crate::state::AppState;
 use crate::store::apps::AppGate;
+use crate::store::secrets;
 use serde::Serialize;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -169,6 +173,64 @@ pub fn set_audit_model(state: State<'_, AppState>, model: AuditModel) -> AppResu
     state.store.set_audit_model(model)
 }
 
+/// Who pays for audits, and whether a SayQL credit key is saved (so credits can be chosen).
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AuditPaymentView {
+    payment: AuditPayment,
+    has_credit_key: bool,
+}
+
+/// Credits are chosen only while a credit key is saved; without one the run uses the person's
+/// own sign-in, and the dialog shows that.
+fn effective(stored: AuditPayment, has_credit_key: bool) -> AuditPayment {
+    if has_credit_key {
+        stored
+    } else {
+        AuditPayment::Subscription
+    }
+}
+
+#[tauri::command]
+pub fn audit_payment(state: State<'_, AppState>) -> AppResult<AuditPaymentView> {
+    let has_credit_key = secrets::api_key(SAYQL_CREDITS).is_some();
+    Ok(AuditPaymentView {
+        payment: effective(
+            state.store.audit_payment().unwrap_or_default(),
+            has_credit_key,
+        ),
+        has_credit_key,
+    })
+}
+
+/// Remembers who pays for audits.
+#[tauri::command]
+pub fn set_audit_payment(state: State<'_, AppState>, payment: AuditPayment) -> AppResult<()> {
+    state.store.set_audit_payment(payment)
+}
+
+/// The SayQL credits service a run paid with credits talks to: its address (the one set in
+/// Settings → AI provider, else sayql.dev) and the person's credit key from the keychain.
+struct Credits {
+    base_url: String,
+    key: String,
+}
+
+/// The credits a run uses: `None` when it's paid with the person's own sign-in.
+fn credits(state: &AppState) -> AppResult<Option<Credits>> {
+    if state.store.audit_payment().unwrap_or_default() != AuditPayment::Credits {
+        return Ok(None);
+    }
+    // No key saved any more: the person's own sign-in, as the dialog shows (see `effective`).
+    let Some(key) = secrets::api_key(SAYQL_CREDITS) else {
+        return Ok(None);
+    };
+    let provider = endpoint::provider(SAYQL_CREDITS)?;
+    let settings = state.store.settings().unwrap_or_default();
+    let base_url = endpoint::address(provider, &settings.provider_settings(SAYQL_CREDITS));
+    Ok(Some(Credits { base_url, key }))
+}
+
 /// Everything a run needs, checked before anything starts.
 struct Prepared {
     spec: &'static AgentSpec,
@@ -180,6 +242,9 @@ struct Prepared {
     files: RunFiles,
     dir: PathBuf,
     model: AuditModel,
+    payment: AuditPayment,
+    /// Set when the run is paid with SayQL credits.
+    credits: Option<Credits>,
 }
 
 async fn prepare(
@@ -199,6 +264,20 @@ async fn prepare(
         return Err("Choose the project folder: the one with this database's code.".into());
     }
     let folder = folder.canonicalize()?;
+    let credits = credits(state)?;
+    let payment = if credits.is_some() {
+        AuditPayment::Credits
+    } else {
+        AuditPayment::Subscription
+    };
+    // A terminal would need the key in a script file or the shell: the app's own run keeps it
+    // in the agent's environment only.
+    if credits.is_some() && !headless {
+        return Err(
+            "Paying with SayQL credits works for runs inside SayQL. Start the audit here, or pay with your Claude Code sign-in to open it in Terminal."
+                .into(),
+        );
+    }
     let bin = runner::locate(spec).ok_or_else(|| {
         format!(
             "{} isn't installed on this computer, or SayQL can't find it.",
@@ -272,6 +351,8 @@ async fn prepare(
         files,
         dir,
         model: state.store.audit_model().unwrap_or_default(),
+        payment,
+        credits,
     })
 }
 
@@ -335,7 +416,7 @@ pub async fn start_audit(
 ) -> AppResult<()> {
     let p = prepare(&state, &agent, &id, database.as_deref(), &folder, true).await?;
     let mut cmd = tokio::process::Command::new(&p.bin);
-    cmd.args(runner::claude_args(&p.files, true, p.model))
+    cmd.args(runner::claude_args(&p.files, true, p.model, p.payment))
         .current_dir(&p.folder)
         .env("PATH", runner::child_path(&p.bin))
         // Started from inside a Claude Code session (a dev build), it would refuse to nest.
@@ -344,6 +425,21 @@ pub async fn start_audit(
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .kill_on_drop(true);
+    if let Some(c) = &p.credits {
+        // The credit key goes to the agent's environment only: not its arguments, not a file.
+        let env = runner::credits_env(
+            &c.base_url,
+            &c.key,
+            p.model,
+            std::env::vars_os().map(|(k, _)| k),
+        );
+        for name in &env.remove {
+            cmd.env_remove(name);
+        }
+        for (name, value) in &env.set {
+            cmd.env(name, value);
+        }
+    }
     #[cfg(unix)]
     cmd.process_group(0);
     no_window(&mut cmd);
@@ -372,6 +468,9 @@ async fn drive(
     p: Prepared,
     stop: CancellationToken,
 ) {
+    // Nothing shown in the window carries the credit key.
+    let key = p.credits.as_ref().map(|c| c.key.clone());
+    let clean = |s: String| runner::redact(&s, key.as_deref());
     let emit = |e: AuditEvent| {
         let _ = app.emit(EVENT, e);
     };
@@ -388,6 +487,7 @@ async fn drive(
         })
     });
     let mut stream = ClaudeStream::new(&p.folder);
+    stream.credits = p.credits.is_some();
     let mut lines = child.stdout.take().map(|o| BufReader::new(o).lines());
     let deadline = tokio::time::sleep(runner::TIME_LIMIT);
     tokio::pin!(deadline);
@@ -400,7 +500,13 @@ async fn drive(
                 next = lines.next_line() => match next {
                     Ok(Some(line)) => {
                         for l in stream.feed(&line) {
-                            emit(AuditEvent::Line { run_id: run_id.clone(), kind: l.kind, text: l.text });
+                            emit(AuditEvent::Line { run_id: run_id.clone(), kind: l.kind, text: clean(l.text) });
+                        }
+                        // Claude Code retries a refused key for minutes; a credit key that was
+                        // refused once won't be accepted on a retry.
+                        if stream.credits && stream.api_error.as_deref() == Some("authentication_failed") {
+                            ended = Some("refused");
+                            break;
                         }
                     }
                     _ => break,
@@ -432,12 +538,22 @@ async fn drive(
         .ending
         .as_ref()
         .filter(|e| !e.is_error && !e.text.trim().is_empty())
-        .map(|e| e.text.chars().take(4000).collect::<String>());
+        .map(|e| clean(e.text.chars().take(4000).collect::<String>()));
     let ok = ended.is_none()
         && status.is_some_and(|s| s.success())
         && stream.ending.as_ref().is_some_and(|e| !e.is_error);
+    let failure = || {
+        clean(runner::failure(
+            stream.ending.as_ref(),
+            &stderr,
+            stream.api_error.as_deref(),
+            status.and_then(|s| s.code()),
+            p.payment,
+        ))
+    };
     let (outcome, error) = match ended {
         Some("cancelled") => ("cancelled", None),
+        Some("refused") => ("error", Some(failure())),
         Some(_) => (
             "timeout",
             Some(format!(
@@ -446,15 +562,7 @@ async fn drive(
             )),
         ),
         None if ok => ("ok", None),
-        None => (
-            "error",
-            Some(runner::failure(
-                stream.ending.as_ref(),
-                &stderr,
-                stream.api_error.as_deref(),
-                status.and_then(|s| s.code()),
-            )),
-        ),
+        None => ("error", Some(failure())),
     };
     if outcome == "ok" {
         // Last audit, as when an AI app fetches the audit prompt over MCP.
@@ -502,7 +610,7 @@ pub async fn open_audit_in_terminal(
     folder: String,
 ) -> AppResult<()> {
     let p = prepare(&state, &agent, &id, database.as_deref(), &folder, false).await?;
-    let args = runner::claude_args(&p.files, false, p.model);
+    let args = runner::claude_args(&p.files, false, p.model, p.payment);
     let prompt = p.dir.join("prompt.txt");
     std::fs::write(&prompt, &p.prompt)?;
     let path_var = runner::child_path(&p.bin);

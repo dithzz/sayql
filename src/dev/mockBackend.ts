@@ -486,6 +486,9 @@ function auditAgents(): AuditAgent[] {
 const auditFolders = new Map<string, string>([["pg", "/Users/you/code/analytics"]]);
 const auditStops = new Set<string>();
 let auditModel = "sonnet";
+let auditPayment = "subscription";
+// `?nocredits` in the mock's URL: no SayQL credit key saved.
+const mockCreditKey = typeof location === "undefined" || !location.search.includes("nocredits");
 
 /** A scripted audit: schema, searches, reads, two suggestions, a summary. */
 async function mockAuditRun(runId: string, connectionId: string, database: string | null) {
@@ -641,6 +644,11 @@ export function installMockBackend() {
           return auditModel;
         case "set_audit_model":
           auditModel = a.model as string;
+          return null;
+        case "audit_payment":
+          return { payment: mockCreditKey ? auditPayment : "subscription", hasCreditKey: mockCreditKey };
+        case "set_audit_payment":
+          auditPayment = a.payment as string;
           return null;
         case "cancel_audit":
           auditStops.add(a.runId as string);

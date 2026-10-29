@@ -3,7 +3,7 @@
 //! folder here.
 
 use super::Store;
-use crate::audit_runner::AuditModel;
+use crate::audit_runner::{AuditModel, AuditPayment};
 use crate::error::AppResult;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -15,6 +15,8 @@ const PREFS: &str = "audit-settings.json";
 struct AuditPrefs {
     #[serde(default)]
     model: AuditModel,
+    #[serde(default)]
+    payment: AuditPayment,
 }
 
 impl Store {
@@ -45,6 +47,17 @@ impl Store {
     pub fn set_audit_model(&self, model: AuditModel) -> AppResult<()> {
         let mut prefs: AuditPrefs = self.read(PREFS)?;
         prefs.model = model;
+        self.write(PREFS, &prefs)
+    }
+
+    /// Who pays for "Audit with Claude Code": the person's own sign-in until they pick credits.
+    pub fn audit_payment(&self) -> AppResult<AuditPayment> {
+        Ok(self.read::<AuditPrefs>(PREFS)?.payment)
+    }
+
+    pub fn set_audit_payment(&self, payment: AuditPayment) -> AppResult<()> {
+        let mut prefs: AuditPrefs = self.read(PREFS)?;
+        prefs.payment = payment;
         self.write(PREFS, &prefs)
     }
 
@@ -91,6 +104,21 @@ mod tests {
             Store::new(dir.clone()).audit_model().unwrap(),
             AuditModel::Default
         );
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn remembers_who_pays_next_to_the_model() {
+        let dir = std::env::temp_dir().join(format!("sayql-audit-pay-{}", uuid::Uuid::new_v4()));
+        let s = Store::new(dir.clone());
+        // Settings saved before payment existed read as the person's own sign-in.
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join(PREFS), r#"{"model":"opus"}"#).unwrap();
+        assert_eq!(s.audit_payment().unwrap(), AuditPayment::Subscription);
+        s.set_audit_payment(AuditPayment::Credits).unwrap();
+        let again = Store::new(dir.clone());
+        assert_eq!(again.audit_payment().unwrap(), AuditPayment::Credits);
+        assert_eq!(again.audit_model().unwrap(), AuditModel::Opus);
         let _ = std::fs::remove_dir_all(dir);
     }
 }

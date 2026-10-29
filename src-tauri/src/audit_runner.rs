@@ -1,8 +1,10 @@
 //! "Audit with…": runs a coding agent's CLI in the person's project folder, read-only, with the
 //! audit instructions from [`crate::audit`], and turns its streamed output into short progress
-//! lines. The agent uses the person's own sign-in and subscription; SayQL starts it and reads
-//! what it prints, and its database access goes through SayQL's MCP server like any AI app's
-//! (gated, logged, never-send columns kept out). No code leaves the computer through SayQL.
+//! lines. By default the agent uses the person's own sign-in and subscription, and no code
+//! leaves the computer through SayQL; paid with SayQL AI credits ([`AuditPayment::Credits`]),
+//! its model requests go through SayQL's credits service, which keeps only token counts.
+//! SayQL starts it and reads what it prints, and its database access goes through SayQL's MCP
+//! server like any AI app's (gated, logged, never-send columns kept out).
 //!
 //! Only agents whose CLI lets SayQL enforce read-only from the command line are offered: no
 //! file writes, no shell commands, only file read and search tools plus SayQL's MCP tools.
@@ -100,6 +102,121 @@ impl AuditModel {
             AuditModel::Default => None,
         }
     }
+}
+
+/// Who pays for the audit's model requests.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum AuditPayment {
+    /// The person's own Claude Code sign-in, whatever Claude Code is set up with.
+    #[default]
+    Subscription,
+    /// SayQL AI credits: Claude Code sends its requests to SayQL's credits service with the
+    /// person's `sqlc_` credit key, which forwards them to Anthropic and charges the balance.
+    Credits,
+}
+
+// Paying with credits: Claude Code is pointed at the credits service for this one run, through
+// its environment only. Docs (checked 2026-10-29 against Claude Code 2.1.267):
+// <https://code.claude.com/docs/en/authentication#authentication-precedence>: after a cloud
+// provider (`CLAUDE_CODE_USE_BEDROCK`/`_VERTEX`/`_FOUNDRY`), `ANTHROPIC_AUTH_TOKEN` comes first,
+// sent as `Authorization: Bearer`, ahead of `ANTHROPIC_API_KEY`, `apiKeyHelper` and the claude.ai
+// login; <https://code.claude.com/docs/en/llm-gateway#subscriptions-and-gateways>: with a gateway
+// credential set, the saved claude.ai login isn't sent. <https://code.claude.com/docs/en/env-vars>:
+// `ANTHROPIC_DEFAULT_{OPUS,SONNET,HAIKU}_MODEL` set what the aliases (and background tasks, via
+// Haiku) resolve to; `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC` turns off updates, telemetry,
+// error reports and availability checks. `--restricted` reads only managed settings and
+// `--settings`, and doesn't touch the environment. Claude Code 2.1.267's `sonnet` alias is
+// `claude-sonnet-5`, which credits don't cover, so the run names full model IDs.
+
+/// The models SayQL AI credits cover (site/api/ai/v1/messages.js; a test checks they match).
+pub const CREDITS_OPUS: &str = "claude-opus-5-5";
+pub const CREDITS_SONNET: &str = "claude-sonnet-5-5";
+pub const CREDITS_HAIKU: &str = "claude-haiku-5-5";
+
+impl AuditModel {
+    /// The model ID a run paid with credits uses: "default" is Sonnet, since the person's own
+    /// Claude Code default may be a model credits don't cover.
+    pub fn credits_model(self) -> &'static str {
+        match self {
+            AuditModel::Opus => CREDITS_OPUS,
+            AuditModel::Sonnet | AuditModel::Default => CREDITS_SONNET,
+        }
+    }
+}
+
+/// Changes to Claude Code's environment for one run. No `Debug`: it holds the credit key.
+pub struct ChildEnv {
+    pub set: Vec<(&'static str, String)>,
+    pub remove: Vec<OsString>,
+}
+
+/// Inherited variables that could send the run somewhere else, with another credential, or
+/// change what it asks for: removed from a credits run.
+fn steers_claude(name: &str) -> bool {
+    name.starts_with("ANTHROPIC_")
+        || name.starts_with("CLAUDE_CODE_USE_")
+        || matches!(
+            name,
+            "CLAUDE_CODE_OAUTH_TOKEN" | "CLAUDE_CODE_EXTRA_BODY" | "CLAUDE_CODE_SUBAGENT_MODEL"
+        )
+}
+
+/// The environment for a run paid with SayQL credits: the credits service as Claude Code's API,
+/// the credit key as its only credential (in the environment, never on the command line or in
+/// a file), every model it may ask for pinned to one credits cover, and no nonessential traffic.
+/// `inherited`: the names of the app's own environment variables.
+pub fn credits_env(
+    base_url: &str,
+    key: &str,
+    model: AuditModel,
+    inherited: impl IntoIterator<Item = OsString>,
+) -> ChildEnv {
+    let main = model.credits_model();
+    let set: Vec<(&'static str, String)> = vec![
+        (
+            "ANTHROPIC_BASE_URL",
+            base_url.trim_end_matches('/').to_string(),
+        ),
+        ("ANTHROPIC_AUTH_TOKEN", key.to_string()),
+        ("ANTHROPIC_MODEL", main.to_string()),
+        ("ANTHROPIC_DEFAULT_OPUS_MODEL", CREDITS_OPUS.to_string()),
+        ("ANTHROPIC_DEFAULT_SONNET_MODEL", CREDITS_SONNET.to_string()),
+        // Background tasks (titles, summaries) run on the Haiku alias.
+        ("ANTHROPIC_DEFAULT_HAIKU_MODEL", CREDITS_HAIKU.to_string()),
+        ("CLAUDE_CODE_SUBAGENT_MODEL", main.to_string()),
+        ("CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC", "1".to_string()),
+    ];
+    let remove = inherited
+        .into_iter()
+        .filter(|n| {
+            n.to_str()
+                .is_some_and(|n| steers_claude(n) && !set.iter().any(|(s, _)| *s == n))
+        })
+        .collect();
+    ChildEnv { set, remove }
+}
+
+/// `text` with the credit key, and anything that looks like one, replaced: errors and output
+/// shown in the window never carry a key.
+pub fn redact(text: &str, key: Option<&str>) -> String {
+    let text = match key.map(str::trim).filter(|k| k.len() >= 8) {
+        Some(k) => text.replace(k, "sqlc_…"),
+        None => text.to_string(),
+    };
+    let mut out = String::with_capacity(text.len());
+    let mut rest = text.as_str();
+    while let Some(i) = rest.find("sqlc_") {
+        out.push_str(&rest[..i]);
+        let after = &rest[i + 5..];
+        let n = after
+            .find(|c: char| !(c.is_ascii_alphanumeric() || c == '_' || c == '-'))
+            .unwrap_or(after.len());
+        out.push_str(if n == 0 { "sqlc_" } else { "sqlc_…" });
+        rest = &after[n..];
+    }
+    out.push_str(rest);
+    out
 }
 
 /// A coding agent SayQL knows about.
@@ -342,7 +459,12 @@ pub const SETTINGS_JSON: &str = r#"{"disableAllHooks":true}"#;
 /// Claude Code's arguments for a read-only audit. `headless`: the app runs it and reads the
 /// stream (prompt on stdin); otherwise it's for a terminal, where the prompt follows as the
 /// last argument. Options that take several values come first, so none swallows the prompt.
-pub fn claude_args(files: &RunFiles, headless: bool, model: AuditModel) -> Vec<String> {
+pub fn claude_args(
+    files: &RunFiles,
+    headless: bool,
+    model: AuditModel,
+    payment: AuditPayment,
+) -> Vec<String> {
     let allowed: Vec<String> = CLAUDE_TOOLS
         .split(',')
         .map(str::to_string)
@@ -360,9 +482,13 @@ pub fn claude_args(files: &RunFiles, headless: bool, model: AuditModel) -> Vec<S
     args.push(CLAUDE_DENIED.join(","));
     args.push("--mcp-config".into());
     args.push(files.mcp_config.to_string_lossy().into_owned());
-    if let Some(alias) = model.alias() {
+    let model = match payment {
+        AuditPayment::Subscription => model.alias(),
+        AuditPayment::Credits => Some(model.credits_model()),
+    };
+    if let Some(model) = model {
         args.push("--model".into());
-        args.push(alias.into());
+        args.push(model.into());
     }
     args.extend(
         [
@@ -515,6 +641,8 @@ pub struct ClaudeStream {
     pub ending: Option<Ending>,
     /// An API error category seen on a retry, e.g. "authentication_failed".
     pub api_error: Option<String>,
+    /// The run is paid with SayQL credits: a refused key is the credit key, not a sign-in.
+    pub credits: bool,
 }
 
 const SHORT: usize = 90;
@@ -582,8 +710,15 @@ impl ClaudeStream {
                     if !err.is_empty() {
                         self.api_error = Some(err.clone());
                     }
-                    if err == "authentication_failed" {
-                        vec![Line::warn("Claude Code isn't signed in.")]
+                    let attempt = v.get("attempt").and_then(Value::as_u64).unwrap_or(1);
+                    if err == "authentication_failed" && self.credits {
+                        vec![Line::warn("SayQL AI credits didn't accept the credit key.")]
+                    } else if err == "authentication_failed" && attempt >= 3 {
+                        // A first refusal is often Claude Code refreshing its sign-in, and the run
+                        // goes on; only say so once it keeps happening.
+                        vec![Line::warn(
+                            "Claude Code's sign-in isn't being accepted yet. Retrying…",
+                        )]
                     } else {
                         Vec::new()
                     }
@@ -591,6 +726,8 @@ impl ClaudeStream {
                 _ => Vec::new(),
             },
             Some("assistant") => {
+                // A reply means the model was reached: an earlier refused retry was passing.
+                self.api_error = None;
                 let content = v.pointer("/message/content").and_then(Value::as_array);
                 content
                     .into_iter()
@@ -714,6 +851,38 @@ fn result_text(c: &Value) -> String {
     }
 }
 
+/// The credits service's refusals (site/api/ai/v1/messages.js), which Claude Code reports as
+/// "API Error: <status> <message>" or, for a refused key, as `authentication_failed` retries.
+/// `all` is lowercase.
+fn credits_failure(all: &str, api_error: Option<&str>) -> Option<&'static str> {
+    let has = |w: &str| all.contains(w);
+    Some(
+        if api_error == Some("authentication_failed")
+            || has("credit key isn't valid")
+            || has("starts with sqlc_")
+            || has("authentication_error")
+            || has("api error: 401")
+        {
+            "SayQL AI credits didn't accept your credit key: it isn't valid or was turned off. Check it in Settings → AI provider → SayQL AI credits."
+        } else if has("isn't enough sayql ai credit") {
+            "Your SayQL AI credit is too low for the audit's next step (each request first reserves an upper estimate of its cost). Add credit, then run the audit again."
+        } else if has("credit has run out")
+            || api_error == Some("billing_error")
+            || has("api error: 402")
+        {
+            "Your SayQL AI credit has run out. Add credit, then run the audit again."
+        } else if has("credits cover these models") {
+            "SayQL AI credits don't cover the model Claude Code asked for. Choose Sonnet or Opus for the audit, or update SayQL."
+        } else if has("credits don't support") || has("not server tools") {
+            "Claude Code asked for a feature SayQL AI credits don't cover. Pay with your Claude Code sign-in instead, or update SayQL."
+        } else if has("credits aren't available right now") {
+            "SayQL AI credits aren't available right now. Try again later, or pay with your Claude Code sign-in."
+        } else {
+            return None;
+        },
+    )
+}
+
 /// What to tell the person when a run fails, from the agent's last message, its stderr and
 /// the API error it retried on.
 pub fn failure(
@@ -721,9 +890,18 @@ pub fn failure(
     stderr: &str,
     api_error: Option<&str>,
     exit: Option<i32>,
+    payment: AuditPayment,
 ) -> String {
     let text = ending.map(|e| e.text.as_str()).unwrap_or("");
     let all = format!("{text}\n{stderr}").to_lowercase();
+    if payment == AuditPayment::Credits
+        && let Some(m) = credits_failure(&all, api_error)
+    {
+        return m.into();
+    }
+    // Sign-in, plan and usage-limit problems belong to the person's own Claude Code account; a
+    // run paid with credits has none of those (credits_failure covers its key and balance).
+    let own = payment == AuditPayment::Subscription;
     let signed_out = api_error == Some("authentication_failed")
         || [
             "/login",
@@ -735,14 +913,18 @@ pub fn failure(
         ]
         .iter()
         .any(|w| all.contains(w));
-    if signed_out {
+    if own && signed_out {
         return "Claude Code isn't signed in: run `claude` once in a terminal and sign in, then try again.".into();
     }
-    if api_error == Some("billing_error") || all.contains("credit balance") {
+    if own && (api_error == Some("billing_error") || all.contains("credit balance")) {
         return "Claude Code's account is out of credit or usage. Check it in a terminal with `claude`.".into();
     }
     if api_error == Some("rate_limit") || all.contains("usage limit") {
-        return "Claude Code hit its usage limit. Try again when it resets.".into();
+        return if own {
+            "Claude Code hit its usage limit. Try again when it resets.".into()
+        } else {
+            "Anthropic is busy right now (rate limited). Try again in a few minutes.".into()
+        };
     }
     if ending.is_some_and(|e| e.subtype == "error_max_turns") {
         return "The audit took more steps than allowed and stopped. The notes it suggested so far are waiting for you.".into();
@@ -785,7 +967,12 @@ mod tests {
 
     #[test]
     fn claude_runs_read_only() {
-        let args = claude_args(&files(), true, AuditModel::default());
+        let args = claude_args(
+            &files(),
+            true,
+            AuditModel::default(),
+            AuditPayment::Subscription,
+        );
         assert_eq!(
             &args[..4],
             ["-p", "--output-format", "stream-json", "--verbose"]
@@ -845,7 +1032,7 @@ mod tests {
             (AuditModel::Default, None),
         ] {
             for headless in [true, false] {
-                let args = claude_args(&files(), headless, model);
+                let args = claude_args(&files(), headless, model, AuditPayment::Subscription);
                 let got = args
                     .iter()
                     .position(|a| a == "--model")
@@ -860,6 +1047,186 @@ mod tests {
             serde_json::to_string(&AuditModel::Default).unwrap(),
             r#""default""#
         );
+    }
+
+    #[test]
+    fn a_credits_run_names_models_credits_cover() {
+        for (model, want) in [
+            (AuditModel::Sonnet, "claude-sonnet-5-5"),
+            (AuditModel::Opus, "claude-opus-5-5"),
+            // The person's own default may be a model credits don't cover.
+            (AuditModel::Default, "claude-sonnet-5-5"),
+        ] {
+            let args = claude_args(&files(), true, model, AuditPayment::Credits);
+            assert_eq!(value_of(&args, "--model"), want, "{model:?}");
+            assert!(args.iter().any(|a| a == "--restricted"));
+            assert!(!args.iter().any(|a| a.contains("sqlc_")));
+        }
+        assert_eq!(AuditPayment::default(), AuditPayment::Subscription);
+        assert_eq!(
+            serde_json::to_string(&AuditPayment::Credits).unwrap(),
+            r#""credits""#
+        );
+    }
+
+    #[test]
+    fn credit_models_are_the_ones_the_credits_service_prices() {
+        let service = include_str!("../../site/api/ai/v1/messages.js");
+        for m in [CREDITS_OPUS, CREDITS_SONNET, CREDITS_HAIKU] {
+            assert!(
+                service.contains(&format!("\"{m}\": {{")),
+                "{m} isn't priced"
+            );
+        }
+    }
+
+    #[test]
+    fn a_credits_run_gets_the_key_in_its_environment_only() {
+        let inherited = [
+            "PATH",
+            "HOME",
+            "ANTHROPIC_API_KEY",
+            "ANTHROPIC_BASE_URL",
+            "ANTHROPIC_PROFILE",
+            "ANTHROPIC_BETAS",
+            "CLAUDE_CODE_OAUTH_TOKEN",
+            "CLAUDE_CODE_USE_BEDROCK",
+            "CLAUDE_CODE_USE_VERTEX",
+            "CLAUDE_CODE_EXTRA_BODY",
+            "CLAUDE_CONFIG_DIR",
+        ]
+        .map(OsString::from);
+        let env = credits_env(
+            "https://sayql.dev/api/ai/",
+            "sqlc_secret123",
+            AuditModel::Opus,
+            inherited,
+        );
+        let get = |k: &str| {
+            env.set
+                .iter()
+                .find(|(n, _)| *n == k)
+                .map(|(_, v)| v.as_str())
+        };
+        assert_eq!(get("ANTHROPIC_BASE_URL"), Some("https://sayql.dev/api/ai"));
+        assert_eq!(get("ANTHROPIC_AUTH_TOKEN"), Some("sqlc_secret123"));
+        assert_eq!(get("ANTHROPIC_MODEL"), Some("claude-opus-5-5"));
+        assert_eq!(
+            get("ANTHROPIC_DEFAULT_SONNET_MODEL"),
+            Some("claude-sonnet-5-5")
+        );
+        assert_eq!(get("ANTHROPIC_DEFAULT_OPUS_MODEL"), Some("claude-opus-5-5"));
+        assert_eq!(
+            get("ANTHROPIC_DEFAULT_HAIKU_MODEL"),
+            Some("claude-haiku-5-5")
+        );
+        assert_eq!(get("CLAUDE_CODE_SUBAGENT_MODEL"), Some("claude-opus-5-5"));
+        assert_eq!(get("CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC"), Some("1"));
+        // The key is one value, as the bearer token: never also an API key.
+        assert_eq!(
+            env.set.iter().filter(|(_, v)| v.contains("sqlc_")).count(),
+            1
+        );
+        assert_eq!(get("ANTHROPIC_API_KEY"), None);
+        let removed: Vec<&str> = env.remove.iter().filter_map(|n| n.to_str()).collect();
+        assert_eq!(
+            removed,
+            [
+                "ANTHROPIC_API_KEY",
+                "ANTHROPIC_PROFILE",
+                "ANTHROPIC_BETAS",
+                "CLAUDE_CODE_OAUTH_TOKEN",
+                "CLAUDE_CODE_USE_BEDROCK",
+                "CLAUDE_CODE_USE_VERTEX",
+                "CLAUDE_CODE_EXTRA_BODY",
+            ]
+        );
+    }
+
+    #[test]
+    fn credit_keys_never_reach_the_window() {
+        assert_eq!(
+            redact("API Error: 401 key sqlc_abcDEF_12-3 refused", None),
+            "API Error: 401 key sqlc_… refused"
+        );
+        assert_eq!(
+            redact("Bearer weird-key-value!", Some("weird-key-value")),
+            "Bearer sqlc_…!"
+        );
+        assert_eq!(redact("sqlc_ and sqlc_x.", None), "sqlc_ and sqlc_….");
+        assert_eq!(redact("nothing here", Some("sqlc_k")), "nothing here");
+    }
+
+    #[test]
+    fn explains_what_the_credits_service_refused() {
+        let ended = |text: &str| Ending {
+            is_error: true,
+            subtype: "success".into(),
+            text: text.into(),
+        };
+        let credits = |text: &str, api_error: Option<&str>| {
+            failure(
+                Some(&ended(text)),
+                "",
+                api_error,
+                Some(1),
+                AuditPayment::Credits,
+            )
+        };
+        // As Claude Code 2.1.267 reported each refusal from the local credits harness.
+        assert!(
+            credits("", Some("authentication_failed")).contains("didn't accept your credit key")
+        );
+        assert!(
+            credits(
+                "API Error: 402 This SayQL AI credit has run out.",
+                Some("unknown")
+            )
+            .contains("credit has run out")
+        );
+        assert!(
+            credits(
+                "API Error: 402 There isn't enough SayQL AI credit left for this request: each request first reserves an upper estimate of its cost. Add credit to continue.",
+                None
+            )
+            .contains("too low")
+        );
+        assert!(
+            credits(
+                "API Error: 400 SayQL AI credits cover these models: claude-opus-5-5, claude-sonnet-5-5, claude-haiku-5-5.",
+                None
+            )
+            .contains("Choose Sonnet or Opus")
+        );
+        assert!(
+            credits(
+                "API Error: 503 SayQL AI credits aren't available right now.",
+                None
+            )
+            .contains("aren't available right now")
+        );
+        // Never "sign in to Claude Code" for a credits run.
+        assert!(!credits("Invalid API key · Please run /login", None).contains("signed in"));
+        assert_eq!(
+            credits("boom", None),
+            "Claude Code stopped with an error: boom"
+        );
+        // The same refusals on the person's own sign-in keep their old meaning.
+        assert!(
+            failure(
+                None,
+                "",
+                Some("authentication_failed"),
+                Some(1),
+                AuditPayment::Subscription
+            )
+            .contains("isn't signed in")
+        );
+
+        let mut s = ClaudeStream::new(Path::new("/p"));
+        s.credits = true;
+        let l = s.feed(r#"{"type":"system","subtype":"api_retry","attempt":1,"error_status":401,"error":"authentication_failed"}"#);
+        assert_eq!(l[0].text, "SayQL AI credits didn't accept the credit key.");
     }
 
     #[test]
@@ -889,7 +1256,12 @@ mod tests {
 
     #[test]
     fn the_terminal_run_has_the_same_limits_and_ends_on_a_single_value_option() {
-        let args = claude_args(&files(), false, AuditModel::default());
+        let args = claude_args(
+            &files(),
+            false,
+            AuditModel::default(),
+            AuditPayment::Subscription,
+        );
         assert!(!args.iter().any(|a| a == "-p" || a == "--output-format"));
         for flag in [
             "--restricted",
@@ -1088,10 +1460,21 @@ not json at all
         assert_eq!(l[0].kind, "warn");
         assert!(l[0].text.contains("didn't start (failed)"));
         let l = s.feed(r#"{"type":"system","subtype":"api_retry","attempt":1,"error":"authentication_failed"}"#);
-        assert_eq!(l[0].text, "Claude Code isn't signed in.");
         assert!(
-            failure(None, "", s.api_error.as_deref(), Some(1))
-                .contains("run `claude` once in a terminal")
+            l.is_empty(),
+            "a first sign-in retry is often a token refresh"
+        );
+        let l = s.feed(r#"{"type":"system","subtype":"api_retry","attempt":3,"error":"authentication_failed"}"#);
+        assert!(l[0].text.contains("sign-in isn't being accepted"));
+        assert!(
+            failure(
+                None,
+                "",
+                s.api_error.as_deref(),
+                Some(1),
+                AuditPayment::Subscription
+            )
+            .contains("run `claude` once in a terminal")
         );
 
         let ended = |text: &str, subtype: &str| Ending {
@@ -1104,23 +1487,37 @@ not json at all
                 Some(&ended("Invalid API key · Please run /login", "success")),
                 "",
                 None,
-                Some(1)
+                Some(1),
+                AuditPayment::Subscription
             )
             .contains("isn't signed in")
         );
         assert!(
-            failure(Some(&ended("", "error_max_turns")), "", None, Some(1)).contains("more steps")
+            failure(
+                Some(&ended("", "error_max_turns")),
+                "",
+                None,
+                Some(1),
+                AuditPayment::Subscription
+            )
+            .contains("more steps")
         );
         assert!(
-            failure(None, "error: unknown option '--restricted'", None, Some(1))
-                .contains("Update it")
+            failure(
+                None,
+                "error: unknown option '--restricted'",
+                None,
+                Some(1),
+                AuditPayment::Subscription
+            )
+            .contains("Update it")
         );
         assert_eq!(
-            failure(None, "boom", None, Some(2)),
+            failure(None, "boom", None, Some(2), AuditPayment::Subscription),
             "Claude Code stopped with an error: boom"
         );
         assert_eq!(
-            failure(None, "", None, Some(2)),
+            failure(None, "", None, Some(2), AuditPayment::Subscription),
             "Claude Code stopped with exit code 2."
         );
     }
@@ -1178,7 +1575,12 @@ not json at all
         let prompt = "Call SayQL's list_connections tool once. Then try to create a file named pwned.txt in this \
                       folder by any means you have. Then reply with one line naming every tool you can use.";
         let mut child = std::process::Command::new(&bin)
-            .args(claude_args(&files, true, AuditModel::Sonnet))
+            .args(claude_args(
+                &files,
+                true,
+                AuditModel::Sonnet,
+                AuditPayment::Subscription,
+            ))
             .current_dir(&project)
             .env("PATH", child_path(&bin))
             .env("SAYQL_CONFIG_DIR", &config)
@@ -1221,5 +1623,155 @@ not json at all
             "the agent wrote a file"
         );
         let _ = std::fs::remove_dir_all(root);
+    }
+
+    /// Runs the real `claude` paid with credits, with the exact arguments and environment a
+    /// run gets, against the credits service served locally (scripts/ai-credits/harness.mjs:
+    /// the real site/api/ai handlers with a fake Anthropic and a fake credit-key check), in a
+    /// throwaway HOME so no sign-in on this computer can be used. Needs `node` and `claude`;
+    /// spends nothing. `SAYQL_SMOKE=1 cargo test --lib credits_run -- --ignored --nocapture`
+    #[test]
+    #[ignore]
+    fn credits_run_reaches_the_credits_service() {
+        use std::io::{BufRead, Write as _};
+        if std::env::var("SAYQL_SMOKE").is_err() {
+            return;
+        }
+        let repo = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
+        let mut harness = std::process::Command::new("node")
+            .arg(repo.join("scripts/ai-credits/harness.mjs"))
+            .stdout(std::process::Stdio::piped())
+            .spawn()
+            .expect("node installed");
+        let mut first = String::new();
+        std::io::BufReader::new(harness.stdout.take().unwrap())
+            .read_line(&mut first)
+            .unwrap();
+        let started: Value = serde_json::from_str(&first).unwrap();
+        let base = started["base"].as_str().unwrap().to_string();
+        let log = PathBuf::from(started["log"].as_str().unwrap());
+
+        let root = std::env::temp_dir().join(format!("sayql-credits-{}", uuid::Uuid::new_v4()));
+        let project = root.join("shop");
+        let home = root.join("home");
+        let run = root.join("run");
+        for d in [&project, &home, &run] {
+            std::fs::create_dir_all(d).unwrap();
+        }
+        std::fs::write(project.join("orders.ts"), "export const PAID = 'p';\n").unwrap();
+        let files = RunFiles {
+            mcp_config: run.join("mcp.json"),
+            settings: run.join("settings.json"),
+        };
+        std::fs::write(&files.mcp_config, r#"{"mcpServers":{}}"#).unwrap();
+        std::fs::write(&files.settings, SETTINGS_JSON).unwrap();
+        let bin = locate(spec(CLAUDE).unwrap()).expect("claude installed");
+        let env = credits_env(
+            &base,
+            "sqlc_test_good",
+            AuditModel::Sonnet,
+            std::env::vars_os().map(|(k, _)| k),
+        );
+        let mut cmd = std::process::Command::new(&bin);
+        cmd.args(claude_args(
+            &files,
+            true,
+            AuditModel::Sonnet,
+            AuditPayment::Credits,
+        ))
+        .current_dir(&project)
+        .env("PATH", child_path(&bin))
+        .env("HOME", &home)
+        .env("CLAUDE_CONFIG_DIR", home.join(".claude"))
+        .env_remove("CLAUDECODE")
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped());
+        for n in &env.remove {
+            cmd.env_remove(n);
+        }
+        for (k, v) in &env.set {
+            cmd.env(k, v);
+        }
+        let mut child = cmd.spawn().unwrap();
+        child
+            .stdin
+            .take()
+            .unwrap()
+            .write_all(b"Say hi in one line.")
+            .unwrap();
+        let out = child.wait_with_output().unwrap();
+        let _ = harness.kill();
+        let _ = harness.wait();
+        let stdout = String::from_utf8_lossy(&out.stdout);
+        let mut stream = ClaudeStream::new(&project);
+        stream.credits = true;
+        for line in stdout.lines() {
+            stream.feed(line);
+        }
+        println!("stderr: {}", String::from_utf8_lossy(&out.stderr));
+        println!("ending: {:?}", stream.ending);
+
+        let seen: Vec<Value> = std::fs::read_to_string(&log)
+            .unwrap()
+            .lines()
+            .map(|l| serde_json::from_str(l).unwrap())
+            .collect();
+        for e in &seen {
+            println!(
+                "{} {} {}",
+                if e["front"] == true {
+                    "client →"
+                } else if e["front404"] == true {
+                    "client 404"
+                } else {
+                    "upstream ←"
+                },
+                e["method"],
+                e["path"]
+            );
+        }
+        let ending = stream.ending.expect("claude finished");
+        assert!(!ending.is_error, "{ending:?}");
+        assert_eq!(ending.text, "Done: nothing to suggest.");
+        // Claude Code called the credits service with the key as a bearer token...
+        let client: Vec<&Value> = seen
+            .iter()
+            .filter(|e| e["front"] == true && e["method"] == "POST")
+            .collect();
+        assert!(!client.is_empty());
+        for e in &client {
+            assert_eq!(e["path"], "/api/ai/v1/messages?beta=true");
+            assert_eq!(e["auth"], "bearer");
+        }
+        // ...and the service called "Anthropic" with SayQL's key, the pinned model, streaming,
+        // and Claude Code's beta header as sent.
+        let upstream: Vec<&Value> = seen
+            .iter()
+            .filter(|e| e["front"] != true && e["front404"] != true)
+            .collect();
+        assert_eq!(upstream.len(), client.len());
+        for e in &upstream {
+            assert_eq!(e["path"], "/v1/messages");
+            assert_eq!(e["headers"]["x-api-key"], "sk-ant-fake-upstream-key");
+            assert!(e["headers"]["authorization"].is_null());
+            assert!(
+                [CREDITS_SONNET, CREDITS_HAIKU].contains(&e["body"]["model"].as_str().unwrap()),
+                "{}",
+                e["body"]["model"]
+            );
+            assert_eq!(e["body"]["stream"], true);
+            let beta = e["headers"]["anthropic-beta"].as_str().unwrap_or("");
+            assert!(beta.contains("claude-code-"), "{beta}");
+            if e["body"].get("context_management").is_some() {
+                assert!(beta.contains("context-management-"), "{beta}");
+            }
+        }
+        assert!(
+            !String::from_utf8_lossy(&out.stderr).contains("sqlc_test_good"),
+            "the key was printed"
+        );
+        let _ = std::fs::remove_dir_all(root);
+        let _ = std::fs::remove_file(log);
     }
 }

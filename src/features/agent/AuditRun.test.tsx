@@ -40,6 +40,9 @@ const setAuditModel = vi.fn((m: string) => {
   return Promise.resolve();
 });
 
+let payment: { payment: string; hasCreditKey: boolean } = { payment: "subscription", hasCreditKey: false };
+const setAuditPayment = vi.fn((_p: string) => Promise.resolve());
+
 vi.mock("@tauri-apps/plugin-opener", () => ({ openUrl: (u: string) => openUrl(u) }));
 vi.mock("../../api", async (orig) => ({
   ...(await orig<typeof import("../../api")>()),
@@ -53,6 +56,8 @@ vi.mock("../../api", async (orig) => ({
     auditPrompt: () => Promise.resolve("Audit the database"),
     auditModel: () => Promise.resolve(savedModel),
     setAuditModel: (m: string) => setAuditModel(m),
+    auditPayment: () => Promise.resolve(payment),
+    setAuditPayment: (p: string) => setAuditPayment(p),
   },
   subscribeToAudit: (h: (e: AuditEvent) => void) => {
     emit = h;
@@ -65,6 +70,8 @@ const target = { connectionId: "c1", name: "Shop", database: "sales" };
 beforeEach(() => {
   agents = [claude(), codex];
   folder = null;
+  payment = { payment: "subscription", hasCreditKey: false };
+  setAuditPayment.mockClear();
   startAudit.mockClear();
   cancelAudit.mockClear();
   openAuditInTerminal.mockClear();
@@ -156,6 +163,59 @@ it("runs on the saved model, Sonnet by default, and remembers a new choice", asy
   await waitFor(() => expect(setAuditModel).toHaveBeenCalledWith("sonnet"));
   expect(select.value).toBe("sonnet");
   expect(screen.getByText(/Sonnet is cheaper/)).toBeTruthy();
+});
+
+it("pays with SayQL AI credits when a credit key is saved, and remembers it", async () => {
+  folder = "/Users/me/code/shop";
+  savedModel = "default";
+  payment = { payment: "subscription", hasCreditKey: true };
+  render(<AuditDialog target={target} onClose={() => {}} />);
+  const pay = (await screen.findByRole("combobox", { name: "Pay for the audit with" })) as HTMLSelectElement;
+  expect([...pay.options].map((o) => [o.text, o.disabled])).toEqual([
+    ["My Claude Code sign-in", false],
+    ["SayQL AI credits", false],
+  ]);
+  expect(pay.value).toBe("subscription");
+  const terminal = screen.getByRole("button", { name: "Open in Terminal" }) as HTMLButtonElement;
+  expect(terminal.disabled).toBe(false);
+
+  fireEvent.change(pay, { target: { value: "credits" } });
+  await waitFor(() => expect(setAuditPayment).toHaveBeenCalledWith("credits"));
+  expect(pay.value).toBe("credits");
+  expect(screen.getByText(/go through SayQL's credits service to Anthropic and are charged to your credit balance/)).toBeTruthy();
+  expect(screen.getByText(/about \$0\.40 for a typical audit on Sonnet/)).toBeTruthy();
+  expect(screen.getByText(/SayQL keeps only token counts, never your code or the answers/)).toBeTruthy();
+  expect(screen.queryByText(/counts against your own Claude plan/)).toBeNull();
+  // Credits cover Sonnet and Opus: "my default" runs on Sonnet and isn't offered.
+  const model = screen.getByRole("combobox", { name: "Model for the audit" }) as HTMLSelectElement;
+  expect([...model.options].map((o) => o.text)).toEqual(["Sonnet (cheaper)", "Opus"]);
+  expect(model.value).toBe("sonnet");
+  fireEvent.change(model, { target: { value: "opus" } });
+  expect(await screen.findByText(/about \$0\.80 for a typical audit on Opus/)).toBeTruthy();
+  // The key stays in the app's own run: no terminal.
+  expect(terminal.disabled).toBe(true);
+  expect(terminal.title).toContain("works for runs inside SayQL");
+  fireEvent.click(screen.getByRole("button", { name: "Start audit" }));
+  await waitFor(() => expect(startAudit).toHaveBeenCalled());
+});
+
+it("offers credits only with a credit key, and links to where it's added", async () => {
+  folder = "/Users/me/code/shop";
+  // Credits were chosen, then the key was removed: the run uses the person's own sign-in.
+  payment = { payment: "subscription", hasCreditKey: false };
+  const onOpenAiSettings = vi.fn();
+  render(<AuditDialog target={target} onClose={() => {}} onOpenAiSettings={onOpenAiSettings} />);
+  const pay = (await screen.findByRole("combobox", { name: "Pay for the audit with" })) as HTMLSelectElement;
+  expect(pay.value).toBe("subscription");
+  expect([...pay.options].find((o) => o.value === "credits")?.disabled).toBe(true);
+  fireEvent.change(pay, { target: { value: "credits" } });
+  expect(setAuditPayment).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "Add a credit key in Settings → AI provider" }));
+  expect(onOpenAiSettings).toHaveBeenCalled();
+  cleanup();
+  // Without a way to open Settings, the same words, as text.
+  render(<AuditDialog target={target} onClose={() => {}} />);
+  expect(await screen.findByText(/Add a credit key in Settings → AI provider to pay with SayQL AI credits/)).toBeTruthy();
 });
 
 it("cancels a run, and shows why one couldn't start", async () => {

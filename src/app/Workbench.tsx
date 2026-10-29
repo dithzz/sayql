@@ -641,6 +641,7 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
           target={{ connectionId: active.id, name: active.name, database: target?.database ?? null }}
           onReview={() => setDialog({ kind: "noteSuggestions" })}
           onClose={() => setDialog(null)}
+          onOpenAiSettings={() => openSettings({ section: "ai" })}
         />
       )}
       {dialog?.kind === "deleteScript" && (

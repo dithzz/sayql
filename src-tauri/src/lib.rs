@@ -109,6 +109,8 @@ pub fn run() {
             audits::open_audit_in_terminal,
             audits::audit_model,
             audits::set_audit_model,
+            audits::audit_payment,
+            audits::set_audit_payment,
             updates::check_update,
             updates::install_update,
             teams::team_sign_in,

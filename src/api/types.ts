@@ -272,6 +272,15 @@ export interface AuditAgent {
 /** The model an audit runs on; mirrors `audit_runner::AuditModel`. "default" is the person's own Claude Code default. */
 export type AuditModel = "sonnet" | "opus" | "default";
 
+/** Who pays for an audit run; mirrors `audit_runner::AuditPayment`. "credits" sends Claude Code's requests through SayQL AI credits. */
+export type AuditPayment = "subscription" | "credits";
+
+/** The saved payment choice, and whether a SayQL credit key is saved; mirrors `commands::audit::AuditPaymentView`. */
+export interface AuditPaymentView {
+  payment: AuditPayment;
+  hasCreditKey: boolean;
+}
+
 /** Progress of an audit run, as `audit://event`; mirrors `commands::audit::AuditEvent`. */
 export type AuditEvent =
   | { type: "line"; runId: string; kind: "step" | "note" | "warn"; text: string }

@@ -5,6 +5,8 @@ import type {
   AgentSettings,
   AuditAgent,
   AuditModel,
+  AuditPayment,
+  AuditPaymentView,
   AuditRun,
   Bootstrap,
   DbNote,
@@ -144,6 +146,9 @@ export const commands = {
   /** The model audits run on (Sonnet until the person picks another). */
   auditModel: () => invoke<AuditModel>("audit_model"),
   setAuditModel: (model: AuditModel) => invoke<void>("set_audit_model", { model }),
+  /** Who pays for audits (the person's Claude Code sign-in until they pick SayQL credits). */
+  auditPayment: () => invoke<AuditPaymentView>("audit_payment"),
+  setAuditPayment: (payment: AuditPayment) => invoke<void>("set_audit_payment", { payment }),
   /** Opens the system terminal in `folder` running the same read-only audit interactively. */
   openAuditInTerminal: (agent: string, connectionId: string, database: string | null, folder: string) =>
     invoke<void>("open_audit_in_terminal", { agent, id: connectionId, database, folder }),
