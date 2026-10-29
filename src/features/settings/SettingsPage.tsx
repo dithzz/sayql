@@ -55,16 +55,29 @@ interface Draft {
 
 const draftOf = (p: AiProvider): Draft => ({ baseUrl: p.baseUrl, typingModel: p.typingModel, expertModel: p.expertModel, apiKey: "" });
 
-/** Where the question and schema go, in one sentence. Local providers say so in their note. */
 /** SayQL AI credits: Claude through SayQL's service, with a prepaid credit key. */
 const SAYQL_CREDITS = "sayql";
 
-function privacyNote(p: AiProvider): string {
-  if (p.id === SAYQL_CREDITS) {
-    return "Your question and table and column names go through SayQL to Anthropic, never the data in your tables. SayQL keeps only token counts.";
-  }
-  const to = p.key === "optional" ? "your server" : p.label;
-  return `Your question and table and column names are sent to ${to}, never the data in your tables.`;
+/**
+ * What the Ask box sends, and where, in two sentences. It must match
+ * src-tauri/src/commands/generation.rs: the question, the schema (names, types, keys, enum
+ * values, row estimates) and saved notes; the editor's SQL for follow-ups and fixes; a failed
+ * query's error with quoted values masked (ai/redact.rs). Rows only go in agent mode, per
+ * connection (ai/agent/run.rs).
+ */
+export function privacyNote(p: Pick<AiProvider, "id" | "key" | "label" | "local">): string {
+  const to =
+    p.id === SAYQL_CREDITS
+      ? "SayQL, which forwards it to Anthropic and keeps only token counts"
+      : p.key === "optional"
+        ? "your server"
+        : p.local
+          ? `${p.label}, on this computer`
+          : p.label;
+  return (
+    `Your question, table and column names, your database notes and the SQL you're working on (with a failed query's error, values masked) are sent to ${to}. ` +
+    "Data from your tables is sent only if you turn on agent mode for a connection and allow it in its agent settings."
+  );
 }
 
 /** Full-window settings, with sections in a sidebar. Esc or Back returns to the workbench. */
@@ -199,12 +212,15 @@ export function SettingsPage({
                   />
                 )}
               </Field>
+              <p className={styles.intro} data-testid="ai-privacy-note">
+                {privacyNote(provider)}
+              </p>
 
               {provider.key !== "none" && (
                 <Field
                   label={provider.id === SAYQL_CREDITS ? "Credit key" : `${provider.label} API key`}
                   optional={provider.key === "optional"}
-                  hint={`${provider.id === SAYQL_CREDITS ? "From SayQL (hello@azenvoc.com). " : ""}Stored in your system keychain. ${privacyNote(provider)}`}
+                  hint={`${provider.id === SAYQL_CREDITS ? "From SayQL (hello@azenvoc.com). " : ""}Stored in your system keychain.`}
                 >
                   {(id) => (
                     <TextInput

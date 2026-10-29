@@ -1,6 +1,6 @@
 # SayQL Privacy Notice
 
-SayQL is a desktop app. It has no SayQL account, no SayQL server and no telemetry: we don't collect, receive or store any of your data.
+SayQL is a desktop app. It has no SayQL account and no telemetry. Unless you choose SayQL AI credits (below), it uses no SayQL server and we don't receive any of your data; with credits, your AI requests pass through SayQL's service and we store only token counts.
 
 ## What stays on your computer
 
@@ -25,7 +25,7 @@ SayQL sends data only to services you configure, and only when you use them:
 | When | What is sent | Sent to |
 | --- | --- | --- |
 | You connect or run a query | Your login and your SQL | Your database server |
-| You ask in plain English | Your question; the database's table and column names, types, keys, enum values and row estimates; the current SQL for follow-ups, Explain, Fix and Improve; any skill you add | The AI provider you chose in Settings |
+| You ask in plain English | Your question; the database's table and column names, types, keys, enum values and row estimates; saved database notes; the current SQL for follow-ups, Explain, Fix and Improve; any skill you add | The AI provider you chose in Settings |
 | A query fails and SayQL fixes it | The query and the database's error message, with values from your rows masked | The AI provider you chose |
 | You use agent mode on a connection where you turned it on | Your question, the schema, saved database notes, the agent's queries and, depending on your setting for that connection, row counts only, counts and column summaries, or up to 20 rows per query with likely personal data masked | The AI provider you chose |
 | An AI app uses SayQL through MCP | The schemas and saved database notes, and what you allow it to see of query results on that connection: by default counts and summaries, no row values (never the values of columns you marked never send). Database errors below all rows as a fixed description, without the values they can quote | That AI app (for example Claude or Cursor) |

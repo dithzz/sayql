@@ -372,12 +372,12 @@ footer a { color: var(--color-text-muted); }
     <article class="page">
       <div class="crumb"><a href="/docs/">Docs</a> / Reference</div>
       <h1>Privacy and data</h1>
-      <p>SayQL has no account, no server of its own and no telemetry. It sends data only to services you configure, and only when you use them:</p>
+      <p>SayQL has no account and no telemetry, and no server of its own unless you choose SayQL AI credits (below). It sends data only to services you configure, and only when you use them:</p>
 <div class="table-wrap"><table>
   <thead><tr><th>When</th><th>What's sent</th><th>To</th></tr></thead>
   <tbody>
     <tr><td>You connect or run a query</td><td>Your login and your SQL</td><td>Your database</td></tr>
-    <tr><td>You ask in plain English</td><td>Your question; table and column names, types, keys, enum values and row estimates; the current SQL for follow-ups, Explain, Fix and Improve; any skill you add</td><td>Your AI provider</td></tr>
+    <tr><td>You ask in plain English</td><td>Your question; table and column names, types, keys, enum values and row estimates; saved database notes; the current SQL for follow-ups, Explain, Fix and Improve; any skill you add</td><td>Your AI provider</td></tr>
     <tr><td>A query fails and SayQL fixes it</td><td>The query and the database's error, with values from your rows masked</td><td>Your AI provider</td></tr>
     <tr><td>You use <a href="/docs/agent-mode/">agent mode</a> on a connection where you turned it on</td><td>Your question, the schema, saved notes, the agent's queries and, per your setting for that connection, row counts only, counts and column summaries, or up to 20 rows per query with likely personal data masked</td><td>Your AI provider</td></tr>
     <tr><td>Agent activity (MCP), on your computer</td><td>Which AI app ran what SQL on which connection, when, and the row count, never rows</td><td>Stays on your computer; Clear the log deletes it</td></tr>

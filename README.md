@@ -156,13 +156,13 @@ out, **Update to x.y.z** appears in the status bar, and every update is signatur
 
 ## Your data
 
-SayQL has no account, no server of its own and no telemetry. It connects straight from your machine to your
-database, and sends data only to services you configure:
+SayQL has no account and no telemetry, and no server of its own unless you choose SayQL AI credits. It connects
+straight from your machine to your database, and sends data only to services you configure:
 
 | When | What's sent | Where |
 | --- | --- | --- |
-| You ask in plain English | Your question, the schema (table and column names, types, keys), and the current SQL for follow-ups | Your AI provider |
-| A query fails and SayQL fixes it | The query and the database's error message | Your AI provider |
+| You ask in plain English | Your question, the schema (table and column names, types, keys), saved database notes, and the current SQL for follow-ups | Your AI provider |
+| A query fails and SayQL fixes it | The query and the database's error message, with values from your rows masked | Your AI provider |
 | You use agent mode on a connection where you turned it on | The agent's queries and, per your setting, row counts, column summaries, or up to 20 masked rows per query | Your AI provider |
 | An AI app uses SayQL through MCP | The schemas and database notes, and what you allow it to see of query results on that connection: by default counts and summaries, no row values (never the values of never-send columns) | That AI app (for example Claude or Cursor) |
 | You run a query | Your SQL | Your database |
