@@ -5,6 +5,7 @@ pub mod agent;
 pub mod apps;
 pub mod audit_folders;
 pub mod audits;
+pub mod my_activity;
 pub mod note_values;
 pub mod secrets;
 pub mod skills;

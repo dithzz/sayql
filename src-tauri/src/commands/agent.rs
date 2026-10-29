@@ -1,10 +1,11 @@
 use crate::ai::Api;
 use crate::ai::agent::model::{Llm, ToolMode};
-use crate::ai::agent::run::{self, Event, Io, Reply, RunInput};
+use crate::ai::agent::run::{self, Event, Io, Reply, RunInput, StepStatus};
 use crate::ai::endpoint::endpoint;
 use crate::error::{AppError, AppResult};
 use crate::state::{AgentRun, AppState, Target};
 use crate::store::agent::{AgentAccess, Note};
+use crate::store::my_activity::MyActivity;
 use crate::store::suggestions::NoteSuggestion;
 use crate::team::{self, Source, TeamRules};
 use serde::Serialize;
@@ -37,13 +38,16 @@ pub async fn start_agent(
     if question.is_empty() {
         return Err("Type a question first.".into());
     }
+    // For your activity log: each query the run makes, with what went to the AI.
+    let (log_id, log_database, log_question) = (id.clone(), database.clone(), question.clone());
     if state.team_connection(&id).is_some_and(|c| c.agent_off()) {
         return Err(team::AGENT_OFF.into());
     }
     let mut access = effective_access(&state, &id)?.access;
     if !access.enabled {
         return Err(
-            "Investigate is off for this connection. Turn it on in its Investigate settings first.".into(),
+            "Investigate is off for this connection. Turn it on in its Investigate settings first."
+                .into(),
         );
     }
     let target = Target::new(id.clone(), database.clone());
@@ -149,6 +153,23 @@ pub async fn start_agent(
     let emitter = app.clone();
     let mut io = Io {
         emit: Arc::new(move |e: Event| {
+            if let Event::Step { step, .. } = &e
+                && step.status != StepStatus::Running
+                && let Some(sql) = &step.sql
+            {
+                let mut entry =
+                    MyActivity::new(&log_id, log_database.as_deref(), "investigate", sql);
+                entry.question = Some(log_question.clone());
+                entry.rows = step.row_count;
+                entry.ms = step.elapsed_ms.map(|ms| ms as u64);
+                if step.status == StepStatus::Error {
+                    entry.status = "error".into();
+                    entry.detail = step.error.clone();
+                } else {
+                    entry.detail = step.sent_summary.clone();
+                }
+                let _ = emitter.state::<AppState>().store.log_my_activity(entry);
+            }
             let _ = emitter.emit(EVENT, e);
         }),
         replies: rx,

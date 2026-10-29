@@ -2,7 +2,7 @@
 // for design work without the Rust backend. Never loaded inside the Tauri app.
 import { emit } from "@tauri-apps/api/event";
 import { mockIPC } from "@tauri-apps/api/mocks";
-import type { AgentAccess, AgentReply, AgentStep, AiProvider, AuditAgent, AuditRun, Bootstrap, DbNote, NoteSuggestion, QueryResult, Schema, Settings, Skill, Table } from "../api";
+import type { MyActivity, AgentAccess, AgentReply, AgentStep, AiProvider, AuditAgent, AuditRun, Bootstrap, DbNote, NoteSuggestion, QueryResult, Schema, Settings, Skill, Table } from "../api";
 import { EXAMPLE_SKILLS, skillError } from "../features/skills";
 import { version } from "../../package.json";
 import { isReadOnly } from "./readOnly";
@@ -18,6 +18,15 @@ const VIDEO = new URLSearchParams(window.location.search).has("video");
 const FIRSTRUN = new URLSearchParams(window.location.search).has("firstrun");
 /** ?noplan: the Claude plan check says Claude Code isn't signed in. */
 const NOPLAN = new URLSearchParams(window.location.search).has("noplan");
+
+/** Your activity in the preview: a few queries from each place. */
+const MIN = 60_000;
+const myActivity: MyActivity[] = [
+  { at: Date.now() - 3 * MIN, connectionId: "demo", source: "ask", sql: "SELECT name, SUM(total) AS spend FROM customers JOIN orders USING (customer_id) GROUP BY name ORDER BY spend DESC LIMIT 10;", status: "ok", rows: 10, ms: 14, question: "Top 10 customers by total spend" },
+  { at: Date.now() - 9 * MIN, connectionId: "demo", source: "investigate", sql: "SELECT status, COUNT(*) FROM orders WHERE created_at >= date('now', '-14 days') GROUP BY status;", status: "ok", rows: 4, ms: 8, detail: "sent row count and column summaries", question: "why did paid orders drop last week?" },
+  { at: Date.now() - 26 * MIN, connectionId: "pg", source: "editor", sql: "SELECT * FROM signups WHERE signup_date > now() - interval '7 days';", status: "error", detail: "column \"signup_date\" does not exist" },
+  { at: Date.now() - 2 * 24 * 60 * MIN, connectionId: "demo", source: "editor", sql: "SELECT COUNT(*) FROM products;", status: "ok", rows: 1, ms: 3 },
+];
 
 const col = (name: string, data_type: string, primary_key = false) => ({
   name,
@@ -838,6 +847,13 @@ export function installMockBackend() {
           return "top ten customers by total spend";
         case "voice_cancel":
           clearInterval(voice.meter);
+          return null;
+        case "my_activity": {
+          const id = a.connectionId as string | null;
+          return myActivity.filter((e) => !id || e.connectionId === id);
+        }
+        case "clear_my_activity":
+          myActivity.length = 0;
           return null;
         case "check_claude_plan":
           await new Promise((r) => setTimeout(r, 500));

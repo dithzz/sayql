@@ -10,6 +10,7 @@ export const SECTION_DOCS: Record<SettingsSection, string> = {
   skills: "asking/#skills",
   voice: "asking/#say-it",
   mcp: "mcp/",
+  activity: "privacy/#your-activity",
   team: "teams/",
   about: "",
 };

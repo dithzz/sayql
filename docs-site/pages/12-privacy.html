@@ -23,6 +23,9 @@
 <p>Over MCP, counts and summaries (the default) and masked rows keep your rows from reaching an AI app by accident, but a count or a sum is still a fact about your rows, and an agent set on it can turn a value into one. Columns marked <b>never send</b> are the firm line: SayQL refuses any query that could read them.</p>
 <p>Read the full <a href="https://github.com/dithzz/sayql-releases/blob/main/PRIVACY.md">privacy notice</a>.</p>
 
+<h2>Your activity</h2>
+<p><b>Settings → Your activity</b> lists the queries you ran in SayQL: from the editor, the Ask box and Investigate, with when, the connection, the SQL, how many rows came back and how long it took. For Investigate it also says what went to the AI for each query. It's kept on this computer (in SayQL's settings folder), holds the SQL and counts, never the rows, and keeps roughly the last 2 MB. <b>Clear the log</b> deletes it. A connection's overview shows its part of the log. What AI apps ran over MCP is in its own log, under <a href="/docs/mcp/">Settings → AI apps</a>.</p>
+
 <h2>Voice input</h2>
 <p>When you say your question, the speech model (Whisper) turns it into text on your computer. Audio stays in memory only while you talk, is never saved, and is never sent anywhere, not even to your AI provider. Only the text goes on, like a typed question. Remove the model in <b>Settings → Voice</b>.</p>
 

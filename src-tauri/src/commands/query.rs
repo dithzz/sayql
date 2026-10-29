@@ -1,6 +1,7 @@
 use crate::db::{self, DbPool, Kind, QueryResult};
 use crate::error::{AppError, AppResult};
 use crate::state::{AppState, Target};
+use crate::store::my_activity::MyActivity;
 use crate::team::Source;
 use tauri::State;
 
@@ -20,8 +21,66 @@ pub async fn run_query(
     source: Option<Source>,
     question: Option<String>,
 ) -> AppResult<QueryResult> {
+    let source = source.unwrap_or_default();
+    let mut entry = MyActivity::new(
+        &id,
+        database.as_deref(),
+        match source {
+            Source::Ask => "ask",
+            // Running an Investigate step again.
+            Source::Agent => "investigate",
+            Source::Editor => "editor",
+        },
+        &sql,
+    );
+    entry.question = question.clone().filter(|q| !q.trim().is_empty());
+    let out = run(
+        &state,
+        id,
+        database,
+        sql,
+        allow_write,
+        run_id,
+        source,
+        question,
+    )
+    .await;
+    // Your activity log; a query waiting for write confirmation hasn't run yet.
+    if !matches!(out, Err(AppError::NeedsWriteConfirmation)) {
+        match &out {
+            Ok(r) => {
+                entry.rows = Some(r.rows_affected.map(|n| n as usize).unwrap_or(r.rows.len()));
+                entry.ms = Some(r.elapsed_ms as u64);
+            }
+            Err(e) => {
+                let text = e.to_string();
+                entry.status = if text == db::CANCELLED {
+                    "cancelled"
+                } else {
+                    "error"
+                }
+                .into();
+                entry.detail = Some(text);
+            }
+        }
+        let _ = state.store.log_my_activity(entry);
+    }
+    out
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn run(
+    state: &AppState,
+    id: String,
+    database: Option<String>,
+    sql: String,
+    allow_write: bool,
+    run_id: Option<String>,
+    source: Source,
+    question: Option<String>,
+) -> AppResult<QueryResult> {
     let pool = state.open_pool(&Target::new(id, database))?;
-    let pool = pool.with_context(source.unwrap_or_default(), question);
+    let pool = pool.with_context(source, question);
     // A team connection never writes, so there's nothing to confirm: every statement goes to the
     // team server, which refuses writes and records the attempt in its audit log.
     let read_only = match pool {

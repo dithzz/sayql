@@ -427,6 +427,22 @@ export interface McpSetup {
 }
 
 /** Something an AI app did, or tried, over MCP; mirrors `store::apps::Activity`. Holds SQL and counts, never rows. */
+/** A query you ran; mirrors `MyActivity` in src-tauri/src/store/my_activity.rs. */
+export interface MyActivity {
+  /** Milliseconds since the Unix epoch. */
+  at: number;
+  connectionId: string;
+  database?: string | null;
+  source: "editor" | "ask" | "investigate";
+  sql: string;
+  status: "ok" | "error" | "cancelled";
+  rows?: number | null;
+  ms?: number | null;
+  /** The error, or for Investigate what went to the AI. */
+  detail?: string | null;
+  question?: string | null;
+}
+
 export interface McpActivity {
   /** Milliseconds since the Unix epoch. */
   at: number;

@@ -1,5 +1,5 @@
 import { useEffect, useId, useState } from "react";
-import { ArrowLeft, BookOpen, Bot, ExternalLink, Info, Keyboard, Mic, Plug, RefreshCw, ScrollText, Sparkles, Users, type LucideIcon } from "lucide-react";
+import { ArrowLeft, BookOpen, Bot, ExternalLink, History, Info, Keyboard, Mic, Plug, RefreshCw, ScrollText, Sparkles, Users, type LucideIcon } from "lucide-react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { commands, type AiProvider, type ConnectionConfig, type Settings, type TeamAccount } from "../../api";
 import { Alert, Button, Field, Select, TextInput } from "../../components/ui";
@@ -11,11 +11,12 @@ import { TeamSection } from "../team";
 import { VoiceSection } from "../voice";
 import { ClaudeIntegration, type AiAppsTab } from "./ClaudeIntegration";
 import { ClaudePlanCheck } from "./ClaudePlanCheck";
+import { MyActivityLog } from "./MyActivity";
 import { version } from "../../../package.json";
 import { docsUrl } from "../help/docs";
 import styles from "./SettingsPage.module.css";
 
-export type SettingsSection = "ai" | "agent" | "skills" | "voice" | "mcp" | "team" | "about";
+export type SettingsSection = "ai" | "agent" | "skills" | "voice" | "mcp" | "activity" | "team" | "about";
 
 const SECTIONS: { id: SettingsSection; label: string; icon: LucideIcon }[] = [
   { id: "ai", label: "AI provider", icon: Sparkles },
@@ -23,6 +24,7 @@ const SECTIONS: { id: SettingsSection; label: string; icon: LucideIcon }[] = [
   { id: "skills", label: "Skills", icon: ScrollText },
   { id: "voice", label: "Voice", icon: Mic },
   { id: "mcp", label: "AI apps", icon: Plug },
+  { id: "activity", label: "Your activity", icon: History },
   { id: "team", label: "Team", icon: Users },
   { id: "about", label: "About", icon: Info },
 ];
@@ -211,7 +213,7 @@ export function SettingsPage({
         ))}
       </nav>
       <main className={styles.content}>
-        <div className={cx(styles.inner, section === "mcp" && styles.wide)}>
+        <div className={cx(styles.inner, (section === "mcp" || section === "activity") && styles.wide)}>
           {section !== "about" && (
             <button
               type="button"
@@ -379,6 +381,12 @@ export function SettingsPage({
                 <p className={styles.subtitle}>Claude Code, Cursor and other MCP apps</p>
               </div>
               <ClaudeIntegration connections={connections} provider={agentProvider} suggestions={noteSuggestions} tab={aiAppsTab} />
+            </>
+          )}
+          {section === "activity" && (
+            <>
+              <h2 className={styles.title}>Your activity</h2>
+              <MyActivityLog connections={connections} />
             </>
           )}
           {section === "team" && (
