@@ -27,7 +27,7 @@
 .count {
   margin-left: 4px;
   color: var(--color-text-muted);
-  font-weight: var(--font-weight-normal);
+  font-weight: var(--font-weight-regular);
 }
 .hide {
   display: inline-flex;
@@ -110,10 +110,10 @@
 .actionNext {
   border-color: var(--color-accent);
   background: var(--color-accent);
-  color: var(--color-on-accent, #fff);
+  color: var(--color-text-on-accent);
 }
 .actionNext:hover {
   border-color: var(--color-accent);
-  color: var(--color-on-accent, #fff);
+  color: var(--color-text-on-accent);
   filter: brightness(1.05);
 }

@@ -536,25 +536,22 @@ fn failed(log: &mut Activity, level: AppResults, guard: &Guard, e: QueryFailure)
     shown_error(level, guard, e)
 }
 
-/// `sql` with the text of every `'…'` string literal replaced by `…`.
-fn mask_literals(sql: &str) -> String {
-    let mut out = String::with_capacity(sql.len());
-    let mut chars = sql.chars().peekable();
-    while let Some(c) = chars.next() {
-        out.push(c);
-        if c != '\'' {
-            continue;
-        }
-        while let Some(d) = chars.next() {
-            if d == '\'' && chars.peek() == Some(&'\'') {
-                chars.next();
-            } else if d == '\'' {
-                break;
-            }
-        }
-        out.push_str("…'");
+/// `sql` with the text of every string literal and comment replaced by `…`, read as `kind`'s
+/// database reads it (every engine's way when the connection is gone).
+fn mask_literals(sql: &str, kind: Option<crate::db::Kind>) -> String {
+    use crate::sql_lex::Dialect;
+    match kind {
+        Some(k) => crate::sql_lex::mask_values(sql, &[never_send::dialect(k)]),
+        None => crate::sql_lex::mask_values(
+            sql,
+            &[
+                Dialect::Postgres,
+                Dialect::MySql,
+                Dialect::Sqlite,
+                Dialect::Mssql,
+            ],
+        ),
     }
-    out
 }
 
 /// Marks never-send columns in the schema text the AI app reads: `ssn text [never sent to AI]`.
@@ -769,10 +766,8 @@ impl SayqlServer {
             if connection_id.is_some_and(|id| s.connection_id != id) {
                 continue;
             }
-            let connection = connections
-                .iter()
-                .find(|c| c.id == s.connection_id)
-                .map(|c| c.name.clone());
+            let saved = connections.iter().find(|c| c.id == s.connection_id);
+            let connection = saved.map(|c| c.name.clone());
             let level = self.access(&s.connection_id)?.apps;
             let mut item = json!({ "id": s.id, "name": s.name, "connection_id": s.connection_id,
                                    "connection": connection, "database": s.database });
@@ -782,9 +777,10 @@ impl SayqlServer {
                     item["sql"] = json!(s.sql);
                 }
                 AppResults::Counts | AppResults::Masked => {
-                    item["sql"] = json!(mask_literals(&s.sql));
-                    item["note"] =
-                        json!("String literals are masked: they can hold values from the data.");
+                    item["sql"] = json!(mask_literals(&s.sql, saved.map(|c| c.kind)));
+                    item["note"] = json!(
+                        "String literals and comments are masked: they can hold values from the data."
+                    );
                 }
                 AppResults::Off => {
                     item["note"] = json!(
@@ -1610,9 +1606,20 @@ mod tests {
     #[test]
     fn scripts_show_as_much_sql_as_the_level_allows() {
         assert_eq!(
-            mask_literals("SELECT * FROM c WHERE email = 'alice@x.com' AND n = 'it''s'"),
+            mask_literals(
+                "SELECT * FROM c WHERE email = 'alice@x.com' AND n = 'it''s'",
+                None
+            ),
             "SELECT * FROM c WHERE email = '…' AND n = '…'"
         );
+        // The 2026-10-29 audit: MySQL "…" strings, backslash escapes and comments leaked.
+        let masked = mask_literals(
+            "SELECT * FROM c WHERE email = \"bob@x.com\" AND note = 'a\\' carol' -- eve@x.com",
+            Some(crate::db::Kind::Mysql),
+        );
+        for value in ["bob", "carol", "eve"] {
+            assert!(!masked.contains(value), "{value} in {masked}");
+        }
     }
 
     #[test]

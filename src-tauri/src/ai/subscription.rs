@@ -11,12 +11,14 @@ use super::{GenRequest, Output, prompt};
 use crate::audit_runner::{self, CLAUDE, SETTINGS_JSON};
 use crate::error::{AppError, AppResult};
 use serde_json::Value;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 
-/// Claude Code's arguments for one text-only answer. The prompt goes on stdin.
-pub fn args(model: &str, system: &str) -> Vec<String> {
+/// Claude Code's arguments for one text-only answer. The prompt goes on stdin and the system
+/// prompt (with the schema) in a file, so neither is on the command line: that is visible to
+/// other processes and, on Windows, limited to 32K characters.
+pub fn args(model: &str, system_file: &Path) -> Vec<String> {
     let mut args: Vec<String> = [
         "-p",
         "--output-format",
@@ -42,8 +44,8 @@ pub fn args(model: &str, system: &str) -> Vec<String> {
         args.push("--model".into());
         args.push(model.into());
     }
-    args.push("--system-prompt".into());
-    args.push(system.into());
+    args.push("--system-prompt-file".into());
+    args.push(system_file.to_string_lossy().into_owned());
     args
 }
 
@@ -116,12 +118,52 @@ pub async fn check() -> AppResult<PlanCheck> {
     })
 }
 
-/// An empty folder to run in, so Claude Code finds no project files or settings.
+/// The folder Claude Code runs in: this user's own (not the shared temp folder, where another
+/// user could leave a CLAUDE.md), holding only the system prompt files of running requests.
 fn work_dir() -> AppResult<PathBuf> {
-    let dir = std::env::temp_dir().join("sayql-claude-plan");
-    std::fs::create_dir_all(&dir)
-        .map_err(|e| AppError::User(format!("Couldn't create a folder for Claude Code: {e}")))?;
+    let base = dirs::cache_dir().unwrap_or_else(std::env::temp_dir);
+    let dir = base.join("sayql").join("claude-plan");
+    let fail = |e: std::io::Error| {
+        AppError::User(format!("Couldn't create a folder for Claude Code: {e}"))
+    };
+    std::fs::create_dir_all(&dir).map_err(fail)?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o700)).map_err(fail)?;
+    }
     Ok(dir)
+}
+
+/// One request's system prompt on disk, readable only by this user; deleted when the request
+/// ends, however it ends (a dropped future included).
+struct PromptFile(PathBuf);
+
+impl PromptFile {
+    fn write(dir: &Path, text: &str) -> AppResult<PromptFile> {
+        let path = dir.join(format!("prompt-{}.txt", uuid::Uuid::new_v4()));
+        let mut options = std::fs::OpenOptions::new();
+        options.write(true).create_new(true);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            options.mode(0o600);
+        }
+        use std::io::Write;
+        options
+            .open(&path)
+            .and_then(|mut f| f.write_all(text.as_bytes()))
+            .map_err(|e| {
+                AppError::User(format!("Couldn't prepare the request for Claude Code: {e}"))
+            })?;
+        Ok(PromptFile(path))
+    }
+}
+
+impl Drop for PromptFile {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_file(&self.0);
+    }
 }
 
 /// What one run gave back.
@@ -245,9 +287,11 @@ async fn ask(
     mut on_text: impl FnMut(&str),
 ) -> AppResult<Answer> {
     let bin = locate()?;
+    let dir = work_dir()?;
+    let system = PromptFile::write(&dir, system)?;
     let mut child = tokio::process::Command::new(&bin)
-        .args(args(model, system))
-        .current_dir(work_dir()?)
+        .args(args(model, &system.0))
+        .current_dir(&dir)
         .env("PATH", audit_runner::child_path(&bin))
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -351,13 +395,14 @@ mod tests {
 
     #[test]
     fn runs_without_tools_settings_or_saved_sessions() {
-        let args = args("claude-haiku-5-5", "Write SQL.");
+        let args = args("claude-haiku-5-5", Path::new("/x/prompt.txt"));
         assert_eq!(value_after(&args, "--tools"), "");
         assert_eq!(value_after(&args, "--max-turns"), "1");
         assert_eq!(value_after(&args, "--model"), "claude-haiku-5-5");
         assert_eq!(value_after(&args, "--settings"), SETTINGS_JSON);
         // The system prompt replaces Claude Code's own and is the last option.
-        assert_eq!(args[args.len() - 2], "--system-prompt");
+        assert_eq!(args[args.len() - 2], "--system-prompt-file");
+        assert_eq!(args[args.len() - 1], "/x/prompt.txt");
         for flag in [
             "--restricted",
             "--strict-mcp-config",
