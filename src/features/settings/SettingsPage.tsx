@@ -10,6 +10,7 @@ import { SkillsSection, type SkillsApi } from "../skills";
 import { TeamSection } from "../team";
 import { VoiceSection } from "../voice";
 import { ClaudeIntegration, type AiAppsTab } from "./ClaudeIntegration";
+import { ClaudePlanCheck } from "./ClaudePlanCheck";
 import { version } from "../../../package.json";
 import { docsUrl } from "../help/docs";
 import styles from "./SettingsPage.module.css";
@@ -63,6 +64,8 @@ const draftOf = (p: AiProvider): Draft => ({ baseUrl: p.baseUrl, typingModel: p.
 
 /** SayQL AI credits: Claude through SayQL's service, with a prepaid credit key. */
 const SAYQL_CREDITS = "sayql";
+/** Your own Claude plan, through your installed Claude Code (src-tauri/src/ai/providers.rs `CLAUDE_PLAN`). */
+export const CLAUDE_PLAN = "claude-plan";
 
 /**
  * What the Ask box sends, and where, in two sentences. It must match
@@ -75,7 +78,9 @@ export function privacyNote(p: Pick<AiProvider, "id" | "key" | "label" | "local"
   const to =
     p.id === SAYQL_CREDITS
       ? "SayQL, which forwards it to Anthropic and keeps only token counts"
-      : p.key === "optional"
+      : p.id === CLAUDE_PLAN
+        ? "Anthropic by your own Claude Code, on your Claude plan"
+        : p.key === "optional"
         ? "your server"
         : p.local
           ? `${p.label}, on this computer`
@@ -253,9 +258,10 @@ export function SettingsPage({
                 </Field>
               )}
 
-              {provider.api === "anthropic" ? (
+              {provider.api !== "openai" ? (
                 <>
-                  {provider.id !== SAYQL_CREDITS && (
+                  {provider.api === "plan" && <ClaudePlanCheck />}
+                  {provider.id === "anthropic" && (
                     <Field
                       label="Workspace ID"
                       optional

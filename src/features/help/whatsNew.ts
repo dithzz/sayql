@@ -14,6 +14,10 @@ export const WHATS_NEW: WhatsNewEntry[] = [
     version: "0.4.8",
     items: [
       {
+        title: "Use your Claude plan",
+        text: "No API key needed: pick Your Claude plan in Settings → AI provider and SayQL uses your installed Claude Code, on your own Pro or Max plan.",
+      },
+      {
         title: "Nothing connects on its own",
         text: "Tabs you had open come back, but SayQL connects only when you click Connect, the connection, Run or ask.",
       },

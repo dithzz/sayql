@@ -32,6 +32,7 @@ import type {
   AppInfo,
   Target,
   VoiceStatus,
+  PlanCheck,
 } from "./types";
 
 /** Typed wrappers for the Tauri commands registered in src-tauri/src/lib.rs. */
@@ -170,6 +171,8 @@ export const commands = {
   /** Model ids an AI provider offers; also checks the key and base URL. */
   listModels: (provider: string, baseUrl: string, apiKey: string | null) =>
     invoke<string[]>("list_models", { provider, baseUrl, apiKey }),
+  /** "Your Claude plan": checks the installed Claude Code is recent enough and signed in. */
+  checkClaudePlan: () => invoke<PlanCheck>("check_claude_plan"),
 
   /** Voice input: whether the on-device speech model is downloaded. */
   voiceStatus: () => invoke<VoiceStatus>("voice_status"),

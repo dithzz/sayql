@@ -206,3 +206,52 @@
   gap: var(--space-2);
   margin-top: var(--space-2);
 }
+
+.ways {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+.way {
+  composes: card;
+  gap: var(--space-1);
+}
+.way:hover {
+  border-color: var(--color-accent);
+}
+.proCon {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: var(--space-1) 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--font-size-sm);
+}
+.proCon li {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.proCon svg {
+  flex-shrink: 0;
+  position: relative;
+  top: 1px;
+}
+.pro {
+  color: var(--color-text);
+}
+.pro svg {
+  color: var(--color-success);
+}
+.con {
+  color: var(--color-text-muted);
+}
+.con svg {
+  color: var(--color-warning);
+}
+@media (max-width: 560px) {
+  .ways {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

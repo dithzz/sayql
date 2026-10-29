@@ -123,7 +123,7 @@ pub fn save_settings(
     let expert_model = expert_model.trim().to_string();
     let base_url = ai::clean_base_url(&base_url).map_err(AppError::User)?;
     match p.api {
-        Api::Anthropic => {
+        Api::Anthropic | Api::Plan => {
             for model in [&typing_model, &expert_model] {
                 if !ai::is_known(model) {
                     return Err(format!("Unknown model {model}").into());
@@ -153,7 +153,7 @@ pub fn save_settings(
     s.provider = p.id.to_string();
     s.workspace_id = workspace_id;
     // Claude's address is fixed; a base URL equal to the default is stored as "use the default".
-    let base_url = if p.api == Api::Anthropic || base_url == p.base_url {
+    let base_url = if p.api != Api::OpenAi || base_url == p.base_url {
         String::new()
     } else {
         base_url
@@ -210,7 +210,7 @@ fn choose(s: &Settings, provider: &str, model: &str, purpose: ModelUse) -> AppRe
     if model.is_empty() && purpose == ModelUse::Typing {
         return Err("Choose a model.".into());
     }
-    if p.api == Api::Anthropic && !model.is_empty() && !ai::is_known(model) {
+    if p.api != Api::OpenAi && !model.is_empty() && !ai::is_known(model) {
         return Err(format!("Unknown model {model}").into());
     }
     let candidate = Settings {
@@ -232,7 +232,7 @@ pub fn save_agent_settings(
     let mut s = state.store.settings()?;
     let p = ai::endpoint::provider(&s.provider)?;
     let agent_model = agent_model.trim().to_string();
-    if p.api == Api::Anthropic && !agent_model.is_empty() && !ai::is_known(&agent_model) {
+    if p.api != Api::OpenAi && !agent_model.is_empty() && !ai::is_known(&agent_model) {
         return Err(format!("Unknown model {agent_model}").into());
     }
     let mut chosen = s.provider_settings(p.id);
@@ -253,6 +253,11 @@ pub async fn list_models(
     api_key: Option<String>,
 ) -> AppResult<Vec<String>> {
     let p = ai::endpoint::provider(&provider)?;
+    if p.api == Api::Plan {
+        // Checks Claude Code is installed and signed in; the models are Claude's.
+        ai::subscription::check().await?;
+        return Ok(ai::MODELS.iter().map(|(id, _)| id.to_string()).collect());
+    }
     if p.api == Api::Anthropic {
         // Claude's models are fixed; this checks the key so a typo is caught before it's saved.
         let key = api_key
@@ -531,4 +536,11 @@ mod tests {
         );
         assert!(choose(&s, "nope", "x", ModelUse::Typing).is_err());
     }
+}
+
+/// Checks the person's own Claude Code for "Your Claude plan": installed, recent enough and
+/// signed in. Reads only its version and sign-in status.
+#[tauri::command]
+pub async fn check_claude_plan() -> AppResult<ai::subscription::PlanCheck> {
+    ai::subscription::check().await
 }

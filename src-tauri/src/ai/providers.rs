@@ -10,6 +10,8 @@ use serde::Serialize;
 pub enum Api {
     Anthropic,
     OpenAi,
+    /// The person's own installed Claude Code on their own Claude plan (`subscription.rs`).
+    Plan,
 }
 
 /// Whether a provider needs an API key.
@@ -38,6 +40,8 @@ pub struct Provider {
 pub const ANTHROPIC: &str = "anthropic";
 /// Prepaid Claude from SayQL: the same Messages API at SayQL's address, with a `sqlc_` credit key.
 pub const SAYQL_CREDITS: &str = "sayql";
+/// The person's own Claude plan, through their installed Claude Code.
+pub const CLAUDE_PLAN: &str = "claude-plan";
 
 const fn openai(
     id: &'static str,
@@ -95,6 +99,16 @@ pub const PROVIDERS: &[Provider] = &[
         base_url: "https://sayql.dev/api/ai",
         key: KeyNeed::Required,
         key_placeholder: "sqlc_…",
+        local: false,
+    },
+    Provider {
+        id: CLAUDE_PLAN,
+        label: "Your Claude plan",
+        note: "Uses your installed Claude Code, signed in with your own Pro or Max plan. No API key; requests count against your plan's limits.",
+        api: Api::Plan,
+        base_url: "",
+        key: KeyNeed::None,
+        key_placeholder: "",
         local: false,
     },
     openai(
@@ -192,7 +206,9 @@ mod tests {
                 "duplicate {}",
                 p.id
             );
-            assert_eq!(p.local, p.key == KeyNeed::None, "{}", p.id);
+            if p.api != Api::Plan {
+                assert_eq!(p.local, p.key == KeyNeed::None, "{}", p.id);
+            }
         }
     }
 

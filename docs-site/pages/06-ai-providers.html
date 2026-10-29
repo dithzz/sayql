@@ -1,9 +1,21 @@
 <!-- order: 6 | slug: ai-providers | title: AI providers | group: Configure | description: Use Claude, OpenAI, Gemini, a local model or any OpenAI-compatible API. -->
-<p class="lead">SayQL writes SQL with the AI provider you pick, using your own API key. Change it any time in <b>Settings</b> (the gear, top right). <b>Back</b> or <kbd>esc</kbd> returns to your work.</p>
+<p class="lead">SayQL writes SQL with the AI you pick: your own API key, your Claude plan, SayQL AI credits or a model on your computer. Change it any time in <b>Settings</b> (the gear, top right). <b>Back</b> or <kbd>esc</kbd> returns to your work.</p>
+<h2>Which to choose</h2>
+<div class="table-wrap"><table>
+  <thead><tr><th>Way</th><th>Good</th><th>But</th></tr></thead>
+  <tbody>
+    <tr><td><b>Your own API key</b></td><td>You pay the provider directly, only for what you use. Every model, and the fastest answers.</td><td>Needs an account and an API key with billing.</td></tr>
+    <tr><td><b>Your Claude plan</b></td><td>No key and no extra bill: uses the Claude Pro or Max plan you already have.</td><td>Needs Claude Code installed and signed in. Slower, since Claude Code starts for each request. Counts against your plan's limits.</td></tr>
+    <tr><td><b>SayQL AI credits</b></td><td>No other account to set up; prepaid, so no surprise bills.</td><td>Requests go through SayQL to Anthropic (SayQL stores only token counts). Credits are paid.</td></tr>
+    <tr><td><b>On this computer</b> (Ollama, LM Studio)</td><td>Nothing leaves your computer, and it's free.</td><td>Needs a capable computer and a downloaded model; less accurate SQL than the large models.</td></tr>
+  </tbody>
+</table></div>
+<p>The first-run setup asks the same question, with the same pros and cons.</p>
 <div class="table-wrap"><table>
   <thead><tr><th>Provider</th><th>What you need</th></tr></thead>
   <tbody>
     <tr><td><b>Anthropic Claude</b> (recommended)</td><td>An API key from the <a href="https://console.anthropic.com/">Claude Console</a>.</td></tr>
+    <tr><td><b>Your Claude plan</b></td><td><a href="https://claude.com/claude-code">Claude Code</a> installed and signed in with your Claude plan. No key. <a href="#claude-plan">More below</a>.</td></tr>
     <tr><td><b>SayQL AI credits</b></td><td>A prepaid credit key from SayQL (<a href="mailto:hello@azenvoc.com">hello@azenvoc.com</a>): Claude without an Anthropic account. Your question and the schema go through SayQL to Anthropic; SayQL keeps only token counts.</td></tr>
     <tr><td><b>OpenAI</b></td><td>An API key from the <a href="https://platform.openai.com/api-keys">OpenAI platform</a>.</td></tr>
     <tr><td><b>Google Gemini</b></td><td>An API key from <a href="https://aistudio.google.com/apikey">Google AI Studio</a>.</td></tr>
@@ -25,6 +37,10 @@
 <p>The status bar shows the models in use, or <b>AI off — set up an AI provider in Settings</b> when none is set up.</p>
 <h2>What your AI provider gets</h2>
 <p>From the Ask box: your question, table and column names (with types, keys, enum values and row estimates), your <a href="/docs/agent-mode/#database-notes">database notes</a>, the SQL you're working on for follow-ups, Explain, Fix and Improve, and a failed query's error with values from your rows masked. Data from your tables goes only if you turn on <a href="/docs/agent-mode/">agent mode</a> for a connection and allow it in its agent settings. The AI provider page in Settings says the same under <b>Provider</b>. See <a href="/docs/privacy/">Privacy and data</a> for everything SayQL sends.</p>
+
+<h2 id="claude-plan">Your Claude plan</h2>
+<p>With <b>Your Claude plan</b>, SayQL starts your installed, unmodified Claude Code for each request (<code>claude -p</code>), signed in however you set it up, so requests count against your plan's limits. It runs with no tools, no MCP servers, no hooks and no saved session, in an empty folder: Claude only answers in text. SayQL sends it the same as any provider gets (below), reads only Claude Code's version and sign-in status to check it's ready, and never reads or handles your Claude credentials. It works for the Ask box, Explain, Fix, Improve and agent mode. Each request starts Claude Code, so SQL appears a second or two later than with an API key.</p>
+<p>Install Claude Code from <a href="https://claude.com/claude-code">claude.com/claude-code</a>, run <code>claude</code> once in a terminal to sign in, then pick <b>Your Claude plan</b> in Settings. SayQL checks it's signed in.</p>
 
 <h2>Local models</h2>
 <p>With Ollama or LM Studio, your questions and schema never leave your computer. For Ollama, install it, pull a model (for example <code>ollama pull llama3.2</code>) and keep it running. SayQL connects to <code>http://localhost:11434/v1</code> by default. LM Studio's local server is at <code>http://localhost:1234/v1</code>. Change the base URL in Settings if yours runs elsewhere.</p>

@@ -30,6 +30,11 @@ pub fn endpoint(s: &Settings) -> AppResult<Endpoint> {
         )
         .into());
     }
+    if p.api == Api::Plan {
+        // Only that Claude Code is installed; signing in is checked in Settings and on each run.
+        super::subscription::locate()?;
+        return Ok(Endpoint::Plan);
+    }
     let url = address(p, &chosen);
     if p.api == Api::OpenAi && url.is_empty() {
         return Err(format!(
@@ -62,6 +67,7 @@ pub fn endpoint(s: &Settings) -> AppResult<Endpoint> {
             base_url: url,
             api_key: key,
         },
+        Api::Plan => Endpoint::Plan,
     })
 }
 

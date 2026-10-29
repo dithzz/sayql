@@ -92,8 +92,11 @@ fn last_action(text: &str) -> Option<(&str, Value)> {
             && v["tool"].is_string()
         {
             found = Some((&text[..start], v));
+            from = body_start + len + 3;
+        } else {
+            // Not an action: maybe a stray fence, so the next ``` may open the real block.
+            from = start + 3;
         }
-        from = body_start + len + 3;
     }
     if found.is_none() {
         let start = text.find('{')?;
@@ -134,6 +137,14 @@ mod tests {
                 .tool_uses()
                 .next()
                 .is_none()
+        );
+        // A stray fence before the action (seen from Claude through Claude Code).
+        let stray = from_text(reply(
+            "<invoke name=\"run_query\">\n</invoke>\n```\n\nActually, the required format.\n\n```json\n{\"tool\": \"run_query\", \"input\": {\"sql\": \"SELECT 2\"}}\n```",
+        ));
+        assert_eq!(
+            stray.tool_uses().next().unwrap().2,
+            &json!({ "sql": "SELECT 2" })
         );
         assert!(
             from_text(reply("```sql\nSELECT 1\n```"))

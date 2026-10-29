@@ -74,7 +74,10 @@ pub async fn start_agent(
         ),
     };
     let mode_key = format!("{provider}/{model}");
-    let mode = if endpoint.is_openai() {
+    // Claude Code runs without tools, so the agent's tools travel as text.
+    let mode = if matches!(endpoint, crate::ai::Endpoint::Plan) {
+        ToolMode::Text
+    } else if endpoint.is_openai() {
         settings
             .tool_modes
             .get(&mode_key)

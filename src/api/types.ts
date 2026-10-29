@@ -126,6 +126,15 @@ export interface QueryResult {
   withheld?: string[];
 }
 
+/** The person's own Claude Code, checked for "Your Claude plan"; mirrors `PlanCheck` in src-tauri/src/ai/subscription.rs. */
+export interface PlanCheck {
+  version: string;
+  /** "claude.ai" when signed in with a Claude plan. */
+  authMethod: string;
+  /** "pro", "max", "team"… */
+  plan: string | null;
+}
+
 export interface ModelOption {
   id: string;
   label: string;
@@ -136,8 +145,8 @@ export interface AiProvider {
   id: string;
   label: string;
   note: string;
-  /** Claude's own API, or the OpenAI-compatible API every other provider speaks. */
-  api: "anthropic" | "openai";
+  /** Claude's own API, the OpenAI-compatible API every other provider speaks, or the person's own Claude plan through their installed Claude Code. */
+  api: "anthropic" | "openai" | "plan";
   key: "required" | "optional" | "none";
   keyPlaceholder: string;
   /** Runs on this computer, so nothing is sent over the internet. */

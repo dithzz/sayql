@@ -5,6 +5,20 @@ All notable changes to SayQL are listed here. Downloads are on the
 
 ## Unreleased
 
+### Choose how to use AI, with pros and cons
+
+- **The first-run setup now asks "How do you want to use AI?"** with four ways, each with what it's good at and
+  what it costs you: **Your own API key** (Anthropic, OpenAI, Gemini and more), **Your Claude plan**, **SayQL AI
+  credits** and **On this computer** (Ollama, LM Studio). Pick one to set it up; **Other ways** goes back. The AI
+  providers docs page has the same comparison.
+- **New: Your Claude plan.** Use the Claude Pro or Max plan you already have, with no API key: SayQL starts your
+  installed, unmodified Claude Code (`claude -p`) for each request, signed in however you set it up, so requests
+  count against your plan's limits. It runs with no tools, no MCP servers, no hooks and no saved session, in an
+  empty folder, so Claude only answers in text. It works for the Ask box, Explain, Fix, Improve and agent mode
+  (tools travel as text, as with local models). SayQL checks Claude Code's version and sign-in status (Settings →
+  AI provider shows "signed in with your Claude Max plan") and never reads your Claude credentials. SQL appears a
+  second or two later than with an API key, because Claude Code starts for each request.
+
 ### The audit: Run audit, on your own Claude Code sign-in
 
 - **"Audit with Claude Code" is now "Run audit"**, everywhere it appears (Teach SayQL this database, Settings → AI

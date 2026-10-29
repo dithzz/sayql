@@ -137,7 +137,8 @@ impl TeamAi {
     ) -> Self {
         let server = server.trim_end_matches('/');
         let base = match api {
-            Api::Anthropic => format!("{server}/api/v1/ai/anthropic"),
+            // A team server speaks Claude's API or the OpenAI one; it never offers a plan.
+            Api::Anthropic | Api::Plan => format!("{server}/api/v1/ai/anthropic"),
             Api::OpenAi => format!("{server}/api/v1/ai/openai/v1"),
         };
         let headers = vec![

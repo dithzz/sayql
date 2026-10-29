@@ -16,6 +16,8 @@ const VIDEO = new URLSearchParams(window.location.search).has("video");
  * apart from the normal preview's and emptied on every load (see `setStorageNamespace`).
  */
 const FIRSTRUN = new URLSearchParams(window.location.search).has("firstrun");
+/** ?noplan: the Claude plan check says Claude Code isn't signed in. */
+const NOPLAN = new URLSearchParams(window.location.search).has("noplan");
 
 const col = (name: string, data_type: string, primary_key = false) => ({
   name,
@@ -103,6 +105,15 @@ const settings: Settings = {
       defaultBaseUrl: "https://sayql.dev/api/ai",
       typingModel: "claude-haiku-5-5",
       expertModel: "claude-opus-5-5",
+    }),
+    provider("claude-plan", "Your Claude plan", {
+      api: "plan",
+      note: "Uses your installed Claude Code, signed in with your own Pro or Max plan. No API key; requests count against your plan's limits.",
+      key: "none",
+      defaultBaseUrl: "",
+      typingModel: "claude-haiku-5-5",
+      expertModel: "claude-opus-5-5",
+      ready: true,
     }),
     provider("openai", "OpenAI", { note: "GPT models with an OpenAI API key.", keyPlaceholder: "sk-…" }),
     provider("gemini", "Google Gemini", { note: "Gemini models with a Google AI Studio key.", keyPlaceholder: "AIza…" }),
@@ -828,6 +839,11 @@ export function installMockBackend() {
         case "voice_cancel":
           clearInterval(voice.meter);
           return null;
+        case "check_claude_plan":
+          await new Promise((r) => setTimeout(r, 500));
+          if (NOPLAN)
+            throw "Claude Code isn't signed in. Run `claude` in a terminal and sign in, then check again.";
+          return { version: "2.1.308", authMethod: "claude.ai", plan: "max" };
         case "list_models":
           if (a.provider === "anthropic") return settings.models.map((m) => m.id);
           return a.provider === "ollama" ? ["llama3.3:70b", "qwen3:32b", "sqlcoder:15b"] : ["model-small", "model-large"];

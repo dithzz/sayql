@@ -103,6 +103,7 @@ pub fn run() {
             handoffs::take_handoffs,
             settings::save_settings,
             settings::list_models,
+            settings::check_claude_plan,
             settings::finish_onboarding,
             settings::mcp_setup,
             settings::installed_coding_agents,
