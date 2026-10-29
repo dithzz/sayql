@@ -45,8 +45,9 @@ safely; and an AI agent with a database password can do anything. SayQL keeps th
 - **Answers to the harder questions.** Switch the Ask box from Quick to Agent and ask "why did signups drop?"
   or "who owns this tenant?": the agent investigates in read-only steps and answers with the queries behind
   every sentence. Off until you turn it on per connection, with you in control of what the AI may see.
-- **Any AI, any database.** Use Claude, OpenAI, Gemini or any OpenAI-compatible API with your own key, a local
-  model so nothing leaves your computer, or SayQL AI credits, on PostgreSQL, MySQL, SQLite or SQL Server. Switch
+- **Any AI, any database.** Use Claude, OpenAI, Gemini or any OpenAI-compatible API with your own key, the Claude
+  Pro or Max plan you already have (through your installed Claude Code), a local model so nothing leaves your
+  computer, or SayQL AI credits, on PostgreSQL, MySQL, SQLite or SQL Server. Switch
   models right in the Ask box. The Ask box never sends table rows to the AI.
 - **Agents without your data.** Claude Code, Cursor and other MCP apps query through SayQL, read-only. By default
   they get counts and summaries, not rows; you choose per connection, and never-send columns always stay private.
@@ -112,14 +113,16 @@ which help the Ask box, the agent and MCP next time.
 
 ### Your AI, your data
 
-Use Claude, OpenAI, Gemini or any OpenAI-compatible API with your own key, or run a model on your own computer
-with Ollama or LM Studio, so your questions never leave it. The Ask box never sends table rows to the AI; agent
+Use Claude, OpenAI, Gemini or any OpenAI-compatible API with your own key, use the Claude Pro or Max plan you
+already have through your installed Claude Code (no key), or run a model on your own computer with Ollama or
+LM Studio, so your questions never leave it. The setup asks how you want to use AI and lists the pros and cons
+of each. The Ask box never sends table rows to the AI; agent
 mode can, only on connections where you turn it on. A setup guide
 gets you to your first answer quickly.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset=".github/assets/feature-setup-ai-dark.png">
-  <img src=".github/assets/feature-setup-ai-light.png" alt="The setup guide's Pick your AI step with Claude, OpenAI, Gemini and Ollama" width="100%">
+  <img src=".github/assets/feature-setup-ai-light.png" alt="The setup guide's How do you want to use AI step: your own API key, your Claude plan, SayQL AI credits or on this computer, each with pros and cons" width="100%">
 </picture>
 
 </td>
@@ -130,7 +133,7 @@ gets you to your first answer quickly.
 
 | Databases | AI providers |
 | --- | --- |
-| PostgreSQL | Anthropic Claude (recommended) |
+| PostgreSQL | Anthropic Claude (recommended) · your Claude plan, through Claude Code |
 | MySQL / MariaDB | OpenAI · Google Gemini · OpenRouter |
 | SQLite | Mistral · Groq · DeepSeek |
 | Microsoft SQL Server | Ollama · LM Studio (on your computer) |

@@ -7,7 +7,7 @@
 //   3. is charged what Anthropic reported using, plus the margin, and the hold is returned.
 // Prompts and answers pass through and are never stored: the ledger keeps the model and token counts.
 //
-// Claude Code uses it too ("Audit with Claude Code" in the SayQL app, paying with credits):
+// Claude Code can use it too (SayQL 0.4.7's audit paid with credits; off since 0.4.8):
 // ANTHROPIC_BASE_URL=https://sayql.dev/api/ai and the credit key in ANTHROPIC_AUTH_TOKEN. It posts
 // to /v1/messages?beta=true with an `anthropic-beta` header whose values pair with body fields
 // (context_management, output_config, ...), so that header is forwarded as sent: Claude Code's
