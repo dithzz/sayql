@@ -918,7 +918,7 @@ impl Run<'_> {
             v.is_null()
                 || v.is_number()
                 || v.as_str()
-                    .is_some_and(|s| s.parse::<f64>().is_ok() || is_date(s))
+                    .is_some_and(|s| s.parse::<f64>().is_ok() || crate::pii::starts_with_date(s))
         });
         let mut out = json!({ "rows": get(0), "nulls": get(1), "distinct": get(2) });
         let summary;
@@ -1372,9 +1372,4 @@ fn plain(v: &Value) -> String {
         Value::Null => "NULL".into(),
         other => other.to_string(),
     }
-}
-
-fn is_date(s: &str) -> bool {
-    let b = s.as_bytes();
-    b.len() >= 10 && b[4] == b'-' && b[7] == b'-' && b[..4].iter().all(u8::is_ascii_digit)
 }

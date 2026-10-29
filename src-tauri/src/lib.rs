@@ -1,5 +1,6 @@
 //! SayQL backend: wires the Tauri app together. Logic lives in the modules below.
 
+mod agent_process;
 mod ai;
 #[cfg(target_os = "macos")]
 mod app_menu;
@@ -12,6 +13,7 @@ mod error;
 pub mod handoff;
 pub mod mcp;
 mod never_send;
+mod pii;
 mod readonly;
 mod schema;
 mod sql_lex;

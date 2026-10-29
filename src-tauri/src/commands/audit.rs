@@ -2,6 +2,7 @@
 //! with the audit instructions, streams its progress to the window as `audit://event`, and
 //! opens the same run in a terminal instead. See src/audit_runner.rs for what's enforced.
 
+use crate::agent_process::{TerminalRun, kill_tree, launch_terminal, no_window, version_of};
 use crate::ai::{SAYQL_CREDITS, endpoint};
 use crate::audit::{self, Target};
 use crate::audit_runner::{
@@ -14,7 +15,7 @@ use crate::store::apps::AppGate;
 use crate::store::secrets;
 use serde::Serialize;
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::process::Stdio;
 use std::sync::Mutex;
 use tauri::{AppHandle, Emitter, Manager, State};
@@ -70,25 +71,6 @@ enum AuditEvent {
         summary: Option<String>,
         error: Option<String>,
     },
-}
-
-/// `<bin> --version`, run with the agent's PATH; `None` when it doesn't answer in 10 seconds.
-async fn version_of(bin: &Path) -> Option<String> {
-    let mut cmd = tokio::process::Command::new(bin);
-    cmd.arg("--version")
-        .env("PATH", runner::child_path(bin))
-        .env_remove("CLAUDECODE")
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::null())
-        .kill_on_drop(true);
-    no_window(&mut cmd);
-    let out = tokio::time::timeout(std::time::Duration::from_secs(10), cmd.output())
-        .await
-        .ok()?
-        .ok()?;
-    let text = String::from_utf8_lossy(&out.stdout).trim().to_string();
-    (out.status.success() && !text.is_empty()).then_some(text)
 }
 
 async fn view(spec: &'static AgentSpec) -> AgentView {
@@ -360,51 +342,6 @@ async fn prepare(
     })
 }
 
-#[cfg(windows)]
-fn no_window(cmd: &mut tokio::process::Command) {
-    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-    cmd.creation_flags(CREATE_NO_WINDOW);
-}
-
-#[cfg(not(windows))]
-fn no_window(_: &mut tokio::process::Command) {}
-
-/// Stops the agent and everything it started (SayQL's MCP server among them).
-async fn kill_tree(child: &mut tokio::process::Child) {
-    if let Some(pid) = child.id() {
-        #[cfg(unix)]
-        {
-            // The child leads its own process group: signal the whole group.
-            let _ = std::process::Command::new("kill")
-                .args(["-TERM", "--", &format!("-{pid}")])
-                .stdout(Stdio::null())
-                .stderr(Stdio::null())
-                .status();
-            if tokio::time::timeout(std::time::Duration::from_secs(3), child.wait())
-                .await
-                .is_ok()
-            {
-                return;
-            }
-            let _ = std::process::Command::new("kill")
-                .args(["-KILL", "--", &format!("-{pid}")])
-                .stdout(Stdio::null())
-                .stderr(Stdio::null())
-                .status();
-        }
-        #[cfg(windows)]
-        {
-            let _ = std::process::Command::new("taskkill")
-                .args(["/PID", &pid.to_string(), "/T", "/F"])
-                .stdout(Stdio::null())
-                .stderr(Stdio::null())
-                .status();
-        }
-    }
-    let _ = child.start_kill();
-    let _ = child.wait().await;
-}
-
 /// Starts an audit with `agent` in `folder`; progress arrives as `audit://event` with `runId`.
 #[tauri::command]
 #[allow(clippy::too_many_arguments)]
@@ -619,102 +556,14 @@ pub async fn open_audit_in_terminal(
     std::fs::write(&prompt, &p.prompt)?;
     let path_var = runner::child_path(&p.bin);
     // The files stay: the terminal reads them after this returns (they're in the temp folder).
-    launch_terminal(&p, &path_var, &args, &prompt)
-}
-
-#[cfg(target_os = "macos")]
-fn launch_terminal(
-    p: &Prepared,
-    path_var: &std::ffi::OsString,
-    args: &[String],
-    prompt: &Path,
-) -> AppResult<()> {
-    use std::os::unix::fs::PermissionsExt;
-    let script = p.dir.join("SayQL audit.command");
-    std::fs::write(
-        &script,
-        runner::unix_script(&p.folder, path_var, &p.bin, args, prompt),
-    )?;
-    std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o700))?;
-    let status = std::process::Command::new("open")
-        .args(["-a", "Terminal"])
-        .arg(&script)
-        .status()?;
-    if !status.success() {
-        return Err("Could not open Terminal.".into());
-    }
-    Ok(())
-}
-
-#[cfg(all(unix, not(target_os = "macos")))]
-fn launch_terminal(
-    p: &Prepared,
-    path_var: &std::ffi::OsString,
-    args: &[String],
-    prompt: &Path,
-) -> AppResult<()> {
-    use std::os::unix::fs::PermissionsExt;
-    let script = p.dir.join("sayql-audit.sh");
-    std::fs::write(
-        &script,
-        runner::unix_script(&p.folder, path_var, &p.bin, args, prompt),
-    )?;
-    std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o700))?;
-    let terminals: [(&str, &[&str]); 5] = [
-        ("x-terminal-emulator", &["-e"]),
-        ("gnome-terminal", &["--"]),
-        ("konsole", &["-e"]),
-        ("xfce4-terminal", &["-x"]),
-        ("xterm", &["-e"]),
-    ];
-    for (term, pre) in terminals {
-        let spawned = std::process::Command::new(term)
-            .args(pre)
-            .arg(&script)
-            .current_dir(&p.folder)
-            .stdin(Stdio::null())
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .spawn();
-        if spawned.is_ok() {
-            return Ok(());
-        }
-    }
-    Err(format!(
-        "SayQL couldn't find a terminal to open. Run this in a terminal instead: {}",
-        script.display()
-    )
-    .into())
-}
-
-#[cfg(windows)]
-fn launch_terminal(
-    p: &Prepared,
-    path_var: &std::ffi::OsString,
-    args: &[String],
-    prompt: &Path,
-) -> AppResult<()> {
-    let script = p.dir.join("sayql-audit.ps1");
-    std::fs::write(
-        &script,
-        runner::powershell_script(&p.folder, path_var, &p.bin, args, prompt),
-    )?;
-    std::process::Command::new("cmd")
-        .args([
-            "/c",
-            "start",
-            "SayQL audit",
-            "powershell",
-            "-NoExit",
-            "-NoProfile",
-            "-ExecutionPolicy",
-            "Bypass",
-            "-File",
-        ])
-        .arg(&script)
-        .current_dir(&p.folder)
-        .spawn()?;
-    Ok(())
+    launch_terminal(&TerminalRun {
+        dir: &p.dir,
+        folder: &p.folder,
+        bin: &p.bin,
+        path_var: &path_var,
+        args: &args,
+        prompt: &prompt,
+    })
 }
 
 #[cfg(test)]
