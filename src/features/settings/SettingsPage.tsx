@@ -1,5 +1,6 @@
 import { useEffect, useId, useState } from "react";
-import { ArrowLeft, Bot, Info, Mic, Plug, RefreshCw, ScrollText, Sparkles, Users, type LucideIcon } from "lucide-react";
+import { ArrowLeft, BookOpen, Bot, ExternalLink, Info, Keyboard, Mic, Plug, RefreshCw, ScrollText, Sparkles, Users, type LucideIcon } from "lucide-react";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { commands, type AiProvider, type ConnectionConfig, type Settings, type TeamAccount } from "../../api";
 import { Alert, Button, Field, Select, TextInput } from "../../components/ui";
 import { cx } from "../../lib/cx";
@@ -10,6 +11,7 @@ import { TeamSection } from "../team";
 import { VoiceSection } from "../voice";
 import { ClaudeIntegration, type AiAppsTab } from "./ClaudeIntegration";
 import { version } from "../../../package.json";
+import { docsUrl } from "../help/docs";
 import styles from "./SettingsPage.module.css";
 
 export type SettingsSection = "ai" | "agent" | "skills" | "voice" | "mcp" | "team" | "about";
@@ -32,6 +34,10 @@ export interface SettingsPageProps {
   onSaved: (s: Settings) => void;
   /** Reopens the first-run setup. */
   onShowSetup: () => void;
+  /** Opens the keyboard shortcut sheet (Settings closes). */
+  onShowShortcuts: () => void;
+  /** Opens What's new (Settings closes). */
+  onShowWhatsNew: () => void;
   skills: SkillsApi;
   /** The section to open on; defaults to the AI provider. */
   section?: SettingsSection;
@@ -87,6 +93,8 @@ export function SettingsPage({
   onClose,
   onSaved,
   onShowSetup,
+  onShowShortcuts,
+  onShowWhatsNew,
   skills,
   section: initial = "ai",
   aiAppsTab,
@@ -199,6 +207,16 @@ export function SettingsPage({
       </nav>
       <main className={styles.content}>
         <div className={cx(styles.inner, section === "mcp" && styles.wide)}>
+          {section !== "about" && (
+            <button
+              type="button"
+              className={styles.docsLink}
+              title={docsUrl(section)}
+              onClick={() => void openUrl(docsUrl(section))}
+            >
+              Docs <ExternalLink size={12} />
+            </button>
+          )}
           {section === "ai" && (
             <>
               <h2 className={styles.title}>AI provider</h2>
@@ -370,7 +388,16 @@ export function SettingsPage({
                 SayQL Community Edition {version}. Free and open source under the Apache License 2.0. The license,
                 privacy notice and third-party notices are included with the app.
               </p>
-              <div>
+              <div className={styles.aboutActions}>
+                <Button icon={Keyboard} onClick={onShowShortcuts}>
+                  Keyboard shortcuts
+                </Button>
+                <Button icon={Sparkles} onClick={onShowWhatsNew}>
+                  What&apos;s new
+                </Button>
+                <Button icon={BookOpen} onClick={() => void openUrl(docsUrl("about"))}>
+                  Docs
+                </Button>
                 <Button onClick={onShowSetup}>Show the setup guide again</Button>
               </div>
             </>

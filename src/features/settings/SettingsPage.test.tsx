@@ -22,6 +22,8 @@ function renderPage(n: number) {
       onClose={vi.fn()}
       onSaved={vi.fn()}
       onShowSetup={vi.fn()}
+      onShowShortcuts={vi.fn()}
+      onShowWhatsNew={vi.fn()}
       onTeamChange={vi.fn()}
     />,
   );

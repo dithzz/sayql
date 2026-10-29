@@ -1,6 +1,8 @@
 //! SayQL backend: wires the Tauri app together. Logic lives in the modules below.
 
 mod ai;
+#[cfg(target_os = "macos")]
+mod app_menu;
 mod audit;
 mod audit_runner;
 mod coding_agents;
@@ -26,9 +28,21 @@ use state::AppState;
 use tauri::Manager;
 use tauri_plugin_deep_link::DeepLinkExt;
 
+/// On macOS, SayQL's menu bar (⌘W closes a tab, ⌘, opens Settings, a Help menu); elsewhere
+/// there is no menu bar and the page handles the keys.
+#[cfg(target_os = "macos")]
+fn with_menu(b: tauri::Builder<tauri::Wry>) -> tauri::Builder<tauri::Wry> {
+    b.menu(app_menu::build)
+        .on_menu_event(|h, e| app_menu::on_event(h, e.id().as_ref()))
+}
+#[cfg(not(target_os = "macos"))]
+fn with_menu(b: tauri::Builder<tauri::Wry>) -> tauri::Builder<tauri::Wry> {
+    b
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    with_menu(tauri::Builder::default())
         // First: a second launch (e.g. from a sayql:// link) hands its link to this one.
         .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
             handoffs::focus_main(app)

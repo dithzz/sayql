@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Copy, Database, FileCode2, Plus, Save, Server, Table2, X } from "lucide-react";
-import { TEAM_SIGNED_OUT, commands, type Bootstrap, type ConnectionConfig, type DbNote, type Script, type Table, type TeamAccount, type TeamAiStatus, type Target } from "../api";
+import { TEAM_SIGNED_OUT, commands, subscribeToMenu, type Bootstrap, type ConnectionConfig, type DbNote, type Script, type Table, type TeamAccount, type TeamAiStatus, type Target } from "../api";
 import { Alert, Button, Dialog, EmptyState, ErrorBoundary, Spinner, SplitPane, TabBar, type MenuEntry, type TabItem } from "../components/ui";
 import {
   AgentAccessDialog,
@@ -29,6 +29,9 @@ import { FeedbackDialog } from "../features/feedback";
 import { useHandoffs } from "../features/handoff";
 import { TeamSignInDialog, teamAiDestination, teamAiOn, useTeamConnections } from "../features/team";
 import { exampleQuestions, OnboardingDialog, type OnboardingStep } from "../features/onboarding";
+import { DOCS_URL, ShortcutSheet, WhatsNewDialog, isTypingTarget, whatsNewOnStart } from "../features/help";
+import { openUrl } from "@tauri-apps/plugin-opener";
+import { version } from "../../package.json";
 import { QueryTab } from "./QueryTab";
 import { StatusBar } from "./StatusBar";
 import { TopBar } from "./TopBar";
@@ -76,6 +79,14 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
   const [setupStep, setSetupStep] = useState<OnboardingStep | null>(() =>
     !boot.settings.onboarded && !boot.settings.aiReady ? "welcome" : null,
   );
+
+  // Help: the shortcut sheet, and What's new, once after an update (not for someone new).
+  const [whatsNew] = useState(() => whatsNewOnStart(version, boot.settings.onboarded || boot.settings.aiReady));
+  const [help, setHelp] = useState<"shortcuts" | "whatsNew" | null>(() => (whatsNew.show ? "whatsNew" : null));
+  const closeHelp = () => {
+    if (help === "whatsNew") whatsNew.markSeen();
+    setHelp(null);
+  };
 
   /** Tabs with an agent run going, which show a spinner. */
   const [busyTabs, setBusyTabs] = useState<Set<string>>(new Set());
@@ -228,10 +239,22 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
     else tabs.close(id);
   };
 
-  // ⌘T / Ctrl+T opens a new tab on the current database; ⌘S / Ctrl+S saves the active tab.
+  /** ⌘W: closes the active tab, asking first when that would lose SQL. */
+  const closeActiveTab = () => {
+    if (tabs.active && !dialog) requestClose(tabs.active.id);
+  };
+
+  // ⌘T / Ctrl+T opens a new tab on the current database; ⌘S / Ctrl+S saves the active tab;
+  // ⌘W closes it; ⌘, opens Settings; ? (outside a text field) lists the shortcuts. On macOS
+  // the menu bar owns ⌘W and ⌘, and sends them as menu actions (below).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (!(e.metaKey || e.ctrlKey)) return;
+      if (e.key === "?" && !e.metaKey && !e.ctrlKey && !e.altKey && !isTypingTarget(e.target) && !dialog && !setupStep) {
+        e.preventDefault();
+        setHelp("shortcuts");
+        return;
+      }
+      if (!(e.metaKey || e.ctrlKey) || e.altKey) return;
       const key = e.key.toLowerCase();
       if (key === "t") {
         e.preventDefault();
@@ -239,11 +262,33 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
       } else if (key === "s" && tabs.active) {
         e.preventDefault();
         requestSave(tabs.active);
+      } else if (key === "w" && !e.shiftKey) {
+        e.preventDefault();
+        closeActiveTab();
+      } else if (key === ",") {
+        e.preventDefault();
+        if (dialog?.kind !== "settings") openSettings();
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   });
+
+  // The macOS menu bar: Close Tab, Settings…, and the Help menu.
+  const onMenu = useRef<(a: string) => void>(() => {});
+  onMenu.current = (action) => {
+    if (action === "close-tab") closeActiveTab();
+    else if (action === "settings") {
+      if (dialog?.kind !== "settings") openSettings();
+    }
+    else if (action === "shortcuts") setHelp("shortcuts");
+    else if (action === "whats-new") setHelp("whatsNew");
+    else if (action === "docs") void openUrl(DOCS_URL);
+  };
+  useEffect(() => {
+    const off = subscribeToMenu((a) => onMenu.current(a));
+    return () => void off.then((f) => f());
+  }, []);
 
   const previewTable = (t: Table) => {
     if (!target || !schema) return;
@@ -726,6 +771,15 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
             setDialog(null);
             setSetupStep("welcome");
           }}
+          // Settings closes first: its Esc would otherwise close both.
+          onShowShortcuts={() => {
+            setDialog(null);
+            setHelp("shortcuts");
+          }}
+          onShowWhatsNew={() => {
+            setDialog(null);
+            setHelp("whatsNew");
+          }}
           onClose={() => setDialog(null)}
           onSaved={setSettings}
           onTeamChange={setTeam}
@@ -744,6 +798,8 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
           }}
         />
       )}
+      {help === "shortcuts" && <ShortcutSheet onClose={closeHelp} />}
+      {help === "whatsNew" && <WhatsNewDialog version={version} onClose={closeHelp} />}
       {setupStep && !dialog && (
         <OnboardingDialog
           settings={settings}

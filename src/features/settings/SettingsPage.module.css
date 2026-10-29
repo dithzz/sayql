@@ -139,3 +139,33 @@
   color: var(--color-text-muted);
   line-height: 1.5;
 }
+
+/* A link to the section's page on sayql.dev/docs, top right of each section. */
+.inner {
+  position: relative;
+}
+.docsLink {
+  position: absolute;
+  top: var(--space-6);
+  right: var(--space-6);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px var(--space-2);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--color-accent);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+.docsLink:hover {
+  background: var(--color-accent-soft);
+}
+
+.aboutActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}

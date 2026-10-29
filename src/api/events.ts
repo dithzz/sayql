@@ -26,6 +26,14 @@ export async function subscribeToAi(handlers: AiEventHandlers): Promise<Unlisten
   return () => unlisten.forEach((u) => u());
 }
 
+/** A menu bar item the page handles (macOS); must match src-tauri/src/app_menu.rs. */
+export type MenuAction = "close-tab" | "settings" | "shortcuts" | "whats-new" | "docs";
+
+/** Subscribes to the macOS menu bar's items (src-tauri/src/app_menu.rs `EVENT`). */
+export function subscribeToMenu(handler: (action: MenuAction) => void): Promise<UnlistenFn> {
+  return listen<MenuAction>("menu://action", (e) => handler(e.payload));
+}
+
 /** Calls `onNew` when an AI app hands work to SayQL; fetch it with `commands.takeHandoffs`. */
 export function subscribeToHandoffs(onNew: () => void): Promise<UnlistenFn> {
   return listen("handoff://new", onNew);
