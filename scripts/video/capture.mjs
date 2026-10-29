@@ -40,6 +40,16 @@ const keepRepainting = () =>
     setInterval(() => (dot.style.background = `rgba(128,128,128,${(i++ % 2) * 0.02 + 0.01})`), 16);
   });
 await keepRepainting();
+// Nothing connects on its own (0.4.8): open the demo store, off camera, before recording.
+await page.evaluate(() => {
+  const label = [...document.querySelectorAll('[role="treeitem"] span')].find((e) => e.textContent.trim() === "Demo store (SQLite)");
+  label?.click();
+  return !!label;
+});
+for (const end = Date.now() + 8000; Date.now() < end; await sleep(100)) {
+  if (await page.evaluate(() => !!document.querySelector('textarea[aria-label="Ask in plain English"]'))) break;
+}
+await sleep(1500); // schema load
 
 // ── Recording ──────────────────────────────────────────────────────────────
 const now = () => Date.now() / 1000;
@@ -251,7 +261,7 @@ await click(await waitFor('button[aria-label="Clear"]'), { glide: 0 });
 }
 await sleep(400);
 
-// 3. Agent mode: a question that needs several steps. In ?video mode agent mode is on for
+// 3. Investigate: a question that needs several steps. In ?video mode Investigate is on for
 // the demo store with counts only, so it goes straight to the plan.
 scene("agent");
 cam(await askBar(), { maxZoom: 1.9 });
@@ -260,7 +270,7 @@ hideCursor();
 await focusAsk();
 await press("Escape");
 await sleep(400);
-await type("/ag");
+await type("/inv");
 await sleep(800);
 await press("Enter");
 await sleep(400);
@@ -316,12 +326,17 @@ for (const v of ["off", "masked", "all", "counts"]) {
   }, v);
   await sleep(v === "counts" ? 1000 : 850);
 }
+// The tabs sit above the Connections section, which scrolled them out of view.
+await reveal('[role="tab"]', "Activity");
+await sleep(300);
 await click(await waitFor('[role="tab"]', "Activity"));
 await waitForText("never-send column email");
 await sleep(400);
 cam(await rect('[role="tabpanel"] table'), { maxZoom: 1.6, pad: 30 });
 caption("See what each app ran, and what was refused");
 await sleep(3000);
+await reveal('[role="tab"]', "Access");
+await sleep(200);
 await click(await waitFor('[role="tab"]', "Access"));
 await waitForText("What AI apps get back");
 cam(await section("Apps"), { maxZoom: 1.7, pad: 30 });
@@ -414,7 +429,7 @@ const box = (sel, text) =>
     sel,
     text,
   );
-await click(await box("#scope-conns label.check", "All tables"), { glide: 500 });
+await click(await box("#scope-conns label.check", "All tables, including ones added later"), { glide: 500 });
 await sleep(300);
 await click(await box("#scope-conns .scope-tables label", "customers"), { glide: 450 });
 await click(await box("#scope-conns .scope-tables label", "orders"), { glide: 450 });

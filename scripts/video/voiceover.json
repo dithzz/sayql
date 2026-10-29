@@ -6,12 +6,12 @@
   { "id": "refused", "card": "agentRefused", "at": 2.9, "text": "Ask for a private column, and SayQL refuses.", "speak": "Ask for a private column, and Say Q L refuses." },
   { "id": "guard", "scene": "guard", "at": 0.2, "text": "You choose what AI apps may see on each database, and you see everything they ran." },
   { "id": "block", "scene": "guard", "at": 8.1, "text": "Don't trust an app? Block it." },
-  { "id": "ask", "scene": "ask", "at": 2.1, "text": "People ask in plain English too. The SQL appears as you type." },
+  { "id": "ask", "scene": "ask", "at": 2.1, "text": "People ask in plain English too, under the same rules. The SQL appears as you type." },
   { "id": "run", "scene": "run", "at": 0.3, "text": "It already knows your schema." },
   { "id": "safety", "scene": "safety", "at": 1.1, "text": "Anything that could change data asks first." },
-  { "id": "agentMode", "scene": "agent", "at": 3.2, "text": "Bigger questions? Agent mode works step by step, and cites every query." },
+  { "id": "agentMode", "scene": "agent", "at": 3.2, "text": "Bigger questions? Investigate works step by step, cites every query, and sends only what you allow." },
   { "id": "teams", "scene": "teams", "at": 0.3, "text": "On a team server, each agent gets its own key, and only the databases you choose." },
   { "id": "scope", "scene": "scope", "at": 0.3, "text": "Limit it to certain tables, even certain rows." },
-  { "id": "audit", "scene": "audit", "at": 0.3, "text": "And every query, from people and agents, is on record." },
+  { "id": "audit", "scene": "audit", "at": 0.3, "text": "And every query, from people and agents, lands in a tamper-evident audit log." },
   { "id": "end", "card": "end", "at": 0.15, "text": "Free and open source. Teams free for 30 days. At sayql.dev.", "speak": "Free and open source. Teams free for thirty days. At say Q L dot dev." }
 ]

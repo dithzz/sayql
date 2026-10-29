@@ -45,7 +45,7 @@ const EDITS = {
     { scene: "guard", speed: 1.12 },
     { scene: "ask", until: "safety", trim: 1.6, max: 8.9 },
     { scene: "safety", trim: 0.3, max: 6.0 },
-    // Agent mode: the question and its plan, then the cited answer.
+    // Investigate: the question and its plan, then the cited answer.
     { scene: "agent", trim: 3.0, max: 5.2 },
     { scene: "agent", trim: 13.1 },
     { scene: "teams", until: "scope", speed: 1.5 },
