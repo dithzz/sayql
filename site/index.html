@@ -514,7 +514,7 @@ p { text-wrap: pretty; }
 .note-badge { font-size: 11px; font-weight: 500; padding: 2px 7px; border-radius: 999px; background: var(--color-app-accent-soft); color: var(--color-app-accent); }
 .note-badge[hidden] { display: none; }
 
-/* agent mode: the plan, live steps and the cited answer, like the app's Agent view */
+/* Investigate: the plan, live steps and the cited answer, like the app's Agent view */
 .agent { overflow: hidden; padding: 8px 10px; display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; }
 .pill[hidden] { display: none; }
 .agent .ag-q { font-weight: 600; margin-bottom: 2px; }
@@ -790,7 +790,7 @@ section.block { padding: 80px 0 0; }
 <script defer src="/_vercel/insights/script.js"></script>
 <script type="application/ld+json">{"@context": "https://schema.org", "@type": "SoftwareApplication", "name": "SayQL", "alternateName": "SayQL Community Edition", "description": "SayQL sits between AI agents and your database: Claude Code, Cursor and others get your schema and the numbers they need, not your rows, unless you say so. Ask in plain English too. Free, open source, read-only by default.", "url": "https://sayql.dev/", "image": "https://sayql.dev/og.png", "applicationCategory": "DeveloperApplication", "operatingSystem": "macOS, Windows, Linux", "downloadUrl": "https://github.com/dithzz/sayql-releases/releases/latest", "license": "https://www.apache.org/licenses/LICENSE-2.0", "isAccessibleForFree": true, "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}, "author": {"@type": "Person", "name": "Adith L S", "url": "https://github.com/dithzz"}, "sameAs": ["https://github.com/dithzz/sayql"]}</script>
 <script type="application/ld+json">{"@context": "https://schema.org", "@type": "WebSite", "name": "SayQL", "url": "https://sayql.dev/"}</script>
-<!-- faq-jsonld --><script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "What is SayQL?", "acceptedAnswer": {"@type": "Answer", "text": "A free, open-source desktop app that lets you and your AI apps query databases in plain English (text-to-SQL) without handing your data to the AI: it sees your schema, not your rows, unless you choose. It works with PostgreSQL, MySQL, SQLite and SQL Server and the AI you pick, including one that runs on your computer, and runs queries read-only. SayQL for teams adds a server you run, with rules for the AI and a record of every query."}}, {"@type": "Question", "name": "Do I need to know SQL?", "acceptedAnswer": {"@type": "Answer", "text": "No. The SQL is always in front of you, so you’ll pick it up along the way."}}, {"@type": "Question", "name": "What does the AI see?", "acceptedAnswer": {"@type": "Answer", "text": "Your question and your table and column names. When a query fails, the SQL and the error, with any values in it masked. Never the rows in your tables, unless you allow it per connection, for agent mode or for AI apps over MCP, and then only what you allow. With Ollama or LM Studio, nothing leaves your computer."}}, {"@type": "Question", "name": "Can it break my database?", "acceptedAnswer": {"@type": "Answer", "text": "Queries run read-only, and the database enforces it too. An UPDATE or DELETE always stops for your confirmation first."}}, {"@type": "Question", "name": "How do we govern our AI agents with SayQL?", "acceptedAnswer": {"@type": "Answer", "text": "With SayQL for teams, add each agent on your server's admin page: a name, the databases it may use and what it gets back from a query (counts and summaries by default, no row values). It connects over MCP with its own key, read-only; columns marked never send are withheld on the server, and every query it runs or tries is in the audit log under its name. Revoke the key and it stops at once. On your own computer, without a team server, Claude Code, Cursor and other MCP apps can also query through the SayQL app, under the limits you set per connection."}}, {"@type": "Question", "name": "What does it cost?", "acceptedAnswer": {"@type": "Answer", "text": "SayQL is free. You pay your AI provider for what you use with your own key, use the Claude Pro or Max plan you already have, or pay nothing with a local model. SayQL for teams, a server your company runs for shared connections and an audit log, is free for 30 days, then $149 a month for up to 10 people."}}, {"@type": "Question", "name": "Can I use SayQL without an AI key?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. Use the Claude Pro or Max plan you already have, through your installed Claude Code; run a model on your computer with Ollama or LM Studio, at no cost; or use SayQL AI credits: prepaid Claude from SayQL, with no Anthropic account. With credits, your question and table names go through SayQL to Anthropic, and SayQL keeps only token counts."}}, {"@type": "Question", "name": "Where does my data go with SayQL for teams?", "acceptedAnswer": {"@type": "Answer", "text": "Nowhere near us. The server runs on your machines: passwords, queries and the audit log stay there, and the licence is checked offline. The one exception is SayQL AI credits, if your admin chooses them: AI requests then pass through SayQL on their way to Anthropic, and only token counts are kept."}}, {"@type": "Question", "name": "What happens when the trial ends?", "acceptedAnswer": {"@type": "Answer", "text": "Queries on team connections pause until an admin pastes a licence key on the admin page. Nothing is deleted, and everyone’s own SayQL keeps working as before."}}, {"@type": "Question", "name": "Why does my computer warn me on first launch?", "acceptedAnswer": {"@type": "Answer", "text": "Early-access builds aren’t code-signed with Apple or Microsoft yet. Confirm the first launch once and it opens normally after that. Updates are signed with SayQL’s own key."}}]}</script><!-- /faq-jsonld -->
+<!-- faq-jsonld --><script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "What is SayQL?", "acceptedAnswer": {"@type": "Answer", "text": "A free, open-source desktop app that lets you and your AI apps query databases in plain English (text-to-SQL) without handing your data to the AI: it sees your schema, not your rows, unless you choose. It works with PostgreSQL, MySQL, SQLite and SQL Server and the AI you pick, including one that runs on your computer, and runs queries read-only. SayQL for teams adds a server you run, with rules for the AI and a record of every query."}}, {"@type": "Question", "name": "Do I need to know SQL?", "acceptedAnswer": {"@type": "Answer", "text": "No. The SQL is always in front of you, so you’ll pick it up along the way."}}, {"@type": "Question", "name": "What does the AI see?", "acceptedAnswer": {"@type": "Answer", "text": "Your question and your table and column names. When a query fails, the SQL and the error, with any values in it masked. Never the rows in your tables, unless you allow it per connection, for Investigate or for AI apps over MCP, and then only what you allow. With Ollama or LM Studio, nothing leaves your computer."}}, {"@type": "Question", "name": "Can it break my database?", "acceptedAnswer": {"@type": "Answer", "text": "Queries run read-only, and the database enforces it too. An UPDATE or DELETE always stops for your confirmation first."}}, {"@type": "Question", "name": "How do we govern our AI agents with SayQL?", "acceptedAnswer": {"@type": "Answer", "text": "With SayQL for teams, add each agent on your server's admin page: a name, the databases it may use and what it gets back from a query (counts and summaries by default, no row values). It connects over MCP with its own key, read-only; columns marked never send are withheld on the server, and every query it runs or tries is in the audit log under its name. Revoke the key and it stops at once. On your own computer, without a team server, Claude Code, Cursor and other MCP apps can also query through the SayQL app, under the limits you set per connection."}}, {"@type": "Question", "name": "What does it cost?", "acceptedAnswer": {"@type": "Answer", "text": "SayQL is free. You pay your AI provider for what you use with your own key, use the Claude Pro or Max plan you already have, or pay nothing with a local model. SayQL for teams, a server your company runs for shared connections and an audit log, is free for 30 days, then $149 a month for up to 10 people."}}, {"@type": "Question", "name": "Can I use SayQL without an AI key?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. Use the Claude Pro or Max plan you already have, through your installed Claude Code; run a model on your computer with Ollama or LM Studio, at no cost; or use SayQL AI credits: prepaid Claude from SayQL, with no Anthropic account. With credits, your question and table names go through SayQL to Anthropic, and SayQL keeps only token counts."}}, {"@type": "Question", "name": "Where does my data go with SayQL for teams?", "acceptedAnswer": {"@type": "Answer", "text": "Nowhere near us. The server runs on your machines: passwords, queries and the audit log stay there, and the licence is checked offline. The one exception is SayQL AI credits, if your admin chooses them: AI requests then pass through SayQL on their way to Anthropic, and only token counts are kept."}}, {"@type": "Question", "name": "What happens when the trial ends?", "acceptedAnswer": {"@type": "Answer", "text": "Queries on team connections pause until an admin pastes a licence key on the admin page. Nothing is deleted, and everyone’s own SayQL keeps working as before."}}, {"@type": "Question", "name": "Why does my computer warn me on first launch?", "acceptedAnswer": {"@type": "Answer", "text": "Early-access builds aren’t code-signed with Apple or Microsoft yet. Confirm the first launch once and it opens normally after that. Updates are signed with SayQL’s own key."}}]}</script><!-- /faq-jsonld -->
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -1009,12 +1009,12 @@ section.block { padding: 80px 0 0; }
       </article>
       <article class="feature-row">
         <div class="feature-text">
-          <h3>Agent mode <span class="note-badge tag">beta</span></h3>
-          <p>Type <code>/agent</code> and a question that needs looking around: “why did paid orders drop last week?”. SayQL shows its plan, works through it in read-only steps, checks its own work and answers with every sentence linked to the query behind it.</p>
+          <h3>Investigate <span class="note-badge tag">beta</span></h3>
+          <p>Type <code>/investigate</code> and a question that needs looking around: “why did paid orders drop last week?”. SayQL shows its plan, works through it in read-only steps, checks its own work and answers with every sentence linked to the query behind it.</p>
           <p class="fine">Off until you turn it on for a connection. You choose what the AI sees of results: nothing, counts only, or 20 rows with personal data masked.</p>
         </div>
-        <div class="app mini" id="demo-agent" role="img" aria-label="Demo: agent mode works through a question in read-only steps and answers with citations">
-          <div class="askbox"><div class="q-line" style="margin-top:0"><svg class="i spark"><use href="#i-sparkles"/></svg><span class="cmd-chip agent-chip">/agent</span><span class="q" data-q></span></div></div>
+        <div class="app mini" id="demo-agent" role="img" aria-label="Demo: Investigate works through a question in read-only steps and answers with citations">
+          <div class="askbox"><div class="q-line" style="margin-top:0"><svg class="i spark"><use href="#i-sparkles"/></svg><span class="cmd-chip agent-chip">/investigate</span><span class="q" data-q></span></div></div>
           <div class="hintbar"><span class="state">Results to AI: counts and summaries only · Ask before send</span></div>
           <div class="agent" data-agent></div>
         </div>
@@ -1083,7 +1083,7 @@ section.block { padding: 80px 0 0; }
         <h3>Safe by default</h3>
         <ul>
           <li><b>Half a statement never runs</b><span>A DELETE never loses its WHERE.</span></li>
-          <li><b>Your rows stay with you</b><span>The AI sees table names, not rows, unless agent mode is on.</span></li>
+          <li><b>Your rows stay with you</b><span>The AI sees table names, not rows, unless Investigate is on.</span></li>
           <li><b>Secrets in your keychain</b><span>Passwords and keys are never stored in files.</span></li>
           <li><b>Straight to your database</b><span>No SayQL server in between.</span></li>
         </ul>
@@ -1212,7 +1212,7 @@ section.block { padding: 80px 0 0; }
         <div class="price">$0 <small>forever</small></div>
         <ul>
           <li><svg class="icon"><use href="#i-check"/></svg>Everything one person needs, at work too</li>
-          <li><svg class="icon"><use href="#i-check"/></svg>Ask box, agent mode, skills, MCP and voice</li>
+          <li><svg class="icon"><use href="#i-check"/></svg>Ask box, Investigate, skills, MCP and voice</li>
           <li><svg class="icon"><use href="#i-check"/></svg>Your own AI key, your Claude plan, a local model, or SayQL AI credits</li>
           <li><svg class="icon"><use href="#i-check"/></svg>Open source, Apache 2.0</li>
         </ul>
@@ -1256,7 +1256,7 @@ section.block { padding: 80px 0 0; }
       </details>
       <details>
         <summary>What does the AI see?<svg class="icon"><use href="#i-plus"/></svg></summary>
-        <p>Your question and your table and column names. When a query fails, the SQL and the error, with any values in it masked. Never the rows in your tables, unless you allow it per connection, for agent mode or for AI apps over MCP, and then only what you allow. With Ollama or LM Studio, nothing leaves your computer.</p>
+        <p>Your question and your table and column names. When a query fails, the SQL and the error, with any values in it masked. Never the rows in your tables, unless you allow it per connection, for Investigate or for AI apps over MCP, and then only what you allow. With Ollama or LM Studio, nothing leaves your computer.</p>
       </details>
       <details>
         <summary>Can it break my database?<svg class="icon"><use href="#i-plus"/></svg></summary>
@@ -1409,7 +1409,7 @@ section.block { padding: 80px 0 0; }
     return t;
   }
 
-  /* ---------- agent mode: the same run in the hero and in its feature card ---------- */
+  /* ---------- Investigate: the same run in the hero and in its feature card ---------- */
   var AGENT = {
     question: "why did paid orders drop last week?",
     steps: [
@@ -1642,7 +1642,7 @@ section.block { padding: 80px 0 0; }
     });
   })();
 
-  /* ---------- agent mode card ---------- */
+  /* ---------- Investigate card ---------- */
   (function () {
     var el = document.getElementById("demo-agent");
     var q = el.querySelector("[data-q]"), box = el.querySelector("[data-agent]");

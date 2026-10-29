@@ -11,6 +11,27 @@ export interface WhatsNewEntry {
 
 export const WHATS_NEW: WhatsNewEntry[] = [
   {
+    version: "0.4.9",
+    items: [
+      {
+        title: "Agent mode is now Investigate",
+        text: "Same feature, clearer name: switch the Ask box to Investigate or type /investigate (/agent still works).",
+      },
+      {
+        title: "What can reach an AI, at a glance",
+        text: "The status bar shows the most an AI can get from the connection you're on. Click it to change it.",
+      },
+      {
+        title: "Connection overview",
+        text: "Right-click a connection and choose Overview for its tables, AI access, AI app requests, last audit and your queries.",
+      },
+      {
+        title: "Your activity",
+        text: "Settings → Your activity lists the queries you ran, and for Investigate what went to the AI. It stays on this computer.",
+      },
+    ],
+  },
+  {
     version: "0.4.8",
     items: [
       {

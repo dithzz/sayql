@@ -1,9 +1,10 @@
-<!-- order: 14 | slug: agent-mode | title: Agent mode | group: Using SayQL | description: Let SayQL investigate a question in several read-only steps and answer with the queries behind it, and control exactly what it may send to the AI. -->
-<p class="lead">Some questions need looking around before one query can answer them: "who owns this tenant?", "why did signups drop last week?", "is status 3 cancelled or refunded?". Agent mode works through them in read-only steps and answers with the queries it ran.</p>
+<!-- order: 14 | slug: agent-mode | title: Investigate | group: Using SayQL | description: Let SayQL investigate a question in several read-only steps and answer with the queries behind it, and control exactly what it may send to the AI. -->
+<p class="lead">Some questions need looking around before one query can answer them: "who owns this tenant?", "why did signups drop last week?", "is status 3 cancelled or refunded?". Investigate works through them in read-only steps and answers with the queries it ran.</p>
+<p>Investigate was called agent mode before SayQL 0.4.9. Typing <code>/agent</code> still works.</p>
 
 <h2>Start an investigation</h2>
 <ul>
-  <li>Switch the Ask box to <b>Agent</b> (or press <kbd>⌘⇧A</kbd>, or type <code>/agent</code>), type your question and press <kbd>↵</kbd>. With the box empty, it suggests a few questions to start with.</li>
+  <li>Switch the Ask box to <b>Investigate</b> (or press <kbd>⌘⇧A</kbd>, or type <code>/investigate</code>), type your question and press <kbd>↵</kbd>. With the box empty, it suggests a few questions to start with.</li>
   <li>The agent first shows a short <b>plan</b>. Change any line, then press <b>Go</b>.</li>
   <li><b>Auto mode:</b> click <b>Ask first</b> next to the model name to switch to <b>Auto</b>, or press <b>Go, and don't ask again</b> on a plan. In Auto the agent doesn't stop for the plan or before each send; it still asks when a question has two meanings, and what it may see stays as the connection's setting. It applies to every tab until you switch it back.</li>
   <li>Each <b>step</b> appears as it runs, with its SQL, row count and time. Click a step to see its rows in <b>Results</b>. <b>Stop</b> ends the run and the running query on the server.</li>
@@ -22,7 +23,7 @@
 <p>At the end of a run the agent may suggest notes: facts about the database such as "the owner of a tenant is memberships.role = 'owner'". Save the ones you agree with. Notes show under <b>Notes</b> in the Database Navigator (right-click to edit or delete), and the Ask box, the agent and MCP apps all use them. A note can't hold values from your rows: one with an email, a number like a phone, or a masked value is refused.</p>
 
 <h2>What the AI sees</h2>
-<p>Agent mode is <b>off on every connection</b> until you turn it on. The first <code>/agent</code> on a connection asks what it may see of query results there (<b>What the AI may see of query results</b>); change it later with <b>Change</b> under the Ask box, or by right-clicking the connection and choosing <b>Agent settings</b>. The choices use the same words as <a href="/docs/mcp/#what-ai-apps-may-see">what AI apps get back</a>, which is set separately; the dialog shows that one too.</p>
+<p>Investigate is <b>off on every connection</b> until you turn it on. The first <code>/investigate</code> on a connection asks what it may see of query results there (<b>What the AI may see of query results</b>); change it later with <b>Change</b> under the Ask box, or by right-clicking the connection and choosing <b>Investigate settings</b>. The choices use the same words as <a href="/docs/mcp/#what-ai-apps-may-see">what AI apps get back</a>, which is set separately; the dialog shows that one too.</p>
 <div class="table-wrap"><table>
   <thead><tr><th>Setting</th><th>What the AI sees of each result</th></tr></thead>
   <tbody>
@@ -40,4 +41,4 @@
 </ul>
 
 <h2>Safety and limits</h2>
-<p>Every agent query goes through the same read-only checks as the rest of SayQL, one statement at a time, and the database enforces read-only where it can. A query that would read all of a very large table without a filter is refused until the agent checks its plan. Each run has limits on steps, queries, time per query, time per run and tokens; change them in <b>Settings → Agent mode</b>, where you can also pick the model that runs the agent (by default your expert model). Connect with a read-only database login for production.</p>
+<p>Every agent query goes through the same read-only checks as the rest of SayQL, one statement at a time, and the database enforces read-only where it can. A query that would read all of a very large table without a filter is refused until the agent checks its plan. Each run has limits on steps, queries, time per query, time per run and tokens; change them in <b>Settings → Investigate</b>, where you can also pick the model that runs the agent (by default your expert model). Connect with a read-only database login for production.</p>

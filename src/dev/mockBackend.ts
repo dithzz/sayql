@@ -6,7 +6,7 @@ import type { MyActivity, AgentAccess, AgentReply, AgentStep, AiProvider, AuditA
 import { EXAMPLE_SKILLS, skillError } from "../features/skills";
 import { version } from "../../package.json";
 import { isReadOnly } from "./readOnly";
-import { setStorageNamespace } from "../lib/storage";
+import { setStorageNamespace, storage } from "../lib/storage";
 
 /** `?video`: answers and a saved skill for the explainer video (scripts/video), with slower streaming. */
 const VIDEO = new URLSearchParams(window.location.search).has("video");
@@ -577,6 +577,11 @@ async function mockAuditRun(runId: string, connectionId: string, database: strin
 export function installMockBackend() {
   // Before the app reads its remembered tabs: a first run remembers nothing.
   if (FIRSTRUN) setStorageNamespace("sayql-firstrun:", true);
+  // The video and the README screenshots: no What's new, no Get started over the app.
+  if (VIDEO) {
+    storage.set("sayql.whatsNewSeen", version);
+    storage.set("sayql.checklistHidden", true);
+  }
   mockIPC(
     async (cmd, args) => {
       const a = (args ?? {}) as Record<string, unknown>;

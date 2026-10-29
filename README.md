@@ -95,9 +95,9 @@ shows you the exact statement first, so nothing changes by accident.
 <tr>
 <td colspan="2" valign="top">
 
-### Investigate with agent mode
+### Investigate with Investigate
 
-Switch the Ask box to Agent (or type `/agent`) and ask a question that needs looking around first ("why did signups drop last week?", "who owns this
+Switch the Ask box to Investigate (or type `/investigate`) and ask a question that needs looking around first ("why did signups drop last week?", "who owns this
 tenant?"). The agent shows its plan, works through it in read-only steps, checks its joins, asks you when a
 question has two meanings, and answers with every sentence linked to the query behind it. A number it can't
 find in any result is marked "not verified". It never runs writes: a change comes back as SQL for you to review. Auto
@@ -108,7 +108,7 @@ which help the Ask box, the agent and MCP next time.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset=".github/assets/feature-agent-dark.png">
-  <img src=".github/assets/feature-agent-light.png" alt="Agent mode in Auto: two read-only steps that sent only counts and summaries, and an answer citing them" width="100%">
+  <img src=".github/assets/feature-agent-light.png" alt="Investigate in Auto: two read-only steps that sent only counts and summaries, and an answer citing them" width="100%">
 </picture>
 
 ### Your AI, your data
@@ -166,13 +166,13 @@ straight from your machine to your database, and sends data only to services you
 | --- | --- | --- |
 | You ask in plain English | Your question, the schema (table and column names, types, keys), saved database notes, and the current SQL for follow-ups | Your AI provider |
 | A query fails and SayQL fixes it | The query and the database's error message, with values from your rows masked | Your AI provider |
-| You use agent mode on a connection where you turned it on | The agent's queries and, per your setting, row counts, column summaries, or up to 20 masked rows per query | Your AI provider |
+| You use Investigate on a connection where you turned it on | The agent's queries and, per your setting, row counts, column summaries, or up to 20 masked rows per query | Your AI provider |
 | An AI app uses SayQL through MCP | The schemas and database notes, and what you allow it to see of query results on that connection: by default counts and summaries, no row values (never the values of never-send columns) | That AI app (for example Claude or Cursor) |
 | You run a query | Your SQL | Your database |
 | SayQL starts | The app version and your operating system, to check for updates | GitHub (dithzz/sayql-releases) |
 | You first use voice input | A one-time download of the speech model (no audio) | Hugging Face |
 
-**Rows in your tables are never sent to an AI provider by the Ask box.** Agent mode can send them, only on
+**Rows in your tables are never sent to an AI provider by the Ask box.** Investigate can send them, only on
 connections where you turn it on (off by default), with likely personal data masked. Database passwords and API keys are
 kept in your OS keychain (macOS Keychain, Windows Credential Manager or Secret Service), never in files. With
 Ollama or LM Studio, nothing leaves your computer. Voice input is transcribed on your computer and audio is
@@ -303,7 +303,7 @@ SayQL is made by one person. The app is free and will stay that way; teams that 
 [setup guide](https://sayql.dev/docs/teams/#set-up-a-team-server)). These promises hold either way:
 
 1. **Single-user stays free.** Everything one person needs to ask, run, fix and export works in this app,
-   forever, including at work and including agent mode.
+   forever, including at work and including Investigate.
 2. **No take-backs.** A feature that shipped free never moves to a paid plan.
 3. **Paid means multi-user and governance.** Shared connections, admin-set rules, audit logs, SSO and
    approvals: things that only matter when a company manages many people or AI agents.

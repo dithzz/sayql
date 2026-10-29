@@ -86,6 +86,10 @@ for (const theme of ["light", "dark"]) {
   await page.evaluate(() => document.fonts.ready.then(() => true));
   await sleep(2500);
 
+  // Nothing connects on its own (0.4.8): connect the demo store first.
+  await click(await waitFor('[role="treeitem"] span', "Demo store (SQLite)"));
+  await sleep(800);
+
   // Hero and the Ask box card: two tables picked, a question in Quick mode, the result.
   await click(await waitFor('[role="treeitem"] span', "customers"), 4);
   await click(await waitFor('[role="treeitem"] span', "orders"), 4);

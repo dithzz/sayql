@@ -1,5 +1,5 @@
 <!-- order: 15 | slug: teams | title: SayQL for teams | group: Using SayQL | description: The governance layer for AI agents on your databases: each agent its own key and rules, private columns withheld on the server, and a record of every query, on a SayQL server your company runs. -->
-<p class="lead">SayQL for teams is the governance layer for AI agents on your databases, and for the people who use them. Each agent gets its own key, only the databases you choose and only the data you allow, and every query is on record. Your company runs its own SayQL server: it holds the team's database connections, so nobody needs the database passwords, enforces what the AI may see, withholds the columns your admin marks never-send from everyone (their values never leave the server), and keeps an audit log of every query, from people and from agent mode.</p>
+<p class="lead">SayQL for teams is the governance layer for AI agents on your databases, and for the people who use them. Each agent gets its own key, only the databases you choose and only the data you allow, and every query is on record. Your company runs its own SayQL server: it holds the team's database connections, so nobody needs the database passwords, enforces what the AI may see, withholds the columns your admin marks never-send from everyone (their values never leave the server), and keeps an audit log of every query, from people and from Investigate.</p>
 <div class="callout"><svg><use href="#i-info"/></svg><p><b>Not using a team?</b> Nothing changes. Without signing in, SayQL never contacts a team server and works exactly as before.</p></div>
 
 <h2>Set up a team server</h2>
@@ -36,21 +36,21 @@
 </ul>
 
 <h2>Team connections</h2>
-<p>The team's connections appear in the Database Navigator under <b>Team</b>. They work like your own: the Ask box, the editor and agent mode all use them. A few things differ:</p>
+<p>The team's connections appear in the Database Navigator under <b>Team</b>. They work like your own: the Ask box, the editor and Investigate all use them. A few things differ:</p>
 <ul>
   <li><b>Read-only.</b> Your team's server runs only queries that read data. A statement that would change data is refused before it reaches the database.</li>
   <li><b>No host or password.</b> SayQL never sees them: the schema and every query go through your team's server. Team connections can't be edited or deleted in SayQL; your team admin manages them.</li>
-  <li><b>Audited.</b> Each query is recorded in the server's audit log with where it came from (Ask box, editor or agent) and, from the Ask box or agent mode, the question it answers. Results are never stored.</li>
+  <li><b>Audited.</b> Each query is recorded in the server's audit log with where it came from (Ask box, editor or agent) and, from the Ask box or Investigate, the question it answers. Results are never stored.</li>
 </ul>
 
 <h2>Rules set by your team admin</h2>
 <ul>
-  <li><b>What agent mode may see.</b> Your admin sets the most the AI may see of results on each team connection. You can choose less in <b>Agent settings</b>, not more; the options above it are marked <b>Set by your team admin</b>.</li>
-  <li><b>Never-send columns.</b> Columns your admin marks never send are added to the connection's list and can't be removed. Agent mode refuses queries that use them, and the server leaves them out of every result (the Results panel says how many were withheld).</li>
+  <li><b>What Investigate may see.</b> Your admin sets the most the AI may see of results on each team connection. You can choose less in <b>Investigate settings</b>, not more; the options above it are marked <b>Set by your team admin</b>.</li>
+  <li><b>Never-send columns.</b> Columns your admin marks never send are added to the connection's list and can't be removed. Investigate refuses queries that use them, and the server leaves them out of every result (the Results panel says how many were withheld).</li>
 </ul>
 
 <h2>Team AI</h2>
-<p>Your team admin can also give the team one company AI key, with monthly limits. Then, on team connections, the Ask box, fixes, Improve and agent mode use your team's AI through your team's server, and you don't need an AI key of your own for them. Your own connections keep using your own AI provider and key.</p>
+<p>Your team admin can also give the team one company AI key, with monthly limits. Then, on team connections, the Ask box, fixes, Improve and Investigate use your team's AI through your team's server, and you don't need an AI key of your own for them. Your own connections keep using your own AI provider and key.</p>
 <p>A team without its own AI key can use <b>SayQL AI credits</b>: a prepaid credit key from SayQL instead of a company key (admin page → <b>AI</b>: provider Anthropic, base URL <code>https://sayql.dev/api/ai</code>). Requests then pass through SayQL's service on their way to Anthropic; SayQL keeps only the model and token counts, never the prompt or the answer. Ask <a href="mailto:hello@azenvoc.com">hello@azenvoc.com</a> for a credit key.</p>
 <ul>
   <li>The Ask box shows your team's model, marked <b>Team</b>. Click it to see the models your admin allows; they're <b>set by your team admin</b> and can't be switched there.</li>
@@ -64,7 +64,7 @@
     <tr><td>Signed out of your team, sign in again.</td><td>Your sign-in was revoked, or your account removed. Ask your team admin for a new invite.</td></tr>
     <tr><td>Your team's SayQL server runs only read-only queries</td><td>Run changes to data some other way your team agreed on.</td></tr>
     <tr><td>Your team admin marked a column in this query never send</td><td>Leave that column out of the query.</td></tr>
-    <tr><td>Agent mode is turned off for this connection by your team admin.</td><td>Use the Ask box or the editor there, or ask your team admin.</td></tr>
+    <tr><td>Investigate is turned off for this connection by your team admin.</td><td>Use the Ask box or the editor there, or ask your team admin.</td></tr>
     <tr><td>That invite code isn't valid or has expired.</td><td>Codes work once and last 7 days. Ask your team admin for a new one.</td></tr>
     <tr><td>You've used your team AI allowance for this month</td><td>It resets on the 1st. Ask your team admin if you need more.</td></tr>
     <tr><td>No licence, licence expired, or no free seats</td><td>Ask your team admin: the server's licence needs adding, renewing or more seats.</td></tr>
@@ -73,4 +73,4 @@
 
 <h2>Privacy</h2>
 <p>When you're signed in, queries on team connections and the questions they answer go to your team's server, which your company runs, and are recorded in its audit log. Your own connections, and anything you do on them, never go there.</p>
-<p>With team AI on, AI requests on team connections (your question, the schema and, in agent mode if allowed, masked rows) also go to your company's SayQL server, which forwards them to your company's AI provider and stores only token counts. Nothing reaches SayQL itself. Without team AI, questions on team connections go to the AI provider you chose in Settings, as on your own connections.</p>
+<p>With team AI on, AI requests on team connections (your question, the schema and, in Investigate if allowed, masked rows) also go to your company's SayQL server, which forwards them to your company's AI provider and stores only token counts. Nothing reaches SayQL itself. Without team AI, questions on team connections go to the AI provider you chose in Settings, as on your own connections.</p>

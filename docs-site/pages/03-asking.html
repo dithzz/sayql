@@ -5,8 +5,8 @@
   <li><b>Instant answers:</b> simple requests like "show customers" or "how many orders" are answered on your computer straight away, without calling the AI.</li>
   <li><b>Follow-ups:</b> after running a query, say what to change: "only Canada", "remove the middle name", "sort by date". SayQL edits the query you have, and shows <b>Building on your last query</b> (or <b>Changing your last query</b> with <code>/followup</code>). Click <b>New query</b> to start fresh.</li>
   <li><b>What it's doing:</b> the line under the Ask box shows the model writing the SQL, <b>Instant</b> when no AI was needed, and how long it took.</li>
-  <li><b>Quick or Agent:</b> the switch under the Ask box picks how your question is answered. <b>Quick</b> writes SQL as you type; <b>Agent</b> investigates in several read-only steps and answers (see <a href="/docs/agent-mode/">Agent mode</a>). <kbd>⌘⇧A</kbd> / <kbd>Ctrl+Shift+A</kbd> switches.</li>
-  <li><b>Switch models:</b> click the model name next to the switch to pick another model, or another provider you've already set up, without opening Settings. In Quick mode it sets the model that writes SQL as you type; in Agent mode, the one that runs the agent.</li>
+  <li><b>Quick or Agent:</b> the switch under the Ask box picks how your question is answered. <b>Quick</b> writes SQL as you type; <b>Investigate</b> looks into it in several read-only steps and answers (see <a href="/docs/agent-mode/">Investigate</a>). <kbd>⌘⇧A</kbd> / <kbd>Ctrl+Shift+A</kbd> switches.</li>
+  <li><b>Switch models:</b> click the model name next to the switch to pick another model, or another provider you've already set up, without opening Settings. In Quick mode it sets the model that writes SQL as you type; in Investigate, the one that runs the agent.</li>
 </ul>
 
 <h2>Say it</h2>
@@ -17,7 +17,7 @@
 <h2>Slash commands</h2>
 <p>Type <kbd>/</kbd> at the start of the Ask box to pick a command. Use <kbd>↑</kbd> <kbd>↓</kbd> to move, <kbd>↵</kbd> or <kbd>Tab</kbd> to pick and <kbd>esc</kbd> to close. The command shows as a chip; type the rest of your question after it. <kbd>⌫</kbd> at the start removes the chip.</p>
 <ul>
-  <li><b>/agent</b>: investigate a question that needs several steps, and answer with the queries behind it. See <a href="/docs/agent-mode/">Agent mode</a>.</li>
+  <li><b>/agent</b>: investigate a question that needs several steps, and answer with the queries behind it. See <a href="/docs/agent-mode/">Investigate</a>.</li>
   <li><b>/followup</b>: change the current query, even when the request sounds like a new question.</li>
   <li><b>/new</b>: ignore the last query and start fresh, like <b>New query</b>.</li>
   <li><b>/explain</b>: explain the current query in plain English. Add a question after it to ask about one part.</li>
