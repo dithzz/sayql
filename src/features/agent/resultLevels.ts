@@ -123,17 +123,25 @@ export interface PrivacySummary {
 
 /**
  * What can reach an AI from this connection: the Ask box (names, never rows), Investigate
- * (as set, if on) and AI apps over MCP (as set). The label is the most of these.
+ * (as set, if on; on a team connection already capped by the admin) and AI apps over MCP (as
+ * set). The label is the most of these. `provider` is where the Ask box and Investigate send:
+ * on a team connection with team AI, the team's AI.
+ *
+ * Team connections aren't served to AI apps on this computer (src-tauri/src/mcp.rs serves the
+ * connections saved here); AI agents reach them only through the team's agent gateway.
  */
 export function privacySummary(a: AgentAccess, provider: { label: string; local: boolean } | null): PrivacySummary {
+  const team = !!a.team;
   const investigate: ResultLevel = a.enabled ? AGENT_LEVEL[a.results] : "nothing";
-  const apps = APP_LEVEL[a.apps];
+  const apps: ResultLevel = team ? "nothing" : APP_LEVEL[a.apps];
   const level = ORDER[Math.max(ORDER.indexOf(investigate), ORDER.indexOf(apps))];
   const to = provider ? (provider.local ? `${provider.label}, on this computer` : provider.label) : "your AI provider";
   const lines = [
     `Ask box: your question, table and column names and notes go to ${to}. No rows.`,
-    a.enabled ? `Investigate: ${agentLevelShort(a.results)}, to ${to}.` : "Investigate: off.",
-    `AI apps over MCP: ${appLevelShort(a.apps)}.`,
+    a.enabled ? `Investigate: ${agentLevelShort(a.results)}, to ${to}${team ? " (your team admin's limit applies)" : ""}.` : "Investigate: off.",
+    team
+      ? "AI apps on this computer: not on team connections. AI agents reach them only through your team's agent gateway, under its rules."
+      : `AI apps over MCP: ${appLevelShort(a.apps)}.`,
   ];
   if (a.neverSend.length)
     lines.push(`${a.neverSend.length} never-send column${a.neverSend.length === 1 ? "" : "s"}: never sent to any AI.`);

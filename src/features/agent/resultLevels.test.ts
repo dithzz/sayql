@@ -71,4 +71,17 @@ describe("the status bar's privacy indicator", () => {
     expect(s.lines[2]).toBe("AI apps over MCP: counts and summaries.");
     expect(s.lines[3]).toMatch(/1 never-send column:/);
   });
+
+  it("on a team connection, sends to the team's AI and says AI apps here can't use it", () => {
+    const team = { maxResults: "counts" as const, neverSend: [] as string[] };
+    const s = privacySummary(
+      { ...base, enabled: true, results: "counts", apps: "all", team },
+      { label: "your team's AI (Claude, through your company's SayQL server)", local: false },
+    );
+    // AI apps' own setting doesn't count: they can't reach team connections from this computer.
+    expect(s.label).toBe("Counts to AI");
+    expect(s.lines[0]).toMatch(/your team's AI/);
+    expect(s.lines[1]).toMatch(/team admin's limit applies/);
+    expect(s.lines[2]).toMatch(/only through your team's agent gateway/);
+  });
 });
