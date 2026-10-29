@@ -45,6 +45,8 @@ export const TextInput = forwardRef<HTMLInputElement, TextInputProps>(function T
 export interface SelectOption<T extends string> {
   value: T;
   label: string;
+  /** Shown but can't be picked. */
+  disabled?: boolean;
 }
 
 export interface SelectProps<T extends string> extends Omit<SelectHTMLAttributes<HTMLSelectElement>, "onChange" | "value"> {
@@ -57,7 +59,7 @@ export function Select<T extends string>({ value, options, onChange, className, 
   return (
     <select className={cx(styles.control, className)} value={value} onChange={(e) => onChange(e.target.value as T)} {...rest}>
       {options.map((o) => (
-        <option key={o.value} value={o.value}>
+        <option key={o.value} value={o.value} disabled={o.disabled}>
           {o.label}
         </option>
       ))}

@@ -18,7 +18,7 @@ beforeAll(async () => {
 const COMMANDS = [
   "init", "save_connection", "delete_connection", "test_connection", "open_database", "refresh_schema",
   "list_databases", "run_query", "cancel_query", "generate_sql", "cancel_generation", "list_scripts", "save_script",
-  "delete_script", "list_skills", "save_skill", "delete_skill", "mcp_setup", "installed_coding_agents", "open_install_link", "mcp_activity", "mcp_apps", "set_mcp_app_blocked", "approve_mcp_app", "set_mcp_only_approved", "clear_mcp_activity", "mcp_audits", "audit_prompt", "audit_agents", "audit_folder", "choose_audit_folder", "start_audit", "cancel_audit", "audit_model", "set_audit_model", "open_audit_in_terminal", "take_handoffs", "app_info", "check_update",
+  "delete_script", "list_skills", "save_skill", "delete_skill", "mcp_setup", "installed_coding_agents", "open_install_link", "mcp_activity", "mcp_apps", "set_mcp_app_blocked", "approve_mcp_app", "set_mcp_only_approved", "clear_mcp_activity", "mcp_audits", "audit_prompt", "audit_agents", "audit_folder", "choose_audit_folder", "start_audit", "cancel_audit", "audit_model", "set_audit_model", "audit_payment", "set_audit_payment", "open_audit_in_terminal", "take_handoffs", "app_info", "check_update",
   "install_update", "save_settings", "finish_onboarding", "list_models", "voice_status", "voice_download",
   "voice_cancel_download", "voice_delete_model", "voice_start", "voice_stop", "voice_cancel",
   "agent_access", "save_agent_access", "start_agent", "reply_agent", "stop_agent", "list_notes", "save_note", "delete_note",

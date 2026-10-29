@@ -6,6 +6,15 @@
 //   2. goes to Anthropic with SayQL's own key, the answer streaming straight back,
 //   3. is charged what Anthropic reported using, plus the margin, and the hold is returned.
 // Prompts and answers pass through and are never stored: the ledger keeps the model and token counts.
+//
+// Claude Code uses it too ("Audit with Claude Code" in the SayQL app, paying with credits):
+// ANTHROPIC_BASE_URL=https://sayql.dev/api/ai and the credit key in ANTHROPIC_AUTH_TOKEN. It posts
+// to /v1/messages?beta=true with an `anthropic-beta` header whose values pair with body fields
+// (context_management, output_config, ...), so that header is forwarded as sent: Claude Code's
+// gateway guide (https://code.claude.com/docs/en/llm-gateway-protocol) says to forward it verbatim
+// rather than allowlist values. Costs this endpoint doesn't meter come from body fields and server
+// tools, which stay refused below. /v1/messages/count_tokens is optional for Claude Code (it
+// estimates instead), so it isn't served.
 
 import crypto from "node:crypto";
 
@@ -25,6 +34,11 @@ const REFUSED_FIELDS = ["speed", "mcp_servers", "container", "service_tier", "in
 // Request fields dropped before forwarding: `fallbacks` would let another model answer at its own
 // price (the SayQL app asks for it on Opus and Sonnet). Without it a rare refusal just ends the reply.
 const DROPPED_FIELDS = ["fallbacks"];
+// `anthropic-beta` values not forwarded: OAuth belongs to claude.ai sign-ins, and upstream
+// requests carry SayQL's API key.
+const DROPPED_BETA = /^oauth-/;
+// Upstream response headers passed back: Claude Code reads these to decide whether and when to retry.
+const PASSED_HEADERS = ["request-id", "retry-after", "x-should-retry"];
 
 export const config = { runtime: "nodejs" };
 
@@ -61,8 +75,13 @@ export async function POST(request) {
   for (const f of DROPPED_FIELDS) delete body[f];
   const forward = JSON.stringify(body);
 
-  // Upper estimate: every input byte a token written to the 1-hour cache, and max_tokens of output.
-  const hold = micro(cost(price, { input: 0, write5m: 0, write1h: Buffer.byteLength(forward), read: 0, output: maxTokens }) * MARGIN);
+  // Upper estimate: every input byte a token written to the cache (the 1-hour cache when the
+  // request asks for it anywhere), and max_tokens of output.
+  const bytes = Buffer.byteLength(forward);
+  const oneHour = /"ttl"\s*:\s*"1h"/.test(forward);
+  const hold = micro(
+    cost(price, { input: 0, write5m: oneHour ? 0 : bytes, write1h: oneHour ? bytes : 0, read: 0, output: maxTokens }) * MARGIN,
+  );
   const keyHash = crypto.createHash("sha256").update(key).digest("hex");
   const reserved = await rpc(db, "ai_reserve", { p_key_sha256: keyHash, p_amount: hold });
   if (!Array.isArray(reserved) || !reserved.length) {
@@ -70,22 +89,28 @@ export async function POST(request) {
     if (!Array.isArray(known) || !known.length || !known[0].active) {
       return error(401, "authentication_error", "That SayQL AI credit key isn't valid or was turned off.");
     }
+    if (Number(known[0].balance_micro) > 0) {
+      return error(
+        402,
+        "billing_error",
+        "There isn't enough SayQL AI credit left for this request: each request first reserves an upper estimate of its cost. Add credit to continue.",
+      );
+    }
     return error(402, "billing_error", "This SayQL AI credit has run out.");
   }
   const account = reserved[0].account_id;
 
+  const upstreamHeaders = {
+    "content-type": "application/json",
+    "x-api-key": anthropicKey,
+    "anthropic-version": request.headers.get("anthropic-version") || "2023-06-01",
+    accept: request.headers.get("accept") || "application/json",
+  };
+  const betas = betaValues(request.headers.get("anthropic-beta"));
+  if (betas) upstreamHeaders["anthropic-beta"] = betas;
   let upstream;
   try {
-    upstream = await fetch(`${UPSTREAM}/v1/messages`, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-api-key": anthropicKey,
-        "anthropic-version": request.headers.get("anthropic-version") || "2023-06-01",
-        accept: request.headers.get("accept") || "application/json",
-      },
-      body: forward,
-    });
+    upstream = await fetch(`${UPSTREAM}/v1/messages`, { method: "POST", headers: upstreamHeaders, body: forward });
   } catch (e) {
     await settle(db, account, hold, body.model, null);
     console.error("ai: upstream unreachable", e.message);
@@ -93,8 +118,10 @@ export async function POST(request) {
   }
 
   const headers = { "content-type": upstream.headers.get("content-type") || "application/json", "cache-control": "no-store" };
-  const requestId = upstream.headers.get("request-id");
-  if (requestId) headers["request-id"] = requestId;
+  for (const h of PASSED_HEADERS) {
+    const v = upstream.headers.get(h);
+    if (v) headers[h] = v;
+  }
 
   if (!upstream.ok || !upstream.body) {
     // Anthropic doesn't charge failed requests: hand back the hold and pass the error on.
@@ -233,6 +260,15 @@ function cost(p, t) {
 
 function micro(usd) {
   return Math.ceil(usd * 1_000_000);
+}
+
+/** The client's `anthropic-beta` values to forward, or null for none. */
+export function betaValues(h) {
+  const kept = String(h || "")
+    .split(",")
+    .map((v) => v.trim())
+    .filter((v) => v && !DROPPED_BETA.test(v));
+  return kept.length ? kept.join(",") : null;
 }
 
 function bearer(h) {

@@ -1,7 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AlertTriangle, Check, Copy, FolderOpen, Lightbulb, ScanSearch, SquareTerminal } from "lucide-react";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { commands, subscribeToAudit, type AuditAgent, type AuditEvent, type AuditModel, type ConnectionConfig } from "../../api";
+import {
+  commands,
+  subscribeToAudit,
+  type AuditAgent,
+  type AuditEvent,
+  type AuditModel,
+  type AuditPayment,
+  type ConnectionConfig,
+} from "../../api";
 import { Alert, Button, Dialog, Markdown, Select, Spinner } from "../../components/ui";
 import { cx } from "../../lib/cx";
 import { errorText } from "../../lib/errors";
@@ -87,6 +95,8 @@ export interface AuditDialogProps {
   connections?: ConnectionConfig[];
   onReview?: () => void;
   onClose: () => void;
+  /** Opens Settings → AI provider, where a SayQL credit key is added. */
+  onOpenAiSettings?: () => void;
 }
 
 const MODELS: { value: AuditModel; label: string }[] = [
@@ -95,13 +105,24 @@ const MODELS: { value: AuditModel; label: string }[] = [
   { value: "default", label: "My Claude Code default" },
 ];
 
+/** What a typical audit costs on credits: one measured run (Opus 5.5: 13.1k output tokens with
+ *  thinking, 145k cache reads, 24.8k cache writes, about $0.65 at Anthropic's list prices), with
+ *  the same tokens on Sonnet 5.5 (half Opus's price, cache reads the same) about $0.34, plus the
+ *  credits service's 20% margin. Bigger projects read more and cost more. */
+const CREDIT_COST: Record<"sonnet" | "opus", string> = { sonnet: "$0.40", opus: "$0.80" };
+
+/** The model a credits run uses: credits cover Sonnet and Opus, so "my default" runs on Sonnet. */
+function creditModel(m: AuditModel): "sonnet" | "opus" {
+  return m === "opus" ? "opus" : "sonnet";
+}
+
 function elapsed(ms: number): string {
   const s = Math.floor(ms / 1000);
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 }
 
 /** Choose the agent and folder, start, watch the progress, then review what it suggested. */
-export function AuditDialog({ target, connections = [], onReview, onClose }: AuditDialogProps) {
+export function AuditDialog({ target, connections = [], onReview, onClose, onOpenAiSettings }: AuditDialogProps) {
   const { agents, refresh } = useAuditAgents(true);
   const ready = (agents ?? []).filter((a) => a.ready);
   const local = connections.filter((c) => !c.id.startsWith("team:"));
@@ -112,6 +133,8 @@ export function AuditDialog({ target, connections = [], onReview, onClose }: Aud
   const connectionName = target?.connectionId === connectionId ? target.name : (local.find((c) => c.id === connectionId)?.name ?? "");
   const [folder, setFolder] = useState<string | null>(null);
   const [model, setModel] = useState<AuditModel>("sonnet");
+  const [payment, setPayment] = useState<AuditPayment>("subscription");
+  const [hasCreditKey, setHasCreditKey] = useState(false);
   const [phase, setPhase] = useState<"setup" | "running" | "done">("setup");
   const [lines, setLines] = useState<Line[]>([]);
   const [done, setDone] = useState<Done | null>(null);
@@ -151,12 +174,38 @@ export function AuditDialog({ target, connections = [], onReview, onClose }: Aud
     };
   }, []);
 
+  useEffect(() => {
+    let live = true;
+    Promise.resolve()
+      .then(() => commands.auditPayment())
+      .then(
+        (p) => {
+          if (!live || !p) return;
+          setHasCreditKey(p.hasCreditKey);
+          setPayment(p.hasCreditKey ? p.payment : "subscription");
+        },
+        () => undefined,
+      );
+    return () => {
+      live = false;
+    };
+  }, []);
+
   const chooseModel = (m: AuditModel) => {
     setModel(m);
     void Promise.resolve()
       .then(() => commands.setAuditModel(m))
       .catch((e) => setError(errorText(e)));
   };
+
+  const choosePayment = (p: AuditPayment) => {
+    if (p === "credits" && !hasCreditKey) return;
+    setPayment(p);
+    void Promise.resolve()
+      .then(() => commands.setAuditPayment(p))
+      .catch((e) => setError(errorText(e)));
+  };
+  const credits = payment === "credits";
 
   useEffect(() => {
     const unlisten = subscribeToAudit((e) => {
@@ -263,8 +312,12 @@ export function AuditDialog({ target, connections = [], onReview, onClose }: Aud
         <Button
           variant="ghost"
           icon={SquareTerminal}
-          disabled={!canStart}
-          title="Open your terminal in the project folder, running the same read-only audit, to watch or answer it there"
+          disabled={!canStart || credits}
+          title={
+            credits
+              ? "Paying with SayQL AI credits works for runs inside SayQL. Pay with your Claude Code sign-in to open the audit in Terminal."
+              : "Open your terminal in the project folder, running the same read-only audit, to watch or answer it there"
+          }
           onClick={openTerminal}
         >
           Open in Terminal
@@ -290,7 +343,9 @@ export function AuditDialog({ target, connections = [], onReview, onClose }: Aud
               <>
                 <p className={styles.lead}>
                   {agent.label} reads your project&apos;s code and SayQL&apos;s schema and suggests notes for you to approve.
-                  It runs with your own {agent.label} sign-in and subscription; SayQL sends no code anywhere.
+                  {credits
+                    ? ` It runs on your SayQL AI credits: ${agent.label}'s requests, with the code it reads, go through SayQL's credits service to Anthropic.`
+                    : ` It runs with your own ${agent.label} sign-in and subscription; SayQL sends no code anywhere.`}
                 </p>
                 <div className={styles.fields}>
                   {!target && (
@@ -327,16 +382,55 @@ export function AuditDialog({ target, connections = [], onReview, onClose }: Aud
                     <>
                       <div className={styles.field}>
                         <span className={styles.label}>Model</span>
-                        <Select aria-label="Model for the audit" value={model} options={MODELS} onChange={chooseModel} />
+                        <Select
+                          aria-label="Model for the audit"
+                          value={credits ? creditModel(model) : model}
+                          options={credits ? MODELS.filter((m) => m.value !== "default") : MODELS}
+                          onChange={chooseModel}
+                        />
                       </div>
-                      <p className={styles.hint}>
-                        {model === "sonnet"
-                          ? "Sonnet is cheaper and does this job well. "
-                          : model === "opus"
-                            ? "Opus is slower and uses more of your plan. "
-                            : "Whatever model your Claude Code uses by default. "}
-                        The run counts against your own Claude plan.
-                      </p>
+                      <div className={styles.field}>
+                        <span className={styles.label}>Pay with</span>
+                        <Select
+                          aria-label="Pay for the audit with"
+                          value={payment}
+                          options={[
+                            { value: "subscription", label: "My Claude Code sign-in" },
+                            { value: "credits", label: "SayQL AI credits", disabled: !hasCreditKey },
+                          ]}
+                          onChange={choosePayment}
+                        />
+                      </div>
+                      {credits ? (
+                        <p className={styles.hint}>
+                          Requests go through SayQL&apos;s credits service to Anthropic and are charged to your credit balance
+                          (about {CREDIT_COST[creditModel(model)]} for a typical audit on {creditModel(model) === "opus" ? "Opus" : "Sonnet"};
+                          bigger projects cost more). SayQL keeps only token counts, never your code or the answers.
+                        </p>
+                      ) : (
+                        <p className={styles.hint}>
+                          {model === "sonnet"
+                            ? "Sonnet is cheaper and does this job well. "
+                            : model === "opus"
+                              ? "Opus is slower and uses more of your plan. "
+                              : "Whatever model your Claude Code uses by default. "}
+                          The run counts against your own Claude plan.
+                          {!hasCreditKey && (
+                            <>
+                              {" "}
+                              No Claude plan?{" "}
+                              {onOpenAiSettings ? (
+                                <button type="button" className={styles.link} onClick={onOpenAiSettings}>
+                                  Add a credit key in Settings → AI provider
+                                </button>
+                              ) : (
+                                "Add a credit key in Settings → AI provider"
+                              )}{" "}
+                              to pay with SayQL AI credits.
+                            </>
+                          )}
+                        </p>
+                      )}
                     </>
                   )}
                   <div className={styles.field}>

@@ -3,6 +3,15 @@
 All notable changes to SayQL are listed here. Downloads are on the
 [releases page](https://github.com/dithzz/sayql-releases/releases).
 
+## Unreleased
+
+### Audit with Claude Code: pay with SayQL AI credits
+
+- **No Claude plan needed.** The audit dialog has **Pay with: My Claude Code sign-in** (the default) **| SayQL AI credits**, next to Model, remembered. With credits, Claude Code's requests go through SayQL's credits service to Anthropic and are charged to your credit balance (about $0.40 for a typical audit on Sonnet, $0.80 on Opus). SayQL keeps only token counts, never your code or the answers. Without a credit key saved, the option is greyed out and links to Settings → AI provider.
+- **The key stays out of sight.** It goes to Claude Code in its environment only (`ANTHROPIC_AUTH_TOKEN`, which Claude Code uses ahead of a claude.ai sign-in), never on the command line or in a file, and is masked in anything the dialog shows. Variables that could point the run elsewhere (another API key, a cloud provider) are removed for the run, nonessential traffic is off, and every model it may ask for is pinned to Sonnet 5.5, Opus 5.5 or (background tasks) Haiku 5.5. Open in Terminal is off while credits are chosen.
+- **Clear errors**: a refused credit key (stopped at once instead of after Claude Code's minutes of retries), credit run out or too low for the next step, a model credits don't cover, the service unavailable.
+- **Credits service (sayql.dev/api/ai)**: forwards Claude Code's `anthropic-beta` header (needed for the request fields it pairs with), passes `retry-after` and `x-should-retry` back, holds the 5-minute cache-write price unless a request asks for the 1-hour cache, and says when a balance is too low for one request rather than run out. Deploy it before releasing this app version.
+
 ## 0.4.6 (2026-10-29)
 
 ### Connect your coding agent, whichever it is
