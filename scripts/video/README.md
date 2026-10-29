@@ -51,12 +51,12 @@ node scripts/video/render.mjs dark stills 12,40  # single frames at those times,
 - **Voiceover:** the lines and their cue points are in `voiceover.json`; each render writes
   the script with start times and how long each line can run to `media/<name>-cuts.md`.
   The full cuts use the lines in `media/voiceover/<id>.wav`, with the music ducked under the
-  voice; the 15-second cut is music only. The current takes are macOS's Samantha voice
-  (`VOICE=Samantha`, saved as WAV); Kokoro's `am_michael`, used before, sounds better, so
-  re-read them with it when it's set up. A line's `speak` spells it for macOS voices
-  ("Say Q L"). After changing a
-  line, read it again and run `node scripts/video/render.mjs dark full audio` (only the
-  soundtrack is redone). Other voices:
+  voice; the 15-second cut is music only. The current takes are Kokoro's `am_michael` (see
+  below). Read every changed line with that same voice, or the video switches voices:
+  `voiceover.py am_michael <dir>` reads them all; copy the changed lines into
+  `media/voiceover/`, and check each still fits its room in the cuts file. A line's `speak`
+  spells it for macOS voices ("Say Q L"). Then run
+  `node scripts/video/render.mjs dark full audio` (only the soundtrack is redone). Other voices:
   - recordings: one file per line, in `media/voiceover/<id>.wav`;
   - Kokoro, an open-source voice model (Apache-2.0): set it up and read the lines as in
     `voiceover.py`'s header, then render with `VO_DIR=<its out dir>`. Good voices to try:
