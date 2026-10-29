@@ -16,7 +16,7 @@ export interface Builtin {
 
 /** One entry per BUILTIN_SLUGS from skills (checked in slashCommands.test.ts). */
 export const BUILTINS: Builtin[] = [
-  { slug: "agent", description: "Investigate in several steps (beta)", placeholder: "What should the agent find out?" },
+  { slug: "investigate", description: "Investigate in several read-only steps (beta)", placeholder: "What should SayQL find out?" },
   { slug: "followup", description: "Change the current query", placeholder: "What to change — e.g. only active ones" },
   { slug: "new", description: "Start fresh, ignore the last query", placeholder: "Ask in plain English" },
   { slug: "explain", description: "Explain the current query", placeholder: "Anything to focus on? (optional)" },
@@ -46,7 +46,8 @@ export interface Parsed {
 export function parseCommand(text: string, skills: Skill[]): Parsed {
   const m = text.match(/^\/([a-z0-9-]+)\s/);
   if (!m) return { command: null, rest: text };
-  const slug = m[1];
+  // "/agent" is the old name of /investigate; tabs saved before 0.4.9 still hold it.
+  const slug = m[1] === "agent" ? "investigate" : m[1];
   const builtin = BUILTINS.find((b) => b.slug === slug);
   const skill = builtin ? undefined : skills.find((s) => s.slug === slug);
   const command: Command | null = builtin ? { kind: "builtin", builtin } : skill ? { kind: "skill", skill } : null;
@@ -58,12 +59,12 @@ export const withCommand = (slug: string, rest: string) => `/${slug} ${rest}`;
 
 /**
  * Whether the Ask box should say the request builds on the last query run: always with
- * /followup; never with /new or /agent; otherwise only once a new question is being typed. Right
+ * /followup; never with /new or /investigate; otherwise only once a new question is being typed. Right
  * after a run the box still holds the question just answered, which builds on nothing.
  */
 export function buildsOnLast(slug: string | null, rest: string, lastQuestion: string): boolean {
   if (slug === "followup") return true;
-  if (slug === "new" || slug === "agent") return false;
+  if (slug === "new" || slug === "investigate") return false;
   const q = rest.trim();
   return q !== "" && q !== lastQuestion.trim();
 }
@@ -116,7 +117,7 @@ export interface PlanContext {
 export function planRequest(text: string, skills: Skill[], ctx: PlanContext): Plan {
   const { command, rest } = parseCommand(text, skills);
   if (isAction(command)) return { kind: "action", command: command.builtin.slug, question: rest, skill: null };
-  if (command?.kind === "builtin" && command.builtin.slug === "agent") {
+  if (command?.kind === "builtin" && command.builtin.slug === "investigate") {
     const inner = parseCommand(rest, skills);
     const skill = inner.command?.kind === "skill" ? inner.command.skill.slug : null;
     return { kind: "agent", question: skill ? inner.rest : rest, skill };

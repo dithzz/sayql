@@ -150,7 +150,7 @@ export function DatabaseNavigator(p: DatabaseNavigatorProps) {
         { label: "New SQL tab", icon: FilePlus2, shortcut: active ? "⌘T" : undefined, onSelect: () => p.onNewTab(c.id, null) },
         { label: "Refresh", icon: RefreshCw, disabled: !active || !p.connected || p.loading, onSelect: p.onRefresh },
         "separator",
-        { label: "Agent settings…", icon: Bot, onSelect: () => p.onAgentSettings(c) },
+        { label: "Investigate settings…", icon: Bot, onSelect: () => p.onAgentSettings(c) },
         { label: "Add database note…", icon: StickyNote, disabled: !active || !p.schema, onSelect: () => p.onEditNote(null) },
         { label: "Copy name", icon: Copy, onSelect: () => copy(c.name) },
       ];
@@ -161,7 +161,7 @@ export function DatabaseNavigator(p: DatabaseNavigatorProps) {
       { label: "Refresh", icon: RefreshCw, disabled: !active || !p.connected || p.loading, onSelect: p.onRefresh },
       "separator",
       { label: "Edit connection…", icon: Pencil, onSelect: () => p.onEdit(c) },
-      { label: "Agent settings…", icon: Bot, onSelect: () => p.onAgentSettings(c) },
+      { label: "Investigate settings…", icon: Bot, onSelect: () => p.onAgentSettings(c) },
       { label: "Add database note…", icon: StickyNote, disabled: !active || !p.schema, onSelect: () => p.onEditNote(null) },
       { label: "Copy name", icon: Copy, onSelect: () => copy(c.name) },
       "separator",
@@ -316,7 +316,7 @@ export function DatabaseNavigator(p: DatabaseNavigatorProps) {
               icon={<StickyNote size={14} />}
               label="Notes"
               meta={p.notes.length || undefined}
-              title="Facts about this database that the Ask box, agent mode and MCP use"
+              title="Facts about this database that the Ask box, Investigate and MCP use"
               onClick={() => setCollapsed((s) => toggle(s, `${key}:notes`))}
             />
             {!!p.suggestedNotes && (

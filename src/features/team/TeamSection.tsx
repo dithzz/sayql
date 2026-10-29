@@ -116,7 +116,7 @@ export function TeamSection({ account, onChange }: TeamSectionProps) {
         Your team's connections are in the Database Navigator under Team. Queries on them, and the questions they answer, go to
         this server, which keeps them in its audit log. Your own connections never go there.
         {teamAiOn(status?.ai) &&
-          " On team connections, AI requests (your question, the schema and, in agent mode if allowed, masked rows) also go to this server, which forwards them to your team's AI provider and keeps only token counts. Your own connections use your own AI provider."}
+          " On team connections, AI requests (your question, the schema and, in Investigate if allowed, masked rows) also go to this server, which forwards them to your team's AI provider and keeps only token counts. Your own connections use your own AI provider."}
       </p>
       {error && <Alert tone="danger">{error}</Alert>}
       <div>

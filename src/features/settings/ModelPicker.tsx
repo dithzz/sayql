@@ -100,7 +100,7 @@ function OwnModels({
       <button
         type="button"
         className={styles.picker}
-        title={purpose === "agent" ? "The model that runs agent mode. Click to switch." : "The model that writes SQL as you type. Click to switch."}
+        title={purpose === "agent" ? "The model that investigates. Click to switch." : "The model that writes SQL as you type. Click to switch."}
         onClick={(e) => menu.open(e, items)}
       >
         {modelLabel(settings, current)}

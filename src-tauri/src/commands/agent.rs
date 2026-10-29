@@ -43,7 +43,7 @@ pub async fn start_agent(
     let mut access = effective_access(&state, &id)?.access;
     if !access.enabled {
         return Err(
-            "Agent mode is off for this connection. Turn it on in its agent settings first.".into(),
+            "Investigate is off for this connection. Turn it on in its Investigate settings first.".into(),
         );
     }
     let target = Target::new(id.clone(), database.clone());

@@ -159,7 +159,7 @@ describe("SayQL Team", () => {
     fireEvent.contextMenu(screen.getByText("Production"));
     expect(screen.queryByText("Edit connection…")).toBeNull();
     expect(screen.queryByText("Delete connection…")).toBeNull();
-    expect(screen.getByText("Agent settings…")).toBeTruthy();
+    expect(screen.getByText("Investigate settings…")).toBeTruthy();
   });
 
   it("on a team connection with team AI, shows the team's models, set by the admin", () => {

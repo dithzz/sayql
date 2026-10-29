@@ -6,7 +6,7 @@ import styles from "./AgentAccessDialog.module.css";
 import { AGENT_DEFAULT, AGENT_LEVEL, LEVELS } from "./resultLevels";
 
 const LIMITS: { key: Exclude<keyof AgentSettings, "skipPlan">; label: string; hint: string }[] = [
-  { key: "maxSteps", label: "Steps per run", hint: "Model turns; at the limit the agent must answer with what it has." },
+  { key: "maxSteps", label: "Steps per run", hint: "Model turns; at the limit the AI must answer with what it has." },
   { key: "maxQueries", label: "Queries per run", hint: "Further queries are refused." },
   { key: "querySeconds", label: "Seconds per query", hint: "Then the query is stopped on the server." },
   { key: "runSeconds", label: "Seconds per run", hint: "Waiting for you doesn't count." },
@@ -35,12 +35,12 @@ export function AgentSettingsSection({ settings, onSaved }: { settings: Settings
   return (
     <div className={styles.body}>
       <p className={styles.lead}>
-        Agent mode answers a question in several read-only steps and ends with a cited answer. Turn it on per connection:
-        switch the Ask box to <strong>Agent</strong> (<kbd>⌘⇧A</kbd> there) or type <code>/agent</code>, or right-click a connection
-        and choose Agent settings. It never runs writes. What it may see of query results is set per connection, and starts
+        Investigate answers a question in several read-only steps and ends with a cited answer. Turn it on per connection:
+        switch the Ask box to <strong>Investigate</strong> (<kbd>⌘⇧A</kbd> there) or type <code>/investigate</code>, or right-click a
+        connection and choose Investigate settings. It never runs writes. What it may see of query results is set per connection, and starts
         at <strong>{LEVELS[AGENT_LEVEL[AGENT_DEFAULT]].label}</strong>.
       </p>
-      <Field label="Agent model" hint="Accuracy matters more than speed here. Fast models aren't recommended for the agent.">
+      <Field label="Model" hint="Accuracy matters more than speed here. Fast models aren't recommended for investigating.">
         {(id) =>
           claude ? (
             <Select

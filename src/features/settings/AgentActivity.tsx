@@ -90,7 +90,7 @@ export function AgentActivity() {
     <div className={styles.activity}>
       <p className={styles.intro}>
         What AI apps ran through SayQL on this computer: the SQL and how many rows it returned, not the rows themselves.
-        AI apps only: agent mode and your own queries aren&apos;t in this log. Click a row for the full SQL.
+        AI apps only: Investigate and your own queries aren&apos;t in this log. Click a row for the full SQL.
       </p>
       <div className={styles.filters}>
         <Select

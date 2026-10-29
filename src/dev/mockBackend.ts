@@ -600,7 +600,7 @@ export function installMockBackend() {
           return null;
         case "start_agent": {
           const access = agentAccess.get(String(a.id));
-          if (!access?.enabled) return Promise.reject("Agent mode is off for this connection. Turn it on in its agent settings first.");
+          if (!access?.enabled) return Promise.reject("Investigate is off for this connection. Turn it on in its Investigate settings first.");
           void mockAgentRun(String(a.runId), String(a.question), access, a.auto === true);
           return null;
         }

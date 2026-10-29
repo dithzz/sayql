@@ -26,7 +26,7 @@ pub const ID_PREFIX: &str = "team:";
 
 pub const SIGNED_OUT: &str = "Signed out of your team, sign in again.";
 pub const ENTER_SERVER: &str = "Enter your server's address, for example https://sayql.example.com";
-pub const AGENT_OFF: &str = "Agent mode is turned off for this connection by your team admin.";
+pub const AGENT_OFF: &str = "Investigate is turned off for this connection by your team admin.";
 pub const BAD_INVITE: &str =
     "That invite code isn't valid or has expired. Ask your team admin for a new one.";
 pub const WRITE_REFUSED: &str =

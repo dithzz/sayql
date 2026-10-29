@@ -19,7 +19,7 @@ export type SettingsSection = "ai" | "agent" | "skills" | "voice" | "mcp" | "tea
 
 const SECTIONS: { id: SettingsSection; label: string; icon: LucideIcon }[] = [
   { id: "ai", label: "AI provider", icon: Sparkles },
-  { id: "agent", label: "Agent mode", icon: Bot },
+  { id: "agent", label: "Investigate", icon: Bot },
   { id: "skills", label: "Skills", icon: ScrollText },
   { id: "voice", label: "Voice", icon: Mic },
   { id: "mcp", label: "AI apps", icon: Plug },
@@ -87,7 +87,7 @@ export function privacyNote(p: Pick<AiProvider, "id" | "key" | "label" | "local"
           : p.label;
   return (
     `Your question, table and column names, your database notes and the SQL you're working on (with a failed query's error, values masked) are sent to ${to}. ` +
-    "Data from your tables is sent only if you turn on agent mode for a connection and allow it in its agent settings."
+    "Data from your tables is sent only if you turn on Investigate for a connection and allow it in its settings."
   );
 }
 
@@ -352,7 +352,7 @@ export function SettingsPage({
           )}
           {section === "agent" && (
             <>
-              <h2 className={styles.title}>Agent mode (beta)</h2>
+              <h2 className={styles.title}>Investigate (beta)</h2>
               <AgentSettingsSection settings={settings} onSaved={onSaved} />
             </>
           )}

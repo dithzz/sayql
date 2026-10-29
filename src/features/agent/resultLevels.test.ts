@@ -46,8 +46,8 @@ describe("one vocabulary for what the AI gets back", () => {
     );
   });
 
-  it("says never-send covers agent mode and AI apps", () => {
-    expect(NEVER_SEND_SCOPE).toMatch(/agent mode/);
+  it("says never-send covers Investigate and AI apps", () => {
+    expect(NEVER_SEND_SCOPE).toMatch(/Investigate/);
     expect(NEVER_SEND_SCOPE).toMatch(/AI apps over MCP/);
   });
 });

@@ -56,7 +56,7 @@ export function AgentAccessDialog({ connectionName, target, provider, access, on
   return (
     <Dialog
       title={
-        neverSendOnly ? `Never send on ${connectionName}` : first ? `Turn on agent mode for ${connectionName}` : `Agent settings for ${connectionName}`
+        neverSendOnly ? `Never send on ${connectionName}` : first ? `Turn on Investigate for ${connectionName}` : `Investigate settings for ${connectionName}`
       }
       onClose={onClose}
       size="lg"
@@ -64,7 +64,7 @@ export function AgentAccessDialog({ connectionName, target, provider, access, on
         !first &&
         !neverSendOnly && (
           <Button variant="dangerGhost" disabled={saving} onClick={() => save(false)}>
-            Turn off agent mode
+            Turn off Investigate
           </Button>
         )
       }
@@ -80,7 +80,7 @@ export function AgentAccessDialog({ connectionName, target, provider, access, on
       <div className={styles.body}>
         {neverSendOnly ? (
           <p className={styles.lead}>
-            Columns picked here never leave SayQL. {NEVER_SEND_SCOPE} Agent mode stays {access.enabled ? "on" : "off"} for
+            Columns picked here never leave SayQL. {NEVER_SEND_SCOPE} Investigate stays {access.enabled ? "on" : "off"} for
             this connection.
           </p>
         ) : (

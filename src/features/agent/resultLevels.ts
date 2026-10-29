@@ -77,7 +77,7 @@ export const AGENT_OPTIONS: LevelOption<AgentResults>[] = (["off", "counts", "ro
       value === "rows"
         ? `${LEVELS.masked.detail} SayQL fills the real values back in on your screen.`
         : value === "off"
-          ? "The agent sees your question, the schema and how many rows each query returned. No values from your tables."
+          ? "The AI sees your question, the schema and how many rows each query returned. No values from your tables."
           : LEVELS[level].detail,
     isDefault: value === AGENT_DEFAULT,
   };
@@ -107,4 +107,4 @@ export const appLevelShort = (apps: AppResults) => LEVELS[APP_LEVEL[apps]].short
  * schema, notes and the editor's SQL), so there is nothing for them to hold back there.
  */
 export const NEVER_SEND_SCOPE =
-  "Never-send columns apply to agent mode and to AI apps over MCP (Claude Code, Cursor, …): queries that use them are refused. The Ask box sends no values from your tables, so they don't change it.";
+  "Never-send columns apply to Investigate and to AI apps over MCP (Claude Code, Cursor, …): queries that use them are refused. The Ask box sends no values from your tables, so they don't change it.";

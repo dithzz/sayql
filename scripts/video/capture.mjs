@@ -165,7 +165,7 @@ const results = async () => {
 
 /** The Agent view below the editor: from its tab to the bottom of the window. */
 const agentArea = async () => {
-  const tab = await waitFor('[role="tab"]', "Agent");
+  const tab = await waitFor('[role="tab"]', "Investigation");
   return { x: tab.x - 20, y: tab.y - 10, w: VIEW.width - tab.x + 20, h: VIEW.height - tab.y - 20 };
 };
 
@@ -255,7 +255,7 @@ await sleep(400);
 // the demo store with counts only, so it goes straight to the plan.
 scene("agent");
 cam(await askBar(), { maxZoom: 1.9 });
-caption("Agent mode investigates, step by step");
+caption("Investigate, step by step");
 hideCursor();
 await focusAsk();
 await press("Escape");
