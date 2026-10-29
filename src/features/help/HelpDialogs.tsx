@@ -6,7 +6,7 @@ import styles from "./HelpDialogs.module.css";
 /** Every keyboard shortcut, opened with `?` (outside a text field), the Help menu or Settings → About. */
 export function ShortcutSheet({ onClose }: { onClose: () => void }) {
   return (
-    <Dialog title="Keyboard shortcuts" onClose={onClose} actions={<Button onClick={onClose}>Done</Button>}>
+    <Dialog title="Keyboard shortcuts" size="lg" onClose={onClose} actions={<Button onClick={onClose}>Done</Button>}>
       <div className={styles.groups}>
         {SHORTCUTS.map((g) => (
           <section key={g.title} aria-label={g.title}>

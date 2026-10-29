@@ -65,8 +65,7 @@ export function AppAccessList({
         Connections
       </h3>
       <p className={styles.intro}>
-        Per connection, choose what an AI app gets back from a query. <strong>Never send</strong> columns are always kept
-        out. {NEVER_SEND_SCOPE} <strong>Last audit</strong> is when an AI app last fetched
+        Per connection, choose what an AI app gets back from a query. {NEVER_SEND_SCOPE} <strong>Last audit</strong> is when an AI app last fetched
         the audit prompt or ran it from here, which teaches SayQL about the database from your code; run it again after
         big changes. <strong>Audit with…</strong> starts your coding agent (Claude Code) read-only in the project folder.
       </p>

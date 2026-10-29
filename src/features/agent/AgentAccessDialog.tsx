@@ -130,7 +130,7 @@ export function AgentAccessDialog({ connectionName, target, provider, access, on
             server also leaves them out of results.
           </p>
         )}
-        {!neverSendOnly && <p className={styles.detail}>Never-send columns: {NEVER_SEND_SCOPE}</p>}
+        {!neverSendOnly && <p className={styles.detail}>{NEVER_SEND_SCOPE}</p>}
         <NeverSendPicker
           target={target}
           label={team?.neverSend.length ? "Also never send these columns" : "Never send these columns"}

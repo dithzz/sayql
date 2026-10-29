@@ -302,7 +302,7 @@ export function QueryTab(props: QueryTabProps) {
                 <Badge tone="danger">PROD</Badge>
               </>
             )}
-            . SayQL connects when you click Connect, run or ask.
+            {". "}SayQL connects when you click Connect, run or ask.
           </span>
           <Button size="sm" variant="primary" icon={Plug} onClick={props.onConnect}>
             Connect

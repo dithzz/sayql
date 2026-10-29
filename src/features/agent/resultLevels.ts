@@ -107,4 +107,4 @@ export const appLevelShort = (apps: AppResults) => LEVELS[APP_LEVEL[apps]].short
  * schema, notes and the editor's SQL), so there is nothing for them to hold back there.
  */
 export const NEVER_SEND_SCOPE =
-  "They apply to agent mode and to AI apps over MCP (Claude Code, Cursor, …): queries that use them are refused. The Ask box sends no values from your tables, so they don't change it.";
+  "Never-send columns apply to agent mode and to AI apps over MCP (Claude Code, Cursor, …): queries that use them are refused. The Ask box sends no values from your tables, so they don't change it.";

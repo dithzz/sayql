@@ -184,7 +184,10 @@ function ChooseAi(p: OnboardingDialogProps) {
             value={FEATURED.includes(provider.id) ? "" : provider.id}
             onChange={(v) => v && choose(v)}
             options={[
-              { value: "", label: more.length ? `${more.slice(0, 5).map((x) => x.label.replace(/ \(.*\)$/, "")).join(", ")}, other…` : "Other…" },
+              {
+                value: "",
+                label: [...more.filter((x) => !/^other\b/i.test(x.label)).slice(0, 5).map((x) => x.label), "other…"].join(", "),
+              },
               ...more.map((x) => ({ value: x.id, label: x.label })),
             ]}
           />
