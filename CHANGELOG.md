@@ -3,6 +3,61 @@
 All notable changes to SayQL are listed here. Downloads are on the
 [releases page](https://github.com/dithzz/sayql-releases/releases).
 
+## Unreleased
+
+### Safer around production
+
+- **Nothing connects on its own.** Tabs you had open come back when SayQL starts, but they wait, dimmed, with
+  **Not connected** and a **Connect** button (also in the navigator and the status bar). A connection opens when you
+  click it, click Connect, run a query or ask. With no tabs open SayQL no longer opens the first connection either.
+  AI apps over MCP are unaffected: `sayql-mcp` opens the connections they ask for, as before. Team connections
+  follow the same rule.
+- **Production tag.** A connection's settings have **This is a production database** (off for existing
+  connections). A tagged connection shows a red **PROD** badge in the navigator, on its tabs, in the top bar and in
+  the status bar. It's a label only.
+
+### Clear words for what the AI gets back
+
+- **One vocabulary.** Agent mode and AI apps now use the same choices and descriptions: **Nothing (names and row
+  counts only)**, **Counts and summaries**, **Rows, masked** (agent mode: up to 20 per query) and **All rows** (AI
+  apps only). Each default is marked: Nothing for agent mode, Counts and summaries for AI apps. Stored settings and
+  defaults are unchanged.
+- **"Turn on agent mode" no longer offers "Off" first.** The choices sit under **What the AI may see of query
+  results**, and the dialog also says what AI apps get on the same connection.
+- **Never-send columns say where they apply**: agent mode and AI apps over MCP, in the agent settings and in
+  Settings → AI apps. The Ask box sends no values from your tables, so it doesn't need them.
+- **Accurate AI provider wording.** The AI provider page said the question and names were sent "never the data in
+  your tables", which isn't so once agent mode may send results. It now lists what the Ask box sends (question,
+  names, notes, the SQL you're working on, a failed query's error with values masked) and says data from your
+  tables goes only with agent mode turned on and allowed for a connection. The note shows for local providers too.
+  PRIVACY.md, the README and the privacy docs now list notes among what the Ask box sends, and mention the AI
+  credits exception where they said SayQL has no server.
+- Settings → AI apps → Activity says it covers AI apps only, not agent mode or your own queries.
+
+### Setup and help
+
+- **The setup guide offers SayQL AI credits** as a provider (Claude without an Anthropic account; ask
+  hello@azenvoc.com for a credit key), and ends with **Let AI agents in safely**: shortcuts to connect an AI app
+  and to teach SayQL your database.
+- **Settings → AI apps → Access starts with Connect an app**, open and highlighted until an app has connected,
+  one line after that.
+- **Keyboard shortcuts:** press **?** outside a text field for the list (also in Settings → About and, on macOS,
+  Help → Keyboard Shortcuts). New: **⌘W** closes the tab and **⌘,** opens Settings. On macOS SayQL now has its
+  own menu bar so ⌘W no longer closes the window (that's **⇧⌘W**).
+- **What's new** shows once after an update, and from Settings → About or Help → What's New.
+- Each Settings section links to its page on sayql.dev/docs; About links to the docs.
+
+### Fixes
+
+- Finishing the setup with an example question no longer leaves two identical "Demo store" tabs.
+- "Building on your last query" no longer shows right after the first answer; it shows once you type a new
+  question.
+
+### Development
+
+- The browser preview's `?firstrun` flag gives a real first run: only the demo connection, AI not set up, no notes,
+  suggestions or AI-app activity, and its own empty storage on every load.
+
 ## 0.4.7 (2026-10-29)
 
 ### Fixes

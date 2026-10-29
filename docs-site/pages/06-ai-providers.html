@@ -23,6 +23,8 @@
 </ol>
 <p>SayQL uses two models: <b>Model while typing</b>, a fast one that drafts SQL as you type, and <b>Model for fixes and improvements</b>, a stronger one for fixing a rejected query and for <a href="/docs/asking/">Improve</a>. With Claude these default to Haiku and Opus. With other providers, leave the second empty to use the same model for both.</p>
 <p>The status bar shows the models in use, or <b>AI off — set up an AI provider in Settings</b> when none is set up.</p>
+<h2>What your AI provider gets</h2>
+<p>From the Ask box: your question, table and column names (with types, keys, enum values and row estimates), your <a href="/docs/agent-mode/#database-notes">database notes</a>, the SQL you're working on for follow-ups, Explain, Fix and Improve, and a failed query's error with values from your rows masked. Data from your tables goes only if you turn on <a href="/docs/agent-mode/">agent mode</a> for a connection and allow it in its agent settings. The AI provider page in Settings says the same under <b>Provider</b>. See <a href="/docs/privacy/">Privacy and data</a> for everything SayQL sends.</p>
 
 <h2>Local models</h2>
 <p>With Ollama or LM Studio, your questions and schema never leave your computer. For Ollama, install it, pull a model (for example <code>ollama pull llama3.2</code>) and keep it running. SayQL connects to <code>http://localhost:11434/v1</code> by default. LM Studio's local server is at <code>http://localhost:1234/v1</code>. Change the base URL in Settings if yours runs elsewhere.</p>

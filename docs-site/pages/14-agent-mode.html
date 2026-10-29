@@ -22,20 +22,20 @@
 <p>At the end of a run the agent may suggest notes: facts about the database such as "the owner of a tenant is memberships.role = 'owner'". Save the ones you agree with. Notes show under <b>Notes</b> in the Database Navigator (right-click to edit or delete), and the Ask box, the agent and MCP apps all use them. A note can't hold values from your rows: one with an email, a number like a phone, or a masked value is refused.</p>
 
 <h2>What the AI sees</h2>
-<p>Agent mode is <b>off on every connection</b> until you turn it on. The first <code>/agent</code> on a connection asks what it may see of query results there; change it later with <b>Change</b> under the Ask box, or by right-clicking the connection and choosing <b>Agent settings</b>.</p>
+<p>Agent mode is <b>off on every connection</b> until you turn it on. The first <code>/agent</code> on a connection asks what it may see of query results there (<b>What the AI may see of query results</b>); change it later with <b>Change</b> under the Ask box, or by right-clicking the connection and choosing <b>Agent settings</b>. The choices use the same words as <a href="/docs/mcp/#what-ai-apps-may-see">what AI apps get back</a>, which is set separately; the dialog shows that one too.</p>
 <div class="table-wrap"><table>
   <thead><tr><th>Setting</th><th>What the AI sees of each result</th></tr></thead>
   <tbody>
-    <tr><td>Off (default)</td><td>How many rows it returned, and its column names. No values.</td></tr>
-    <tr><td>Counts and summaries only</td><td>The row count and, per column, its type, nulls, distinct values, and min and max for a table's own number and date columns (and counts, sums and averages of them). No row values or group labels.</td></tr>
-    <tr><td>Up to 20 rows per query, masked</td><td>Up to 20 rows. Likely personal data is replaced by tokens like ‹email-3› before it leaves; SayQL puts the real values back on your screen and into the SQL it runs.</td></tr>
+    <tr><td>Nothing (names and row counts only), the default</td><td>How many rows it returned, and its column names. No values.</td></tr>
+    <tr><td>Counts and summaries</td><td>The row count and, per column, its type, nulls, distinct values, and min and max for a table's own number and date columns (and counts, sums and averages of them). No row values or group labels.</td></tr>
+    <tr><td>Rows, masked (up to 20 per query)</td><td>Up to 20 rows. Likely personal data is replaced by tokens like ‹email-3› before it leaves; SayQL puts the real values back on your screen and into the SQL it runs.</td></tr>
   </tbody>
 </table></div>
 <ul>
   <li><b>Ask before each send</b> pauses on exactly what would go, with <b>Send</b> and <b>Skip</b> (Skip sends the row count only). It starts on for cloud providers.</li>
-  <li><b>Never send</b> columns are masked whatever the setting, and queries that could read them in any form (named, as a whole row, renamed in a subquery) are refused. Write <code>table.column</code> for one table or <code>column</code> for every table. MCP apps get the same treatment. Database errors reach the AI as a fixed description, without the values they can quote.</li>
+  <li><b>Never send</b> columns are masked whatever the setting, and queries that could read them in any form (named, as a whole row, renamed in a subquery) are refused. Write <code>table.column</code> for one table or <code>column</code> for every table. The same list applies to AI apps over MCP (the dialog says so); the Ask box sends no values from your tables, so it doesn't need it. Database errors reach the AI as a fixed description, without the values they can quote.</li>
   <li>Every step has a <b>Sent to AI</b> fold-out with the exact text that went to the model.</li>
-  <li>Masking is best effort. Columns are masked by name (email, phone, name, address, birth, SSN, MRN, patient, token, password, notes and similar) and values by shape (emails, phone numbers, card numbers, ID-like strings). A name in a free-text column with an ordinary name can get through, so for health or production data keep results Off or at counts, or mark such columns never send.</li>
+  <li>Masking is best effort. Columns are masked by name (email, phone, name, address, birth, SSN, MRN, patient, token, password, notes and similar) and values by shape (emails, phone numbers, card numbers, ID-like strings). A name in a free-text column with an ordinary name can get through, so for health or production data keep results at Nothing or Counts and summaries, or mark such columns never send.</li>
   <li>With Ollama or LM Studio, nothing leaves your computer.</li>
 </ul>
 
