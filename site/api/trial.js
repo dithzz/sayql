@@ -3,15 +3,12 @@
 // team size and the server's version. Nothing is sent otherwise, and no IP address, user agent or
 // cookie is kept. Stored in the Supabase project that holds the waitlist (table `trials`).
 
+import { store } from "./_lib/supabase.js";
+
 const SIZES = new Set(["1-9", "10-49", "50-249", "250+"]);
 const EMAIL = /^[^\s@]{1,64}@[^\s@]{1,255}\.[^\s@]{2,63}$/;
 const VERSION = /^\d{1,3}\.\d{1,3}\.\d{1,3}$/;
 
-function store() {
-  const url = process.env.WAITLIST_SUPABASE_URL;
-  const key = process.env.WAITLIST_SUPABASE_SECRET_KEY;
-  return url && key ? { url: url.replace(/\/+$/, ""), key } : null;
-}
 
 export default async function handler(req, res) {
   // Sent from each customer's own server address, so any origin may post; no cookies are involved.
@@ -31,7 +28,7 @@ export default async function handler(req, res) {
   const size = SIZES.has(body.size) ? body.size : null;
   const version = VERSION.test(String(body.version || "")) ? body.version : null;
 
-  const db = store();
+  const db = store("PUBLIC");
   if (!db) return res.status(503).json({ error: "That didn't work. Please try again later." });
   try {
     const r = await fetch(`${db.url}/rest/v1/trials`, {

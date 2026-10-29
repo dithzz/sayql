@@ -13,15 +13,12 @@
 //   alter table public.waitlist enable row level security; -- no policies: only the secret key can use it
 //   revoke all on public.waitlist from anon, authenticated;
 
+import { store } from "./_lib/supabase.js";
+
 const INTERESTS = new Set(["team", "gateway", "both"]);
 const SIZES = new Set(["1-9", "10-49", "50-249", "250+"]);
 const EMAIL = /^[^\s@]{1,64}@[^\s@]{1,255}\.[^\s@]{2,63}$/;
 
-function store() {
-  const url = process.env.WAITLIST_SUPABASE_URL;
-  const key = process.env.WAITLIST_SUPABASE_SECRET_KEY;
-  return url && key ? { url: url.replace(/\/+$/, ""), key } : null;
-}
 
 async function upsert({ url, key }, row) {
   const res = await fetch(`${url}/rest/v1/waitlist?on_conflict=email`, {
@@ -51,7 +48,7 @@ export default async function handler(req, res) {
   const interest = INTERESTS.has(body.interest) ? body.interest : "team";
   const size = SIZES.has(body.size) ? body.size : null;
 
-  const db = store();
+  const db = store("PUBLIC");
   if (!db) return res.status(503).json({ error: "Sign-ups open in a few days. Please check back soon." });
 
   try {

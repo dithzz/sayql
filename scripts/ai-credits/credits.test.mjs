@@ -117,3 +117,17 @@ it("says when the balance is too low for one request's hold", async () => {
   expect(r.status).toBe(402);
   expect((await r.json()).error.message).toContain("isn't enough SayQL AI credit left for this request");
 });
+
+it("charges the output of a stream that breaks before its final usage", async () => {
+  const { SseUsage } = await import("../../site/api/ai/v1/messages.js");
+  const sse = (ev) => new TextEncoder().encode(`data: ${JSON.stringify(ev)}\n\n`);
+  const m = new SseUsage();
+  m.push(sse({ type: "message_start", message: { usage: { input_tokens: 100, output_tokens: 1 } } }));
+  m.push(sse({ type: "content_block_delta", delta: { type: "text_delta", text: "x".repeat(300) } }));
+  // Broken here: no message_delta. The 300 characters count, at about 3 per token.
+  expect(m.usage().output_tokens).toBe(100);
+  expect(m.usage().input_tokens).toBe(100);
+  // Once message_delta arrives, its count is used as is.
+  m.push(sse({ type: "message_delta", usage: { output_tokens: 80 } }));
+  expect(m.usage().output_tokens).toBe(80);
+});
