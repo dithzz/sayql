@@ -3,7 +3,7 @@
 All notable changes to SayQL are listed here. Downloads are on the
 [releases page](https://github.com/dithzz/sayql-releases/releases).
 
-## Unreleased
+## 0.4.8 (2026-10-29)
 
 ### Choose how to use AI, with pros and cons
 
