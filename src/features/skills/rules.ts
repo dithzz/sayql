@@ -2,8 +2,10 @@
 // Lives in skills (not ask) so settings → skills doesn't depend on the Ask box.
 import type { Skill } from "../../api";
 
-/** Slugs taken by built-in Ask commands. Must match BUILTIN_COMMANDS in src-tauri/src/commands/skills.rs. */
-export const BUILTIN_SLUGS = ["agent", "followup", "new", "explain", "fix", "improve"] as const;
+/** Slugs taken by built-in Ask commands. */
+export const BUILTIN_SLUGS = ["investigate", "followup", "new", "explain", "fix", "improve"] as const;
+/** What skills can't be called: the built-ins and `/agent`, the old name of /investigate. Must match BUILTIN_COMMANDS in src-tauri/src/store/skills.rs. */
+export const RESERVED_SLUGS: readonly string[] = [...BUILTIN_SLUGS, "agent"];
 
 export const SKILL_LIMITS = { slug: 32, description: 100, instruction: 1000 };
 
@@ -13,7 +15,7 @@ export function skillError(skill: Skill, existing: Skill[], original: string | n
   if (!slug) return "Give the skill a name.";
   if (slug.length > SKILL_LIMITS.slug) return `Keep the name to ${SKILL_LIMITS.slug} characters.`;
   if (!/^[a-z0-9-]+$/.test(slug)) return "Use only lowercase letters, numbers and dashes in the name.";
-  if ((BUILTIN_SLUGS as readonly string[]).includes(slug)) return `/${slug} is a built-in command. Pick another name.`;
+  if (RESERVED_SLUGS.includes(slug)) return `/${slug} is a built-in command. Pick another name.`;
   if (existing.some((s) => s.slug === slug && s.slug !== original)) return `You already have a skill called /${slug}.`;
   if ([...skill.description.trim()].length > SKILL_LIMITS.description)
     return `Keep the description to ${SKILL_LIMITS.description} characters.`;

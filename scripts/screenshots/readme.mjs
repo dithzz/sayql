@@ -86,6 +86,10 @@ for (const theme of ["light", "dark"]) {
   await page.evaluate(() => document.fonts.ready.then(() => true));
   await sleep(2500);
 
+  // Nothing connects on its own (0.4.8): connect the demo store first.
+  await click(await waitFor('[role="treeitem"] span', "Demo store (SQLite)"));
+  await sleep(800);
+
   // Hero and the Ask box card: two tables picked, a question in Quick mode, the result.
   await click(await waitFor('[role="treeitem"] span', "customers"), 4);
   await click(await waitFor('[role="treeitem"] span', "orders"), 4);
@@ -100,13 +104,13 @@ for (const theme of ["light", "dark"]) {
   const askBox = await waitFor('textarea[aria-label="Ask in plain English"]');
   const askCard = await shot({ x: 0, y: askBox.y - 17, w: VIEW.width, h: 262 });
 
-  // The agent card: Agent mode, Auto, a finished investigation, in a taller window so the
+  // The agent card: Investigate, Auto, a finished investigation, in a taller window so the
   // whole answer fits.
   await page.send("Emulation.setDeviceMetricsOverride", { width: VIEW.width, height: 1000, deviceScaleFactor: 2, mobile: false });
   await sleep(500);
   await clearAsk();
   await sleep(300);
-  await click(await waitFor('[role="radio"]', "Agent"));
+  await click(await waitFor('[role="radio"]', "Investigate"));
   await click(await waitFor('[role="switch"]'));
   await focusAsk();
   await type("why did paid orders drop last week?");
@@ -120,7 +124,7 @@ for (const theme of ["light", "dark"]) {
   await page.evaluate(() => (document.activeElement?.blur(), true));
   await sleep(200);
   const ask2 = await waitFor('textarea[aria-label="Ask in plain English"]');
-  const tab = await waitFor('[role="tab"]', "Agent");
+  const tab = await waitFor('[role="tab"]', "Investigation");
   const navRight = (await waitFor('[role="tablist"]')).x;
   const agentClip = { x: navRight, y: ask2.y - 14, w: VIEW.width - navRight, h: VIEW.height - (ask2.y - 14) - 28 };
   // Skip the editor between the Ask box and the Agent view: two strips stacked.

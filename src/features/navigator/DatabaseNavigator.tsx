@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState, type MouseEvent } from "react";
-import {
+import { LayoutDashboard,
   Bot,
   Copy,
   Database,
@@ -81,6 +81,8 @@ export interface DatabaseNavigatorProps {
   onHideTeach?: () => void;
   /** Agent mode's settings for a connection: what it may send to the AI. */
   onAgentSettings: (c: ConnectionConfig) => void;
+  /** The connection's overview: what it is, what can reach an AI, AI apps and your queries. */
+  onOverview: (c: ConnectionConfig) => void;
   /** Opens "Sign in to your team"; set only while not signed in to a team. */
   onTeamSignIn?: () => void;
 }
@@ -150,7 +152,8 @@ export function DatabaseNavigator(p: DatabaseNavigatorProps) {
         { label: "New SQL tab", icon: FilePlus2, shortcut: active ? "⌘T" : undefined, onSelect: () => p.onNewTab(c.id, null) },
         { label: "Refresh", icon: RefreshCw, disabled: !active || !p.connected || p.loading, onSelect: p.onRefresh },
         "separator",
-        { label: "Agent settings…", icon: Bot, onSelect: () => p.onAgentSettings(c) },
+        { label: "Overview…", icon: LayoutDashboard, onSelect: () => p.onOverview(c) },
+        { label: "Investigate settings…", icon: Bot, onSelect: () => p.onAgentSettings(c) },
         { label: "Add database note…", icon: StickyNote, disabled: !active || !p.schema, onSelect: () => p.onEditNote(null) },
         { label: "Copy name", icon: Copy, onSelect: () => copy(c.name) },
       ];
@@ -160,8 +163,9 @@ export function DatabaseNavigator(p: DatabaseNavigatorProps) {
       { label: "New SQL tab", icon: FilePlus2, shortcut: active ? "⌘T" : undefined, onSelect: () => p.onNewTab(c.id, null) },
       { label: "Refresh", icon: RefreshCw, disabled: !active || !p.connected || p.loading, onSelect: p.onRefresh },
       "separator",
+      { label: "Overview…", icon: LayoutDashboard, onSelect: () => p.onOverview(c) },
       { label: "Edit connection…", icon: Pencil, onSelect: () => p.onEdit(c) },
-      { label: "Agent settings…", icon: Bot, onSelect: () => p.onAgentSettings(c) },
+      { label: "Investigate settings…", icon: Bot, onSelect: () => p.onAgentSettings(c) },
       { label: "Add database note…", icon: StickyNote, disabled: !active || !p.schema, onSelect: () => p.onEditNote(null) },
       { label: "Copy name", icon: Copy, onSelect: () => copy(c.name) },
       "separator",
@@ -316,7 +320,7 @@ export function DatabaseNavigator(p: DatabaseNavigatorProps) {
               icon={<StickyNote size={14} />}
               label="Notes"
               meta={p.notes.length || undefined}
-              title="Facts about this database that the Ask box, agent mode and MCP use"
+              title="Facts about this database that the Ask box, Investigate and MCP use"
               onClick={() => setCollapsed((s) => toggle(s, `${key}:notes`))}
             />
             {!!p.suggestedNotes && (

@@ -29,6 +29,7 @@ export {
   APP_OPTIONS,
   LEVELS,
   NEVER_SEND_SCOPE,
+  privacySummary,
   agentLevelShort,
   appLevelShort,
   withDefault,

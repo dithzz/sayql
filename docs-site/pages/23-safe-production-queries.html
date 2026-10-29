@@ -15,7 +15,7 @@
   <li><b>The database enforces it.</b> Reads run in a read-only transaction on PostgreSQL and MySQL, and on a read-only connection on SQLite, so the database itself refuses writes.</li>
   <li><b>SQL Server</b> has no read-only mode, so reads run in a transaction that's always rolled back. For production, give people a login that can only read (<code>db_datareader</code>).</li>
 </ul>
-<div class="callout tip"><svg><use href="#i-info"/></svg><p>The AI sees table and column names, types, keys, enum values and row estimates, never your table rows, unless you turn on <a href="/docs/agent-mode/">agent mode</a> for the connection. Results show up to 5,000 rows. For production, keep agent mode Off or at counts only, and connect with a read-only login.</p></div>
+<div class="callout tip"><svg><use href="#i-info"/></svg><p>The AI sees table and column names, types, keys, enum values and row estimates, never your table rows, unless you turn on <a href="/docs/agent-mode/">Investigate</a> for the connection. Results show up to 5,000 rows. For production, keep Investigate Off or at counts only, and connect with a read-only login.</p></div>
 <h2>AI agents on production</h2>
 <p>Claude Code, Cursor and other AI agents can query through SayQL too, under the same read-only rules:</p>
 <ul>

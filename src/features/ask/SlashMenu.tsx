@@ -6,7 +6,7 @@ import type { BuiltinCommand, MenuItem } from "./slashCommands";
 import styles from "./SlashMenu.module.css";
 
 const ICONS: Record<BuiltinCommand, LucideIcon> = {
-  agent: Bot,
+  investigate: Bot,
   followup: CornerDownRight,
   new: RotateCcw,
   explain: BookOpen,

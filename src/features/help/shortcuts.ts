@@ -32,7 +32,7 @@ export const SHORTCUTS: ShortcutGroup[] = [
       { keys: ["⇧", "↵"], what: "New line" },
       { keys: ["Esc"], what: "Clear the question" },
       { keys: ["/"], what: "Commands and skills, at the start" },
-      { keys: ["Mod", "⇧", "A"], what: "Switch between Quick and Agent" },
+      { keys: ["Mod", "⇧", "A"], what: "Switch between Quick and Investigate" },
       { keys: ["Mod", "⇧", "M"], what: "Start or stop saying your question" },
     ],
   },

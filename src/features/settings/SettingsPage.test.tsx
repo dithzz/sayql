@@ -46,7 +46,7 @@ it("says when data from tables goes to the AI provider, and what the Ask box sen
   const claude = privacyNote({ id: "anthropic", key: "required", label: "Anthropic Claude", local: false });
   expect(claude).toMatch(/sent to Anthropic Claude\./);
   expect(claude).toMatch(/database notes/);
-  expect(claude).toMatch(/only if you turn on agent mode for a connection and allow it/);
+  expect(claude).toMatch(/only if you turn on Investigate for a connection and allow it/);
   expect(claude).not.toMatch(/never the data/);
   expect(privacyNote({ id: "sayql", key: "required", label: "SayQL AI credits", local: false })).toMatch(
     /sent to SayQL, which forwards it to Anthropic and keeps only token counts/,

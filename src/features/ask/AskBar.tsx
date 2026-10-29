@@ -115,7 +115,7 @@ export const AskBar = forwardRef<HTMLTextAreaElement, AskBarProps>(function AskB
   // /new, /agent and the actions don't build on the last query; /followup always does; a plain
   // question does once it's a new one (not the one just answered).
   const followUp = p.followUp && !isAction(command) && buildsOnLast(slug, rest, p.followUp.question) ? p.followUp : undefined;
-  const agent = slug === "agent";
+  const agent = slug === "investigate";
   const setMode = (toAgent: boolean) => {
     if (toAgent !== agent) p.onModeChange?.(toAgent);
     input.current?.focus();
@@ -232,8 +232,8 @@ export const AskBar = forwardRef<HTMLTextAreaElement, AskBarProps>(function AskB
             <button type="button" role="radio" aria-checked={!agent} className={cx(styles.mode, !agent && styles.modeOn)} onClick={() => setMode(false)} title="Quick: SQL appears as you type (⌘⇧A)">
               <Zap size={12} /> Quick
             </button>
-            <button type="button" role="radio" aria-checked={agent} className={cx(styles.mode, agent && styles.modeOn)} onClick={() => setMode(true)} title="Agent: investigates in several read-only steps and answers (⌘⇧A)">
-              <Bot size={12} /> Agent
+            <button type="button" role="radio" aria-checked={agent} className={cx(styles.mode, agent && styles.modeOn)} onClick={() => setMode(true)} title="Investigate: SayQL looks into it in several read-only steps and answers (⌘⇧A)">
+              <Bot size={12} /> Investigate
             </button>
           </div>
         )}
@@ -262,15 +262,15 @@ export const AskBar = forwardRef<HTMLTextAreaElement, AskBarProps>(function AskB
             </Button>
           </span>
         )}
-        {slug === "agent" ? (
+        {slug === "investigate" ? (
           <span className={styles.status}>
             <Bot size={13} /> {p.agentHint}
           </span>
         ) : (
           <StatusLine status={p.status} modelNames={p.modelNames} onOpenSettings={p.onOpenSettings} onRetry={p.onRetry} />
         )}
-        {p.onInvestigate && !p.onModeChange && slug !== "agent" && !isAction(command) && rest.trim() && (
-          <Button size="sm" variant="ghost" icon={Bot} onClick={p.onInvestigate} title="Let the agent investigate this in several read-only steps">
+        {p.onInvestigate && !p.onModeChange && slug !== "investigate" && !isAction(command) && rest.trim() && (
+          <Button size="sm" variant="ghost" icon={Bot} onClick={p.onInvestigate} title="Look into this in several read-only steps">
             Investigate
           </Button>
         )}
@@ -280,7 +280,7 @@ export const AskBar = forwardRef<HTMLTextAreaElement, AskBarProps>(function AskB
               <Kbd>⌘⇧A</Kbd> mode{" "}
             </>
           )}
-          <Kbd>/</Kbd> commands <Kbd>↵</Kbd> {slug === "agent" ? "investigate" : isAction(command) ? slug : "run"} <Kbd>⇧↵</Kbd> new line{" "}
+          <Kbd>/</Kbd> commands <Kbd>↵</Kbd> {slug === "investigate" ? "investigate" : isAction(command) ? slug : "run"} <Kbd>⇧↵</Kbd> new line{" "}
           <Kbd>esc</Kbd> clear
         </span>
       </div>

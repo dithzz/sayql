@@ -33,6 +33,7 @@ import type {
   Target,
   VoiceStatus,
   PlanCheck,
+  MyActivity,
 } from "./types";
 
 /** Typed wrappers for the Tauri commands registered in src-tauri/src/lib.rs. */
@@ -130,6 +131,9 @@ export const commands = {
   /** Turning it on approves the apps already seen that aren't blocked. */
   setMcpOnlyApproved: (on: boolean) => invoke<McpApps>("set_mcp_only_approved", { on }),
   clearMcpActivity: () => invoke<void>("clear_mcp_activity"),
+  /** Your own queries, newest first; for one connection when given. */
+  myActivity: (connectionId: string | null, limit?: number) => invoke<MyActivity[]>("my_activity", { connectionId, limit }),
+  clearMyActivity: () => invoke<void>("clear_my_activity"),
   /** When an AI app last fetched the audit prompt, per connection and database. */
   mcpAudits: () => invoke<AuditRun[]>("mcp_audits"),
   /** The audit instructions for a connection, to paste into an AI app without MCP prompts. */

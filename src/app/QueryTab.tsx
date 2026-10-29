@@ -276,12 +276,12 @@ export function QueryTab(props: QueryTabProps) {
 
   /** The Ask box's Quick / Agent switch: adds or removes /agent, keeping the question. */
   const asked = parseCommand(generation.question, skills).command;
-  const agentMode = asked?.kind === "builtin" && asked.builtin.slug === "agent";
+  const agentMode = asked?.kind === "builtin" && asked.builtin.slug === "investigate";
   const switchMode = (toAgent: boolean) => {
     const { command, rest } = parseCommand(generation.question, skills);
     if (!toAgent) return generation.setQuestion(rest);
     const skill = command?.kind === "skill" ? command.skill.slug : null;
-    generation.setQuestion(withCommand("agent", skill ? withCommand(skill, rest) : rest));
+    generation.setQuestion(withCommand("investigate", skill ? withCommand(skill, rest) : rest));
     if (!access?.enabled) setAccessDialog({ then: null });
   };
 
@@ -338,7 +338,7 @@ export function QueryTab(props: QueryTabProps) {
               onDismissExplanation: generation.dismissExplanation,
               agentHint: (
                 <>
-                  {access?.enabled ? describeAccess(access) : "Agent mode is off for this connection"}
+                  {access?.enabled ? describeAccess(access) : "Investigate is off for this connection"}
                   <Button size="sm" variant="ghost" onClick={() => setAccessDialog({ then: null })}>
                     {access?.enabled ? "Change" : "Turn on"}
                   </Button>
@@ -348,7 +348,7 @@ export function QueryTab(props: QueryTabProps) {
                 ? () => {
                     const { command, rest } = parseCommand(generation.question, skills);
                     const skill = command?.kind === "skill" ? command.skill.slug : null;
-                    generation.setQuestion(withCommand("agent", skill ? withCommand(skill, rest) : rest));
+                    generation.setQuestion(withCommand("investigate", skill ? withCommand(skill, rest) : rest));
                     investigate(rest, skill);
                   }
                 : undefined,
@@ -416,7 +416,7 @@ export function QueryTab(props: QueryTabProps) {
           />
           ) : (
             <div className={styles.results}>
-              <div className={styles.views} role="tablist" aria-label="Agent or results">
+              <div className={styles.views} role="tablist" aria-label="Investigation or results">
                 {(["agent", "results"] as const).map((v) => (
                   <button
                     key={v}
@@ -426,7 +426,7 @@ export function QueryTab(props: QueryTabProps) {
                     className={cx(styles.view, view === v && styles.viewActive)}
                     onClick={() => setView(v)}
                   >
-                    {v === "agent" ? "Agent" : step ? `Results · step ${step.id}` : "Results"}
+                    {v === "agent" ? "Investigation" : step ? `Results · step ${step.id}` : "Results"}
                   </button>
                 ))}
               </div>
@@ -453,7 +453,7 @@ export function QueryTab(props: QueryTabProps) {
                   }}
                   onFollowUp={() => {
                     followUpNext.current = true;
-                    generation.setQuestion(withCommand("agent", ""));
+                    generation.setQuestion(withCommand("investigate", ""));
                     askRef.current?.focus();
                   }}
                   onSteer={(id, sql) => {
@@ -470,7 +470,7 @@ export function QueryTab(props: QueryTabProps) {
                   outcomes={stepOutcome ?? query.outcomes}
                   total={stepOutcome ? 1 : query.total}
                   running={stepOutcome ? step?.status === "running" || (!!again && !again.result && !again.error) : query.running}
-                  note={step ? (again ? `Agent step ${step.id}, run again: rows aren't kept after SayQL restarts` : `Agent step ${step.id}`) : undefined}
+                  note={step ? (again ? `Investigation step ${step.id}, run again: rows aren't kept after SayQL restarts` : `Investigation step ${step.id}`) : undefined}
                 />
               )}
             </div>

@@ -451,6 +451,25 @@ pub fn clear_mcp_activity(state: State<'_, AppState>) -> AppResult<()> {
     state.store.clear_app_activity()
 }
 
+/// Your own queries, newest first: from the editor, the Ask box and Investigate; for one
+/// connection when given.
+#[tauri::command]
+pub fn my_activity(
+    state: State<'_, AppState>,
+    connection_id: Option<String>,
+    limit: Option<usize>,
+) -> AppResult<Vec<crate::store::my_activity::MyActivity>> {
+    state
+        .store
+        .my_activity(connection_id.as_deref(), limit.unwrap_or(200).min(2000))
+}
+
+/// Deletes your activity log.
+#[tauri::command]
+pub fn clear_my_activity(state: State<'_, AppState>) -> AppResult<()> {
+    state.store.clear_my_activity()
+}
+
 /// When an AI app last fetched the audit prompt, per connection and database.
 #[tauri::command]
 pub fn mcp_audits(state: State<'_, AppState>) -> AppResult<Vec<AuditRun>> {

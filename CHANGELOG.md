@@ -3,6 +3,37 @@
 All notable changes to SayQL are listed here. Downloads are on the
 [releases page](https://github.com/dithzz/sayql-releases/releases).
 
+## 0.4.9 (2026-10-29)
+
+### Agent mode is now Investigate
+
+- **Agent mode is called Investigate**, so it isn't confused with the AI agents (Claude Code, Cursor, …) you let
+  into your databases. The Ask box switch is **Quick / Investigate**, the command is `/investigate`, the Settings
+  section is **Investigate**, and a connection's menu has **Investigate settings…**. `/agent` still works, and tabs
+  saved with it open as before. Nothing about what it does or sends changed.
+
+### See what can reach an AI
+
+- **Privacy indicator in the status bar.** For the connection you're on: **No rows to AI**, **Counts to AI**,
+  **Masked rows to AI** or **All rows to AI apps**, the most that Investigate (when on) or AI apps may get. The
+  tooltip has a line each for the Ask box, Investigate, AI apps and never-send columns; click it to change them.
+- **Connection overview.** Right-click a connection and choose **Overview…**: what it is (tables, columns, notes,
+  PROD), what can reach an AI from it, how many requests AI apps made on it and from which apps (with refusals),
+  when it was last audited (with **Run audit**), and your recent queries on it.
+
+### Your activity
+
+- **Settings → Your activity** lists the queries you ran: from the editor, the Ask box and Investigate, with the
+  connection, the SQL, rows, time and, for an Ask box or Investigate query, the question. For Investigate it also
+  says what went to the AI for each query. Filter by connection or by where it came from, open a query in a new tab,
+  or clear the log. It stays on this computer, keeps the SQL and counts (never rows) and about the last 2 MB.
+
+### Get started
+
+- **A Get started checklist** under the Database Navigator: choose how to use AI, ask a first question, connect your
+  own database, let an AI app in safely, and teach SayQL a database. Each step ticks itself off when it happens, and
+  the next one is highlighted. Hide it with ×; it goes away by itself once everything is done.
+
 ## 0.4.8 (2026-10-29)
 
 ### Choose how to use AI, with pros and cons

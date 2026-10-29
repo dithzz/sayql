@@ -123,7 +123,7 @@ export function SqlWorkspace({ connectionName, schema, connected = true, active,
           {agent?.running ? (
             <>
               {agent.label && <span className={styles.agentLabel}>{agent.label}</span>}
-              <Button size="sm" variant="danger" icon={CircleStop} onClick={agent.onStop} title="Stop the agent and its running query">
+              <Button size="sm" variant="danger" icon={CircleStop} onClick={agent.onStop} title="Stop the investigation and its running query">
                 Stop
               </Button>
             </>

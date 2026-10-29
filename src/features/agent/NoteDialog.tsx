@@ -30,7 +30,7 @@ export function NoteDialog({ text: initial, databaseName, onSave, onClose }: Not
       }
     >
       <div className={styles.body}>
-        <Field label="Note" hint="A fact that helps answer questions here, e.g. “the owner of a tenant is memberships.role = 'owner'”. The Ask box, agent mode and MCP all use it.">
+        <Field label="Note" hint="A fact that helps answer questions here, e.g. “the owner of a tenant is memberships.role = 'owner'”. The Ask box, Investigate and MCP all use it.">
           {(id) => <textarea id={id} className={styles.textarea} rows={3} maxLength={300} value={text} onChange={(e) => setText(e.target.value)} autoFocus />}
         </Field>
         {error && <Alert tone="danger">{error}</Alert>}

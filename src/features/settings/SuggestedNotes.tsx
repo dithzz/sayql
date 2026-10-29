@@ -19,7 +19,7 @@ export function SuggestedNotes({ connections, suggestions, accept, dismiss, onSe
       <p className={styles.intro}>
         AI apps can suggest a note about a database (a table that's no longer used, what a code means) with what they
         checked, and suggest fixing or removing a note that looks out of date. Nothing changes until you accept it;
-        accepted notes go to the Ask box, agent mode and every AI app using SayQL. You also see a database's suggestions
+        accepted notes go to the Ask box, Investigate and every AI app using SayQL. You also see a database's suggestions
         under Notes in the navigator.
       </p>
       <NoteSuggestions suggestions={suggestions} place={place} onAccept={accept} onDismiss={dismiss} />

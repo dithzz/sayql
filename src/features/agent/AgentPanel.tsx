@@ -61,7 +61,7 @@ export function AgentPanel(p: AgentPanelProps) {
 
   return (
     <Panel
-      title="Agent"
+      title="Investigation"
       icon={Bot}
       subtitle={<Meter run={run} />}
       actions={
@@ -75,7 +75,7 @@ export function AgentPanel(p: AgentPanelProps) {
       <div className={styles.body}>
         {run.phase === "idle" ? (
           <EmptyState icon={Bot} title="No investigation yet">
-            Switch the Ask box to <b>Agent</b> and ask a question. The agent looks around in a few read-only steps and
+            Switch the Ask box to <b>Investigate</b> and ask a question. SayQL looks around in a few read-only steps and
             answers with the queries it ran.
           </EmptyState>
         ) : (
@@ -288,7 +288,7 @@ function StepRow({
 function QuestionCard({ question, choices, onAnswer }: { question: string; choices: string[]; onAnswer: (text: string) => void }) {
   const [text, setText] = useState("");
   return (
-    <div className={cx(styles.card, styles.ask)} role="group" aria-label="The agent asks">
+    <div className={cx(styles.card, styles.ask)} role="group" aria-label="SayQL asks">
       <strong>{question}</strong>
       <div className={styles.buttons}>
         {choices.map((c) => (

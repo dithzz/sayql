@@ -114,6 +114,8 @@ pub fn run() {
             settings::approve_mcp_app,
             settings::set_mcp_only_approved,
             settings::clear_mcp_activity,
+            settings::my_activity,
+            settings::clear_my_activity,
             settings::mcp_audits,
             settings::audit_prompt,
             audits::audit_agents,
