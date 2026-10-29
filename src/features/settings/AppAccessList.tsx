@@ -4,24 +4,9 @@ import { commands, type AgentAccess, type AppResults, type ConnectionConfig } fr
 import { Alert, Badge, Button, Select } from "../../components/ui";
 import { cx } from "../../lib/cx";
 import { errorText } from "../../lib/errors";
-import { AgentAccessDialog, AuditButton, NeverSendLabel, auditAge, auditCommand, auditStale, copyAuditPrompt, lastAudit, saveAgentAccess, useAudits } from "../agent";
+import { APP_OPTIONS, AgentAccessDialog, AuditButton, NEVER_SEND_SCOPE, withDefault, NeverSendLabel, auditAge, auditCommand, auditStale, copyAuditPrompt, lastAudit, saveAgentAccess, useAudits } from "../agent";
 import { DATABASE_KINDS } from "../connections";
 import styles from "./ClaudeIntegration.module.css";
-
-export const APP_RESULTS: { value: AppResults; label: string; detail: string }[] = [
-  { value: "off", label: "Nothing", detail: "Only how many rows a query returned, and its column names." },
-  {
-    value: "counts",
-    label: "Counts and summaries",
-    detail: "Row counts and, per column, its type, nulls, distinct values, and min and max for numbers and dates. No row values.",
-  },
-  {
-    value: "masked",
-    label: "Rows, masked",
-    detail: "Rows, with likely personal data (emails, phones, names, IDs) replaced by tokens. Best effort: free text can hold anything.",
-  },
-  { value: "all", label: "All rows", detail: "Rows as they are, and CSV export. For data you're happy to share with that app." },
-];
 
 /** Per saved connection: what AI apps over MCP get back from a query, and the columns never sent. */
 export function AppAccessList({
@@ -80,15 +65,15 @@ export function AppAccessList({
         Connections
       </h3>
       <p className={styles.intro}>
-        Per connection, choose what an AI app gets back from a query. Never-send columns are always kept out: queries
-        that use them are refused. They apply to agent mode too. <strong>Last audit</strong> is when an AI app last fetched
+        Per connection, choose what an AI app gets back from a query. <strong>Never send</strong> columns are always kept
+        out. {NEVER_SEND_SCOPE} <strong>Last audit</strong> is when an AI app last fetched
         the audit prompt or ran it from here, which teaches SayQL about the database from your code; run it again after
         big changes. <strong>Audit with…</strong> starts your coding agent (Claude Code) read-only in the project folder.
       </p>
       <dl className={styles.legend} aria-label="What each choice sends">
-        {APP_RESULTS.map((r) => (
+        {APP_OPTIONS.map((r) => (
           <div key={r.value} className={styles.legendItem}>
-            <dt>{r.label}</dt>
+            <dt>{withDefault(r)}</dt>
             <dd>{r.detail}</dd>
           </div>
         ))}
@@ -132,7 +117,7 @@ export function AppAccessList({
                         className={styles.choice}
                         value={a?.apps ?? "counts"}
                         disabled={!a}
-                        options={APP_RESULTS.map((r) => ({ value: r.value, label: r.label }))}
+                        options={APP_OPTIONS.map((r) => ({ value: r.value, label: withDefault(r) }))}
                         onChange={(v) => choose(c.id, v)}
                       />
                     </td>

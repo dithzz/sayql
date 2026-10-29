@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import type { AgentAccess, AgentResults, Target } from "../../api";
 import { Alert, Button, Checkbox, Dialog } from "../../components/ui";
 import { cx } from "../../lib/cx";
 import styles from "./AgentAccessDialog.module.css";
 import { NeverSendPicker } from "./NeverSendPicker";
+import { AGENT_OPTIONS, NEVER_SEND_SCOPE, appLevelShort } from "./resultLevels";
 
 export interface AgentAccessDialogProps {
   connectionName: string;
@@ -23,27 +24,10 @@ export interface AgentAccessDialogProps {
 
 const RANK: Record<AgentResults, number> = { off: 0, counts: 1, rows: 2 };
 
-const RESULTS: { value: AgentResults; label: string; detail: string }[] = [
-  {
-    value: "off",
-    label: "Off",
-    detail: "The AI sees your question, the schema and how many rows each query returned. No values from your tables.",
-  },
-  {
-    value: "counts",
-    label: "Counts and summaries only",
-    detail: "Per result: the row count and, per column, its type, nulls, distinct values, and min and max for numbers and dates. No row values or group labels.",
-  },
-  {
-    value: "rows",
-    label: "Up to 20 rows per query, masked",
-    detail: "Likely personal data (emails, phones, names, addresses, IDs) is replaced by tokens before it leaves; SayQL fills the real values back in on your screen.",
-  },
-];
-
 /** Turns agent mode on for a connection and says exactly what it may send to the AI. */
 export function AgentAccessDialog({ connectionName, target, provider, access, onSave, onClose, neverSendOnly = false }: AgentAccessDialogProps) {
   const first = !access.enabled && !neverSendOnly;
+  const resultsLabel = useId();
   const [results, setResults] = useState<AgentResults>(access.results);
   // Ask before send starts on for cloud providers, off for ones on this computer.
   const [ask, setAsk] = useState(first ? !provider.local : access.askBeforeSend);
@@ -67,7 +51,7 @@ export function AgentAccessDialog({ connectionName, target, provider, access, on
   const goesOut =
     results === "off"
       ? null
-      : `${results === "rows" ? "Rows" : "Counts and column summaries"} from this database will go to ${provider.label}${provider.local ? ", which runs on this computer" : ". Their terms apply"}.`;
+      : `${results === "rows" ? "Masked rows (up to 20 per query)" : "Counts and column summaries"} from this database will go to ${provider.label}${provider.local ? ", which runs on this computer" : ". Their terms apply"}.`;
 
   return (
     <Dialog
@@ -96,17 +80,20 @@ export function AgentAccessDialog({ connectionName, target, provider, access, on
       <div className={styles.body}>
         {neverSendOnly ? (
           <p className={styles.lead}>
-            Columns picked here never leave SayQL: queries that use them are refused, for AI apps over MCP and for agent
-            mode. Agent mode stays {access.enabled ? "on" : "off"} for this connection.
+            Columns picked here never leave SayQL. {NEVER_SEND_SCOPE} Agent mode stays {access.enabled ? "on" : "off"} for
+            this connection.
           </p>
         ) : (
           <>
             <p className={styles.lead}>
               The agent answers in several read-only steps with <strong>{provider.label}</strong>. It never changes data: a write is
-              shown as SQL for you to review. Choose what it may see of query results on this connection.
+              shown as SQL for you to review.
             </p>
-            <div role="radiogroup" aria-label="Results sent to the AI" className={styles.options}>
-              {RESULTS.map((r) => (
+            <h3 className={styles.groupLabel} id={resultsLabel}>
+              What the AI may see of query results
+            </h3>
+            <div role="radiogroup" aria-labelledby={resultsLabel} className={styles.options}>
+              {AGENT_OPTIONS.map((r) => (
                 <label key={r.value} className={cx(styles.option, results === r.value && styles.chosen, !allowed(r.value) && styles.locked)}>
                   <input
                     type="radio"
@@ -119,6 +106,7 @@ export function AgentAccessDialog({ connectionName, target, provider, access, on
                   <span>
                     <strong>
                       {r.label}
+                      {r.isDefault && <span className={styles.default}> · default</span>}
                       {!allowed(r.value) && <span className={styles.admin}> · Set by your team admin</span>}
                     </strong>
                     <span className={styles.detail}>{r.detail}</span>
@@ -127,6 +115,12 @@ export function AgentAccessDialog({ connectionName, target, provider, access, on
               ))}
             </div>
             {goesOut && <Alert tone="warning">{goesOut}</Alert>}
+            {!target.connectionId.startsWith("team:") && (
+              <p className={styles.detail}>
+                Separate from this: AI apps over MCP get back <strong>{appLevelShort(access.apps)}</strong> on this connection
+                (Settings → AI apps → Access).
+              </p>
+            )}
             <Checkbox label="Ask before each send (shows exactly what would go, with Send and Skip)" checked={ask} onChange={setAsk} />
           </>
         )}
@@ -136,6 +130,7 @@ export function AgentAccessDialog({ connectionName, target, provider, access, on
             server also leaves them out of results.
           </p>
         )}
+        {!neverSendOnly && <p className={styles.detail}>Never-send columns: {NEVER_SEND_SCOPE}</p>}
         <NeverSendPicker
           target={target}
           label={team?.neverSend.length ? "Also never send these columns" : "Never send these columns"}
@@ -146,8 +141,8 @@ export function AgentAccessDialog({ connectionName, target, provider, access, on
         />
         {!neverSendOnly && (
           <p className={styles.detail}>
-            Masking is best effort: a free-text column can hold anything. For health or production data, keep results Off or
-            Counts, or mark such columns never send.
+            Masking is best effort: a free-text column can hold anything. For health or production data, keep results at
+            Nothing or Counts and summaries, or mark such columns never send.
           </p>
         )}
         {error && <Alert tone="danger">{error}</Alert>}

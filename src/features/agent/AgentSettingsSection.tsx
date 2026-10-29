@@ -3,6 +3,7 @@ import { commands, type AgentSettings, type Settings } from "../../api";
 import { Alert, Button, Checkbox, Field, FieldRow, Select, TextInput } from "../../components/ui";
 import { errorText } from "../../lib/errors";
 import styles from "./AgentAccessDialog.module.css";
+import { AGENT_DEFAULT, AGENT_LEVEL, LEVELS } from "./resultLevels";
 
 const LIMITS: { key: Exclude<keyof AgentSettings, "skipPlan">; label: string; hint: string }[] = [
   { key: "maxSteps", label: "Steps per run", hint: "Model turns; at the limit the agent must answer with what it has." },
@@ -34,8 +35,10 @@ export function AgentSettingsSection({ settings, onSaved }: { settings: Settings
   return (
     <div className={styles.body}>
       <p className={styles.lead}>
-        Agent mode answers a question in several read-only steps and ends with a cited answer. Turn it on per connection: type{" "}
-        <code>/agent</code> in the Ask box, or right-click a connection and choose Agent settings. It never runs writes.
+        Agent mode answers a question in several read-only steps and ends with a cited answer. Turn it on per connection:
+        switch the Ask box to <strong>Agent</strong> (<kbd>⌘⇧A</kbd> there) or type <code>/agent</code>, or right-click a connection
+        and choose Agent settings. It never runs writes. What it may see of query results is set per connection, and starts
+        at <strong>{LEVELS[AGENT_LEVEL[AGENT_DEFAULT]].label}</strong>.
       </p>
       <Field label="Agent model" hint="Accuracy matters more than speed here. Fast models aren't recommended for the agent.">
         {(id) =>

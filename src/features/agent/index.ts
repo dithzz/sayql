@@ -20,3 +20,17 @@ export type { AuditTarget } from "./audit";
 export { AgentPicker, AgentSetupView } from "./AgentSetup";
 export { AGENTS, agentById, agentForClient, preselectAgent, type AgentId, type CodingAgent } from "./agents";
 export { useCodingAgent } from "./useCodingAgent";
+export {
+  AGENT_DEFAULT,
+  AGENT_LEVEL,
+  AGENT_OPTIONS,
+  APP_DEFAULT,
+  APP_LEVEL,
+  APP_OPTIONS,
+  LEVELS,
+  NEVER_SEND_SCOPE,
+  agentLevelShort,
+  appLevelShort,
+  withDefault,
+  type ResultLevel,
+} from "./resultLevels";

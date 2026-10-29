@@ -4,7 +4,7 @@ import { commands, type McpActivity } from "../../api";
 import { Alert, Button, SegmentedControl, Select } from "../../components/ui";
 import { cx } from "../../lib/cx";
 import { errorText } from "../../lib/errors";
-import { APP_RESULTS } from "./AppAccessList";
+import { APP_OPTIONS } from "../agent";
 import { when } from "./AppsList";
 import styles from "./ClaudeIntegration.module.css";
 
@@ -89,8 +89,8 @@ export function AgentActivity() {
   return (
     <div className={styles.activity}>
       <p className={styles.intro}>
-        What AI apps ran through SayQL on this computer: the SQL and how many rows, never the rows. Click a row for the
-        full SQL.
+        What AI apps ran through SayQL on this computer: the SQL and how many rows it returned, not the rows themselves.
+        AI apps only: agent mode and your own queries aren&apos;t in this log. Click a row for the full SQL.
       </p>
       <div className={styles.filters}>
         <Select
@@ -205,7 +205,7 @@ export function AgentActivity() {
                               {e.maySee && (
                                 <div>
                                   <dt>App could see</dt>
-                                  <dd>{APP_RESULTS.find((r) => r.value === e.maySee)?.label ?? e.maySee}</dd>
+                                  <dd>{APP_OPTIONS.find((r) => r.value === e.maySee)?.label ?? e.maySee}</dd>
                                 </div>
                               )}
                             </dl>
