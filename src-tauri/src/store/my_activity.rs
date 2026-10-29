@@ -6,14 +6,16 @@
 //! rows.
 
 use super::Store;
+use super::jsonl::{JsonlLog, cut};
 use crate::error::AppResult;
 use serde::{Deserialize, Serialize};
-use std::io::{BufRead, Write};
 
-const LOG_FILE: &str = "my-activity.jsonl";
-const OLD_LOG_FILE: &str = "my-activity.1.jsonl";
-/// Size at which the log starts a new file.
-const MAX_LOG_BYTES: u64 = 1024 * 1024;
+const LOG: JsonlLog = JsonlLog {
+    file: "my-activity.jsonl",
+    old: "my-activity.1.jsonl",
+    // Size at which the log starts a new file.
+    max_bytes: 1024 * 1024,
+};
 /// Longest SQL kept per entry.
 const MAX_SQL: usize = 4000;
 /// Longest error or detail kept per entry.
@@ -62,17 +64,6 @@ impl MyActivity {
     }
 }
 
-fn cut(s: &mut String, max: usize) {
-    if s.len() > max {
-        let mut end = max;
-        while !s.is_char_boundary(end) {
-            end -= 1;
-        }
-        s.truncate(end);
-        s.push('…');
-    }
-}
-
 impl Store {
     /// Appends one entry. Errors are the caller's to ignore: a log that can't be written must
     /// not stop the query.
@@ -84,21 +75,7 @@ impl Store {
         if let Some(q) = entry.question.as_mut() {
             cut(q, MAX_DETAIL);
         }
-        let path = self.dir().join(LOG_FILE);
-        if std::fs::metadata(&path)
-            .map(|m| m.len() > MAX_LOG_BYTES)
-            .unwrap_or(false)
-        {
-            let _ = std::fs::rename(&path, self.dir().join(OLD_LOG_FILE));
-        }
-        let mut line = serde_json::to_string(&entry)?;
-        line.push('\n');
-        std::fs::OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(&path)?
-            .write_all(line.as_bytes())?;
-        Ok(())
+        LOG.append(self.dir(), &entry)
     }
 
     /// The newest `limit` entries, newest first; for one connection when given. Lines that
@@ -108,40 +85,20 @@ impl Store {
         connection_id: Option<&str>,
         limit: usize,
     ) -> AppResult<Vec<MyActivity>> {
-        let mut all = Vec::new();
-        for name in [OLD_LOG_FILE, LOG_FILE] {
-            match std::fs::File::open(self.dir().join(name)) {
-                Ok(f) => all.extend(
-                    std::io::BufReader::new(f)
-                        .lines()
-                        .map_while(Result::ok)
-                        .filter_map(|l| serde_json::from_str::<MyActivity>(&l).ok())
-                        .filter(|a| connection_id.is_none_or(|id| a.connection_id == id)),
-                ),
-                Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
-                Err(e) => return Err(e.into()),
-            }
-        }
-        all.reverse();
-        all.truncate(limit);
-        Ok(all)
+        let keep = |a: &MyActivity| connection_id.is_none_or(|id| a.connection_id == id);
+        LOG.read(self.dir(), keep, limit)
     }
 
     /// Deletes your activity log.
     pub fn clear_my_activity(&self) -> AppResult<()> {
-        for name in [LOG_FILE, OLD_LOG_FILE] {
-            match std::fs::remove_file(self.dir().join(name)) {
-                Err(e) if e.kind() != std::io::ErrorKind::NotFound => return Err(e.into()),
-                _ => {}
-            }
-        }
-        Ok(())
+        LOG.clear(self.dir())
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io::Write;
 
     fn store() -> (Store, std::path::PathBuf) {
         let dir = std::env::temp_dir().join(format!("sayql-my-activity-{}", uuid::Uuid::new_v4()));
@@ -160,7 +117,7 @@ mod tests {
             .unwrap();
         std::fs::OpenOptions::new()
             .append(true)
-            .open(dir.join(LOG_FILE))
+            .open(dir.join(LOG.file))
             .unwrap()
             .write_all(b"not json\n")
             .unwrap();

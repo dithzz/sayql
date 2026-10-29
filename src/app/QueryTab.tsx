@@ -157,7 +157,7 @@ export function QueryTab(props: QueryTabProps) {
   const [auto, setAuto] = useAgentAuto();
   const agent = useAgentRun({ target: tab.target, slot: tab.id, initial: tab.agentRun ?? null, auto });
   const access = useAgentAccess(tab.target.connectionId);
-  const [accessDialog, setAccessDialog] = useState<{ then: (() => void) | null } | null>(null);
+  const [accessDialog, setAccessDialog] = useState<{ afterTurnOn: (() => void) | null } | null>(null);
   const [view, setView] = useState<"agent" | "results">(tab.agentRun ? "agent" : "results");
   /** The agent step whose rows the Results view shows; null shows the last query run here. */
   const [picked, setPicked] = useState<number | null>(null);
@@ -181,7 +181,7 @@ export function QueryTab(props: QueryTabProps) {
       agent.start(question, { focusTables: focusEnabled ? (tab.focusTables ?? []) : [], skill, followUp });
     };
     if (!aiReady) return onOpenSettings();
-    if (!access?.enabled) return setAccessDialog({ then: go });
+    if (!access?.enabled) return setAccessDialog({ afterTurnOn: go });
     go();
   };
 
@@ -282,7 +282,7 @@ export function QueryTab(props: QueryTabProps) {
     if (!toAgent) return generation.setQuestion(rest);
     const skill = command?.kind === "skill" ? command.skill.slug : null;
     generation.setQuestion(withCommand("investigate", skill ? withCommand(skill, rest) : rest));
-    if (!access?.enabled) setAccessDialog({ then: null });
+    if (!access?.enabled) setAccessDialog({ afterTurnOn: null });
   };
 
   const busy = generation.status.kind === "writing";
@@ -339,7 +339,7 @@ export function QueryTab(props: QueryTabProps) {
               agentHint: (
                 <>
                   {access?.enabled ? describeAccess(access) : "Investigate is off for this connection"}
-                  <Button size="sm" variant="ghost" onClick={() => setAccessDialog({ then: null })}>
+                  <Button size="sm" variant="ghost" onClick={() => setAccessDialog({ afterTurnOn: null })}>
                     {access?.enabled ? "Change" : "Turn on"}
                   </Button>
                 </>
@@ -485,7 +485,7 @@ export function QueryTab(props: QueryTabProps) {
           access={access}
           onSave={async (a) => {
             const saved = await saveAgentAccess(tab.target.connectionId, a);
-            if (saved.enabled) accessDialog.then?.();
+            if (saved.enabled) accessDialog.afterTurnOn?.();
           }}
           onClose={() => setAccessDialog(null)}
         />
