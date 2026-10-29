@@ -20,7 +20,7 @@ export interface WorkspaceGeneration {
   /** Asks the expert model to review the SQL. */
   onImprove: () => void;
   canImprove: boolean;
-  followUp?: { onStartFresh: () => void };
+  followUp?: { question: string; onStartFresh: () => void };
   explanation: string | null;
   onDismissExplanation: () => void;
   /** Agent mode's setting line for this connection, shown under the Ask box in agent mode. */

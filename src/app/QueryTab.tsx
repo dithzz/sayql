@@ -333,7 +333,7 @@ export function QueryTab(props: QueryTabProps) {
               onRetry: generation.retry,
               onImprove: () => generation.improve(tab.sql),
               canImprove: canUseAi && !busy && !!tab.sql.trim(),
-              followUp: lastRun ? { onStartFresh: () => onChange({ lastRun: null }) } : undefined,
+              followUp: lastRun ? { question: lastRun.question, onStartFresh: () => onChange({ lastRun: null }) } : undefined,
               explanation: generation.explanation,
               onDismissExplanation: generation.dismissExplanation,
               agentHint: (

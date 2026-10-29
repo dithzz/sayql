@@ -9,7 +9,7 @@ import { useVoice, VoiceButton, VoicePanel, VoiceStrip, voiceTakesEscape, withTr
 import type { GenerationStatus } from "./useSqlGeneration";
 import { ContextPill } from "./ContextPill";
 import { SlashMenu, itemId } from "./SlashMenu";
-import { commandSlug, isAction, menuItems, menuQuery, parseCommand, withCommand, type MenuItem } from "./slashCommands";
+import { buildsOnLast, commandSlug, isAction, menuItems, menuQuery, parseCommand, withCommand, type MenuItem } from "./slashCommands";
 import styles from "./AskBar.module.css";
 
 export interface AskBarProps {
@@ -27,8 +27,8 @@ export interface AskBarProps {
   focusEnabled: boolean;
   onFocusEnabledChange: (enabled: boolean) => void;
   onFocusTablesChange: (names: string[]) => void;
-  /** Present when requests build on the last run query. */
-  followUp?: { onStartFresh: () => void };
+  /** Present when there's a last run query that requests can build on; `question` is what it answered. */
+  followUp?: { question: string; onStartFresh: () => void };
   /** Saved skills, offered in the "/" menu. */
   skills: Skill[];
   /** "Create skill…" in the "/" menu. */
@@ -112,8 +112,9 @@ export const AskBar = forwardRef<HTMLTextAreaElement, AskBarProps>(function AskB
       : command
         ? "Ask in plain English"
         : "Ask in plain English, or type / for commands";
-  // /new, /agent and the actions don't build on the last query; /followup always does.
-  const followUp = p.followUp && slug !== "new" && slug !== "agent" && !isAction(command) ? p.followUp : undefined;
+  // /new, /agent and the actions don't build on the last query; /followup always does; a plain
+  // question does once it's a new one (not the one just answered).
+  const followUp = p.followUp && !isAction(command) && buildsOnLast(slug, rest, p.followUp.question) ? p.followUp : undefined;
   const agent = slug === "agent";
   const setMode = (toAgent: boolean) => {
     if (toAgent !== agent) p.onModeChange?.(toAgent);

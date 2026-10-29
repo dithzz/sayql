@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
-import { hasUnsavedChanges, useTabs } from "./useTabs";
+import { hasUnsavedChanges, isPristine, useTabs } from "./useTabs";
 
 const target = (connectionId: string) => ({ connectionId, database: null });
 
@@ -66,5 +66,17 @@ describe("useTabs", () => {
     expect(hasUnsavedChanges({ ...tab, sql: "  " })).toBe(false);
     expect(hasUnsavedChanges({ ...tab, sql: "SELECT 1;", savedSql: "SELECT 1;" })).toBe(false);
     expect(hasUnsavedChanges({ ...tab, sql: "SELECT 1;" })).toBe(true);
+  });
+});
+
+describe("isPristine", () => {
+  const tab = { id: "t", target: target("demo"), title: "", question: "", sql: "" };
+  it("is true only for a tab nothing has happened in, which the setup's first question reuses", () => {
+    expect(isPristine(tab)).toBe(true);
+    expect(isPristine({ ...tab, sql: "SELECT 1" })).toBe(false);
+    expect(isPristine({ ...tab, question: "top customers" })).toBe(false);
+    expect(isPristine({ ...tab, title: "orders" })).toBe(false);
+    expect(isPristine({ ...tab, lastRun: { question: "", sql: "SELECT 1" } })).toBe(false);
+    expect(isPristine({ ...tab, scriptId: "s1" })).toBe(false);
   });
 });
