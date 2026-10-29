@@ -1,5 +1,6 @@
 import { useEffect, useId, useState } from "react";
-import { ArrowLeft, Bot, Info, Mic, Plug, RefreshCw, ScrollText, Sparkles, Users, type LucideIcon } from "lucide-react";
+import { ArrowLeft, BookOpen, Bot, ExternalLink, Info, Keyboard, Mic, Plug, RefreshCw, ScrollText, Sparkles, Users, type LucideIcon } from "lucide-react";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { commands, type AiProvider, type ConnectionConfig, type Settings, type TeamAccount } from "../../api";
 import { Alert, Button, Field, Select, TextInput } from "../../components/ui";
 import { cx } from "../../lib/cx";
@@ -9,7 +10,9 @@ import { SkillsSection, type SkillsApi } from "../skills";
 import { TeamSection } from "../team";
 import { VoiceSection } from "../voice";
 import { ClaudeIntegration, type AiAppsTab } from "./ClaudeIntegration";
+import { ClaudePlanCheck } from "./ClaudePlanCheck";
 import { version } from "../../../package.json";
+import { docsUrl } from "../help/docs";
 import styles from "./SettingsPage.module.css";
 
 export type SettingsSection = "ai" | "agent" | "skills" | "voice" | "mcp" | "team" | "about";
@@ -32,6 +35,10 @@ export interface SettingsPageProps {
   onSaved: (s: Settings) => void;
   /** Reopens the first-run setup. */
   onShowSetup: () => void;
+  /** Opens the keyboard shortcut sheet (Settings closes). */
+  onShowShortcuts: () => void;
+  /** Opens What's new (Settings closes). */
+  onShowWhatsNew: () => void;
   skills: SkillsApi;
   /** The section to open on; defaults to the AI provider. */
   section?: SettingsSection;
@@ -55,16 +62,33 @@ interface Draft {
 
 const draftOf = (p: AiProvider): Draft => ({ baseUrl: p.baseUrl, typingModel: p.typingModel, expertModel: p.expertModel, apiKey: "" });
 
-/** Where the question and schema go, in one sentence. Local providers say so in their note. */
 /** SayQL AI credits: Claude through SayQL's service, with a prepaid credit key. */
 const SAYQL_CREDITS = "sayql";
+/** Your own Claude plan, through your installed Claude Code (src-tauri/src/ai/providers.rs `CLAUDE_PLAN`). */
+export const CLAUDE_PLAN = "claude-plan";
 
-function privacyNote(p: AiProvider): string {
-  if (p.id === SAYQL_CREDITS) {
-    return "Your question and table and column names go through SayQL to Anthropic, never the data in your tables. SayQL keeps only token counts.";
-  }
-  const to = p.key === "optional" ? "your server" : p.label;
-  return `Your question and table and column names are sent to ${to}, never the data in your tables.`;
+/**
+ * What the Ask box sends, and where, in two sentences. It must match
+ * src-tauri/src/commands/generation.rs: the question, the schema (names, types, keys, enum
+ * values, row estimates) and saved notes; the editor's SQL for follow-ups and fixes; a failed
+ * query's error with quoted values masked (ai/redact.rs). Rows only go in agent mode, per
+ * connection (ai/agent/run.rs).
+ */
+export function privacyNote(p: Pick<AiProvider, "id" | "key" | "label" | "local">): string {
+  const to =
+    p.id === SAYQL_CREDITS
+      ? "SayQL, which forwards it to Anthropic and keeps only token counts"
+      : p.id === CLAUDE_PLAN
+        ? "Anthropic by your own Claude Code, on your Claude plan"
+        : p.key === "optional"
+        ? "your server"
+        : p.local
+          ? `${p.label}, on this computer`
+          : p.label;
+  return (
+    `Your question, table and column names, your database notes and the SQL you're working on (with a failed query's error, values masked) are sent to ${to}. ` +
+    "Data from your tables is sent only if you turn on agent mode for a connection and allow it in its agent settings."
+  );
 }
 
 /** Full-window settings, with sections in a sidebar. Esc or Back returns to the workbench. */
@@ -74,6 +98,8 @@ export function SettingsPage({
   onClose,
   onSaved,
   onShowSetup,
+  onShowShortcuts,
+  onShowWhatsNew,
   skills,
   section: initial = "ai",
   aiAppsTab,
@@ -186,6 +212,16 @@ export function SettingsPage({
       </nav>
       <main className={styles.content}>
         <div className={cx(styles.inner, section === "mcp" && styles.wide)}>
+          {section !== "about" && (
+            <button
+              type="button"
+              className={styles.docsLink}
+              title={docsUrl(section)}
+              onClick={() => void openUrl(docsUrl(section))}
+            >
+              Docs <ExternalLink size={12} />
+            </button>
+          )}
           {section === "ai" && (
             <>
               <h2 className={styles.title}>AI provider</h2>
@@ -199,12 +235,15 @@ export function SettingsPage({
                   />
                 )}
               </Field>
+              <p className={styles.intro} data-testid="ai-privacy-note">
+                {privacyNote(provider)}
+              </p>
 
               {provider.key !== "none" && (
                 <Field
                   label={provider.id === SAYQL_CREDITS ? "Credit key" : `${provider.label} API key`}
                   optional={provider.key === "optional"}
-                  hint={`${provider.id === SAYQL_CREDITS ? "From SayQL (hello@azenvoc.com). " : ""}Stored in your system keychain. ${privacyNote(provider)}`}
+                  hint={`${provider.id === SAYQL_CREDITS ? "From SayQL (hello@azenvoc.com). " : ""}Stored in your system keychain.`}
                 >
                   {(id) => (
                     <TextInput
@@ -219,9 +258,10 @@ export function SettingsPage({
                 </Field>
               )}
 
-              {provider.api === "anthropic" ? (
+              {provider.api !== "openai" ? (
                 <>
-                  {provider.id !== SAYQL_CREDITS && (
+                  {provider.api === "plan" && <ClaudePlanCheck />}
+                  {provider.id === "anthropic" && (
                     <Field
                       label="Workspace ID"
                       optional
@@ -354,7 +394,16 @@ export function SettingsPage({
                 SayQL Community Edition {version}. Free and open source under the Apache License 2.0. The license,
                 privacy notice and third-party notices are included with the app.
               </p>
-              <div>
+              <div className={styles.aboutActions}>
+                <Button icon={Keyboard} onClick={onShowShortcuts}>
+                  Keyboard shortcuts
+                </Button>
+                <Button icon={Sparkles} onClick={onShowWhatsNew}>
+                  What&apos;s new
+                </Button>
+                <Button icon={BookOpen} onClick={() => void openUrl(docsUrl("about"))}>
+                  Docs
+                </Button>
                 <Button onClick={onShowSetup}>Show the setup guide again</Button>
               </div>
             </>

@@ -56,6 +56,18 @@ export function parseCommand(text: string, skills: Skill[]): Parsed {
 /** The question text for a command and the rest; the inverse of `parseCommand`. */
 export const withCommand = (slug: string, rest: string) => `/${slug} ${rest}`;
 
+/**
+ * Whether the Ask box should say the request builds on the last query run: always with
+ * /followup; never with /new or /agent; otherwise only once a new question is being typed. Right
+ * after a run the box still holds the question just answered, which builds on nothing.
+ */
+export function buildsOnLast(slug: string | null, rest: string, lastQuestion: string): boolean {
+  if (slug === "followup") return true;
+  if (slug === "new" || slug === "agent") return false;
+  const q = rest.trim();
+  return q !== "" && q !== lastQuestion.trim();
+}
+
 export type MenuItem = { kind: "builtin" | "skill"; slug: string; description: string } | { kind: "create" };
 
 /** The text after "/" while the menu should show, else null: "/" at the start and no space yet. */

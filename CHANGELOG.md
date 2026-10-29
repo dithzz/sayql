@@ -3,6 +3,86 @@
 All notable changes to SayQL are listed here. Downloads are on the
 [releases page](https://github.com/dithzz/sayql-releases/releases).
 
+## 0.4.8 (2026-10-29)
+
+### Choose how to use AI, with pros and cons
+
+- **The first-run setup now asks "How do you want to use AI?"** with four ways, each with what it's good at and
+  what it costs you: **Your own API key** (Anthropic, OpenAI, Gemini and more), **Your Claude plan**, **SayQL AI
+  credits** and **On this computer** (Ollama, LM Studio). Pick one to set it up; **Other ways** goes back. The AI
+  providers docs page has the same comparison.
+- **New: Your Claude plan.** Use the Claude Pro or Max plan you already have, with no API key: SayQL starts your
+  installed, unmodified Claude Code (`claude -p`) for each request, signed in however you set it up, so requests
+  count against your plan's limits. It runs with no tools, no MCP servers, no hooks and no saved session, in an
+  empty folder, so Claude only answers in text. It works for the Ask box, Explain, Fix, Improve and agent mode
+  (tools travel as text, as with local models). SayQL checks Claude Code's version and sign-in status (Settings →
+  AI provider shows "signed in with your Claude Max plan") and never reads your Claude credentials. SQL appears a
+  second or two later than with an API key, because Claude Code starts for each request.
+
+### The audit: Run audit, on your own Claude Code sign-in
+
+- **"Audit with Claude Code" is now "Run audit"**, everywhere it appears (Teach SayQL this database, Settings → AI
+  apps → Access, the Suggestions tab), and its dialog is **Run an audit**. What it does hasn't changed: it runs your
+  installed Claude Code, read-only, in your project folder, and the dialog and tooltip say so.
+- **The audit runs on your own Claude Code sign-in; paying for it with SayQL AI credits is off for now.** The
+  **Pay with** choice is gone from the dialog. A saved credits choice from 0.4.7 now runs on your own sign-in (or
+  however your Claude Code is set up): SayQL gives Claude Code no API key, token or endpoint, and never reads your
+  Claude credentials. **Open in Terminal** is always available again. SayQL AI credits still work for the Ask box and
+  agent mode.
+
+### Safer around production
+
+- **Nothing connects on its own.** Tabs you had open come back when SayQL starts, but they wait, dimmed, with
+  **Not connected** and a **Connect** button (also in the navigator and the status bar). A connection opens when you
+  click it, click Connect, run a query or ask. With no tabs open SayQL no longer opens the first connection either.
+  AI apps over MCP are unaffected: `sayql-mcp` opens the connections they ask for, as before. Team connections
+  follow the same rule.
+- **Production tag.** A connection's settings have **This is a production database** (off for existing
+  connections). A tagged connection shows a red **PROD** badge in the navigator, on its tabs, in the top bar and in
+  the status bar. It's a label only.
+
+### Clear words for what the AI gets back
+
+- **One vocabulary.** Agent mode and AI apps now use the same choices and descriptions: **Nothing (names and row
+  counts only)**, **Counts and summaries**, **Rows, masked** (agent mode: up to 20 per query) and **All rows** (AI
+  apps only). Each default is marked: Nothing for agent mode, Counts and summaries for AI apps. Stored settings and
+  defaults are unchanged.
+- **"Turn on agent mode" no longer offers "Off" first.** The choices sit under **What the AI may see of query
+  results**, and the dialog also says what AI apps get on the same connection.
+- **Never-send columns say where they apply**: agent mode and AI apps over MCP, in the agent settings and in
+  Settings → AI apps. The Ask box sends no values from your tables, so it doesn't need them.
+- **Accurate AI provider wording.** The AI provider page said the question and names were sent "never the data in
+  your tables", which isn't so once agent mode may send results. It now lists what the Ask box sends (question,
+  names, notes, the SQL you're working on, a failed query's error with values masked) and says data from your
+  tables goes only with agent mode turned on and allowed for a connection. The note shows for local providers too.
+  PRIVACY.md, the README and the privacy docs now list notes among what the Ask box sends, and mention the AI
+  credits exception where they said SayQL has no server.
+- Settings → AI apps → Activity says it covers AI apps only, not agent mode or your own queries.
+
+### Setup and help
+
+- **The setup guide offers SayQL AI credits** as a provider (Claude without an Anthropic account; ask
+  hello@azenvoc.com for a credit key), and ends with **Let AI agents in safely**: shortcuts to connect an AI app
+  and to teach SayQL your database.
+- **Settings → AI apps → Access starts with Connect an app**, open and highlighted until an app has connected,
+  one line after that.
+- **Keyboard shortcuts:** press **?** outside a text field for the list (also in Settings → About and, on macOS,
+  Help → Keyboard Shortcuts). New: **⌘W** closes the tab and **⌘,** opens Settings. On macOS SayQL now has its
+  own menu bar so ⌘W no longer closes the window (that's **⇧⌘W**).
+- **What's new** shows once after an update, and from Settings → About or Help → What's New.
+- Each Settings section links to its page on sayql.dev/docs; About links to the docs.
+
+### Fixes
+
+- Finishing the setup with an example question no longer leaves two identical "Demo store" tabs.
+- "Building on your last query" no longer shows right after the first answer; it shows once you type a new
+  question.
+
+### Development
+
+- The browser preview's `?firstrun` flag gives a real first run: only the demo connection, AI not set up, no notes,
+  suggestions or AI-app activity, and its own empty storage on every load.
+
 ## 0.4.7 (2026-10-29)
 
 ### Fixes

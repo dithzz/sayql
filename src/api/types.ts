@@ -16,6 +16,8 @@ export interface ConnectionConfig {
   ssl: boolean;
   /** SQL Server: accept a self-signed server certificate. */
   trustCert: boolean;
+  /** Tagged as production: shows a PROD badge. Display only; absent (off) on connections saved before 0.4.8. */
+  production?: boolean;
   /** Set on a SayQL Team connection (id `team:…`): read-only here, managed by the team admin. */
   team?: TeamConnectionInfo;
 }
@@ -124,6 +126,15 @@ export interface QueryResult {
   withheld?: string[];
 }
 
+/** The person's own Claude Code, checked for "Your Claude plan"; mirrors `PlanCheck` in src-tauri/src/ai/subscription.rs. */
+export interface PlanCheck {
+  version: string;
+  /** "claude.ai" when signed in with a Claude plan. */
+  authMethod: string;
+  /** "pro", "max", "team"… */
+  plan: string | null;
+}
+
 export interface ModelOption {
   id: string;
   label: string;
@@ -134,8 +145,8 @@ export interface AiProvider {
   id: string;
   label: string;
   note: string;
-  /** Claude's own API, or the OpenAI-compatible API every other provider speaks. */
-  api: "anthropic" | "openai";
+  /** Claude's own API, the OpenAI-compatible API every other provider speaks, or the person's own Claude plan through their installed Claude Code. */
+  api: "anthropic" | "openai" | "plan";
   key: "required" | "optional" | "none";
   keyPlaceholder: string;
   /** Runs on this computer, so nothing is sent over the internet. */
@@ -253,7 +264,7 @@ export interface AuditRun {
   at: number;
 }
 
-/** A coding agent "Audit with…" knows; mirrors `commands::audit::AgentView`. */
+/** A coding agent "Run audit" knows; mirrors `commands::audit::AgentView`. */
 export interface AuditAgent {
   id: string;
   label: string;
@@ -272,7 +283,7 @@ export interface AuditAgent {
 /** The model an audit runs on; mirrors `audit_runner::AuditModel`. "default" is the person's own Claude Code default. */
 export type AuditModel = "sonnet" | "opus" | "default";
 
-/** Who pays for an audit run; mirrors `audit_runner::AuditPayment`. "credits" sends Claude Code's requests through SayQL AI credits. */
+/** Who pays for an audit run; mirrors `audit_runner::AuditPayment`. "credits" (paying with SayQL AI credits) is off for now: the app always runs on "subscription". */
 export type AuditPayment = "subscription" | "credits";
 
 /** The saved payment choice, and whether a SayQL credit key is saved; mirrors `commands::audit::AuditPaymentView`. */

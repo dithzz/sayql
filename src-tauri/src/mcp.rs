@@ -1316,7 +1316,7 @@ mod tests {
     use super::*;
     use tokio_util::sync::CancellationToken;
 
-    /// "Audit with Claude Code" allows or denies every tool this server offers by name, so a
+    /// The audit run ("Run audit") allows or denies every tool this server offers by name, so a
     /// new tool can't slip into the run unlisted.
     #[test]
     fn the_audit_allows_or_denies_every_tool() {
@@ -1833,6 +1833,7 @@ mod tests {
             file: "/tmp/none.sqlite".into(),
             ssl: false,
             trust_cert: false,
+            production: false,
         };
         let pg = db::ConnConfig {
             id: "pg".into(),
@@ -1946,6 +1947,7 @@ mod tests {
             file: "/tmp/none.sqlite".into(),
             ssl: false,
             trust_cert: false,
+            production: false,
         }
     }
 
@@ -2139,6 +2141,7 @@ mod tests {
             file: demo.to_string_lossy().into_owned(),
             ssl: false,
             trust_cert: false,
+            production: false,
         };
         let servers = [
             ("SAYQL_TEST_PG_URL", Kind::Postgres),

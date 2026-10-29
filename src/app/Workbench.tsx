@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Copy, Database, FileCode2, Plus, Save, Server, Table2, X } from "lucide-react";
-import { TEAM_SIGNED_OUT, commands, type Bootstrap, type ConnectionConfig, type DbNote, type Script, type Table, type TeamAccount, type TeamAiStatus, type Target } from "../api";
+import { TEAM_SIGNED_OUT, commands, subscribeToMenu, type Bootstrap, type ConnectionConfig, type DbNote, type Script, type Table, type TeamAccount, type TeamAiStatus, type Target } from "../api";
 import { Alert, Button, Dialog, EmptyState, ErrorBoundary, Spinner, SplitPane, TabBar, type MenuEntry, type TabItem } from "../components/ui";
 import {
   AgentAccessDialog,
@@ -17,18 +17,21 @@ import {
   useNoteSuggestions,
 } from "../features/agent";
 import { usePersistentState } from "../hooks/usePersistentState";
-import { ConnectionDialog, DATABASE_KINDS, newConnection, targetKey, useConnections } from "../features/connections";
+import { ConnectionDialog, DATABASE_KINDS, ProdBadge, newConnection, targetKey, useConnections } from "../features/connections";
 import { DatabaseNavigator, type NavigatorScript } from "../features/navigator";
 import { CloseTabDialog, CloseTabsDialog, SaveScriptDialog, useScripts } from "../features/scripts";
 import { selectAllSql } from "../features/schema/sql";
 import { SettingsPage, useSettings, type AiAppsTab, type SettingsSection } from "../features/settings";
 import { useSkills } from "../features/skills";
-import { hasUnsavedChanges, useTabs, type EditorTab } from "../features/tabs";
+import { hasUnsavedChanges, isPristine, useTabs, type EditorTab } from "../features/tabs";
 import { useUpdate } from "../features/updates";
 import { FeedbackDialog } from "../features/feedback";
 import { useHandoffs } from "../features/handoff";
 import { TeamSignInDialog, teamAiDestination, teamAiOn, useTeamConnections } from "../features/team";
 import { exampleQuestions, OnboardingDialog, type OnboardingStep } from "../features/onboarding";
+import { DOCS_URL, ShortcutSheet, WhatsNewDialog, isTypingTarget, whatsNewOnStart } from "../features/help";
+import { openUrl } from "@tauri-apps/plugin-opener";
+import { version } from "../../package.json";
 import { QueryTab } from "./QueryTab";
 import { StatusBar } from "./StatusBar";
 import { TopBar } from "./TopBar";
@@ -53,7 +56,7 @@ type OpenDialog =
   | { kind: "noteSuggestions" }
   /** "Teach SayQL your database", from the navigator. */
   | { kind: "teach" }
-  /** "Audit with…", from "Teach SayQL your database". */
+  /** "Run audit", from "Teach SayQL your database". */
   | { kind: "audit" }
   /** From a sayql://team-join invite link. */
   | { kind: "teamSignIn"; server: string; code: string; key: string }
@@ -76,6 +79,14 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
   const [setupStep, setSetupStep] = useState<OnboardingStep | null>(() =>
     !boot.settings.onboarded && !boot.settings.aiReady ? "welcome" : null,
   );
+
+  // Help: the shortcut sheet, and What's new, once after an update (not for someone new).
+  const [whatsNew] = useState(() => whatsNewOnStart(version, boot.settings.onboarded || boot.settings.aiReady));
+  const [help, setHelp] = useState<"shortcuts" | "whatsNew" | null>(() => (whatsNew.show ? "whatsNew" : null));
+  const closeHelp = () => {
+    if (help === "whatsNew") whatsNew.markSeen();
+    setHelp(null);
+  };
 
   /** Tabs with an agent run going, which show a spinner. */
   const [busyTabs, setBusyTabs] = useState<Set<string>>(new Set());
@@ -138,8 +149,9 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [error]);
 
-  // On start: drop restored tabs whose connection no longer exists, and open the first
-  // connection if nothing is open. The ref keeps StrictMode's double effect from opening two.
+  // On start: drop restored tabs whose connection no longer exists. Nothing connects on its
+  // own, not even the first connection: restored tabs wait for the person to click the
+  // connection, Connect, Run or Ask (a production database is never opened silently).
   // Tabs on team connections stay while signed in: those connections load from the server.
   const started = useRef(false);
   useEffect(() => {
@@ -147,18 +159,19 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
     started.current = true;
     const teamTab = (id: string) => !!boot.settings.team && id.startsWith("team:");
     tabs.closeWhere((t) => !conn.connection(t.target.connectionId) && !teamTab(t.target.connectionId));
-    if (tabs.tabs.length === 0 && conn.connections[0]) openConnection(conn.connections[0]);
     // Only on start.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Load the schema of whatever tab is showing (also after its connection was edited).
+  // Load the schema of whatever tab is showing, once its connection is connected (also after
+  // the connection was edited).
+  const targetConnected = !!target && conn.isConnected(target.connectionId);
   useEffect(() => {
-    if (target) conn.ensure(target);
+    if (target && targetConnected) conn.ensure(target);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [targetKey(target), conn.connections]);
+  }, [targetKey(target), targetConnected, conn.connections]);
 
-  /** Focuses a tab already open on `t`, or opens a new one. */
+  /** Focuses a tab already open on `t`, or opens a new one, and connects (the person asked for it). */
   const showTarget = (t: Target) => {
     const name = conn.databaseName(t);
     const existing = tabs.tabs.find(
@@ -166,6 +179,7 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
     );
     if (existing) tabs.activate(existing.id);
     else tabs.open(t);
+    conn.connect(existing?.target ?? t);
   };
 
   const openConnection = (c: ConnectionConfig) => showTarget({ connectionId: c.id, database: c.database.trim() || null });
@@ -225,10 +239,22 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
     else tabs.close(id);
   };
 
-  // ⌘T / Ctrl+T opens a new tab on the current database; ⌘S / Ctrl+S saves the active tab.
+  /** ⌘W: closes the active tab, asking first when that would lose SQL. */
+  const closeActiveTab = () => {
+    if (tabs.active && !dialog) requestClose(tabs.active.id);
+  };
+
+  // ⌘T / Ctrl+T opens a new tab on the current database; ⌘S / Ctrl+S saves the active tab;
+  // ⌘W closes it; ⌘, opens Settings; ? (outside a text field) lists the shortcuts. On macOS
+  // the menu bar owns ⌘W and ⌘, and sends them as menu actions (below).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (!(e.metaKey || e.ctrlKey)) return;
+      if (e.key === "?" && !e.metaKey && !e.ctrlKey && !e.altKey && !isTypingTarget(e.target) && !dialog && !setupStep) {
+        e.preventDefault();
+        setHelp("shortcuts");
+        return;
+      }
+      if (!(e.metaKey || e.ctrlKey) || e.altKey) return;
       const key = e.key.toLowerCase();
       if (key === "t") {
         e.preventDefault();
@@ -236,11 +262,33 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
       } else if (key === "s" && tabs.active) {
         e.preventDefault();
         requestSave(tabs.active);
+      } else if (key === "w" && !e.shiftKey) {
+        e.preventDefault();
+        closeActiveTab();
+      } else if (key === ",") {
+        e.preventDefault();
+        if (dialog?.kind !== "settings") openSettings();
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   });
+
+  // The macOS menu bar: Close Tab, Settings…, and the Help menu.
+  const onMenu = useRef<(a: string) => void>(() => {});
+  onMenu.current = (action) => {
+    if (action === "close-tab") closeActiveTab();
+    else if (action === "settings") {
+      if (dialog?.kind !== "settings") openSettings();
+    }
+    else if (action === "shortcuts") setHelp("shortcuts");
+    else if (action === "whats-new") setHelp("whatsNew");
+    else if (action === "docs") void openUrl(DOCS_URL);
+  };
+  useEffect(() => {
+    const off = subscribeToMenu((a) => onMenu.current(a));
+    return () => void off.then((f) => f());
+  }, []);
 
   const previewTable = (t: Table) => {
     if (!target || !schema) return;
@@ -268,9 +316,12 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
       id: t.id,
       label: t.title || db || name,
       detail: t.title ? (db ?? name) : db ? name : undefined,
-      title: [name, db, t.title].filter(Boolean).join(" / "),
+      title: [name, db, t.title].filter(Boolean).join(" / ") + (conn.isConnected(t.target.connectionId) ? "" : " (not connected)"),
       icon: busyTabs.has(t.id) ? <Spinner size={13} /> : <Icon size={14} color={c ? DATABASE_KINDS[c.kind].color : undefined} />,
       dirty: hasUnsavedChanges(t),
+      badge: <ProdBadge connection={c} />,
+      // Not connected yet: shown dimmed until the person connects.
+      muted: !conn.isConnected(t.target.connectionId),
     };
   });
 
@@ -300,10 +351,16 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
     commands.finishOnboarding().then(setSettings, () => {});
   };
 
-  /** Ends the setup with a tab that asks `question` and runs the answer. */
+  /**
+   * Ends the setup with a tab that asks `question` and runs the answer: the tab the setup just
+   * opened, while it's still empty, so the demo doesn't end up in two identical tabs.
+   */
   const trySetupQuestion = (question: string) => {
     finishSetup();
-    if (target) tabs.open(target, { question, autoAsk: true });
+    if (!target) return;
+    const t = tabs.active;
+    if (t && isPristine(t)) tabs.update(t.id, { question, autoAsk: true });
+    else tabs.open(target, { question, autoAsk: true });
   };
   const openNewConnection = () => setDialog({ kind: "connection", config: newConnection() });
 
@@ -388,9 +445,12 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
               databaseName={databaseName}
               schema={schema}
               loading={loading}
+              connected={targetConnected}
+              onConnect={() => target && conn.connect(target)}
               onOpen={(id) => {
                 const c = conn.connection(id);
                 if (c && id !== active?.id) openConnection(c);
+                else if (target) conn.connect(target);
               }}
               onOpenDatabase={(database) => active && showTarget({ connectionId: active.id, database })}
               onAdd={openNewConnection}
@@ -444,6 +504,9 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
                       active={t.id === tabs.active?.id}
                       label={db ? `${name} · ${db}` : name}
                       schema={conn.schemaState(t.target).schema}
+                      connected={conn.isConnected(t.target.connectionId)}
+                      production={!!conn.connection(t.target.connectionId)?.production}
+                      onConnect={() => conn.connect(t.target)}
                       settings={settings}
                       modelNames={modelNames}
                       onChange={(patch) => tabs.update(t.id, patch)}
@@ -497,6 +560,8 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
         databaseName={databaseName}
         schema={schema}
         loading={loading}
+        connected={targetConnected}
+        onConnect={() => target && conn.connect(target)}
         modelNames={modelNames}
         aiReady={settings.aiReady}
         updates={updates}
@@ -641,7 +706,6 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
           target={{ connectionId: active.id, name: active.name, database: target?.database ?? null }}
           onReview={() => setDialog({ kind: "noteSuggestions" })}
           onClose={() => setDialog(null)}
-          onOpenAiSettings={() => openSettings({ section: "ai" })}
         />
       )}
       {dialog?.kind === "deleteScript" && (
@@ -706,6 +770,15 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
             setDialog(null);
             setSetupStep("welcome");
           }}
+          // Settings closes first: its Esc would otherwise close both.
+          onShowShortcuts={() => {
+            setDialog(null);
+            setHelp("shortcuts");
+          }}
+          onShowWhatsNew={() => {
+            setDialog(null);
+            setHelp("whatsNew");
+          }}
           onClose={() => setDialog(null)}
           onSaved={setSettings}
           onTeamChange={setTeam}
@@ -724,6 +797,8 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
           }}
         />
       )}
+      {help === "shortcuts" && <ShortcutSheet onClose={closeHelp} />}
+      {help === "whatsNew" && <WhatsNewDialog version={version} onClose={closeHelp} />}
       {setupStep && !dialog && (
         <OnboardingDialog
           settings={settings}
@@ -743,6 +818,18 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
           examples={exampleQuestions(schema, active?.id === "demo")}
           onTry={trySetupQuestion}
           onOpenSettings={() => openSettings()}
+          onOpenAiApps={() => {
+            finishSetup();
+            openSettings({ section: "mcp", aiAppsTab: "access" });
+          }}
+          onTeach={
+            active && !active.id.startsWith("team:")
+              ? () => {
+                  finishSetup();
+                  setDialog({ kind: "teach" });
+                }
+              : undefined
+          }
           onFinish={finishSetup}
         />
       )}

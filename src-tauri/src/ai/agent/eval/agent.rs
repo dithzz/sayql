@@ -1,6 +1,6 @@
 //! The evaluation with a real model. Opt-in: set SAYQL_EVAL_ANTHROPIC_KEY (and optionally
 //! SAYQL_EVAL_MODEL), or SAYQL_EVAL_OPENAI_URL with SAYQL_EVAL_MODEL (and SAYQL_EVAL_OPENAI_KEY)
-//! for an OpenAI-compatible server such as Ollama, or SAYQL_EVAL_USE_APP_KEY=1 for the Claude key saved in SayQL. It costs API credits, so it never runs
+//! for an OpenAI-compatible server such as Ollama, or SAYQL_EVAL_USE_APP_KEY=1 for the Claude key saved in SayQL, or SAYQL_EVAL_CLAUDE_PLAN=1 for your own signed-in Claude Code. It costs API credits, so it never runs
 //! by default. Writes one record per question to `target/agent-eval.json`.
 //!
 //!   SAYQL_EVAL_ANTHROPIC_KEY=sk-ant-... cargo test --lib agent_answers_the_question_set -- --nocapture
@@ -57,6 +57,14 @@ impl Agent {
             };
             return Some(Agent {
                 endpoint,
+                model: model.unwrap_or_else(|| crate::ai::DEFAULT_EXPERT_MODEL.into()),
+                records: Mutex::default(),
+            });
+        }
+        // The person's own Claude Code, signed in with their Claude plan.
+        if std::env::var("SAYQL_EVAL_CLAUDE_PLAN").is_ok() {
+            return Some(Agent {
+                endpoint: || Endpoint::Plan,
                 model: model.unwrap_or_else(|| crate::ai::DEFAULT_EXPERT_MODEL.into()),
                 records: Mutex::default(),
             });
@@ -136,11 +144,18 @@ impl Answerer for Agent {
             replies: rx,
             stop: CancellationToken::new(),
         };
+        let endpoint = (self.endpoint)();
+        // As in commands/agent.rs: Claude Code runs without tools, so they travel as text.
+        let mode = if matches!(endpoint, Endpoint::Plan) {
+            ToolMode::Text
+        } else {
+            ToolMode::Native
+        };
         let mut llm = Llm::Remote {
             http: reqwest::Client::new(),
-            endpoint: (self.endpoint)(),
+            endpoint,
             model: self.model.clone(),
-            mode: ToolMode::Native,
+            mode,
         };
         let start = std::time::Instant::now();
         let out = run::run(&mut llm, pool, input, &mut io).await;
@@ -224,6 +239,7 @@ async fn agent_answers_the_question_set() {
             file: demo_file.to_string_lossy().into_owned(),
             ssl: false,
             trust_cert: false,
+            production: false,
         },
         None,
     )

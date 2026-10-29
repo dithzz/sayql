@@ -130,6 +130,9 @@ async fn turn(
     messages: &[Msg],
 ) -> AppResult<Turn> {
     match (endpoint.claude(), endpoint.openai()) {
+        _ if matches!(endpoint, Endpoint::Plan) => {
+            crate::ai::subscription::turn(model, system, schema, messages).await
+        }
         (Some(access), _) => {
             crate::ai::anthropic::turn(http, &access, model, system, schema, tools, messages).await
         }

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Skill } from "../../api";
 import { BUILTIN_SLUGS } from "../skills";
-import { BUILTINS, actionTask, commandSlug, menuItems, menuQuery, parseCommand, planRequest, withCommand } from "./slashCommands";
+import { BUILTINS, actionTask, buildsOnLast, commandSlug, menuItems, menuQuery, parseCommand, planRequest, withCommand } from "./slashCommands";
 
 const pii: Skill = { slug: "pii-safe", description: "Leave out personal data", instruction: "Never select email, phone or address columns." };
 const month: Skill = { slug: "this-month", description: "", instruction: "Only rows from this month." };
@@ -121,5 +121,23 @@ describe("/agent", () => {
 describe("BUILTINS", () => {
   it("has one entry per reserved slug in skills", () => {
     expect(BUILTINS.map((b) => b.slug)).toEqual([...BUILTIN_SLUGS]);
+  });
+});
+
+describe("buildsOnLast", () => {
+  it("says nothing right after the first answer, while the box holds the question just asked", () => {
+    expect(buildsOnLast(null, "Top 5 customers by spend", "Top 5 customers by spend")).toBe(false);
+    expect(buildsOnLast(null, "  Top 5 customers by spend ", "Top 5 customers by spend")).toBe(false);
+    expect(buildsOnLast(null, "", "Top 5 customers by spend")).toBe(false);
+  });
+
+  it("says it once a new question is typed, or with /followup", () => {
+    expect(buildsOnLast(null, "only in Germany", "Top 5 customers by spend")).toBe(true);
+    expect(buildsOnLast("followup", "", "Top 5 customers by spend")).toBe(true);
+  });
+
+  it("never with /new or /agent", () => {
+    expect(buildsOnLast("new", "only in Germany", "Top 5")).toBe(false);
+    expect(buildsOnLast("agent", "only in Germany", "Top 5")).toBe(false);
   });
 });

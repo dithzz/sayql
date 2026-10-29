@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { commands, type AgentAccess } from "../../api";
+import { agentLevelShort } from "./resultLevels";
 
 const OFF: AgentAccess = { enabled: false, results: "off", apps: "counts", askBeforeSend: true, neverSend: [] };
 
@@ -42,6 +43,6 @@ export function useAgentAccess(connectionId: string | null): AgentAccess | null 
 
 /** The setting as the hint under the Ask box says it. */
 export function describeAccess(a: AgentAccess): string {
-  const results = { off: "no values", counts: "counts and summaries only", rows: "up to 20 masked rows" }[a.results];
+  const results = agentLevelShort(a.results);
   return `Results to AI: ${results}${a.askBeforeSend && a.results !== "off" ? " · Ask before send" : ""}${a.team ? " · Team rules apply" : ""}`;
 }

@@ -126,8 +126,8 @@ impl Settings {
             }
         } else {
             let mut p = self.providers.get(id).cloned().unwrap_or_default();
-            // SayQL AI credits serve Claude, so they start on Claude's default models.
-            if id == crate::ai::SAYQL_CREDITS {
+            // SayQL AI credits and the Claude plan serve Claude, so they start on its default models.
+            if id == crate::ai::SAYQL_CREDITS || id == crate::ai::CLAUDE_PLAN {
                 if p.typing_model.is_empty() {
                     p.typing_model = default_typing_model();
                 }

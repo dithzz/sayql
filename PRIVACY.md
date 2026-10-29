@@ -1,6 +1,6 @@
 # SayQL Privacy Notice
 
-SayQL is a desktop app. It has no SayQL account, no SayQL server and no telemetry: we don't collect, receive or store any of your data.
+SayQL is a desktop app. It has no SayQL account and no telemetry. Unless you choose SayQL AI credits (below), it uses no SayQL server and we don't receive any of your data; with credits, your AI requests pass through SayQL's service and we store only token counts.
 
 ## What stays on your computer
 
@@ -25,7 +25,7 @@ SayQL sends data only to services you configure, and only when you use them:
 | When | What is sent | Sent to |
 | --- | --- | --- |
 | You connect or run a query | Your login and your SQL | Your database server |
-| You ask in plain English | Your question; the database's table and column names, types, keys, enum values and row estimates; the current SQL for follow-ups, Explain, Fix and Improve; any skill you add | The AI provider you chose in Settings |
+| You ask in plain English | Your question; the database's table and column names, types, keys, enum values and row estimates; saved database notes; the current SQL for follow-ups, Explain, Fix and Improve; any skill you add | The AI provider you chose in Settings |
 | A query fails and SayQL fixes it | The query and the database's error message, with values from your rows masked | The AI provider you chose |
 | You use agent mode on a connection where you turned it on | Your question, the schema, saved database notes, the agent's queries and, depending on your setting for that connection, row counts only, counts and column summaries, or up to 20 rows per query with likely personal data masked | The AI provider you chose |
 | An AI app uses SayQL through MCP | The schemas and saved database notes, and what you allow it to see of query results on that connection: by default counts and summaries, no row values (never the values of columns you marked never send). Database errors below all rows as a fixed description, without the values they can quote | That AI app (for example Claude or Cursor) |
@@ -40,7 +40,9 @@ When your team also provides AI (team AI), AI requests on team connections go to
 
 **SayQL AI credits** are the exception, and only if you or your team admin choose them. In the app (Settings → AI provider → SayQL AI credits), your AI requests go to SayQL's endpoint at `sayql.dev/api/ai` with your credit key, and on to Anthropic with SayQL's key. On a team server: instead of a company AI key, the team server then uses a prepaid SayQL credit key, and its AI provider is SayQL's endpoint at `sayql.dev/api/ai`. Those requests (the question, the schema and, in agent mode if allowed, masked rows) pass through SayQL's service on their way to Anthropic, with SayQL's own Anthropic key. SayQL stores the model and token counts of each request against your team's balance, never the prompt or the answer. Anthropic handles the request under its commercial terms.
 
-**Audit with Claude Code, paid with SayQL AI credits.** If you choose "Pay with: SayQL AI credits" in the audit dialog (it is off by default, and offered only once a credit key is saved), SayQL starts Claude Code with your credit key in its environment and SayQL's endpoint at `sayql.dev/api/ai` as its API. Claude Code's requests then pass through SayQL's service on their way to Anthropic: the audit instructions, the schema and notes SayQL's tools return, and the parts of your code Claude Code reads (file contents and search results from the project folder). As for every credits request, SayQL stores only the model and token counts against your balance, never the code, the prompts or the answers. With "My Claude Code sign-in" (the default), no code goes anywhere SayQL controls.
+**Your Claude plan uses your own Claude Code.** If you pick "Your Claude plan" as your AI, SayQL starts your installed Claude Code for each request (with no tools, MCP servers or hooks, in an empty folder) and hands it what any AI provider gets: your question, the schema and notes, and in agent mode, if allowed, masked rows. Claude Code sends it to Anthropic under your own sign-in and plan. SayQL reads only Claude Code's version and sign-in status (signed in or not, and the plan name) and never reads or handles your Claude credentials. Nothing goes through SayQL.
+
+**The audit run uses your own Claude Code.** "Run audit" starts your installed Claude Code, read-only, in your project folder, on your own Claude Code sign-in (or however it's set up). SayQL passes it no API key, token or endpoint and never reads your Claude credentials; Claude Code sends its requests as it always does, and no code goes anywhere SayQL controls. Paying for the audit with SayQL AI credits is off for now.
 
 The Ask box never sends rows from your tables to an AI provider. Agent mode can, only on connections where you turn it on; it is off by default. Masking in agent mode is best effort: a free-text column can hold anything, so mark such columns "never send", or keep results to counts. With "Ask before each send", you see exactly what would go before it goes. With a local provider (Ollama or LM Studio), AI requests don't leave your computer.
 

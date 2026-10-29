@@ -732,6 +732,7 @@ pub async fn sqlite(path: &Path) -> DbPool {
         file: path.to_string_lossy().into_owned(),
         ssl: false,
         trust_cert: false,
+        production: false,
     };
     connect(&cfg, None).await.unwrap()
 }

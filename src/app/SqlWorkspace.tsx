@@ -20,7 +20,7 @@ export interface WorkspaceGeneration {
   /** Asks the expert model to review the SQL. */
   onImprove: () => void;
   canImprove: boolean;
-  followUp?: { onStartFresh: () => void };
+  followUp?: { question: string; onStartFresh: () => void };
   explanation: string | null;
   onDismissExplanation: () => void;
   /** Agent mode's setting line for this connection, shown under the Ask box in agent mode. */
@@ -69,6 +69,8 @@ export interface WorkspaceFocus {
 export interface SqlWorkspaceProps {
   connectionName: string;
   schema: Schema | null;
+  /** False on a restored tab not connected yet: Run and the Ask box stay usable, and connect first. */
+  connected?: boolean;
   /** Whether this is the visible tab. */
   active: boolean;
   modelNames: ModelNames;
@@ -83,7 +85,10 @@ export interface SqlWorkspaceProps {
 }
 
 /** The SQL editor view: the plain-English Ask bar above an editable SQL editor. */
-export function SqlWorkspace({ connectionName, schema, active, modelNames, onOpenSettings, skills, generation: g, query: q, focus, origin, agent }: SqlWorkspaceProps) {
+export function SqlWorkspace({ connectionName, schema, connected = true, active, modelNames, onOpenSettings, skills, generation: g, query: q, focus, origin, agent }: SqlWorkspaceProps) {
+  // Loading the schema (or it failed): wait, unless the tab isn't connected yet, where Run and
+  // asking are what connect it, or a question is already being typed.
+  const waiting = connected && !schema;
   const writing = g.status.kind === "writing";
   const hasSelection = !!q.selection && !!q.sql.slice(q.selection.start, q.selection.end).trim();
   return (
@@ -130,7 +135,7 @@ export function SqlWorkspace({ connectionName, schema, active, modelNames, onOpe
             shortcut="⌘↵"
             onClick={q.onRun}
             loading={q.running}
-            disabled={!schema || (!q.sql.trim() && !writing)}
+            disabled={waiting || (!q.sql.trim() && !writing)}
             title={hasSelection ? "Run only the selected statements" : undefined}
           >
             {hasSelection ? "Run selection" : writing ? "Run when ready" : "Run"}
@@ -146,7 +151,7 @@ export function SqlWorkspace({ connectionName, schema, active, modelNames, onOpe
         onSubmit={g.onSubmit}
         status={g.status}
         modelNames={modelNames}
-        disabled={!schema}
+        disabled={waiting && !g.question.trim()}
         onOpenSettings={onOpenSettings}
         onRetry={g.onRetry}
         followUp={g.followUp}

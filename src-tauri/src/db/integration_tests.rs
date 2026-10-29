@@ -87,6 +87,7 @@ fn config(kind: Kind, t: &Target, database: &str) -> ConnConfig {
         ssl: false,
         // The SQL Server test container uses its auto-generated self-signed certificate.
         trust_cert: kind == Kind::Mssql,
+        production: false,
     }
 }
 

@@ -14,13 +14,14 @@ pub(crate) mod redact;
 #[cfg(test)]
 pub(crate) use redact::database_error as mask_database_error;
 mod sse;
+pub mod subscription;
 #[cfg(test)]
 mod team_tests;
 
 pub use models::{DEFAULT_EXPERT_MODEL, DEFAULT_TYPING_MODEL, MODELS, is_known};
 pub use prompt::Task;
 pub use providers::{
-    ANTHROPIC, Api, KeyNeed, PROVIDERS, Provider, SAYQL_CREDITS, clean_base_url,
+    ANTHROPIC, Api, CLAUDE_PLAN, KeyNeed, PROVIDERS, Provider, SAYQL_CREDITS, clean_base_url,
     find as find_provider,
 };
 
@@ -50,6 +51,8 @@ pub enum Endpoint {
     },
     /// A team connection with team AI: through the team server, with the team token.
     Team(crate::team::ai::TeamAi),
+    /// The person's own Claude Code on their own Claude plan.
+    Plan,
 }
 
 impl Endpoint {
@@ -58,7 +61,7 @@ impl Endpoint {
         match self {
             Endpoint::OpenAi { .. } => true,
             Endpoint::Team(t) => t.api == Api::OpenAi,
-            Endpoint::Anthropic { .. } => false,
+            Endpoint::Anthropic { .. } | Endpoint::Plan => false,
         }
     }
 
@@ -208,6 +211,7 @@ impl<'a> Output<'a> {
 pub async fn stream_sql(app: AppHandle, http: reqwest::Client, r: GenRequest) {
     let mut out = Output::new(Sink::App(&app), r.req_id);
     let result = match (r.endpoint.claude(), r.endpoint.openai()) {
+        _ if matches!(r.endpoint, Endpoint::Plan) => subscription::run(&mut out, &r).await,
         (Some(access), _) => anthropic::run(&mut out, &http, &access, &r).await,
         (None, Some(svc)) => openai::run(&mut out, &http, &svc, &r).await,
         (None, None) => Err("This AI provider isn't supported.".into()),

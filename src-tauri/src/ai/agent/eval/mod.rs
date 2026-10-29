@@ -484,6 +484,7 @@ mod tests {
                 file: demo_file.to_string_lossy().into_owned(),
                 ssl: false,
                 trust_cert: false,
+                production: false,
             },
             None,
         )

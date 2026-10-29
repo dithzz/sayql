@@ -20,11 +20,11 @@ export interface TeachSayqlProps {
   heading?: boolean;
   /** Hides the card for good, where it can be hidden. */
   onDismiss?: () => void;
-  /** Without a target: the connections "Audit with…" offers. */
+  /** Without a target: the connections "Run audit" offers. */
   connections?: ConnectionConfig[];
   /** Shows the suggestions, from a finished audit run. */
   onReview?: () => void;
-  /** Opens "Audit with…" somewhere else (in place of the dialog the card is in). */
+  /** Opens "Run audit" somewhere else (in place of the dialog the card is in). */
   onAudit?: () => void;
 }
 
@@ -201,7 +201,8 @@ function AuditStep({ agent, target, connections, onReview, onAudit, copied, onCo
       <strong>Run an audit in your project.</strong>{" "}
       {how.kind === "run" ? (
         <>
-          Let SayQL start {agent.short} in the project folder, read-only, with no setup:
+          Let SayQL run your installed {agent.short} in the project folder, read-only, on your own sign-in, with no
+          setup:
           <div className={styles.copy}>
             <AuditButton target={target} connections={connections} onReview={onReview} onOpen={onAudit} variant="primary" />
           </div>

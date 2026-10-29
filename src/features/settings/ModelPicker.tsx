@@ -18,7 +18,7 @@ export interface ModelPickerProps {
 
 /** The models a provider offers here: Claude's list, or the ones chosen for it in Settings. */
 function modelsOf(settings: Settings, p: AiProvider): string[] {
-  if (p.api === "anthropic") return settings.models.map((m) => m.id);
+  if (p.api !== "openai") return settings.models.map((m) => m.id);
   return [...new Set([p.typingModel, p.expertModel, p.agentModel].filter(Boolean))];
 }
 

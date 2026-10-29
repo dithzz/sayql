@@ -30,7 +30,7 @@ import type { ConnectionConfig, DatabaseList, DbNote, Schema, Table } from "../.
 import { ContextMenu, IconButton, Panel, Spinner, TextInput, TreeRow, useContextMenu, type MenuEntry } from "../../components/ui";
 import { usePersistentState } from "../../hooks/usePersistentState";
 import { cx } from "../../lib/cx";
-import { DATABASE_KINDS } from "../connections";
+import { DATABASE_KINDS, ProdBadge } from "../connections";
 import { countRowsSql, qualifiedName, tableRef, templateSql, type SqlTemplate } from "../schema";
 import styles from "./DatabaseNavigator.module.css";
 
@@ -43,6 +43,10 @@ export interface DatabaseNavigatorProps {
   databaseName: string | null;
   schema: Schema | null;
   loading: boolean;
+  /** Whether the active connection is connected; restored tabs wait for the person to connect. */
+  connected: boolean;
+  /** Connects the active connection. */
+  onConnect: () => void;
   onOpen: (id: string) => void;
   onOpenDatabase: (database: string) => void;
   onAdd: () => void;
@@ -142,9 +146,9 @@ export function DatabaseNavigator(p: DatabaseNavigatorProps) {
     // A team connection is managed by the team admin: no editing or deleting it here.
     if (c.team) {
       return [
-        { label: active ? "Connected" : "Connect", icon: Plug, disabled: active, onSelect: () => p.onOpen(c.id) },
+        { label: active && p.connected ? "Connected" : "Connect", icon: Plug, disabled: active && p.connected, onSelect: () => p.onOpen(c.id) },
         { label: "New SQL tab", icon: FilePlus2, shortcut: active ? "⌘T" : undefined, onSelect: () => p.onNewTab(c.id, null) },
-        { label: "Refresh", icon: RefreshCw, disabled: !active || p.loading, onSelect: p.onRefresh },
+        { label: "Refresh", icon: RefreshCw, disabled: !active || !p.connected || p.loading, onSelect: p.onRefresh },
         "separator",
         { label: "Agent settings…", icon: Bot, onSelect: () => p.onAgentSettings(c) },
         { label: "Add database note…", icon: StickyNote, disabled: !active || !p.schema, onSelect: () => p.onEditNote(null) },
@@ -152,9 +156,9 @@ export function DatabaseNavigator(p: DatabaseNavigatorProps) {
       ];
     }
     return [
-      { label: active ? "Connected" : "Connect", icon: Plug, disabled: active, onSelect: () => p.onOpen(c.id) },
+      { label: active && p.connected ? "Connected" : "Connect", icon: Plug, disabled: active && p.connected, onSelect: () => p.onOpen(c.id) },
       { label: "New SQL tab", icon: FilePlus2, shortcut: active ? "⌘T" : undefined, onSelect: () => p.onNewTab(c.id, null) },
-      { label: "Refresh", icon: RefreshCw, disabled: !active || p.loading, onSelect: p.onRefresh },
+      { label: "Refresh", icon: RefreshCw, disabled: !active || !p.connected || p.loading, onSelect: p.onRefresh },
       "separator",
       { label: "Edit connection…", icon: Pencil, onSelect: () => p.onEdit(c) },
       { label: "Agent settings…", icon: Bot, onSelect: () => p.onAgentSettings(c) },
@@ -410,7 +414,12 @@ export function DatabaseNavigator(p: DatabaseNavigatorProps) {
               <Server size={14} color={DATABASE_KINDS[c.kind].color} />
             )
           }
-          label={<span className={styles.connLabel}>{c.name}</span>}
+          label={
+            <span className={styles.connName}>
+              <span className={styles.connLabel}>{c.name}</span>
+              <ProdBadge connection={c} />
+            </span>
+          }
           meta={active && p.loading && !list ? <Spinner size={12} /> : DATABASE_KINDS[c.kind].short}
           // Team connections show no host or password, and can't be edited here.
           title={c.team ? [c.team.database, c.team.notes, "Shared by your team admin"].filter(Boolean).join(" · ") : undefined}
@@ -418,8 +427,30 @@ export function DatabaseNavigator(p: DatabaseNavigatorProps) {
           onClick={() => p.onOpen(c.id)}
           onContextMenu={(e) => menu.open(e, connectionMenu(c))}
         />
+        {/* Not connected yet (SayQL never connects on its own at start): one click connects. */}
+        {active && !p.connected && (
+          <TreeRow
+            depth={1}
+            icon={<Plug size={14} />}
+            label={<span className={styles.message}>Not connected</span>}
+            title={`Connect to ${c.name}`}
+            meta={
+              <button
+                type="button"
+                className={styles.connect}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  p.onConnect();
+                }}
+              >
+                Connect
+              </button>
+            }
+            onClick={p.onConnect}
+          />
+        )}
         {/* Servers list their databases; SQLite (or a server that won't list them) shows the schema directly. */}
-        {active && (list ? renderDatabases(c, list) : renderSchema(c.id, 1))}
+        {active && p.connected && (list ? renderDatabases(c, list) : renderSchema(c.id, 1))}
       </div>
     );
   };

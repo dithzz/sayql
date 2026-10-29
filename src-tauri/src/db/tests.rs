@@ -2,6 +2,23 @@
 
 use super::*;
 
+/// Connections saved before the production tag existed load untagged, and the tag round-trips.
+#[test]
+fn production_tag_defaults_off_and_round_trips() {
+    let old: ConnConfig =
+        serde_json::from_str(r#"{"id":"a","name":"a","kind":"postgres","host":"h"}"#).unwrap();
+    assert!(!old.production);
+    let tagged: ConnConfig = serde_json::from_str(
+        r#"{"id":"a","name":"a","kind":"postgres","host":"h","production":true}"#,
+    )
+    .unwrap();
+    assert!(tagged.production);
+    assert_eq!(
+        serde_json::to_value(&tagged).unwrap()["production"],
+        serde_json::json!(true)
+    );
+}
+
 #[tokio::test]
 async fn demo_database_end_to_end() {
     let dir = std::env::temp_dir().join(format!("sayql-test-{}", uuid::Uuid::new_v4()));
@@ -18,6 +35,7 @@ async fn demo_database_end_to_end() {
         file: path.to_string_lossy().into_owned(),
         ssl: false,
         trust_cert: false,
+        production: false,
     };
     let pool = connect(&cfg, None).await.expect("connect");
 
@@ -129,6 +147,7 @@ async fn sqlite_queries_cancel_and_show_the_first_result() {
         file: path.to_string_lossy().into_owned(),
         ssl: false,
         trust_cert: false,
+        production: false,
     };
     let pool = connect(&cfg, None).await.expect("connect");
 
@@ -205,6 +224,7 @@ async fn sqlite_large_schema() {
         file: path.to_string_lossy().into_owned(),
         ssl: false,
         trust_cert: false,
+        production: false,
     };
     let pool = connect(&cfg, None).await.expect("connect");
     let started = std::time::Instant::now();

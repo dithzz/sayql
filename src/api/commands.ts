@@ -32,6 +32,7 @@ import type {
   AppInfo,
   Target,
   VoiceStatus,
+  PlanCheck,
 } from "./types";
 
 /** Typed wrappers for the Tauri commands registered in src-tauri/src/lib.rs. */
@@ -146,7 +147,7 @@ export const commands = {
   /** The model audits run on (Sonnet until the person picks another). */
   auditModel: () => invoke<AuditModel>("audit_model"),
   setAuditModel: (model: AuditModel) => invoke<void>("set_audit_model", { model }),
-  /** Who pays for audits (the person's Claude Code sign-in until they pick SayQL credits). */
+  /** Who pays for audits: always the person's own Claude Code sign-in while paying with credits is off (unused by the UI). */
   auditPayment: () => invoke<AuditPaymentView>("audit_payment"),
   setAuditPayment: (payment: AuditPayment) => invoke<void>("set_audit_payment", { payment }),
   /** Opens the system terminal in `folder` running the same read-only audit interactively. */
@@ -170,6 +171,8 @@ export const commands = {
   /** Model ids an AI provider offers; also checks the key and base URL. */
   listModels: (provider: string, baseUrl: string, apiKey: string | null) =>
     invoke<string[]>("list_models", { provider, baseUrl, apiKey }),
+  /** "Your Claude plan": checks the installed Claude Code is recent enough and signed in. */
+  checkClaudePlan: () => invoke<PlanCheck>("check_claude_plan"),
 
   /** Voice input: whether the on-device speech model is downloaded. */
   voiceStatus: () => invoke<VoiceStatus>("voice_status"),

@@ -39,7 +39,7 @@ it("lists what AI apps ran, refusals included, and says rows are never kept", as
   expect(await screen.findByText("SELECT email FROM customers")).toBeTruthy();
   expect(screen.getByText(/never-send column email/)).toBeTruthy();
   expect(screen.getByText(/· 1 row\b/)).toBeTruthy();
-  expect(screen.getByText(/the SQL and how many rows, never the rows/)).toBeTruthy();
+  expect(screen.getByText(/the SQL and how many rows it returned, not the rows themselves/)).toBeTruthy();
 });
 
 it("filters by app, connection and refused only", async () => {

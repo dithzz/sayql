@@ -1,6 +1,10 @@
 <!-- order: 7 | slug: databases | title: Databases | group: Configure | description: Connect PostgreSQL, MySQL, SQLite, SQL Server and Azure SQL. -->
 <p class="lead">SayQL connects straight from your computer to your database. There's no SayQL server in between.</p>
 <p>Click <b>New connection</b> in the top bar, pick the type, fill in the details and click <b>Test</b>, then <b>Save</b>. Passwords are stored in your system keychain.</p>
+<h2>Production connections</h2>
+<p>Tick <b>This is a production database</b> under <b>Production</b> in the connection's settings and it shows a red <b>PROD</b> badge in the navigator, on its tabs, in the top bar and in the status bar. It's a label only: it doesn't change how queries run.</p>
+<h2>Connecting</h2>
+<p>SayQL doesn't connect to anything on its own when it starts. The tabs you had open come back dimmed with <b>Not connected</b> and a <b>Connect</b> button (also in the navigator and the status bar). A connection opens when you click it in the navigator, click <b>Connect</b>, run a query or ask a question. AI apps over MCP are separate: <code>sayql-mcp</code> opens the connections they ask for, as before.</p>
 <p>Have a connection string? Paste it into <b>Connection string</b> at the top and SayQL fills in the rest, including the password. It reads URLs (<code>postgres://</code>, <code>mysql://</code>, <code>sqlserver://</code>), JDBC (<code>jdbc:postgresql://</code>, <code>jdbc:sqlserver://</code>) and key=value strings such as <code>Server=…;Initial Catalog=…</code>. The string isn't kept, and the password is saved to the keychain only when you click <b>Save</b>.</p>
 <div class="table-wrap"><table>
   <thead><tr><th>Type</th><th>Default port</th><th>Notes</th></tr></thead>

@@ -1,8 +1,8 @@
-//! "Audit with…": runs a coding agent's CLI in the person's project folder, read-only, with the
+//! "Run audit": runs a coding agent's CLI in the person's project folder, read-only, with the
 //! audit instructions from [`crate::audit`], and turns its streamed output into short progress
-//! lines. By default the agent uses the person's own sign-in and subscription, and no code
-//! leaves the computer through SayQL; paid with SayQL AI credits ([`AuditPayment::Credits`]),
-//! its model requests go through SayQL's credits service, which keeps only token counts.
+//! lines. The agent uses the person's own sign-in, whatever it is set up with: SayQL injects no
+//! credentials and never reads the agent's, and no code leaves the computer through SayQL.
+//! Paying with SayQL AI credits ([`AuditPayment::Credits`]) is off: see [`CREDITS_RUNS`].
 //! SayQL starts it and reads what it prints, and its database access goes through SayQL's MCP
 //! server like any AI app's (gated, logged, never-send columns kept out).
 //!
@@ -103,6 +103,15 @@ impl AuditModel {
         }
     }
 }
+
+/// Whether an audit may be paid with SayQL AI credits. Off, pending Anthropic's confirmation
+/// that a product may pay for a person's Claude Code usage: Claude Code's legal and compliance
+/// terms let a product launch it on the person's own sign-in, but not pay for, resell or
+/// intermediate that usage. While it's off every run uses the person's own Claude Code sign-in:
+/// a saved credits preference counts as the sign-in, and SayQL sets no `ANTHROPIC_BASE_URL` or
+/// `ANTHROPIC_AUTH_TOKEN` for the run. The credits code below stays compiled and tested so it
+/// can be turned back on.
+pub const CREDITS_RUNS: bool = false;
 
 /// Who pays for the audit's model requests.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -1557,6 +1566,7 @@ not json at all
                 file: root.join("smoke.sqlite").to_string_lossy().into_owned(),
                 ssl: false,
                 trust_cert: false,
+                production: false,
             }])
             .unwrap();
         let mcp = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/debug/sayql-mcp");

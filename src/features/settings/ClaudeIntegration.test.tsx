@@ -100,6 +100,9 @@ it("shows the setup open when no app has connected, closed once one has", async 
   const { unmount } = render(<ClaudeIntegration connections={connections} provider={provider} suggestions={api([])} />);
   const toggle = await screen.findByRole("button", { name: "Connect an app" });
   await waitFor(() => expect(toggle.getAttribute("aria-expanded")).toBe("true"));
+  // First on the tab, above the apps and the per-connection table.
+  const heading = screen.getByRole("heading", { name: "Connections" });
+  expect(toggle.compareDocumentPosition(heading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   // Nothing installed or connected: Claude Code.
   expect(await screen.findByText(`claude mcp add --scope user sayql -- ${PATH}`)).toBeTruthy();
   unmount();

@@ -30,6 +30,11 @@ export interface EditorTab {
   agentRun?: AgentRunState | null;
 }
 
+/** A tab nothing has happened in yet: no SQL, question, run, title or script. */
+export function isPristine(tab: EditorTab): boolean {
+  return !tab.sql.trim() && !tab.question.trim() && !tab.title && !tab.scriptId && !tab.lastRun && !tab.agentRun && !tab.origin;
+}
+
 /** True when closing the tab would lose SQL. */
 export function hasUnsavedChanges(tab: EditorTab): boolean {
   return tab.sql.trim() !== "" && tab.sql !== (tab.savedSql ?? "");

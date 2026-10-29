@@ -14,6 +14,10 @@ export interface TabItem {
   title?: string;
   /** Shows a dot until hovered, like an unsaved file. */
   dirty?: boolean;
+  /** A small badge after the label, e.g. PROD. */
+  badge?: ReactNode;
+  /** Shown dimmed, e.g. a tab whose connection isn't connected yet. */
+  muted?: boolean;
 }
 
 export interface TabBarProps {
@@ -39,7 +43,7 @@ export function TabBar({ items, activeId, onSelect, onClose, onAdd, addLabel = "
             role="tab"
             aria-selected={t.id === activeId}
             title={t.title}
-            className={cx(styles.tab, t.id === activeId && styles.active)}
+            className={cx(styles.tab, t.id === activeId && styles.active, t.muted && styles.muted)}
             onClick={() => onSelect(t.id)}
             onAuxClick={(e) => e.button === 1 && onClose(t.id)}
             onContextMenu={menu && ((e) => context.open(e, menu(t.id)))}
@@ -49,6 +53,7 @@ export function TabBar({ items, activeId, onSelect, onClose, onAdd, addLabel = "
               {t.label}
               {t.detail && <span className={styles.detail}> · {t.detail}</span>}
             </span>
+            {t.badge && <span className={styles.badge}>{t.badge}</span>}
             {t.dirty && <span className={styles.dirty} aria-label="Unsaved changes" />}
             <IconButton
               icon={X}

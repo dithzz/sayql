@@ -8,6 +8,17 @@
   margin: 0;
 }
 
+.groupLabel {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+}
+
+.default {
+  font-weight: normal;
+  color: var(--color-text-muted);
+}
+
 .options {
   display: flex;
   flex-direction: column;

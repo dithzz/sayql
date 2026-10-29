@@ -1,7 +1,7 @@
 import { Database, Plus, Settings as SettingsIcon } from "lucide-react";
 import type { ConnectionConfig, Schema } from "../api";
 import { Badge, Wordmark, Button, IconButton, ToolbarDivider } from "../components/ui";
-import { DATABASE_KINDS } from "../features/connections";
+import { DATABASE_KINDS, ProdBadge } from "../features/connections";
 import { ThemeToggle } from "../features/theme";
 import styles from "./Workbench.module.css";
 
@@ -31,6 +31,7 @@ export function TopBar({ active, databaseName, schema, onNewConnection, onOpenSe
           <span className={styles.activeName}>{active.name}</span>
           {databaseName && active.kind !== "sqlite" && <span className={styles.activeDatabase}>{databaseName}</span>}
           {schema && <Badge>{schema.dialect}</Badge>}
+          <ProdBadge connection={active} />
         </div>
       )}
       <span className={styles.spacer} />

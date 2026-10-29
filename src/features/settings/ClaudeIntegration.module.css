@@ -355,3 +355,11 @@
   text-align: center;
   vertical-align: middle;
 }
+
+/* "Connect an app" while no app has connected yet: the first thing to do here. */
+.connectFirst {
+  padding: var(--space-3);
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-lg);
+  background: var(--color-accent-soft);
+}
