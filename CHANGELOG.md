@@ -3,6 +3,33 @@
 All notable changes to SayQL are listed here. Downloads are on the
 [releases page](https://github.com/dithzz/sayql-releases/releases).
 
+## 0.4.10 (2026-10-29)
+
+From a code audit of SayQL. Update if you use SQL Server, or let AI apps read your saved queries.
+
+### Safety
+
+- **Read-only on SQL Server could be bypassed.** SQL Server comments nest, and a `]` inside brackets is written
+  `]]`; the read-only check ended both early, so a statement like `SELECT 1 /* /* */ '*/ DELETE FROM x; COMMIT --'`
+  passed as read-only, and its `COMMIT` defeated the rollback. The check now reads SQL with the same lexer as
+  never-send, which handles both (and Postgres' nested comments, and backticks outside MySQL and SQLite). This
+  applied to the editor, Investigate and AI apps on SQL Server connections.
+- **Saved queries shown to AI apps hid fewer values than they should.** At "Counts and summaries" and
+  "Rows, masked", AI apps see saved queries with their values masked; MySQL `"…"` strings, backslash escapes,
+  Postgres `$$…$$` strings and comments slipped through. Every string and comment is masked now.
+- **MySQL `/*! … */`**, which MySQL runs as SQL, is read as SQL by never-send too.
+- **Your Claude plan** passes the system prompt (with the schema) to Claude Code in a private file, not on the
+  command line, where other programs could read it and Windows limits its length. Claude Code runs in a folder of
+  your own, not the shared temp folder.
+
+### Under the hood
+
+- One log format for the AI apps' activity and Your activity.
+- The first keychain read of a launch no longer holds up other work while macOS asks for permission.
+- A linter (oxlint with React's hook rules) and a design-token check run in CI; their findings are fixed.
+- Code moved where it belongs: personal-data detectors in their own module, the masker in three files, coding-agent
+  process handling out of the audit command, the Get started logic out of the main window.
+
 ## 0.4.9 (2026-10-29)
 
 ### Agent mode is now Investigate

@@ -11,6 +11,15 @@ export interface WhatsNewEntry {
 
 export const WHATS_NEW: WhatsNewEntry[] = [
   {
+    version: "0.4.10",
+    items: [
+      {
+        title: "Safety fixes",
+        text: "SQL Server's read-only check reads nested comments correctly, and AI apps see saved queries with every value masked.",
+      },
+    ],
+  },
+  {
     version: "0.4.9",
     items: [
       {
