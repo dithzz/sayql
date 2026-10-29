@@ -3,7 +3,7 @@ import { Bot, Database, Pencil, Plug, ShieldCheck, StickyNote } from "lucide-rea
 import { commands, type ConnectionConfig, type McpActivity, type Schema } from "../api";
 import { Button, Dialog } from "../components/ui";
 import { AuditButton, auditAge, lastAudit, privacySummary, useAgentAccess, useAudits } from "../features/agent";
-import { MyActivityLog } from "../features/settings/MyActivity";
+import { MyActivityLog } from "../features/settings";
 import { DATABASE_KINDS, ProdBadge } from "../features/connections";
 import styles from "./ConnectionOverview.module.css";
 

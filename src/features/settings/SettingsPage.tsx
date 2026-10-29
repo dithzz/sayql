@@ -13,10 +13,11 @@ import { ClaudeIntegration, type AiAppsTab } from "./ClaudeIntegration";
 import { ClaudePlanCheck } from "./ClaudePlanCheck";
 import { MyActivityLog } from "./MyActivity";
 import { version } from "../../../package.json";
-import { docsUrl } from "../help/docs";
+import { docsUrl } from "../help";
 import styles from "./SettingsPage.module.css";
 
-export type SettingsSection = "ai" | "agent" | "skills" | "voice" | "mcp" | "activity" | "team" | "about";
+import type { SettingsSection } from "./sections";
+export type { SettingsSection };
 
 const SECTIONS: { id: SettingsSection; label: string; icon: LucideIcon }[] = [
   { id: "ai", label: "AI provider", icon: Sparkles },

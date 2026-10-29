@@ -104,7 +104,7 @@ impl Recording {
                 }
             }
             drop(stream);
-            let samples = std::mem::take(&mut *shared.samples.lock().unwrap());
+            let samples = std::mem::take(&mut *crate::state::lock(&shared.samples));
             Captured {
                 samples,
                 rate,
@@ -216,7 +216,7 @@ where
                 }
                 shared.peak.store(peak.to_bits(), Ordering::Relaxed);
                 shared.frames.fetch_add(mono.len(), Ordering::Relaxed);
-                let mut samples = shared.samples.lock().unwrap();
+                let mut samples = crate::state::lock(&shared.samples);
                 let room = max.saturating_sub(samples.len());
                 samples.extend_from_slice(&mono[..mono.len().min(room)]);
             },

@@ -1,5 +1,5 @@
 import type { Schema } from "../../api";
-import { qualifiedName } from "../schema/sql";
+import { qualifiedName } from "../schema";
 
 /** Where voice input is, for one Ask box. */
 export type VoicePhase =

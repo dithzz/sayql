@@ -1,4 +1,5 @@
 use super::Kind;
+use crate::sql_lex::{Tok, lex};
 
 /// Keywords that can change data, structure, permissions, session or transaction state.
 /// `INTO` covers `SELECT ... INTO new_table` and `INSERT INTO`; `USE` and `SET` change
@@ -99,28 +100,22 @@ const WRITE_PREFIXES: &[&str] = &[
 
 /// True when the statement only reads data: it starts with a reading keyword and
 /// contains no write keyword outside strings, quoted identifiers and comments, read the
-/// way `kind`'s database reads them.
+/// way `kind`'s database reads them (`sql_lex`, which also covers SQL Server's nested
+/// comments and `]]` escapes, and MySQL's `/*! … */`, whose inside runs as SQL).
 ///
 /// The database enforces this too, where it can: read-only transactions on Postgres and
 /// MySQL, a read-only connection on SQLite, and an always-rolled-back transaction on
 /// SQL Server (which has no read-only mode, so there this check matters most).
 pub fn is_read_only(sql: &str, kind: Kind) -> bool {
-    // Whether `\` escapes a quote in a plain string depends on server settings
-    // (MySQL's NO_BACKSLASH_ESCAPES, Postgres' standard_conforming_strings), so the
-    // statement must read as read-only both ways.
-    let backslash: &[bool] = match kind {
-        Kind::Mysql | Kind::Postgres => &[true, false],
-        Kind::Sqlite | Kind::Mssql => &[false],
-    };
-    backslash
+    // Some settings change where strings end (MySQL's NO_BACKSLASH_ESCAPES, Postgres'
+    // standard_conforming_strings), so the statement must read as read-only every way.
+    lex(sql, crate::never_send::dialect(kind))
         .iter()
-        .all(|&backslash| reads_only(sql, Lexer { kind, backslash }))
+        .all(|l| reads_only(sql, &l.toks))
 }
 
-fn reads_only(sql: &str, lexer: Lexer) -> bool {
-    let first = lexer
-        .tokens(sql)
-        .find(|t| !matches!(t, Tok::Sym(b'(' | b';')));
+fn reads_only(sql: &str, toks: &[Tok]) -> bool {
+    let first = toks.iter().find(|t| !(t.is_punct('(') || t.is_punct(';')));
     let reads = match first {
         Some(Tok::Word(w)) => match w.to_ascii_uppercase().as_str() {
             "SELECT" | "WITH" | "EXPLAIN" | "SHOW" | "DESCRIBE" | "DESC" | "VALUES" | "TABLE" => {
@@ -135,9 +130,15 @@ fn reads_only(sql: &str, lexer: Lexer) -> bool {
     if !reads {
         return false;
     }
-    let words: Vec<&str> = lexer
-        .tokens(sql)
-        .filter_map(|t| if let Tok::Word(w) = t { Some(w) } else { None })
+    let words: Vec<&str> = toks
+        .iter()
+        .filter_map(|t| {
+            if let Tok::Word(w) = t {
+                Some(w.as_str())
+            } else {
+                None
+            }
+        })
         .collect();
     let is = |w: &str, k: &str| w.eq_ignore_ascii_case(k);
     // SQL Server's `NEXT VALUE FOR seq` advances a sequence, and a rollback doesn't undo it.
@@ -153,148 +154,6 @@ fn reads_only(sql: &str, lexer: Lexer) -> bool {
                 || WRITE_PREFIXES.iter().any(|p| upper.starts_with(p)))
     };
     !next_value && !words.iter().enumerate().any(|(i, w)| writes(i, w))
-}
-
-#[derive(Debug, PartialEq)]
-enum Tok<'a> {
-    /// A bare word: keyword, unquoted identifier or function name.
-    Word(&'a str),
-    /// Any other character outside strings and comments; a whole string or quoted
-    /// identifier is one `Sym` of its opening quote.
-    Sym(u8),
-}
-
-#[derive(Clone, Copy)]
-struct Lexer {
-    kind: Kind,
-    /// Plain `'...'` strings (and MySQL `"..."` strings) treat `\` as an escape.
-    backslash: bool,
-}
-
-impl Lexer {
-    /// Tokens of the statement, skipping whitespace and comments.
-    fn tokens(self, sql: &str) -> impl Iterator<Item = Tok<'_>> {
-        let (mysql, postgres) = (self.kind == Kind::Mysql, self.kind == Kind::Postgres);
-        let bytes = sql.as_bytes();
-        let mut i = 0;
-        // Index just past the next `end` at or after `from`, or the end of the text.
-        let skip_to = |from: usize, end: &str| {
-            sql[from..]
-                .find(end)
-                .map_or(sql.len(), |p| from + p + end.len())
-        };
-        // Index just past the closing `q` of a quoted run starting at `from`, where `\`
-        // escapes the next byte and a doubled `q` is a literal one.
-        let skip_escaped = |mut j: usize, q: u8| {
-            while j < bytes.len() {
-                match bytes[j] {
-                    b'\\' => j += 2,
-                    c if c == q && bytes.get(j + 1) == Some(&q) => j += 2,
-                    c if c == q => return j + 1,
-                    _ => j += 1,
-                }
-            }
-            bytes.len()
-        };
-        // MySQL and Postgres allow `$` inside identifiers (`a$b`); elsewhere a `$` ends a word.
-        let word_byte = move |c: u8| {
-            c.is_ascii_alphanumeric() || c == b'_' || (c == b'$' && (mysql || postgres))
-        };
-        std::iter::from_fn(move || {
-            while i < bytes.len() {
-                let c = bytes[i];
-                let next = bytes.get(i + 1).copied();
-                let start = i;
-                match c {
-                    b'\'' => {
-                        // Postgres E'...' strings always take backslash escapes.
-                        let e_string = postgres
-                            && i > 0
-                            && bytes[i - 1].eq_ignore_ascii_case(&b'e')
-                            && (i == 1 || !word_byte(bytes[i - 2]));
-                        i = if self.backslash || e_string {
-                            skip_escaped(i + 1, b'\'')
-                        } else {
-                            skip_to(i + 1, "'")
-                        };
-                        // '' escapes re-enter as an empty string in the non-escaped case.
-                    }
-                    // In MySQL `"` quotes a string (unless ANSI_QUOTES) and takes `\` escapes.
-                    b'"' if mysql && self.backslash => i = skip_escaped(i + 1, b'"'),
-                    b'"' => i = skip_to(i + 1, "\""),
-                    // Backticks quote identifiers in MySQL and SQLite; elsewhere they aren't quotes.
-                    b'`' if mysql || self.kind == Kind::Sqlite => i = skip_to(i + 1, "`"),
-                    // Only SQL Server and SQLite quote identifiers with brackets; in
-                    // Postgres `[` indexes arrays, and in MySQL it is not valid.
-                    b'[' if !mysql && !postgres => i = skip_to(i + 1, "]"),
-                    // Postgres dollar quoting: $$...$$ or $tag$...$tag$ (but not $1).
-                    b'$' if postgres => {
-                        let tag_end = bytes[i + 1..]
-                            .iter()
-                            .position(|&b| !(b.is_ascii_alphanumeric() || b == b'_'))
-                            .map(|p| i + 1 + p);
-                        match tag_end {
-                            Some(t)
-                                if bytes[t] == b'$'
-                                    && !bytes.get(i + 1).is_some_and(u8::is_ascii_digit) =>
-                            {
-                                let tag = &sql[i..=t];
-                                i = skip_to(t + 1, tag);
-                            }
-                            _ => i += 1,
-                        }
-                    }
-                    // MySQL needs whitespace after `--` for a comment: `1--1` is arithmetic.
-                    b'-' if next == Some(b'-')
-                        && (!mysql
-                            || bytes.get(i + 2).is_none_or(|b| {
-                                b.is_ascii_whitespace() || b.is_ascii_control()
-                            })) =>
-                    {
-                        i = skip_to(i, "\n");
-                        continue;
-                    }
-                    b'#' if mysql => {
-                        i = skip_to(i, "\n");
-                        continue;
-                    }
-                    b'/' if next == Some(b'*') => {
-                        // MySQL runs the inside of `/*! ... */` (and MariaDB `/*M! ... */`) as SQL.
-                        let rest = &bytes[i + 2..];
-                        let marker = if rest.starts_with(b"!") {
-                            1
-                        } else if rest.starts_with(b"M!") {
-                            2
-                        } else {
-                            0
-                        };
-                        if mysql && marker > 0 {
-                            i += 2 + marker;
-                            while i < bytes.len() && bytes[i].is_ascii_digit() {
-                                i += 1;
-                            }
-                        } else {
-                            i = skip_to(i + 2, "*/");
-                        }
-                        continue;
-                    }
-                    c if c.is_ascii_alphabetic() || c == b'_' => {
-                        while i < bytes.len() && word_byte(bytes[i]) {
-                            i += 1;
-                        }
-                        return Some(Tok::Word(&sql[start..i]));
-                    }
-                    c if c.is_ascii_whitespace() => {
-                        i += 1;
-                        continue;
-                    }
-                    _ => i += 1,
-                }
-                return Some(Tok::Sym(c));
-            }
-            None
-        })
-    }
 }
 
 #[cfg(test)]
@@ -488,6 +347,32 @@ mod tests {
         assert!(ro_everywhere("SELECT pg_try_advisory_xact_lock(42)"));
         assert!(ro_everywhere("SELECT * FROM pg_stat_activity"));
         assert!(ro_everywhere("SELECT slot_name FROM pg_replication_slots"));
+    }
+
+    #[test]
+    fn tsql_nested_comments_and_bracket_escapes_cannot_hide_writes() {
+        // The 2026-10-29 audit: the old lexer ended a comment at the first `*/`, so the
+        // DELETE and COMMIT below were read as part of a string.
+        assert!(!is_read_only(
+            "SELECT 1 /* /* */ '*/ DELETE FROM x; COMMIT --'",
+            Kind::Mssql
+        ));
+        assert!(!is_read_only(
+            "SELECT [a]]' ] ; DELETE FROM x --'",
+            Kind::Mssql
+        ));
+        // Postgres comments nest too.
+        assert!(!is_read_only(
+            "SELECT 1 /* /* */ '*/ DELETE FROM x; -- '",
+            Kind::Postgres
+        ));
+        // Backticks quote nothing on SQL Server either.
+        assert!(!is_read_only("SELECT 1 ` DELETE FROM t `", Kind::Mssql));
+        // Ordinary nested comments and escaped brackets still read fine.
+        assert!(is_read_only(
+            "/* outer /* inner */ still a comment */ SELECT [a]]b] FROM t",
+            Kind::Mssql
+        ));
     }
 
     #[test]

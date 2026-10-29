@@ -1,0 +1,28 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["react", "typescript", "unicorn", "oxc", "import"],
+  "categories": {
+    "correctness": "error"
+  },
+  "rules": {
+    "react-hooks/rules-of-hooks": "error",
+    "react-hooks/exhaustive-deps": "error",
+    "react/jsx-key": "error",
+    "react/no-danger": "error",
+    "import/no-cycle": "error",
+    "no-unused-vars": "error",
+    // `x == null` (null or undefined) is the one loose comparison allowed.
+    "eqeqeq": ["error", "always", { "null": "ignore" }],
+    // TypeScript already checks imports; this rule can't see Vite's `?worker` modules.
+    "import/default": "off",
+
+    // React Compiler rules: SayQL doesn't use the compiler, so these are advice, not bugs.
+    "react/set-state-in-effect": "off",
+    "react/refs": "off",
+    "react/purity": "off",
+    "react/preserve-manual-memoization": "off",
+    "react/incompatible-library": "off",
+    "react/globals": "off"
+  },
+  "ignorePatterns": ["dist", "src-tauri", "site", "node_modules"]
+}

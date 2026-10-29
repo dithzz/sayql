@@ -29,6 +29,9 @@ trait Backend {
     fn delete(&self, service: &str, account: &str) -> AppResult<()>;
 }
 
+/// The OS keychain; unit tests use `TestKeychain` instead.
+#[derive(Default)]
+#[cfg_attr(test, allow(dead_code))]
 struct Keychain;
 
 impl Backend for Keychain {
@@ -148,7 +151,36 @@ impl<B: Backend> Vault<B> {
     }
 }
 
-static VAULT: LazyLock<Mutex<Vault<Keychain>>> = LazyLock::new(|| Mutex::new(Vault::new(Keychain)));
+/// Unit tests get an empty keychain of their own: they must never read or change the real
+/// one (and on macOS a read can wait on a permission prompt nobody answers).
+#[cfg(test)]
+#[derive(Default)]
+struct TestKeychain(Mutex<BTreeMap<(String, String), String>>);
+
+#[cfg(test)]
+impl Backend for TestKeychain {
+    fn read(&self, service: &str, account: &str) -> AppResult<Option<String>> {
+        Ok(lock(&self.0)
+            .get(&(service.into(), account.into()))
+            .cloned())
+    }
+    fn write(&self, service: &str, account: &str, value: &str) -> AppResult<()> {
+        lock(&self.0).insert((service.into(), account.into()), value.into());
+        Ok(())
+    }
+    fn delete(&self, service: &str, account: &str) -> AppResult<()> {
+        lock(&self.0).remove(&(service.into(), account.into()));
+        Ok(())
+    }
+}
+
+#[cfg(not(test))]
+type Live = Keychain;
+#[cfg(test)]
+type Live = TestKeychain;
+
+static VAULT: LazyLock<Mutex<Vault<Live>>> =
+    LazyLock::new(|| Mutex::new(Vault::new(Live::default())));
 
 fn get(account: &str) -> Option<String> {
     lock(&VAULT).get(account).ok().flatten()
@@ -164,6 +196,25 @@ fn connection_account(conn_id: &str) -> String {
 
 pub fn password(conn_id: &str) -> Option<String> {
     get(&connection_account(conn_id))
+}
+
+/// [`password`] off the async runtime: the first keychain read of a launch can wait on the
+/// system's permission prompt, and must not hold up other requests meanwhile.
+pub async fn password_async(conn_id: &str) -> Option<String> {
+    let id = conn_id.to_string();
+    tokio::task::spawn_blocking(move || password(&id))
+        .await
+        .ok()
+        .flatten()
+}
+
+/// [`api_key`] off the async runtime, for the same reason as [`password_async`].
+pub async fn api_key_async(provider: &str) -> Option<String> {
+    let provider = provider.to_string();
+    tokio::task::spawn_blocking(move || api_key(&provider))
+        .await
+        .ok()
+        .flatten()
 }
 
 pub fn set_password(conn_id: &str, password: &str) -> AppResult<()> {

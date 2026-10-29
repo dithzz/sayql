@@ -327,10 +327,10 @@ impl AppState {
         }
         let cfg = self.store.connection(id)?;
         let pool = match &target.database {
-            None => db::connect(&cfg, secrets::password(id)).await?,
+            None => db::connect(&cfg, secrets::password_async(id).await).await?,
             Some(database) => {
                 let base = Box::pin(self.target_pool(&Target::default_of(id))).await?;
-                db::open_database(&base, &cfg, secrets::password(id), database).await?
+                db::open_database(&base, &cfg, secrets::password_async(id).await, database).await?
             }
         };
         self.set_pool(target.clone(), pool.clone());

@@ -260,10 +260,13 @@ pub async fn list_models(
     }
     if p.api == Api::Anthropic {
         // Claude's models are fixed; this checks the key so a typo is caught before it's saved.
-        let key = api_key
+        let typed = api_key
             .map(|k| k.trim().to_string())
-            .filter(|k| !k.is_empty())
-            .or_else(|| secrets::api_key(p.id));
+            .filter(|k| !k.is_empty());
+        let key = match typed {
+            Some(k) => Some(k),
+            None => secrets::api_key_async(p.id).await,
+        };
         let key =
             key.ok_or_else(|| AppError::User(format!("Paste your {} key first.", p.label)))?;
         let saved = state.store.settings()?;
@@ -297,12 +300,13 @@ pub async fn list_models(
             p.label
         )));
     }
-    let key = match p.key {
-        KeyNeed::None => None,
-        _ => api_key
-            .map(|k| k.trim().to_string())
-            .filter(|k| !k.is_empty())
-            .or_else(|| secrets::api_key(p.id)),
+    let typed = api_key
+        .map(|k| k.trim().to_string())
+        .filter(|k| !k.is_empty());
+    let key = match (p.key, typed) {
+        (KeyNeed::None, _) => None,
+        (_, Some(k)) => Some(k),
+        (_, None) => secrets::api_key_async(p.id).await,
     };
     if p.key == KeyNeed::Required && key.is_none() {
         return Err(AppError::User(format!(

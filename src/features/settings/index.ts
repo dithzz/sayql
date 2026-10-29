@@ -1,5 +1,7 @@
 export { SettingsPage } from "./SettingsPage";
-export type { SettingsSection } from "./SettingsPage";
+export type { SettingsSection } from "./sections";
+export { ClaudePlanCheck } from "./ClaudePlanCheck";
+export { MyActivityLog } from "./MyActivity";
 export type { AiAppsTab } from "./ClaudeIntegration";
 export { ModelPicker } from "./ModelPicker";
 export { modelLabel, useSettings } from "./useSettings";

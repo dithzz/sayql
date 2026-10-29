@@ -17,6 +17,7 @@
 // estimates instead), so it isn't served.
 
 import crypto from "node:crypto";
+import { rpc, store } from "../../_lib/supabase.js";
 
 const UPSTREAM = (process.env.SAYQL_AI_UPSTREAM || "https://api.anthropic.com").replace(/\/+$/, "");
 const MARGIN = Number(process.env.SAYQL_AI_MARGIN || "1.2");
@@ -43,7 +44,7 @@ const PASSED_HEADERS = ["request-id", "retry-after", "x-should-retry"];
 export const config = { runtime: "nodejs" };
 
 export async function POST(request) {
-  const db = store();
+  const db = store("CREDITS");
   const anthropicKey = process.env.SAYQL_AI_ANTHROPIC_KEY;
   if (!db || !anthropicKey) return error(503, "api_error", "SayQL AI credits aren't available right now.");
 
@@ -83,9 +84,16 @@ export async function POST(request) {
     cost(price, { input: 0, write5m: oneHour ? 0 : bytes, write1h: oneHour ? bytes : 0, read: 0, output: maxTokens }) * MARGIN,
   );
   const keyHash = crypto.createHash("sha256").update(key).digest("hex");
-  const reserved = await rpc(db, "ai_reserve", { p_key_sha256: keyHash, p_amount: hold });
+  let reserved, known;
+  try {
+    reserved = await rpc(db, "ai_reserve", { p_key_sha256: keyHash, p_amount: hold });
+    if (!Array.isArray(reserved) || !reserved.length) known = await rpc(db, "ai_account_status", { p_key_sha256: keyHash });
+  } catch (e) {
+    // The credits database didn't answer: nothing was reserved, so the request can be retried.
+    console.error("ai: reserve failed", e.message);
+    return error(503, "api_error", "SayQL AI credits are briefly unavailable. Try again in a moment.");
+  }
   if (!Array.isArray(reserved) || !reserved.length) {
-    const known = await rpc(db, "ai_account_status", { p_key_sha256: keyHash });
     if (!Array.isArray(known) || !known.length || !known[0].active) {
       return error(401, "authentication_error", "That SayQL AI credit key isn't valid or was turned off.");
     }
@@ -180,11 +188,14 @@ export async function POST(request) {
 }
 
 /** Reads Anthropic's server-sent events for usage: input and cache counts in message_start,
- *  the running output count in message_delta. */
-class SseUsage {
+ *  the output count in message_delta (sent at the end). Also counts the generated text, so a
+ *  stream that breaks before message_delta is still charged for its output. */
+export class SseUsage {
   constructor() {
     this.buffer = "";
     this.u = null;
+    this.final = false;
+    this.streamedChars = 0;
     this.decoder = new TextDecoder();
   }
   push(bytes) {
@@ -201,11 +212,21 @@ class SseUsage {
         continue;
       }
       if (ev.type === "message_start" && ev.message && ev.message.usage) this.u = { ...ev.message.usage };
-      else if (ev.type === "message_delta" && ev.usage) this.u = { ...(this.u || {}), ...ev.usage };
+      else if (ev.type === "message_delta" && ev.usage) {
+        this.u = { ...(this.u || {}), ...ev.usage };
+        this.final = true;
+      } else if (ev.type === "content_block_delta" && ev.delta) {
+        const d = ev.delta;
+        this.streamedChars += String(d.text || d.thinking || d.partial_json || "").length;
+      }
     }
   }
+  /** The usage to charge. Before message_delta the output count is a placeholder, so it is at
+   *  least the streamed text at about 3 characters a token (on the high side for English). */
   usage() {
-    return this.u;
+    if (!this.u || this.final) return this.u;
+    const streamed = Math.ceil(this.streamedChars / 3);
+    return { ...this.u, output_tokens: Math.max(this.u.output_tokens || 0, streamed) };
   }
 }
 
@@ -282,18 +303,4 @@ function error(status, type, message) {
   });
 }
 
-function store() {
-  const url = process.env.WAITLIST_SUPABASE_URL;
-  const key = process.env.WAITLIST_SUPABASE_SECRET_KEY;
-  return url && key ? { url: url.replace(/\/+$/, ""), key } : null;
-}
 
-async function rpc(db, fn, args) {
-  const r = await fetch(`${db.url}/rest/v1/rpc/${fn}`, {
-    method: "POST",
-    headers: { apikey: db.key, Authorization: `Bearer ${db.key}`, "Content-Type": "application/json" },
-    body: JSON.stringify(args),
-  });
-  if (!r.ok) throw new Error(`${fn} answered ${r.status}`);
-  return r.json();
-}

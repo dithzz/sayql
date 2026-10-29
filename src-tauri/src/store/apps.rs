@@ -7,14 +7,17 @@
 //! the log keeps roughly the last two files' worth. It holds the SQL and counts, never rows.
 
 use super::Store;
+use super::jsonl::{JsonlLog, cut};
 use crate::error::AppResult;
 use crate::store::agent::AppResults;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
-use std::io::{BufRead, Write};
 
-const LOG_FILE: &str = "mcp-activity.jsonl";
-const OLD_LOG_FILE: &str = "mcp-activity.1.jsonl";
+const LOG: JsonlLog = JsonlLog {
+    file: "mcp-activity.jsonl",
+    old: "mcp-activity.1.jsonl",
+    max_bytes: MAX_LOG_BYTES,
+};
 const APPS_FILE: &str = "mcp-apps.json";
 /// Size at which the log starts a new file.
 const MAX_LOG_BYTES: u64 = 1024 * 1024;
@@ -124,60 +127,18 @@ impl Store {
     /// Appends one entry to the activity log. Errors are the caller's to ignore: a log that
     /// can't be written must not stop the query.
     pub fn log_app_activity(&self, mut entry: Activity) -> AppResult<()> {
-        if entry.sql.len() > MAX_SQL {
-            let mut end = MAX_SQL;
-            while !entry.sql.is_char_boundary(end) {
-                end -= 1;
-            }
-            entry.sql.truncate(end);
-            entry.sql.push('…');
-        }
-        let path = self.dir().join(LOG_FILE);
-        if std::fs::metadata(&path)
-            .map(|m| m.len() > MAX_LOG_BYTES)
-            .unwrap_or(false)
-        {
-            let _ = std::fs::rename(&path, self.dir().join(OLD_LOG_FILE));
-        }
-        let mut line = serde_json::to_string(&entry)?;
-        line.push('\n');
-        let mut file = std::fs::OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(&path)?;
-        file.write_all(line.as_bytes())?;
-        Ok(())
+        cut(&mut entry.sql, MAX_SQL);
+        LOG.append(self.dir(), &entry)
     }
 
     /// The newest `limit` entries, newest first. Lines that don't parse are skipped.
     pub fn app_activity(&self, limit: usize) -> AppResult<Vec<Activity>> {
-        let mut all = Vec::new();
-        for name in [OLD_LOG_FILE, LOG_FILE] {
-            match std::fs::File::open(self.dir().join(name)) {
-                Ok(f) => all.extend(
-                    std::io::BufReader::new(f)
-                        .lines()
-                        .map_while(Result::ok)
-                        .filter_map(|l| serde_json::from_str::<Activity>(&l).ok()),
-                ),
-                Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
-                Err(e) => return Err(e.into()),
-            }
-        }
-        all.reverse();
-        all.truncate(limit);
-        Ok(all)
+        LOG.read(self.dir(), |_: &Activity| true, limit)
     }
 
     /// Deletes the activity log. The blocked apps stay.
     pub fn clear_app_activity(&self) -> AppResult<()> {
-        for name in [LOG_FILE, OLD_LOG_FILE] {
-            match std::fs::remove_file(self.dir().join(name)) {
-                Err(e) if e.kind() != std::io::ErrorKind::NotFound => return Err(e.into()),
-                _ => {}
-            }
-        }
-        Ok(())
+        LOG.clear(self.dir())
     }
 
     /// Whether the person blocked `app` (by the name the app reports). An unreadable list is
@@ -296,6 +257,7 @@ impl Store {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io::Write;
 
     fn store() -> (Store, std::path::PathBuf) {
         let dir = std::env::temp_dir().join(format!("sayql-apps-{}", uuid::Uuid::new_v4()));
@@ -318,7 +280,7 @@ mod tests {
             .unwrap();
         std::fs::OpenOptions::new()
             .append(true)
-            .open(dir.join(LOG_FILE))
+            .open(dir.join(LOG.file))
             .unwrap()
             .write_all(b"not json\n")
             .unwrap();
@@ -340,9 +302,9 @@ mod tests {
         s.log_app_activity(entry("A", 1, &"x".repeat(10_000)))
             .unwrap();
         assert!(s.app_activity(1).unwrap()[0].sql.chars().count() <= MAX_SQL + 1);
-        std::fs::write(dir.join(LOG_FILE), vec![b' '; MAX_LOG_BYTES as usize + 1]).unwrap();
+        std::fs::write(dir.join(LOG.file), vec![b' '; MAX_LOG_BYTES as usize + 1]).unwrap();
         s.log_app_activity(entry("B", 2, "SELECT 1")).unwrap();
-        assert!(dir.join(OLD_LOG_FILE).exists());
+        assert!(dir.join(LOG.old).exists());
         assert_eq!(s.app_activity(10).unwrap()[0].app, "B");
         let _ = std::fs::remove_dir_all(dir);
     }

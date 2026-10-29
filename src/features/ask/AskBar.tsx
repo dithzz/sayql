@@ -4,7 +4,7 @@ import type { Skill } from "../../api";
 import { Button, IconButton, Kbd, Spinner } from "../../components/ui";
 import { cx } from "../../lib/cx";
 import type { ModelNames } from "../settings";
-import { cancelVoiceDownload } from "../voice/voiceModel";
+import { cancelVoiceDownload } from "../voice";
 import { useVoice, VoiceButton, VoicePanel, VoiceStrip, voiceTakesEscape, withTranscript } from "../voice";
 import type { GenerationStatus } from "./useSqlGeneration";
 import { ContextPill } from "./ContextPill";

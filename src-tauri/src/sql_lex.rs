@@ -1,9 +1,9 @@
 //! Ported from the SayQL Team server (sayql-server src/sql_lex.rs).
 //!
 //! A small SQL lexer that knows where each engine's strings, quoted identifiers and comments
-//! start and end. The classifier and the never-send checks read its tokens, so a write keyword
-//! or a column name can't hide inside something one engine treats as a string and another
-//! doesn't.
+//! start and end. The read-only classifier (`db::classify`), the never-send checks and the
+//! masker read its tokens, so a write keyword or a column name can't hide inside something
+//! one engine treats as a string and another doesn't.
 //!
 //! Some engine settings change how text is split (MySQL `NO_BACKSLASH_ESCAPES` and
 //! `ANSI_QUOTES`, Postgres `standard_conforming_strings`). The server can't know them, so
@@ -101,6 +101,9 @@ pub struct Lexed {
     pub toks: Vec<Tok>,
     /// MySQL `/*! … */`, `/*M! … */` (run as SQL) or `/*+ … */` (optimizer hints).
     pub exec_comment: bool,
+    /// Byte ranges of what can hold values from the data: the inside of every string literal
+    /// (and of MySQL `"…"`, a string unless ANSI_QUOTES is on) and the text of every comment.
+    pub hidden: Vec<(usize, usize)>,
 }
 
 /// The statement's tokens under each plausible engine setting.
@@ -110,6 +113,31 @@ pub fn lex(sql: &str, dialect: Dialect) -> Vec<Lexed> {
         .iter()
         .map(|v| lex_one(sql, dialect, *v))
         .collect()
+}
+
+/// `sql` with every string literal's and comment's text replaced by `…`, under every way
+/// each of `dialects` can read it: what's left is the statement's shape, with no values.
+pub fn mask_values(sql: &str, dialects: &[Dialect]) -> String {
+    let mut spans: Vec<(usize, usize)> = dialects
+        .iter()
+        .flat_map(|d| lex(sql, *d))
+        .flat_map(|l| l.hidden)
+        .filter(|(a, b)| b > a)
+        .collect();
+    spans.sort_unstable();
+    let mut out = String::with_capacity(sql.len());
+    let mut at = 0;
+    for (a, b) in spans {
+        if b <= at {
+            continue;
+        }
+        let a = a.max(at);
+        out.push_str(&sql[at..a]);
+        out.push('…');
+        at = b;
+    }
+    out.push_str(&sql[at..]);
+    out
 }
 
 fn is_ident_start(b: u8) -> bool {
@@ -130,6 +158,8 @@ fn lex_one(sql: &str, dialect: Dialect, v: Variant) -> Lexed {
     let mut i = 0;
     // End of the previous token, to spot prefixes written right before a quote (E'…', U&"…").
     let mut prev_end = usize::MAX;
+    // Inside a MySQL `/*! … */`, whose inside runs as SQL.
+    let mut in_exec = false;
     while i < n {
         let c = b[i];
         let start = i;
@@ -145,6 +175,7 @@ fn lex_one(sql: &str, dialect: Dialect, v: Variant) -> Lexed {
                         .is_none_or(|x| x.is_ascii_whitespace() || *x < 0x20);
                 if comment {
                     i = line_end(b, i);
+                    out.hidden.push((start + 2, i));
                     continue;
                 }
                 out.toks.push(Tok::Punct('-'));
@@ -152,17 +183,43 @@ fn lex_one(sql: &str, dialect: Dialect, v: Variant) -> Lexed {
             }
             b'#' if dialect == Dialect::MySql => {
                 i = line_end(b, i);
+                out.hidden.push((start + 1, i));
+                continue;
+            }
+            // The end of a MySQL `/*! … */` whose inside was read as SQL.
+            b'*' if in_exec && b.get(i + 1) == Some(&b'/') => {
+                in_exec = false;
+                i += 2;
                 continue;
             }
             b'/' if b.get(i + 1) == Some(&b'*') => {
-                if dialect == Dialect::MySql
-                    && (matches!(b.get(i + 2), Some(b'!' | b'+'))
-                        || (b.get(i + 2) == Some(&b'M') && b.get(i + 3) == Some(&b'!')))
-                {
+                // MySQL runs the inside of `/*! … */` (MariaDB `/*M! … */`, with an optional
+                // version number) as SQL, so it is read as SQL here too.
+                let marker = match (b.get(i + 2), b.get(i + 3)) {
+                    (Some(b'!'), _) => 1,
+                    (Some(b'M'), Some(b'!')) => 2,
+                    _ => 0,
+                };
+                if dialect == Dialect::MySql && marker > 0 && !in_exec {
+                    out.exec_comment = true;
+                    in_exec = true;
+                    i += 2 + marker;
+                    while i < n && b[i].is_ascii_digit() {
+                        i += 1;
+                    }
+                    continue;
+                }
+                if dialect == Dialect::MySql && b.get(i + 2) == Some(&b'+') {
                     out.exec_comment = true;
                 }
                 // Postgres and SQL Server comments nest.
                 i = comment_end(b, i, matches!(dialect, Dialect::Postgres | Dialect::Mssql));
+                let text_end = if sql[start..i].ends_with("*/") && i >= start + 4 {
+                    i - 2
+                } else {
+                    i
+                };
+                out.hidden.push((start + 2, text_end.max(start + 2)));
                 continue;
             }
             b'\'' => {
@@ -184,6 +241,7 @@ fn lex_one(sql: &str, dialect: Dialect, v: Variant) -> Lexed {
                 let (close, end) = quoted_end(b, i + 1, b'\'', bs);
                 let inner = sql.get(i + 1..close).unwrap_or("");
                 out.toks.push(Tok::Str(unescape_quoted(inner, '\'', bs)));
+                out.hidden.push((i + 1, close));
                 i = end;
             }
             b'"' => {
@@ -202,9 +260,14 @@ fn lex_one(sql: &str, dialect: Dialect, v: Variant) -> Lexed {
                     text = unicode_unescape(&text);
                 }
                 out.toks.push(Tok::Quoted(text));
+                if dialect == Dialect::MySql {
+                    out.hidden.push((i + 1, close));
+                }
                 i = end;
             }
-            b'`' => {
+            // Backticks quote identifiers only in MySQL and SQLite; in Postgres and SQL Server
+            // they're just a character, so a keyword between two of them is code.
+            b'`' if matches!(dialect, Dialect::MySql | Dialect::Sqlite) => {
                 let (close, end) = quoted_end(b, i + 1, b'`', false);
                 let inner = sql.get(i + 1..close).unwrap_or("");
                 out.toks
@@ -236,6 +299,7 @@ fn lex_one(sql: &str, dialect: Dialect, v: Variant) -> Lexed {
                     let tag = &sql[i..=j];
                     let close = sql[j + 1..].find(tag).map_or(n, |p| j + 1 + p);
                     out.toks.push(Tok::Str(sql[j + 1..close].to_string()));
+                    out.hidden.push((j + 1, close));
                     i = (close + tag.len()).min(n);
                 } else {
                     out.toks.push(Tok::Punct('$'));
@@ -405,6 +469,16 @@ mod tests {
         assert!(w[0].contains(&"INTO".to_string()));
         assert!(words("SELECT 1 # INTO\n", Dialect::MySql)[0] == vec!["SELECT"]);
         assert!(lex("SELECT /*!50000 1 */", Dialect::MySql)[0].exec_comment);
+        // The inside of `/*! … */` runs as SQL, so it is read as SQL; a hint's isn't.
+        let w = words("SELECT 1 /*!50000 , ssn FROM patients */", Dialect::MySql);
+        assert!(w.iter().all(|v| v.contains(&"SSN".to_string())), "{w:?}");
+        let w = words(
+            "SELECT 1 /*M! INTO OUTFILE '/tmp/x' */ FROM t",
+            Dialect::MySql,
+        );
+        assert!(w[0].contains(&"INTO".to_string()) && w[0].contains(&"FROM".to_string()));
+        let w = words("SELECT /*+ BKA(t) */ a FROM t", Dialect::MySql);
+        assert_eq!(w[0], vec!["SELECT", "A", "FROM", "T"]);
         assert!(lex("SELECT /*+ MAX_EXECUTION_TIME(1) */ 1", Dialect::MySql)[0].exec_comment);
     }
 
@@ -439,21 +513,61 @@ mod tests {
 
     #[test]
     fn quoted_identifiers_are_unescaped() {
-        let l = &lex(
-            r#"SELECT U&"\0073sn", "a""b", `c``d` FROM t"#,
-            Dialect::Postgres,
-        )[0];
-        let q: Vec<_> = l
-            .toks
-            .iter()
-            .filter_map(|t| match t {
-                Tok::Quoted(s) => Some(s.as_str()),
-                _ => None,
-            })
-            .collect();
-        assert_eq!(q, vec!["ssn", "a\"b", "c`d"]);
+        let quoted = |l: &Lexed| -> Vec<String> {
+            l.toks
+                .iter()
+                .filter_map(|t| match t {
+                    Tok::Quoted(s) => Some(s.clone()),
+                    _ => None,
+                })
+                .collect()
+        };
+        let l = &lex(r#"SELECT U&"\0073sn", "a""b" FROM t"#, Dialect::Postgres)[0];
+        assert_eq!(quoted(l), vec!["ssn", "a\"b"]);
+        assert_eq!(
+            quoted(&lex("SELECT `c``d` FROM t", Dialect::MySql)[0]),
+            vec!["c`d"]
+        );
+        // Backticks quote nothing in Postgres or SQL Server: the words between are code.
+        for d in [Dialect::Postgres, Dialect::Mssql] {
+            assert!(quoted(&lex("SELECT `drop` FROM t", d)[0]).is_empty());
+            assert!(words("SELECT `drop` FROM t", d)[0].contains(&"DROP".to_string()));
+        }
         let l = &lex("SELECT [x y] FROM t", Dialect::Sqlite)[0];
         assert!(l.toks.contains(&Tok::Quoted("x y".into())));
+    }
+
+    #[test]
+    fn masking_leaves_no_values_under_any_reading() {
+        let all = [
+            Dialect::Postgres,
+            Dialect::MySql,
+            Dialect::Sqlite,
+            Dialect::Mssql,
+        ];
+        assert_eq!(
+            mask_values(
+                "SELECT * FROM c WHERE email = 'alice@x.com' AND n = 'it''s'",
+                &all
+            ),
+            "SELECT * FROM c WHERE email = '…' AND n = '…'"
+        );
+        // MySQL double-quoted strings, backslash escapes, dollar quotes and comments.
+        let masked = mask_values(
+            "SELECT \"bob@x.com\", 'a\\' carol', $$dan$$ FROM t -- eve@x.com\n/* frank */ # gina",
+            &all,
+        );
+        for value in ["bob", "carol", "dan", "eve", "frank", "gina"] {
+            assert!(!masked.contains(value), "{value} in {masked}");
+        }
+        assert!(masked.starts_with("SELECT \"…\""), "{masked}");
+        // Identifiers and keywords stay.
+        assert_eq!(
+            mask_values("SELECT [a b], x FROM t", &[Dialect::Mssql]),
+            "SELECT [a b], x FROM t"
+        );
+        // Multi-byte text is cut on character boundaries.
+        assert_eq!(mask_values("SELECT 'héllo'", &all), "SELECT '…'");
     }
 
     #[test]

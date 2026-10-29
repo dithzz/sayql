@@ -11,6 +11,7 @@
 // isn't tracked, by design.
 
 import crypto from "node:crypto";
+import { headers, rpc, store } from "./_lib/supabase.js";
 
 const COOKIE = "sayql_owner";
 const SESSION_SECONDS = 12 * 60 * 60;
@@ -23,7 +24,7 @@ const RELEASES = "https://api.github.com/repos/dithzz/sayql-releases/releases?pe
 export default async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");
   const action = String(req.query.action || "");
-  const db = store();
+  const db = store("OWNER");
   if (!db || !process.env.OWNER_PASSWORD_HASH || !process.env.OWNER_SESSION_SECRET) {
     return res.status(503).json({ error: "The owner portal isn't set up yet." });
   }
@@ -279,27 +280,10 @@ async function setAiActive(req, res, db) {
   return res.status(200).json({ ok: true });
 }
 
-async function rpc(db, fn, args) {
-  const r = await fetch(`${db.url}/rest/v1/rpc/${fn}`, {
-    method: "POST",
-    headers: headers(db, { "Content-Type": "application/json" }),
-    body: JSON.stringify(args),
-  });
-  if (!r.ok) throw new Error(`${fn} answered ${r.status}`);
-  return r.json();
-}
 
 // ---- Supabase ----
 
-function store() {
-  const url = process.env.WAITLIST_SUPABASE_URL;
-  const key = process.env.WAITLIST_SUPABASE_SECRET_KEY;
-  return url && key ? { url: url.replace(/\/+$/, ""), key } : null;
-}
 
-function headers(db, extra = {}) {
-  return { apikey: db.key, Authorization: `Bearer ${db.key}`, ...extra };
-}
 
 async function select(db, path) {
   const r = await fetch(`${db.url}/rest/v1/${path}`, { headers: headers(db) });

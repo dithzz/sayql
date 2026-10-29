@@ -18,7 +18,7 @@ pub fn receive(app: &AppHandle, links: impl IntoIterator<Item = String>) {
         if let Some(join) = handoff::parse_team_join(&link) {
             match join {
                 Ok(h) => {
-                    app.state::<PendingHandoffs>().0.lock().unwrap().push(h);
+                    crate::state::lock(&app.state::<PendingHandoffs>().0).push(h);
                     any = true;
                 }
                 Err(_) => eprintln!("sayql: ignored an invalid team invite link"),
@@ -27,7 +27,7 @@ pub fn receive(app: &AppHandle, links: impl IntoIterator<Item = String>) {
         }
         match handoff::parse_url(&link) {
             Ok((h, token)) if handoff::redeem_token(state.store.dir(), &token) => {
-                app.state::<PendingHandoffs>().0.lock().unwrap().push(h);
+                crate::state::lock(&app.state::<PendingHandoffs>().0).push(h);
                 any = true;
             }
             // The link's contents aren't logged: it's untrusted and could hold anything.
@@ -53,5 +53,5 @@ pub fn focus_main(app: &AppHandle) {
 /// The handoffs waiting for the window, oldest first.
 #[tauri::command]
 pub fn take_handoffs(pending: State<'_, PendingHandoffs>) -> Vec<Handoff> {
-    std::mem::take(&mut *pending.0.lock().unwrap())
+    std::mem::take(&mut *crate::state::lock(&pending.0))
 }

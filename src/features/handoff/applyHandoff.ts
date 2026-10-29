@@ -1,5 +1,5 @@
 import type { ConnectionConfig, ConnectionDraft, Handoff, Target } from "../../api";
-import { DATABASE_KINDS } from "../connections/kinds";
+import { DATABASE_KINDS } from "../connections";
 import type { NewTab } from "../tabs";
 
 /** What a handoff can do in the window. Nothing here runs SQL or saves a connection. */
