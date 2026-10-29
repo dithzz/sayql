@@ -3,6 +3,17 @@
 All notable changes to SayQL are listed here. Downloads are on the
 [releases page](https://github.com/dithzz/sayql-releases/releases).
 
+## 0.4.11 (2026-10-29)
+
+### Team connections
+
+- **The status bar's privacy indicator and the connection overview are right on team connections.** They name
+  your team's AI as where the Ask box and Investigate send (when your team provides AI), say the admin's limit
+  applies, and no longer count AI apps on this computer, which can't use team connections: AI agents reach those
+  only through the team's agent gateway. The overview says so in place of the local AI-app counts.
+- Team server 0.3.4 says Investigate too: its admin page and audit log no longer say "Agent mode" or
+  "Agent (MCP)" but **Investigate (app)** and **AI agent (gateway)**.
+
 ## 0.4.10 (2026-10-29)
 
 From a code audit of SayQL. Update if you use SQL Server, or let AI apps read your saved queries.

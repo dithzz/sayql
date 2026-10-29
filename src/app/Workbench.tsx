@@ -157,6 +157,12 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
     },
   );
   const currentProvider = settings.aiReady ? settings.providers.find((p) => p.id === settings.provider) : undefined;
+  /** Where the Ask box and Investigate send for a connection: the team's AI on a team connection with team AI on. */
+  const destinationFor = (connectionId: string) => {
+    const ai = teamAiFor(connectionId);
+    if (ai) return teamAiDestination(ai);
+    return currentProvider ? { label: currentProvider.label, local: currentProvider.local } : null;
+  };
 
   // SayQL Team: the team's shared connections, fetched only while signed in.
   const setTeam = (team: TeamAccount | null) => setSettings((s) => ({ ...s, team }));
@@ -602,7 +608,7 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
         aiReady={settings.aiReady}
         updates={updates}
         onFeedback={() => setDialog({ kind: "feedback" })}
-        provider={currentProvider ? { label: currentProvider.label, local: currentProvider.local } : null}
+        provider={active ? destinationFor(active.id) : null}
         onPrivacy={() => active && setDialog({ kind: "agentAccess", connection: active })}
       />
 
@@ -612,7 +618,7 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
           connections={conn.connections}
           schema={dialog.connection.id === active?.id && targetConnected ? schema : null}
           notes={dialog.connection.id === active?.id ? notes.length : null}
-          provider={currentProvider ? { label: currentProvider.label, local: currentProvider.local } : null}
+          provider={destinationFor(dialog.connection.id)}
           onClose={() => setDialog(null)}
           onEdit={dialog.connection.team ? undefined : () => setDialog({ kind: "connection", config: dialog.connection })}
           onConnect={() => {

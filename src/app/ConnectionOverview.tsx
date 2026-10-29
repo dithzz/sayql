@@ -39,12 +39,15 @@ export function ConnectionOverview(p: ConnectionOverviewProps) {
   const access = useAgentAccess(c.id);
   const audits = useAudits();
   const [apps, setApps] = useState<McpActivity[] | null>(null);
+  // The local AI apps' log; team connections aren't served to them.
+  const team = !!c.team;
   useEffect(() => {
+    if (team) return;
     commands.mcpActivity(1000).then(
       (log) => setApps(log.filter((e) => e.connectionId === c.id)),
       () => setApps([]),
     );
-  }, [c.id]);
+  }, [c.id, team]);
 
   const summary = access ? privacySummary(access, p.provider) : null;
   const audited = lastAudit(audits, c.id);
@@ -114,7 +117,12 @@ export function ConnectionOverview(p: ConnectionOverviewProps) {
             <h3 id="ov-apps" className={styles.cardTitle}>
               <Plug size={14} /> AI apps
             </h3>
-            {apps === null ? (
+            {c.team ? (
+              <p className={styles.muted}>
+                AI apps on this computer can&apos;t use team connections. AI agents reach them only through your team&apos;s agent
+                gateway, with their own keys and the rules your admin sets; what they run is in the team&apos;s audit log.
+              </p>
+            ) : apps === null ? (
               <p className={styles.muted}>Loading…</p>
             ) : apps.length === 0 ? (
               <p className={styles.muted}>No AI app has used this connection yet.</p>
