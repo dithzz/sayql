@@ -34,6 +34,7 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import { version } from "../../package.json";
 import { QueryTab } from "./QueryTab";
 import { StatusBar } from "./StatusBar";
+import { ConnectionOverview } from "./ConnectionOverview";
 import { TopBar } from "./TopBar";
 import { useConnectionActions } from "./useConnectionActions";
 import { useScriptActions } from "./useScriptActions";
@@ -52,6 +53,7 @@ type OpenDialog =
   | { kind: "feedback" }
   | { kind: "deleteScript"; script: Script }
   | { kind: "agentAccess"; connection: ConnectionConfig }
+  | { kind: "overview"; connection: ConnectionConfig }
   | { kind: "note"; note: DbNote | null }
   | { kind: "noteSuggestions" }
   /** "Teach SayQL your database", from the navigator. */
@@ -544,6 +546,7 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
               onTeach={teachHere ? () => setDialog({ kind: "teach" }) : undefined}
               onHideTeach={() => setTeachHidden(true)}
               onAgentSettings={(connection) => setDialog({ kind: "agentAccess", connection })}
+              onOverview={(connection) => setDialog({ kind: "overview", connection })}
               onTeamSignIn={settings.team ? undefined : () => setDialog({ kind: "teamSignIn", server: "", code: "", key: crypto.randomUUID() })}
             />
             {!checklistHidden && !setupStep && <GetStarted items={checklist} onHide={() => setChecklistHidden(true)} />}
@@ -636,6 +639,27 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
         onPrivacy={() => active && setDialog({ kind: "agentAccess", connection: active })}
       />
 
+      {dialog?.kind === "overview" && (
+        <ConnectionOverview
+          connection={dialog.connection}
+          connections={conn.connections}
+          schema={dialog.connection.id === active?.id && targetConnected ? schema : null}
+          notes={dialog.connection.id === active?.id ? notes.length : null}
+          provider={currentProvider ? { label: currentProvider.label, local: currentProvider.local } : null}
+          onClose={() => setDialog(null)}
+          onEdit={dialog.connection.team ? undefined : () => setDialog({ kind: "connection", config: dialog.connection })}
+          onConnect={() => {
+            const c = dialog.connection;
+            if (c.id !== active?.id) openConnection(c);
+            else if (target) conn.connect(target);
+          }}
+          onAccess={() => setDialog({ kind: "agentAccess", connection: dialog.connection })}
+          onOpenSql={(connectionId, database, sql) => {
+            setDialog(null);
+            tabs.open({ connectionId, database }, { sql });
+          }}
+        />
+      )}
       {dialog?.kind === "connection" && (
         <ConnectionDialog
           // A new handoff replaces the form rather than keeping the old one's edits.

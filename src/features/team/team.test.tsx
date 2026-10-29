@@ -125,7 +125,7 @@ describe("SayQL Team", () => {
         onOpen={vi.fn()} onOpenDatabase={vi.fn()} onAdd={vi.fn()} onEdit={vi.fn()} onDeleteConnection={vi.fn()} onRefresh={vi.fn()}
         onPreviewTable={vi.fn()} onNewTab={vi.fn()} onOpenSql={vi.fn()} selectedTables={[]} onSelectTables={vi.fn()}
         scripts={[]} onOpenScript={vi.fn()} onDeleteScript={vi.fn()} notes={[]}
-        onEditNote={vi.fn()} onDeleteNote={vi.fn()} onAgentSettings={vi.fn()} onTeamSignIn={signIn}
+        onEditNote={vi.fn()} onDeleteNote={vi.fn()} onAgentSettings={vi.fn()} onOverview={vi.fn()} onTeamSignIn={signIn}
       />
     );
     const { rerender } = render(nav(onTeamSignIn));
@@ -149,7 +149,7 @@ describe("SayQL Team", () => {
         onOpen={vi.fn()} onOpenDatabase={vi.fn()} onAdd={vi.fn()} onEdit={vi.fn()} onDeleteConnection={vi.fn()} onRefresh={vi.fn()}
         onPreviewTable={vi.fn()} onNewTab={vi.fn()} onOpenSql={vi.fn()} selectedTables={[]} onSelectTables={vi.fn()}
         scripts={[]} onOpenScript={vi.fn()} onDeleteScript={vi.fn()} notes={[]}
-        onEditNote={vi.fn()} onDeleteNote={vi.fn()} onAgentSettings={vi.fn()}
+        onEditNote={vi.fn()} onDeleteNote={vi.fn()} onAgentSettings={vi.fn()} onOverview={vi.fn()}
       />,
     );
     expect(screen.getByText("Team")).toBeTruthy();

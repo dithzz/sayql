@@ -24,7 +24,7 @@ describe("DatabaseNavigator", () => {
         onPreviewTable={vi.fn()} onNewTab={vi.fn()} onOpenSql={vi.fn()} selectedTables={[]} onSelectTables={vi.fn()}
         scripts={[]} onOpenScript={vi.fn()} onDeleteScript={vi.fn()}
         notes={[{ id: "n1", connectionId: "c1", database: null, text: "status 3 = cancelled", updatedAt: 0 }]}
-        onEditNote={vi.fn()} onDeleteNote={vi.fn()} onAgentSettings={vi.fn()}
+        onEditNote={vi.fn()} onDeleteNote={vi.fn()} onAgentSettings={vi.fn()} onOverview={vi.fn()}
       />,
     );
     expect(screen.getByText("Notes")).toBeTruthy();
@@ -40,7 +40,7 @@ describe("DatabaseNavigator", () => {
     onOpen: vi.fn(), onOpenDatabase: vi.fn(), onAdd: vi.fn(), onEdit: vi.fn(), onDeleteConnection: vi.fn(), onRefresh: vi.fn(),
     onPreviewTable: vi.fn(), onNewTab: vi.fn(), onOpenSql: vi.fn(), selectedTables: [], onSelectTables: vi.fn(),
     scripts: [], onOpenScript: vi.fn(), onDeleteScript: vi.fn(), notes: [], onEditNote: vi.fn(), onDeleteNote: vi.fn(),
-    onAgentSettings: vi.fn(), ...over,
+    onAgentSettings: vi.fn(), onOverview: vi.fn(), ...over,
   });
 
   it("shows a restored, unconnected connection with a Connect button instead of its tables", () => {
