@@ -22,16 +22,22 @@ const TABS: { id: AiAppsTab; label: string }[] = [
 /** The tab last open, so coming back to Settings → AI apps in this session lands on it. */
 let lastTab: AiAppsTab = "access";
 
-/** How to add SayQL to the person's coding agent, in a section that opens and closes. */
-function ConnectApp({ setup, open, onToggle }: { setup: McpSetup | null; open: boolean; onToggle: () => void }) {
+/**
+ * How to add SayQL to the person's coding agent, first on the Access tab: open and set apart
+ * while no app has connected (`first`), one line that opens once one has.
+ */
+function ConnectApp({ setup, open, first, onToggle }: { setup: McpSetup | null; open: boolean; first: boolean; onToggle: () => void }) {
   const bodyId = useId();
   const { agent, choose, context } = useCodingAgent();
   return (
-    <section className={styles.group}>
+    <section className={cx(styles.group, first && styles.connectFirst)}>
       <button type="button" className={styles.disclosure} aria-expanded={open} aria-controls={bodyId} onClick={onToggle}>
         <ChevronRight size={14} className={cx(styles.chevron, open && styles.chevronOpen)} />
         <span className={styles.heading}>Connect an app</span>
       </button>
+      {!open && !first && (
+        <p className={styles.detail}>Add SayQL to another AI app: Claude Code, Cursor, VS Code, Codex and more.</p>
+      )}
       {open && (
         <div id={bodyId} className={styles.groupBody}>
           <p className={styles.intro}>
@@ -61,7 +67,7 @@ function ConnectApp({ setup, open, onToggle }: { setup: McpSetup | null; open: b
   );
 }
 
-/** The Access tab: which apps connected, what they get back per connection, and setting up a new app. */
+/** The Access tab: setting up an app (first), which apps connected, and what they get back per connection. */
 function AccessTab({
   connections,
   provider,
@@ -103,8 +109,10 @@ function AccessTab({
     change.then(setApps, (e) => setError(errorText(e)));
   };
 
+  const first = !!apps && apps.apps.length === 0;
   return (
     <>
+      {connectOpen !== null && <ConnectApp setup={setup} open={connectOpen} first={first} onToggle={() => setConnectOpen(!connectOpen)} />}
       <AppsList
         list={apps}
         onBlock={(app, blocked) => update(commands.setMcpAppBlocked(app.name, blocked))}
@@ -113,7 +121,6 @@ function AccessTab({
       />
       {error && <Alert tone="danger">{error}</Alert>}
       <AppAccessList connections={connections} provider={provider} onReview={onReview} />
-      {connectOpen !== null && <ConnectApp setup={setup} open={connectOpen} onToggle={() => setConnectOpen(!connectOpen)} />}
     </>
   );
 }
