@@ -28,7 +28,7 @@ import { useUpdate } from "../features/updates";
 import { FeedbackDialog } from "../features/feedback";
 import { useHandoffs } from "../features/handoff";
 import { TeamSignInDialog, teamAiDestination, teamAiOn, useTeamConnections } from "../features/team";
-import { exampleQuestions, OnboardingDialog, type OnboardingStep } from "../features/onboarding";
+import { exampleQuestions, GetStarted, OnboardingDialog, type ChecklistItem, type OnboardingStep } from "../features/onboarding";
 import { DOCS_URL, ShortcutSheet, WhatsNewDialog, isTypingTarget, whatsNewOnStart } from "../features/help";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { version } from "../../package.json";
@@ -127,6 +127,68 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
   const teachHere = !!active && !active.id.startsWith("team:") && !teachHidden && lastAudit(audits, active.id) === null;
   const agentAccessConnection = dialog?.kind === "agentAccess" ? dialog.connection.id : null;
   const dialogAccess = useAgentAccess(agentAccessConnection);
+  // Get started: a checklist under the navigator until it's done or hidden.
+  const [checklistHidden, setChecklistHidden] = usePersistentState("sayql.checklistHidden", false);
+  const [askedOnce, setAskedOnce] = usePersistentState("sayql.askedOnce", false);
+  const [appConnected, setAppConnected] = useState(false);
+  const askedNow = tabs.tabs.some((t) => !!t.lastRun || !!t.agentRun);
+  useEffect(() => {
+    if (askedNow && !askedOnce) setAskedOnce(true);
+  }, [askedNow, askedOnce, setAskedOnce]);
+  useEffect(() => {
+    if (checklistHidden) return;
+    // An AI app shows up in the list once it has used SayQL; check again when SayQL comes back to the front.
+    const check = () =>
+      void commands.mcpApps().then(
+        (a) => setAppConnected(a.apps.length > 0),
+        () => {},
+      );
+    check();
+    window.addEventListener("focus", check);
+    return () => window.removeEventListener("focus", check);
+  }, [checklistHidden]);
+  const checklist: ChecklistItem[] = [
+    { id: "ai", title: "Choose how to use AI", done: settings.aiReady, action: "Set up", onAction: () => setSetupStep("ai") },
+    {
+      id: "ask",
+      title: "Ask your first question",
+      done: askedOnce || askedNow,
+      action: "Try it",
+      onAction: () => {
+        const demo = conn.connection("demo");
+        if (!active && demo) openConnection(demo);
+        setSetupStep("try");
+      },
+    },
+    {
+      id: "database",
+      title: "Connect your own database",
+      done: conn.connections.some((c) => c.id !== "demo"),
+      action: "Connect",
+      onAction: () => openNewConnection(),
+    },
+    {
+      id: "app",
+      title: "Let an AI app in safely",
+      done: appConnected,
+      action: "Connect",
+      onAction: () => openSettings({ section: "mcp", aiAppsTab: "access" }),
+    },
+    {
+      id: "teach",
+      title: "Teach SayQL a database",
+      done: audits.length > 0 || notes.length > 0,
+      action: "Teach",
+      onAction: () => {
+        if (active && !active.id.startsWith("team:")) setDialog({ kind: "teach" });
+        else {
+          const demo = conn.connection("demo");
+          if (demo) openConnection(demo);
+          setDialog({ kind: "teach" });
+        }
+      },
+    },
+  ];
   const currentProvider = settings.aiReady ? settings.providers.find((p) => p.id === settings.provider) : undefined;
 
   // SayQL Team: the team's shared connections, fetched only while signed in.
@@ -439,6 +501,7 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
           minSize={200}
           maxSize={560}
           first={
+            <div className={styles.sideColumn}>
             <DatabaseNavigator
               connections={conn.connections}
               activeId={active?.id ?? null}
@@ -483,6 +546,8 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
               onAgentSettings={(connection) => setDialog({ kind: "agentAccess", connection })}
               onTeamSignIn={settings.team ? undefined : () => setDialog({ kind: "teamSignIn", server: "", code: "", key: crypto.randomUUID() })}
             />
+            {!checklistHidden && !setupStep && <GetStarted items={checklist} onHide={() => setChecklistHidden(true)} />}
+            </div>
           }
           second={
             <div className={styles.editorArea}>

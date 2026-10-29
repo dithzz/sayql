@@ -131,6 +131,18 @@
   color: var(--color-success);
 }
 
+/* The navigator, with Get started under it. */
+.sideColumn {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+.sideColumn > :first-child {
+  flex: 1;
+  min-height: 0;
+}
+
 /* The privacy indicator: what can reach an AI from the active connection. */
 .privacy {
   display: inline-flex;
