@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { Wand2 } from "lucide-react";
+import { Plug, Wand2 } from "lucide-react";
 import { QUERY_CANCELLED, commands, type QueryResult, type Schema, type Settings, type Skill, type TeamAiStatus } from "../api";
 import { teamAiDestination } from "../features/team";
-import { Button, SplitPane } from "../components/ui";
+import { Badge, Button, SplitPane } from "../components/ui";
 import {
   AgentAccessDialog,
   AgentPanel,
@@ -33,6 +33,14 @@ export interface QueryTabProps {
   active: boolean;
   label: string;
   schema: Schema | null;
+  /**
+   * Whether this tab's connection is connected. SayQL never connects on its own at start:
+   * a restored tab connects when the person clicks Connect, runs or asks.
+   */
+  connected: boolean;
+  /** Tagged as production: the not-connected bar says so. */
+  production?: boolean;
+  onConnect: () => void;
   settings: Settings;
   modelNames: ModelNames;
   onChange: (patch: Partial<EditorTab>) => void;
@@ -59,7 +67,7 @@ export interface QueryTabProps {
 
 /** One editor tab: Ask bar and SQL editor above, results below, bound to the tab's database. */
 export function QueryTab(props: QueryTabProps) {
-  const { tab, active, label, schema, settings, modelNames, onChange, onOpenSettings, skills, onCreateSkill, onSave } = props;
+  const { tab, active, label, schema, connected, settings, modelNames, onChange, onOpenSettings, skills, onCreateSkill, onSave } = props;
   const askRef = useRef<HTMLTextAreaElement>(null);
   // On a team connection with team AI, the team's AI answers: no personal key needed.
   const teamAi = props.teamAi ?? null;
@@ -112,7 +120,10 @@ export function QueryTab(props: QueryTabProps) {
     focusTables: focusEnabled ? (tab.focusTables ?? []) : [],
     skills,
     sql: tab.sql,
-    onQuestionChange: (question) => onChange({ question }),
+    onQuestionChange: (question) => {
+      onChange({ question });
+      if (question.trim() && !connected) props.onConnect();
+    },
     onSql: (sql) => {
       aiWroteSql.current = true;
       setSql(sql);
@@ -123,6 +134,24 @@ export function QueryTab(props: QueryTabProps) {
   const run = () => {
     if (!generation.requestRun()) runAndRemember(tab.sql, generation.question);
   };
+
+  /**
+   * Runs `then` once the schema is loaded: straight away when connected, else after connecting
+   * (Run and ↵ on a restored tab are what connect it).
+   */
+  const pending = useRef<(() => void) | null>(null);
+  const whenReady = (then: () => void) => {
+    if (connected && schema) return then();
+    pending.current = then;
+    if (!connected) props.onConnect();
+  };
+  useEffect(() => {
+    if (!schema || !pending.current) return;
+    const then = pending.current;
+    pending.current = null;
+    then();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [schema]);
 
   // Agent mode: one run per tab, kept (queries and answer, no rows) when it ends.
   const [auto, setAuto] = useAgentAuto();
@@ -204,7 +233,8 @@ export function QueryTab(props: QueryTabProps) {
   };
 
   /** ↵ in the Ask box: /explain, /fix and /improve work on the editor's SQL; anything else runs. */
-  const submit = () => {
+  const submit = () => whenReady(submitNow);
+  const submitNow = () => {
     const plan = planRequest(generation.question, skills, { previous: lastRun, sql: tab.sql });
     if (plan.kind === "agent") return investigate(plan.question, plan.skill);
     if (plan.kind === "draft") return run();
@@ -261,6 +291,24 @@ export function QueryTab(props: QueryTabProps) {
 
   return (
     <div hidden={!active} className={styles.tab}>
+      {!connected && (
+        <div className={styles.connectBar} role="status">
+          <Plug size={14} />
+          <span>
+            Not connected to <strong>{label}</strong>
+            {props.production && (
+              <>
+                {" "}
+                <Badge tone="danger">PROD</Badge>
+              </>
+            )}
+            . SayQL connects when you click Connect, run or ask.
+          </span>
+          <Button size="sm" variant="primary" icon={Plug} onClick={props.onConnect}>
+            Connect
+          </Button>
+        </div>
+      )}
       <SplitPane
         direction="vertical"
         persistKey="editor"
@@ -271,6 +319,7 @@ export function QueryTab(props: QueryTabProps) {
           <SqlWorkspace
             connectionName={label}
             schema={schema}
+            connected={connected}
             active={active}
             modelNames={modelNames}
             onOpenSettings={onOpenSettings}
@@ -320,7 +369,7 @@ export function QueryTab(props: QueryTabProps) {
             query={{
               sql: tab.sql,
               onSqlChange: setSql,
-              onRun: runSelectionOrAll,
+              onRun: () => whenReady(runSelectionOrAll),
               running: query.running,
               onCancel: query.cancel,
               selection,

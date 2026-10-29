@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ConnectionConfig, Schema, Table } from "../../api";
 import { DatabaseNavigator } from "./DatabaseNavigator";
@@ -19,7 +19,7 @@ describe("DatabaseNavigator", () => {
     const schema: Schema = { dialect: "SQLite", tables: [table("events", "table"), table("daily_totals", "materialized view")] };
     render(
       <DatabaseNavigator
-        connections={[conn]} activeId="c1" databases={{ c1: null }} databaseName={null} schema={schema} loading={false}
+        connections={[conn]} activeId="c1" databases={{ c1: null }} databaseName={null} schema={schema} loading={false} connected onConnect={vi.fn()}
         onOpen={vi.fn()} onOpenDatabase={vi.fn()} onAdd={vi.fn()} onEdit={vi.fn()} onDeleteConnection={vi.fn()} onRefresh={vi.fn()}
         onPreviewTable={vi.fn()} onNewTab={vi.fn()} onOpenSql={vi.fn()} selectedTables={[]} onSelectTables={vi.fn()}
         scripts={[]} onOpenScript={vi.fn()} onDeleteScript={vi.fn()}
@@ -32,5 +32,31 @@ describe("DatabaseNavigator", () => {
     expect(screen.getByText("Views")).toBeTruthy();
     expect(screen.getByText("daily_totals")).toBeTruthy();
     expect(screen.getByText("events")).toBeTruthy();
+  });
+
+  const props = (over: Partial<Parameters<typeof DatabaseNavigator>[0]> = {}) => ({
+    connections: [conn], activeId: "c1", databases: { c1: null }, databaseName: null, schema: null, loading: false,
+    connected: true, onConnect: vi.fn(),
+    onOpen: vi.fn(), onOpenDatabase: vi.fn(), onAdd: vi.fn(), onEdit: vi.fn(), onDeleteConnection: vi.fn(), onRefresh: vi.fn(),
+    onPreviewTable: vi.fn(), onNewTab: vi.fn(), onOpenSql: vi.fn(), selectedTables: [], onSelectTables: vi.fn(),
+    scripts: [], onOpenScript: vi.fn(), onDeleteScript: vi.fn(), notes: [], onEditNote: vi.fn(), onDeleteNote: vi.fn(),
+    onAgentSettings: vi.fn(), ...over,
+  });
+
+  it("shows a restored, unconnected connection with a Connect button instead of its tables", () => {
+    const onConnect = vi.fn();
+    const schema: Schema = { dialect: "SQLite", tables: [table("events", "table")] };
+    render(<DatabaseNavigator {...props({ connected: false, onConnect, schema })} />);
+    expect(screen.getByText("Not connected")).toBeTruthy();
+    expect(screen.queryByText("events")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Connect" }));
+    expect(onConnect).toHaveBeenCalledTimes(1);
+  });
+
+  it("badges a production connection PROD, and only that one", () => {
+    const prod = { ...conn, id: "p1", name: "Orders prod", production: true };
+    render(<DatabaseNavigator {...props({ connections: [conn, prod], activeId: null })} />);
+    expect(screen.getAllByText("PROD")).toHaveLength(1);
+    expect(screen.getByText("Orders prod").parentElement?.textContent).toContain("PROD");
   });
 });

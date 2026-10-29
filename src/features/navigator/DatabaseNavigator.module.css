@@ -92,3 +92,25 @@
   line-height: 16px;
   text-align: center;
 }
+
+.connName {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.connect {
+  padding: 0 var(--space-2);
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-sm);
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+.connect:hover {
+  background: var(--color-accent);
+  color: var(--color-text-on-accent);
+}

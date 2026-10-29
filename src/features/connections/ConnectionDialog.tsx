@@ -7,7 +7,19 @@ import { parseConnectionString } from "./connectionString";
 import { DATABASE_KINDS, KIND_OPTIONS } from "./kinds";
 
 export function newConnection(): ConnectionConfig {
-  return { id: "", name: "", kind: "postgres", host: "localhost", port: 5432, database: "", user: "", file: "", ssl: false, trustCert: false };
+  return {
+    id: "",
+    name: "",
+    kind: "postgres",
+    host: "localhost",
+    port: 5432,
+    database: "",
+    user: "",
+    file: "",
+    ssl: false,
+    trustCert: false,
+    production: false,
+  };
 }
 
 function defaultName(c: ConnectionConfig): string {
@@ -220,6 +232,13 @@ export function ConnectionDialog({ initial, note, onClose, onSaved, onDeleted }:
           )}
         </>
       )}
+
+      <Field
+        label="Production"
+        hint="Shows a PROD badge on this connection in the navigator, its tabs and the status bar, so it's never mistaken for a test database. It doesn't change how queries run."
+      >
+        {() => <Checkbox label="This is a production database" checked={!!c.production} onChange={(production) => set({ production })} />}
+      </Field>
 
       {status && <Alert tone={status.ok ? "success" : "danger"}>{status.text}</Alert>}
     </Dialog>

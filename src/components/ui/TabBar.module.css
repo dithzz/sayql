@@ -108,3 +108,14 @@
   align-self: center;
   margin: 0 var(--space-1);
 }
+
+.badge {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+/* A tab whose connection isn't connected yet. */
+.muted .icon,
+.muted .label {
+  opacity: 0.6;
+}

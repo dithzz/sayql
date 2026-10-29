@@ -42,6 +42,7 @@ fn view(c: &TeamConnection) -> Option<TeamConnectionView> {
             file: String::new(),
             ssl: false,
             trust_cert: false,
+            production: false,
         },
         team: TeamInfo {
             database: c.database.clone(),

@@ -121,7 +121,7 @@ describe("SayQL Team", () => {
     const nav = (signIn?: () => void) => (
       <DatabaseNavigator
         connections={[conn("c1", "Local")]}
-        activeId={null} databases={{}} databaseName={null} schema={null} loading={false}
+        activeId={null} databases={{}} databaseName={null} schema={null} loading={false} connected={false} onConnect={vi.fn()}
         onOpen={vi.fn()} onOpenDatabase={vi.fn()} onAdd={vi.fn()} onEdit={vi.fn()} onDeleteConnection={vi.fn()} onRefresh={vi.fn()}
         onPreviewTable={vi.fn()} onNewTab={vi.fn()} onOpenSql={vi.fn()} selectedTables={[]} onSelectTables={vi.fn()}
         scripts={[]} onOpenScript={vi.fn()} onDeleteScript={vi.fn()} notes={[]}
@@ -145,7 +145,7 @@ describe("SayQL Team", () => {
     render(
       <DatabaseNavigator
         connections={[conn("c1", "Local"), conn("team:c_1", "Production", { database: "app", notes: "Read replica" })]}
-        activeId={null} databases={{}} databaseName={null} schema={null} loading={false}
+        activeId={null} databases={{}} databaseName={null} schema={null} loading={false} connected={false} onConnect={vi.fn()}
         onOpen={vi.fn()} onOpenDatabase={vi.fn()} onAdd={vi.fn()} onEdit={vi.fn()} onDeleteConnection={vi.fn()} onRefresh={vi.fn()}
         onPreviewTable={vi.fn()} onNewTab={vi.fn()} onOpenSql={vi.fn()} selectedTables={[]} onSelectTables={vi.fn()}
         scripts={[]} onOpenScript={vi.fn()} onDeleteScript={vi.fn()} notes={[]}

@@ -2328,6 +2328,7 @@ mod tests {
             file: file.to_string_lossy().into_owned(),
             ssl: false,
             trust_cert: false,
+            production: false,
         };
         let servers = [
             ("SAYQL_TEST_PG_URL", Kind::Postgres),

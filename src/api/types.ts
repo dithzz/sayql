@@ -16,6 +16,8 @@ export interface ConnectionConfig {
   ssl: boolean;
   /** SQL Server: accept a self-signed server certificate. */
   trustCert: boolean;
+  /** Tagged as production: shows a PROD badge. Display only; absent (off) on connections saved before 0.4.8. */
+  production?: boolean;
   /** Set on a SayQL Team connection (id `team:…`): read-only here, managed by the team admin. */
   team?: TeamConnectionInfo;
 }

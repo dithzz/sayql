@@ -29,6 +29,7 @@ fn demo_connection(path: &Path) -> ConnConfig {
         file: path.to_string_lossy().into_owned(),
         ssl: false,
         trust_cert: false,
+        production: false,
     }
 }
 

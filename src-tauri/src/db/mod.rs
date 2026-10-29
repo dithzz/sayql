@@ -70,6 +70,10 @@ pub struct ConnConfig {
     /// Accept the server's TLS certificate without verifying it (self-signed internal servers).
     #[serde(default)]
     pub trust_cert: bool,
+    /// Tagged as production by the person: the app shows a PROD badge. Display only; it
+    /// changes nothing about how queries run. Off for connections saved before 0.4.8.
+    #[serde(default)]
+    pub production: bool,
 }
 
 #[derive(Clone)]

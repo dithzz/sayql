@@ -17,13 +17,13 @@ import {
   useNoteSuggestions,
 } from "../features/agent";
 import { usePersistentState } from "../hooks/usePersistentState";
-import { ConnectionDialog, DATABASE_KINDS, newConnection, targetKey, useConnections } from "../features/connections";
+import { ConnectionDialog, DATABASE_KINDS, ProdBadge, newConnection, targetKey, useConnections } from "../features/connections";
 import { DatabaseNavigator, type NavigatorScript } from "../features/navigator";
 import { CloseTabDialog, CloseTabsDialog, SaveScriptDialog, useScripts } from "../features/scripts";
 import { selectAllSql } from "../features/schema/sql";
 import { SettingsPage, useSettings, type AiAppsTab, type SettingsSection } from "../features/settings";
 import { useSkills } from "../features/skills";
-import { hasUnsavedChanges, useTabs, type EditorTab } from "../features/tabs";
+import { hasUnsavedChanges, isPristine, useTabs, type EditorTab } from "../features/tabs";
 import { useUpdate } from "../features/updates";
 import { FeedbackDialog } from "../features/feedback";
 import { useHandoffs } from "../features/handoff";
@@ -138,8 +138,9 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [error]);
 
-  // On start: drop restored tabs whose connection no longer exists, and open the first
-  // connection if nothing is open. The ref keeps StrictMode's double effect from opening two.
+  // On start: drop restored tabs whose connection no longer exists. Nothing connects on its
+  // own, not even the first connection: restored tabs wait for the person to click the
+  // connection, Connect, Run or Ask (a production database is never opened silently).
   // Tabs on team connections stay while signed in: those connections load from the server.
   const started = useRef(false);
   useEffect(() => {
@@ -147,18 +148,19 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
     started.current = true;
     const teamTab = (id: string) => !!boot.settings.team && id.startsWith("team:");
     tabs.closeWhere((t) => !conn.connection(t.target.connectionId) && !teamTab(t.target.connectionId));
-    if (tabs.tabs.length === 0 && conn.connections[0]) openConnection(conn.connections[0]);
     // Only on start.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Load the schema of whatever tab is showing (also after its connection was edited).
+  // Load the schema of whatever tab is showing, once its connection is connected (also after
+  // the connection was edited).
+  const targetConnected = !!target && conn.isConnected(target.connectionId);
   useEffect(() => {
-    if (target) conn.ensure(target);
+    if (target && targetConnected) conn.ensure(target);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [targetKey(target), conn.connections]);
+  }, [targetKey(target), targetConnected, conn.connections]);
 
-  /** Focuses a tab already open on `t`, or opens a new one. */
+  /** Focuses a tab already open on `t`, or opens a new one, and connects (the person asked for it). */
   const showTarget = (t: Target) => {
     const name = conn.databaseName(t);
     const existing = tabs.tabs.find(
@@ -166,6 +168,7 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
     );
     if (existing) tabs.activate(existing.id);
     else tabs.open(t);
+    conn.connect(existing?.target ?? t);
   };
 
   const openConnection = (c: ConnectionConfig) => showTarget({ connectionId: c.id, database: c.database.trim() || null });
@@ -268,9 +271,12 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
       id: t.id,
       label: t.title || db || name,
       detail: t.title ? (db ?? name) : db ? name : undefined,
-      title: [name, db, t.title].filter(Boolean).join(" / "),
+      title: [name, db, t.title].filter(Boolean).join(" / ") + (conn.isConnected(t.target.connectionId) ? "" : " (not connected)"),
       icon: busyTabs.has(t.id) ? <Spinner size={13} /> : <Icon size={14} color={c ? DATABASE_KINDS[c.kind].color : undefined} />,
       dirty: hasUnsavedChanges(t),
+      badge: <ProdBadge connection={c} />,
+      // Not connected yet: shown dimmed until the person connects.
+      muted: !conn.isConnected(t.target.connectionId),
     };
   });
 
@@ -300,10 +306,16 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
     commands.finishOnboarding().then(setSettings, () => {});
   };
 
-  /** Ends the setup with a tab that asks `question` and runs the answer. */
+  /**
+   * Ends the setup with a tab that asks `question` and runs the answer: the tab the setup just
+   * opened, while it's still empty, so the demo doesn't end up in two identical tabs.
+   */
   const trySetupQuestion = (question: string) => {
     finishSetup();
-    if (target) tabs.open(target, { question, autoAsk: true });
+    if (!target) return;
+    const t = tabs.active;
+    if (t && isPristine(t)) tabs.update(t.id, { question, autoAsk: true });
+    else tabs.open(target, { question, autoAsk: true });
   };
   const openNewConnection = () => setDialog({ kind: "connection", config: newConnection() });
 
@@ -388,9 +400,12 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
               databaseName={databaseName}
               schema={schema}
               loading={loading}
+              connected={targetConnected}
+              onConnect={() => target && conn.connect(target)}
               onOpen={(id) => {
                 const c = conn.connection(id);
                 if (c && id !== active?.id) openConnection(c);
+                else if (target) conn.connect(target);
               }}
               onOpenDatabase={(database) => active && showTarget({ connectionId: active.id, database })}
               onAdd={openNewConnection}
@@ -444,6 +459,9 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
                       active={t.id === tabs.active?.id}
                       label={db ? `${name} · ${db}` : name}
                       schema={conn.schemaState(t.target).schema}
+                      connected={conn.isConnected(t.target.connectionId)}
+                      production={!!conn.connection(t.target.connectionId)?.production}
+                      onConnect={() => conn.connect(t.target)}
                       settings={settings}
                       modelNames={modelNames}
                       onChange={(patch) => tabs.update(t.id, patch)}
@@ -497,6 +515,8 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
         databaseName={databaseName}
         schema={schema}
         loading={loading}
+        connected={targetConnected}
+        onConnect={() => target && conn.connect(target)}
         modelNames={modelNames}
         aiReady={settings.aiReady}
         updates={updates}

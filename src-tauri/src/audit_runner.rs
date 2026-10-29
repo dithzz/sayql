@@ -1557,6 +1557,7 @@ not json at all
                 file: root.join("smoke.sqlite").to_string_lossy().into_owned(),
                 ssl: false,
                 trust_cert: false,
+                production: false,
             }])
             .unwrap();
         let mcp = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/debug/sayql-mcp");

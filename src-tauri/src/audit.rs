@@ -166,6 +166,7 @@ mod tests {
             file: "/tmp/x.sqlite".into(),
             ssl: false,
             trust_cert: false,
+            production: false,
         }
     }
 
