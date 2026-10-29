@@ -41,11 +41,11 @@ recordings, save them as media/voiceover/<id>.wav and re-run `node scripts/video
 | 0:22.8 | 4.3 s | refused | Ask for a private column, and SayQL refuses. |
 | 0:27.1 | 7.1 s | guard | You choose what AI apps may see on each database, and you see everything they ran. |
 | 0:34.2 | 5.6 s | block | Don't trust an app? Block it. |
-| 0:39.8 | 6.3 s | ask | People ask in plain English too, under the same rules. The SQL appears as you type. |
+| 0:39.8 | 6.3 s | ask | People ask too, under the same rules. The SQL appears as you type. |
 | 0:46.1 | 2.4 s | run | It already knows your schema. |
 | 0:48.5 | 5.0 s | safety | Anything that could change data asks first. |
 | 0:53.5 | 10.2 s | agentMode | Bigger questions? Investigate works step by step, cites every query, and sends only what you allow. |
 | 1:03.7 | 7.6 s | teams | On a team server, each agent gets its own key, and only the databases you choose. |
 | 1:11.3 | 8.6 s | scope | Limit it to certain tables, even certain rows. |
-| 1:19.9 | 4.7 s | audit | And every query, from people and agents, lands in a tamper-evident audit log. |
+| 1:19.9 | 4.7 s | audit | And every query lands in a tamper-evident audit log. |
 | 1:24.6 | 5.3 s | end | Free and open source. Teams free for 30 days. At sayql.dev. |
