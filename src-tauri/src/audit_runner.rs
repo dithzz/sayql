@@ -710,10 +710,15 @@ impl ClaudeStream {
                     if !err.is_empty() {
                         self.api_error = Some(err.clone());
                     }
+                    let attempt = v.get("attempt").and_then(Value::as_u64).unwrap_or(1);
                     if err == "authentication_failed" && self.credits {
                         vec![Line::warn("SayQL AI credits didn't accept the credit key.")]
-                    } else if err == "authentication_failed" {
-                        vec![Line::warn("Claude Code isn't signed in.")]
+                    } else if err == "authentication_failed" && attempt >= 3 {
+                        // A first refusal is often Claude Code refreshing its sign-in, and the run
+                        // goes on; only say so once it keeps happening.
+                        vec![Line::warn(
+                            "Claude Code's sign-in isn't being accepted yet. Retrying…",
+                        )]
                     } else {
                         Vec::new()
                     }
@@ -721,6 +726,8 @@ impl ClaudeStream {
                 _ => Vec::new(),
             },
             Some("assistant") => {
+                // A reply means the model was reached: an earlier refused retry was passing.
+                self.api_error = None;
                 let content = v.pointer("/message/content").and_then(Value::as_array);
                 content
                     .into_iter()
@@ -1453,7 +1460,12 @@ not json at all
         assert_eq!(l[0].kind, "warn");
         assert!(l[0].text.contains("didn't start (failed)"));
         let l = s.feed(r#"{"type":"system","subtype":"api_retry","attempt":1,"error":"authentication_failed"}"#);
-        assert_eq!(l[0].text, "Claude Code isn't signed in.");
+        assert!(
+            l.is_empty(),
+            "a first sign-in retry is often a token refresh"
+        );
+        let l = s.feed(r#"{"type":"system","subtype":"api_retry","attempt":3,"error":"authentication_failed"}"#);
+        assert!(l[0].text.contains("sign-in isn't being accepted"));
         assert!(
             failure(
                 None,

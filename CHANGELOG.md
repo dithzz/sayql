@@ -5,6 +5,10 @@ All notable changes to SayQL are listed here. Downloads are on the
 
 ## Unreleased
 
+### Fixes
+
+- **No false "isn't signed in" warning in the audit.** A first refused request is often Claude Code refreshing its sign-in, after which the run goes on; the audit now says something only if the sign-in keeps being refused.
+
 ### Audit with Claude Code: pay with SayQL AI credits
 
 - **No Claude plan needed.** The audit dialog has **Pay with: My Claude Code sign-in** (the default) **| SayQL AI credits**, next to Model, remembered. With credits, Claude Code's requests go through SayQL's credits service to Anthropic and are charged to your credit balance (about $0.40 for a typical audit on Sonnet, $0.80 on Opus). SayQL keeps only token counts, never your code or the answers. Without a credit key saved, the option is greyed out and links to Settings → AI provider.
