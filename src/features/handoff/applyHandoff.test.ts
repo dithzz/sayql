@@ -22,6 +22,7 @@ function actions(connections: ConnectionConfig[] = [demo]) {
     openTab: vi.fn(),
     openScript: vi.fn((id: string) => id === "s1"),
     openTeamSignIn: vi.fn(),
+    finishTeamSso: vi.fn(),
     notify: vi.fn(),
   } satisfies HandoffActions;
 }
@@ -92,6 +93,13 @@ describe("applyHandoff", () => {
     expect(a.openTeamSignIn).toHaveBeenCalledWith("https://sayql.acme.internal", "ABCD");
     expect(a.openTab).not.toHaveBeenCalled();
     expect(a.openConnectionDialog).not.toHaveBeenCalled();
+  });
+
+  it("finishes a company sign-in from its link", () => {
+    const a = actions();
+    applyHandoff({ source: null, type: "teamSso", server: "https://sayql.acme.internal", code: "sqt_abc" }, a);
+    expect(a.finishTeamSso).toHaveBeenCalledWith("sqt_abc");
+    expect(a.openTeamSignIn).not.toHaveBeenCalled();
   });
 
   it("names the AI app", () => {

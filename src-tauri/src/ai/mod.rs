@@ -239,6 +239,11 @@ pub async fn check_claude_key(
     anthropic::check_key(http, base, api_key, workspace_id).await
 }
 
+/// What's left on a SayQL AI credit key at `base`, in US dollars.
+pub async fn credits_balance(http: &reqwest::Client, base: &str, api_key: &str) -> AppResult<f64> {
+    anthropic::credits_balance(http, base, api_key).await
+}
+
 /// The models an OpenAI-compatible service offers; also checks its key and URL.
 pub async fn list_models(
     http: &reqwest::Client,

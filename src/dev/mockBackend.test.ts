@@ -23,7 +23,7 @@ const COMMANDS = [
   "voice_cancel_download", "voice_delete_model", "voice_start", "voice_stop", "voice_cancel",
   "agent_access", "save_agent_access", "start_agent", "reply_agent", "stop_agent", "list_notes", "save_note", "delete_note",
   "list_note_suggestions", "accept_note_suggestion", "dismiss_note_suggestion",
-  "save_agent_settings", "choose_model", "team_sign_in", "team_status", "team_sign_out", "team_connections", "team_ai",
+  "save_agent_settings", "choose_model", "credits_balance", "team_sign_in", "team_sso_start", "team_sso_finish", "team_status", "team_sign_out", "team_connections", "team_ai",
 ];
 
 describe("mock backend", () => {
@@ -58,7 +58,7 @@ describe("mock backend", () => {
       save_note: { note: { id: "", connectionId: "demo", database: null, text: "status 'paid' = not shipped", updatedAt: 0 } },
     };
     for (const cmd of COMMANDS) {
-      if (cmd === "install_update" || cmd === "team_sign_in") continue;
+      if (["install_update", "team_sign_in", "team_sso_start", "team_sso_finish"].includes(cmd)) continue;
       await handler(cmd, args[cmd] ?? {}); // rejects (failing the test) for an unmocked command
     }
   });

@@ -318,6 +318,20 @@ pub async fn list_models(
     ai::list_models(&http, p.label, &url, key.as_deref()).await
 }
 
+/// What's left on the saved SayQL AI credit key, in US dollars; `None` without one. Asks the
+/// credits service the key's AI requests already go to, and nothing else.
+#[tauri::command]
+pub async fn credits_balance(state: State<'_, AppState>) -> AppResult<Option<f64>> {
+    let p = ai::endpoint::provider(ai::SAYQL_CREDITS)?;
+    let Some(key) = secrets::api_key_async(p.id).await else {
+        return Ok(None);
+    };
+    let base = address(p, &state.store.settings()?.provider_settings(p.id));
+    ai::credits_balance(&state.http, &base, &key)
+        .await
+        .map(Some)
+}
+
 /// Records that the first-run setup was finished or dismissed, so it isn't shown again.
 #[tauri::command]
 pub fn finish_onboarding(state: State<'_, AppState>) -> AppResult<SettingsView> {

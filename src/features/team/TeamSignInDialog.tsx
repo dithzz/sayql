@@ -14,7 +14,11 @@ export interface TeamSignInDialogProps {
   onClose: () => void;
 }
 
-/** "Sign in to your team": a server address and an invite code. Nothing is sent until Sign in. */
+/**
+ * "Sign in to your team": a server address, then the company's sign-in page in the browser or an
+ * invite code. Nothing is sent until one of them is clicked. The browser comes back through
+ * `sayql://team-sso`, which the window finishes (and closes this dialog).
+ */
 export function TeamSignInDialog({ server: initialServer = "", code: initialCode = "", fromLink, onSignedIn, onClose }: TeamSignInDialogProps) {
   const [server, setServer] = useState(initialServer);
   const [code, setCode] = useState(initialCode);
@@ -31,6 +35,21 @@ export function TeamSignInDialog({ server: initialServer = "", code: initialCode
   };
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  /** "Sign in with your company" opened the browser; the window finishes it when it comes back. */
+  const [waiting, setWaiting] = useState(false);
+  const [starting, setStarting] = useState(false);
+
+  const signInWithCompany = () => {
+    setStarting(true);
+    setError(null);
+    commands
+      .teamSsoStart(server)
+      .then(
+        () => setWaiting(true),
+        (e) => setError(errorText(e)),
+      )
+      .finally(() => setStarting(false));
+  };
 
   const signIn = () => {
     setBusy(true);
@@ -77,7 +96,18 @@ export function TeamSignInDialog({ server: initialServer = "", code: initialCode
             />
           )}
         </Field>
-        <Field label="Invite code" hint="It works once and expires after 7 days.">
+        <div className={styles.company}>
+          <Button loading={starting} disabled={!server.trim() || busy} onClick={signInWithCompany}>
+            Sign in with your company
+          </Button>
+          <span className={styles.hint}>Google, Microsoft or Okta, if your team admin turned it on.</span>
+        </div>
+        {waiting && (
+          <Alert tone="info">
+            Finish signing in in your browser. SayQL picks up from there when it asks to open; this window can stay open.
+          </Alert>
+        )}
+        <Field label="Invite code" hint="Or an invite code from your team admin. It works once and expires after 7 days.">
           {(id) => <TextInput id={id} mono value={code} onChange={(e) => onPaste(e.target.value, setCode)} />}
         </Field>
         {error && <Alert tone="danger">{error}</Alert>}

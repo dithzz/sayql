@@ -766,7 +766,11 @@ export function installMockBackend() {
           return null;
         case "team_sign_out":
           return null;
+        case "credits_balance":
+          return null;
         case "team_sign_in":
+        case "team_sso_start":
+        case "team_sso_finish":
           return Promise.reject("Signing in to a team isn't available in the browser preview.");
         case "mcp_setup":
           return MOCK_OS === "windows"

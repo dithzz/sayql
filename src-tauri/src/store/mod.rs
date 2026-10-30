@@ -26,10 +26,11 @@ const SKILLS_FILE: &str = "skills.json";
 const LEGACY_DIR_NAME: &str = "com.askdb.app";
 
 /// Copies saved data from the pre-rename folder next to `dir`, the first time only (when
-/// `dir` has no connections yet). The old files are left in place.
+/// `dir` has no connections yet). The old files are left in place. Only the app's own folder
+/// takes them, not a test build's.
 fn copy_legacy_files(dir: &std::path::Path) {
     let legacy = dir.with_file_name(LEGACY_DIR_NAME);
-    if legacy == dir
+    if dir.file_name().is_none_or(|n| n != "com.sayql.app")
         || dir.join(CONNECTIONS_FILE).exists()
         || !legacy.join(CONNECTIONS_FILE).exists()
     {

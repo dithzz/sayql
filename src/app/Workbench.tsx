@@ -22,11 +22,12 @@ import { ConnectionDialog, DATABASE_KINDS, ProdBadge, newConnection, targetKey, 
 import { DatabaseNavigator, type NavigatorScript } from "../features/navigator";
 import { CloseTabDialog, CloseTabsDialog, SaveScriptDialog, useScripts } from "../features/scripts";
 import { selectAllSql } from "../features/schema";
-import { SettingsPage, useSettings, type AiAppsTab, type SettingsSection } from "../features/settings";
+import { SettingsPage, lowCreditText, useSettings, type AiAppsTab, type SettingsSection } from "../features/settings";
 import { useSkills } from "../features/skills";
 import { hasUnsavedChanges, isPristine, useTabs, type EditorTab } from "../features/tabs";
 import { useUpdate } from "../features/updates";
 import { FeedbackDialog } from "../features/feedback";
+import { errorText } from "../lib/errors";
 import { useHandoffs } from "../features/handoff";
 import { TeamSignInDialog, teamAiDestination, teamAiOn, useTeamConnections } from "../features/team";
 import { exampleQuestions, GetStarted, OnboardingDialog, useGetStarted, type OnboardingStep } from "../features/onboarding";
@@ -157,6 +158,18 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
     },
   );
   const currentProvider = settings.aiReady ? settings.providers.find((p) => p.id === settings.provider) : undefined;
+  // On SayQL AI credits: warn once per launch when the balance is low, before it runs out mid-work.
+  const onCredits = settings.aiReady && settings.provider === "sayql";
+  useEffect(() => {
+    if (!onCredits) return;
+    commands.creditsBalance().then(
+      (usd) => {
+        const low = usd == null ? null : lowCreditText(usd);
+        if (low) setNotice(low);
+      },
+      () => {},
+    );
+  }, [onCredits]);
   /** Where the Ask box and Investigate send for a connection: the team's AI on a team connection with team AI on. */
   const destinationFor = (connectionId: string) => {
     const ai = teamAiFor(connectionId);
@@ -409,6 +422,15 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
     openTab: (t, init) => tabs.open(t, init),
     openScript,
     openTeamSignIn: (server, code) => setDialog({ kind: "teamSignIn", server, code, key: crypto.randomUUID() }),
+    finishTeamSso: (code) =>
+      commands.teamSsoFinish(code).then(
+        (account) => {
+          setDialog((d) => (d?.kind === "teamSignIn" ? null : d));
+          setTeam(account);
+          setNotice(`Signed in to your team as ${account.email}.`);
+        },
+        (e) => setNotice(`Couldn't sign in to your team: ${errorText(e)}`),
+      ),
     notify: setNotice,
   }, scripts.loaded);
 

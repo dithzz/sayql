@@ -111,6 +111,10 @@ export const commands = {
 
   /** Redeems a SayQL Team invite code; the token goes to the keychain. */
   teamSignIn: (server: string, code: string) => invoke<TeamAccount>("team_sign_in", { server, code }),
+  /** "Sign in with your company": opens the team server's sign-in page in the browser. */
+  teamSsoStart: (server: string) => invoke<void>("team_sso_start", { server }),
+  /** The browser came back (`sayql://team-sso`): swaps its one-time code for a sign-in. */
+  teamSsoFinish: (code: string) => invoke<TeamAccount>("team_sso_finish", { code }),
   /** The signed-in account and the server's licence; null when signed out (nothing is sent then). */
   teamStatus: () => invoke<TeamStatus | null>("team_status"),
   teamSignOut: () => invoke<void>("team_sign_out"),
@@ -175,6 +179,8 @@ export const commands = {
   /** Model ids an AI provider offers; also checks the key and base URL. */
   listModels: (provider: string, baseUrl: string, apiKey: string | null) =>
     invoke<string[]>("list_models", { provider, baseUrl, apiKey }),
+  /** What's left on the saved SayQL AI credit key, in US dollars; null without one. */
+  creditsBalance: () => invoke<number | null>("credits_balance"),
   /** "Your Claude plan": checks the installed Claude Code is recent enough and signed in. */
   checkClaudePlan: () => invoke<PlanCheck>("check_claude_plan"),
 

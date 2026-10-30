@@ -12,9 +12,26 @@
 use crate::error::{AppError, AppResult};
 use crate::state::lock;
 use std::collections::BTreeMap;
-use std::sync::{LazyLock, Mutex};
+use std::sync::{LazyLock, Mutex, OnceLock};
 
-const SERVICE: &str = "com.sayql.app";
+/// The keychain service: the app's identifier, `com.sayql.app`, so a test build with an
+/// identifier of its own never reads or writes the app's secrets.
+static SERVICE: OnceLock<String> = OnceLock::new();
+const DEFAULT_SERVICE: &str = "com.sayql.app";
+
+/// Sets the keychain service to the app's identifier, once, at startup.
+pub fn set_service(identifier: &str) {
+    let _ = SERVICE.set(identifier.to_string());
+}
+
+fn service() -> &'static str {
+    SERVICE.get().map_or(DEFAULT_SERVICE, String::as_str)
+}
+
+/// AskDB's items belong to the app itself, not to a test build.
+fn legacy_service() -> Option<&'static str> {
+    (service() == DEFAULT_SERVICE).then_some(LEGACY_SERVICE)
+}
 /// The account of the single item holding every secret, as a JSON object.
 const VAULT_ACCOUNT: &str = "secrets";
 /// The keychain service used before the app was renamed from AskDB.
@@ -81,7 +98,7 @@ impl<B: Backend> Vault<B> {
             return Err(AppError::User(why.clone()));
         }
         if self.secrets.is_none() {
-            let map = match self.backend.read(SERVICE, VAULT_ACCOUNT) {
+            let map = match self.backend.read(service(), VAULT_ACCOUNT) {
                 Ok(None) => Ok(BTreeMap::new()),
                 // Never treat an unreadable item as empty: saving would erase every secret.
                 Ok(Some(json)) => serde_json::from_str(&json).map_err(|_| "SayQL's saved passwords in the keychain are unreadable.".to_string()),
@@ -98,7 +115,7 @@ impl<B: Backend> Vault<B> {
 
     fn save(&mut self) -> AppResult<()> {
         let json = serde_json::to_string(self.loaded()?)?;
-        self.backend.write(SERVICE, VAULT_ACCOUNT, &json)
+        self.backend.write(service(), VAULT_ACCOUNT, &json)
     }
 
     fn get(&mut self, account: &str) -> AppResult<Option<String>> {
@@ -109,9 +126,12 @@ impl<B: Backend> Vault<B> {
             return Ok(None);
         }
         // Saved by an earlier version as its own item: copy it into the vault.
-        let old = match self.backend.read(SERVICE, account)? {
+        let old = match self.backend.read(service(), account)? {
             Some(v) => Some(v),
-            None => self.backend.read(LEGACY_SERVICE, account)?,
+            None => match legacy_service() {
+                Some(legacy) => self.backend.read(legacy, account)?,
+                None => None,
+            },
         };
         match &old {
             Some(v) => {
@@ -145,8 +165,8 @@ impl<B: Backend> Vault<B> {
     fn remove(&mut self, account: &str) -> AppResult<()> {
         let shared = self.set(account, "");
         self.not_found.insert(account.to_string());
-        let current = self.backend.delete(SERVICE, account);
-        let legacy = self.backend.delete(LEGACY_SERVICE, account);
+        let current = self.backend.delete(service(), account);
+        let legacy = legacy_service().map_or(Ok(()), |l| self.backend.delete(l, account));
         shared.and(current).and(legacy)
     }
 }
@@ -344,7 +364,7 @@ mod tests {
         let fake = Fake::default();
         fake.items
             .borrow_mut()
-            .insert((SERVICE.into(), "conn:a".into()), "old-a".into());
+            .insert((service().into(), "conn:a".into()), "old-a".into());
         fake.items.borrow_mut().insert(
             (LEGACY_SERVICE.into(), "anthropic-api-key".into()),
             "old-key".into(),
@@ -411,11 +431,11 @@ mod tests {
         let fake = Fake::default();
         fake.items
             .borrow_mut()
-            .insert((SERVICE.into(), VAULT_ACCOUNT.into()), "not json".into());
+            .insert((service().into(), VAULT_ACCOUNT.into()), "not json".into());
         let mut v = vault(&fake);
         assert!(v.set("conn:a", "pw").is_err());
         assert_eq!(
-            fake.items.borrow()[&(SERVICE.to_string(), VAULT_ACCOUNT.to_string())],
+            fake.items.borrow()[&(service().to_string(), VAULT_ACCOUNT.to_string())],
             "not json"
         );
     }
@@ -425,7 +445,7 @@ mod tests {
         let fake = Fake::default();
         fake.items
             .borrow_mut()
-            .insert((SERVICE.into(), "conn:a".into()), "old-a".into());
+            .insert((service().into(), "conn:a".into()), "old-a".into());
         fake.items
             .borrow_mut()
             .insert((LEGACY_SERVICE.into(), "conn:a".into()), "older-a".into());

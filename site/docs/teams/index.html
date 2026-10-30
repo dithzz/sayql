@@ -384,7 +384,8 @@ footer a { color: var(--color-text-muted); }
   <li>On the admin page, under <b>Connections</b>, add a database. The form shows the SQL to create a read-only login for it; run that first. Click <b>Test</b>.</li>
   <li>Under <b>People</b>, invite your team and click <b>Copy message</b>: the link and what to do, ready for email or chat. The link opens SayQL, or helps them download it first (below).</li>
   <li>To use the team's databases in SayQL yourself, click <b>Open SayQL with this account</b> on the admin page's <b>Overview</b>.</li>
-  <li>Every new server is free for 30 days, for up to 10 people. To buy, email <a href="mailto:hello@azenvoc.com">hello@azenvoc.com</a>; paste the licence key you receive on the admin page's <b>Overview</b>. Nothing restarts and nothing is lost.</li>
+  <li>Optional: let people sign in with their <b>Google Workspace</b>, <b>Microsoft Entra ID</b> or <b>Okta</b> account instead of invite codes. On the admin page's <b>Sign-in</b> tab, pick your provider: it shows the redirect address to register there and what to copy back. Admins can come from a list of emails, an Okta group or an Entra app role. Sign-ins go from the browser to your provider and back to your server, never through SayQL. Needs team server 0.4.0 on HTTPS.</li>
+  <li>Every new server is free for 30 days, for up to 10 people. To buy, use <b>Buy</b> under <a href="/#pricing">Pricing</a> (card, through Dodo Payments) or email <a href="mailto:hello@azenvoc.com">hello@azenvoc.com</a> for an invoice; paste the licence key you're emailed on the admin page's <b>Overview</b>. Nothing restarts and nothing is lost.</li>
 </ul>
 <p>Your data stays on your network: the server runs there, and the licence is checked offline. To update, run the same command again.</p>
 
@@ -394,7 +395,7 @@ footer a { color: var(--color-text-muted); }
   <li>On the admin page, open <b>Agents</b> and click <b>Add agent</b>. Give it a name, tick the connections it may use, and choose what it gets back from a query: only the row count and column names, <b>counts and summaries</b> (the default: no row values), or all rows.</li>
   <li>Copy what the page shows once: the <code>claude mcp add</code> command for Claude Code, or the config for Cursor and other MCP apps. They hold the agent's key, which starts with <code>sqa_</code>. The server keeps only a hash of it.</li>
   <li>The agent can list its connections, read the schema and run read-only queries. Columns marked never send are refused and withheld on the server, and nothing can change data.</li>
-  <li>Every query an agent runs, or tries on a connection it isn't allowed, is in the <b>Audit log</b> under <code>agent: name</code>, with the source <b>Agent (MCP)</b>.</li>
+  <li>Every query an agent runs, or tries on a connection it isn't allowed, is in the <b>Audit log</b> under <code>agent: name</code>, with the source <b>AI agent (gateway)</b>.</li>
   <li>Change an agent's setting any time, or click <b>Revoke</b>: its key stops working at once.</li>
 </ul>
 <p>An agent sees what you allow wherever it runs, so choose all rows only for data you're happy to give that agent.</p>
@@ -405,6 +406,7 @@ footer a { color: var(--color-text-muted); }
   <li>SayQL opens <b>Sign in to your team</b> filled in. Check the server is your company's, then click <b>Sign in</b>. Nothing is sent before you do.</li>
   <li>No link to click? Open <b>Settings → Team → Sign in</b> (or <b>Have a team invite? Sign in</b> in the Database Navigator) and paste the whole link, or enter the server and the code.</li>
   <li>An invite code works once and expires after 7 days. Your sign-in is kept in your system keychain.</li>
+  <li><b>Sign in with your company</b>: if your team admin turned it on, enter the server in <b>Sign in to your team</b> and click <b>Sign in with your company</b>. Your browser opens your company's sign-in page (Google, Microsoft or Okta); when you're done it asks to open SayQL, and you're signed in. No invite code needed. These sign-ins last 7 days unless your admin chose otherwise; then <b>Signed out of your team</b> appears and you sign in the same way again.</li>
   <li><b>Settings → Team</b> shows the server, your email and the team's plan and licence. <b>Sign out</b> ends the sign-in on the server and removes it from this computer.</li>
 </ul>
 
@@ -424,7 +426,7 @@ footer a { color: var(--color-text-muted); }
 
 <h2 id="team-ai"><a class="anchor" href="#team-ai" aria-hidden="true">#</a>Team AI</h2>
 <p>Your team admin can also give the team one company AI key, with monthly limits. Then, on team connections, the Ask box, fixes, Improve and Investigate use your team's AI through your team's server, and you don't need an AI key of your own for them. Your own connections keep using your own AI provider and key.</p>
-<p>A team without its own AI key can use <b>SayQL AI credits</b>: a prepaid credit key from SayQL instead of a company key (admin page → <b>AI</b>: provider Anthropic, base URL <code>https://sayql.dev/api/ai</code>). Requests then pass through SayQL's service on their way to Anthropic; SayQL keeps only the model and token counts, never the prompt or the answer. Ask <a href="mailto:hello@azenvoc.com">hello@azenvoc.com</a> for a credit key.</p>
+<p>A team without its own AI key can use <b>SayQL AI credits</b>: a prepaid credit key from SayQL instead of a company key (admin page → <b>AI</b>: provider Anthropic, base URL <code>https://sayql.dev/api/ai</code>). Requests then pass through SayQL's service on their way to Anthropic; SayQL keeps only the model and token counts, never the prompt or the answer. Usage is charged at Anthropic's published API prices plus 20%, from a balance you top up in advance; the admin page's <b>AI</b> tab shows what's left and warns below $5. Buy credit under <a href="/#pricing">Pricing</a>: the key is emailed within a minute, and buying again with the same email tops up the same key.</p>
 <ul>
   <li>The Ask box shows your team's model, marked <b>Team</b>. Click it to see the models your admin allows; they're <b>set by your team admin</b> and can't be switched there.</li>
   <li><b>Settings → Team</b> shows who provides the AI and how much you and your team have used this month against the limits. When a limit is reached, AI requests on team connections stop until the 1st of the next month, and SayQL says so.</li>
@@ -434,7 +436,9 @@ footer a { color: var(--color-text-muted); }
 <div class="table-wrap"><table>
   <thead><tr><th>Message</th><th>What to do</th></tr></thead>
   <tbody>
-    <tr><td>Signed out of your team, sign in again.</td><td>Your sign-in was revoked, or your account removed. Ask your team admin for a new invite.</td></tr>
+    <tr><td>Signed out of your team, sign in again.</td><td>Your sign-in expired (company sign-ins last 7 days by default) or was revoked. Sign in with your company again, or ask your team admin for a new invite.</td></tr>
+    <tr><td>This team signs in with your company account.</td><td>Your team admin turned off invite codes for members. Click <b>Sign in with your company</b>.</td></tr>
+    <tr><td>This sign-in expired, was already used, or was started somewhere else.</td><td>Finish the browser sign-in within 10 minutes of clicking <b>Sign in with your company</b>, then try again from SayQL.</td></tr>
     <tr><td>Your team's SayQL server runs only read-only queries</td><td>Run changes to data some other way your team agreed on.</td></tr>
     <tr><td>Your team admin marked a column in this query never send</td><td>Leave that column out of the query.</td></tr>
     <tr><td>Investigate is turned off for this connection by your team admin.</td><td>Use the Ask box or the editor there, or ask your team admin.</td></tr>
@@ -460,7 +464,7 @@ footer a { color: var(--color-text-muted); }
 <footer>
   <div class="inner">
     <a class="brand" href="/" style="font-size:14px"><svg class="wordmark" width="45" height="20" aria-hidden="true"><use href="#i-wordmark"/></svg></a>
-    <span>© 2026 Adith L S. SayQL Community Edition.</span>
+    <span>© 2026 Adith L S. SayQL Community Edition, a product of <a href="https://azenvoc.com">Azenvoc</a>.</span>
     <nav aria-label="Footer"><a href="/">Home</a><a href="https://github.com/dithzz/sayql-releases/releases">Changelog</a><a href="https://github.com/dithzz/sayql/discussions">Discussions</a><a href="https://github.com/dithzz/sayql/blob/main/LICENSE">License</a><a href="https://github.com/dithzz/sayql-releases/blob/main/PRIVACY.md">Privacy</a></nav>
   </div>
 </footer>

@@ -12,6 +12,8 @@ export interface HandoffActions {
   openScript: (id: string) => boolean;
   /** Shows "Sign in to your team", filled in from an invite link. Never signs in on its own. */
   openTeamSignIn: (server: string, code: string) => void;
+  /** Finishes "Sign in with your company" with the code the browser came back with. */
+  finishTeamSso: (code: string) => void;
   notify: (text: string) => void;
 }
 
@@ -41,6 +43,10 @@ export function draftToConnection(d: ConnectionDraft): ConnectionConfig {
 export function applyHandoff(h: Handoff, a: HandoffActions): void {
   if (h.type === "teamJoin") {
     a.openTeamSignIn(h.server, h.code);
+    return;
+  }
+  if (h.type === "teamSso") {
+    a.finishTeamSso(h.code);
     return;
   }
   const note = handoffNote(h.source);

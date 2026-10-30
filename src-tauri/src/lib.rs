@@ -54,9 +54,12 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
+            // The app's identifier names its keychain item, so a test build keeps its own.
+            store::secrets::set_service(&app.config().identifier);
             let state = AppState::new(app.path().app_config_dir()?, app.path().app_data_dir()?)?;
             app.manage(state);
             app.manage(handoffs::PendingHandoffs::default());
+            app.manage(teams::PendingSso::default());
             app.manage(audits::AuditRuns::default());
             // Installers register sayql:// on Windows and Linux; this covers AppImages and dev builds.
             #[cfg(any(windows, target_os = "linux"))]
@@ -105,6 +108,7 @@ pub fn run() {
             handoffs::take_handoffs,
             settings::save_settings,
             settings::list_models,
+            settings::credits_balance,
             settings::check_claude_plan,
             settings::finish_onboarding,
             settings::mcp_setup,
@@ -133,6 +137,8 @@ pub fn run() {
             updates::check_update,
             updates::install_update,
             teams::team_sign_in,
+            teams::team_sso_start,
+            teams::team_sso_finish,
             teams::team_status,
             teams::team_sign_out,
             teams::team_connections,

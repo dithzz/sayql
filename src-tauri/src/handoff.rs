@@ -72,6 +72,14 @@ pub struct TeamJoin {
     pub code: String,
 }
 
+/// The end of a sign-in with the company's identity provider: the server's one-time code.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TeamSso {
+    pub server: String,
+    pub code: String,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum Action {
@@ -79,6 +87,7 @@ pub enum Action {
     OpenQuery(QueryDraft),
     OpenScript(ScriptRef),
     TeamJoin(TeamJoin),
+    TeamSso(TeamSso),
 }
 
 impl Action {
@@ -88,6 +97,7 @@ impl Action {
             Action::OpenQuery(_) => "open-query",
             Action::OpenScript(_) => "open-script",
             Action::TeamJoin(_) => "team-join",
+            Action::TeamSso(_) => "team-sso",
         }
     }
 }
@@ -317,6 +327,10 @@ pub fn to_url(handoff: &Handoff, token: &str) -> Result<String, String> {
                 put("server", &t.server);
                 put("code", &t.code);
             }
+            Action::TeamSso(t) => {
+                put("server", &t.server);
+                put("code", &t.code);
+            }
         }
     }
     let url = String::from(url);
@@ -423,13 +437,50 @@ pub fn parse_url(link: &str) -> Result<(Handoff, String), String> {
 /// any other link. Unlike the other links it needs no token: it only fills in the sign-in
 /// dialog, where the person sees the server and decides; nothing is sent until they confirm.
 pub fn parse_team_join(link: &str) -> Option<Result<Handoff, String>> {
+    let (server, code) = match team_link(link, "team-join")? {
+        Ok(p) => p,
+        Err(e) => return Some(Err(e)),
+    };
+    Some((|| {
+        Ok(Handoff {
+            source: None,
+            action: Action::TeamJoin(TeamJoin {
+                server: crate::team::clean_server(&server)?,
+                code: crate::team::clean_code(&code)?,
+            }),
+        })
+    })())
+}
+
+/// Reads a `sayql://team-sso?server=…&code=…` link, where the team server's sign-in page
+/// sends the browser back. `None` for any other link. Anyone can make one, so it's only acted
+/// on while SayQL is waiting for a sign-in it started, and the code works only with that
+/// sign-in's PKCE verifier.
+pub fn parse_team_sso(link: &str) -> Option<Result<Handoff, String>> {
+    let (server, code) = match team_link(link, "team-sso")? {
+        Ok(p) => p,
+        Err(e) => return Some(Err(e)),
+    };
+    Some((|| {
+        Ok(Handoff {
+            source: None,
+            action: Action::TeamSso(TeamSso {
+                server: crate::team::clean_server(&server)?,
+                code: crate::team::clean_sso_code(&code)?,
+            }),
+        })
+    })())
+}
+
+/// The `server` and `code` of a `sayql://{host}?server=…&code=…` link.
+fn team_link(link: &str, host: &str) -> Option<Result<(String, String), String>> {
     let url = Url::parse(link).ok()?;
-    if url.scheme() != SCHEME || url.host_str() != Some("team-join") {
+    if url.scheme() != SCHEME || url.host_str() != Some(host) {
         return None;
     }
     Some((|| {
         if link.len() > 2048 || !matches!(url.path(), "" | "/") || url.fragment().is_some() {
-            return Err("Invalid team invite link.".to_string());
+            return Err("Invalid team link.".to_string());
         }
         let mut server = None;
         let mut code = None;
@@ -443,12 +494,7 @@ pub fn parse_team_join(link: &str) -> Option<Result<Handoff, String>> {
                 return Err(format!("`{k}` is given twice."));
             }
         }
-        let server = crate::team::clean_server(&server.unwrap_or_default())?;
-        let code = crate::team::clean_code(&code.unwrap_or_default())?;
-        Ok(Handoff {
-            source: None,
-            action: Action::TeamJoin(TeamJoin { server, code }),
-        })
+        Ok((server.unwrap_or_default(), code.unwrap_or_default()))
     })())
 }
 

@@ -29,6 +29,7 @@ pub const ENTER_SERVER: &str = "Enter your server's address, for example https:/
 pub const AGENT_OFF: &str = "Investigate is turned off for this connection by your team admin.";
 pub const BAD_INVITE: &str =
     "That invite code isn't valid or has expired. Ask your team admin for a new one.";
+pub const SSO_EXPIRED: &str = "This sign-in expired, was already used, or was started somewhere else. Sign in again from SayQL.";
 pub const WRITE_REFUSED: &str =
     "Your team's SayQL server runs only read-only queries, so this statement was not run.";
 
@@ -91,6 +92,13 @@ struct Me {
 struct Redeemed {
     token: String,
     user: TeamUser,
+}
+
+/// Whether the server offers "Sign in with your company" (`GET /api/v1/auth/sso`).
+#[derive(Debug, Default, Deserialize)]
+pub struct SsoInfo {
+    #[serde(default)]
+    pub enabled: bool,
 }
 
 /// The signed-in account with the server's licence, for Settings.
@@ -402,11 +410,15 @@ pub async fn redeem(
     let r: Redeemed = decode(resp)
         .await
         .map_err(|(code, msg)| match code.as_deref() {
-            Some("unauthorized" | "not_found" | "bad_request" | "forbidden") => {
-                AppError::User(BAD_INVITE.into())
-            }
+            Some("unauthorized" | "not_found" | "bad_request") => AppError::User(BAD_INVITE.into()),
+            // Such as: this team signs in with the company's account, not invite codes.
+            Some("forbidden") => AppError::User(error_text("forbidden", &msg)),
             c => coded_error(c, msg),
         })?;
+    signed_in(server, r)
+}
+
+fn signed_in(server: &str, r: Redeemed) -> AppResult<(String, TeamAccount)> {
     if r.token.is_empty() {
         return Err("Your team's SayQL server didn't return a sign-in.".into());
     }
@@ -419,6 +431,89 @@ pub async fn redeem(
             role: r.user.role,
         },
     ))
+}
+
+/// Whether `server` offers sign-in with the company's identity provider. Servers before 0.4.0
+/// don't have the route, and don't.
+pub async fn sso_info(http: &reqwest::Client, server: &str) -> AppResult<SsoInfo> {
+    let resp = http
+        .get(endpoint(server, &["auth", "sso"])?)
+        .timeout(REQUEST_TIMEOUT)
+        .send()
+        .await
+        .map_err(|e| unreachable(server, e))?;
+    if resp.status() == reqwest::StatusCode::NOT_FOUND {
+        return Ok(SsoInfo::default());
+    }
+    decode(resp)
+        .await
+        .map_err(|(c, msg)| coded_error(c.as_deref(), msg))
+}
+
+/// A PKCE pair (RFC 7636): the verifier SayQL keeps, and the challenge sent with the sign-in.
+/// The server only hands out a sign-in for the code it sends back with the matching verifier.
+pub fn pkce_pair() -> (String, String) {
+    use base64::Engine;
+    use sha2::{Digest, Sha256};
+    let verifier = format!(
+        "{}{}",
+        uuid::Uuid::new_v4().simple(),
+        uuid::Uuid::new_v4().simple()
+    );
+    let challenge = base64::engine::general_purpose::URL_SAFE_NO_PAD
+        .encode(Sha256::digest(verifier.as_bytes()));
+    (verifier, challenge)
+}
+
+/// The page that starts a sign-in at the company's identity provider, opened in the browser.
+pub fn sso_start_url(server: &str, challenge: &str, device: &str) -> AppResult<String> {
+    let mut url = Url::parse(server)
+        .map_err(|_| AppError::User(format!("{server} isn't a server address.")))?;
+    url.path_segments_mut()
+        .map_err(|_| AppError::User(format!("{server} isn't a server address.")))?
+        .pop_if_empty()
+        .extend(["auth", "sso", "start"]);
+    url.query_pairs_mut()
+        .append_pair("target", "app")
+        .append_pair("challenge", challenge)
+        .append_pair("device", device);
+    Ok(url.into())
+}
+
+/// The one-time code from `sayql://team-sso`: letters, digits, `-` and `_`.
+pub fn clean_sso_code(input: &str) -> Result<String, String> {
+    let code = input.trim();
+    let ok = (16..=128).contains(&code.len())
+        && code
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_');
+    ok.then(|| code.to_string())
+        .ok_or_else(|| "That sign-in link isn't valid.".to_string())
+}
+
+/// Ends a sign-in with the company's identity provider: the code from the browser, with the
+/// verifier only this app has. Returns the token and who it belongs to.
+pub async fn sso_redeem(
+    http: &reqwest::Client,
+    server: &str,
+    code: &str,
+    verifier: &str,
+    device: &str,
+) -> AppResult<(String, TeamAccount)> {
+    let resp = http
+        .post(endpoint(server, &["auth", "sso", "redeem"])?)
+        .timeout(REQUEST_TIMEOUT)
+        .json(&json!({ "code": code, "verifier": verifier, "device": device }))
+        .send()
+        .await
+        .map_err(|e| unreachable(server, e))?;
+    let r: Redeemed = decode(resp)
+        .await
+        .map_err(|(code, msg)| match code.as_deref() {
+            Some("unauthorized") => AppError::User(SSO_EXPIRED.into()),
+            c => coded_error(c, msg),
+        })?;
+    signed_in(server, r)
 }
 
 /// This computer's name as the server lists it among the person's devices.

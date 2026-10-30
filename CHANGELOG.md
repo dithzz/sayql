@@ -3,6 +3,25 @@
 All notable changes to SayQL are listed here. Downloads are on the
 [releases page](https://github.com/dithzz/sayql-releases/releases).
 
+## 0.4.12 (2026-10-30)
+
+### Teams
+
+- **Sign in with your company.** On a team server that offers it (team server 0.4.0), **Sign in to your team**
+  has a **Sign in with your company** button: your browser opens your company's Google Workspace, Microsoft
+  Entra ID or Okta sign-in page, then hands you back to SayQL, signed in. No invite code needed. SayQL acts on
+  the link back only while it waits for a sign-in it started, and the server accepts it only with a secret
+  this copy of SayQL generated (PKCE), so a link from anywhere else does nothing. These sign-ins last 7 days by
+  default, then you sign in the same way again.
+- When a team requires sign-in with the company, an invite code says so instead of "isn't valid".
+
+### SayQL AI credits
+
+- **See what's left.** With a credit key, Settings → AI provider shows the balance, and SayQL warns once per
+  launch when it drops below $5, so it doesn't run out in the middle of your work. Team server 0.4.0 shows the
+  team's balance on the admin page's AI tab, with the same warning. The balance comes from the credits service
+  your AI requests already go to; nothing else is sent.
+
 ## 0.4.11 (2026-10-29)
 
 ### Team connections
