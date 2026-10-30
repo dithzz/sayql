@@ -65,6 +65,10 @@ async function handle(db, event) {
     if (!(usd > 0)) {
       return notifyOwner("Credit payment without an amount", `Payment ${data.payment_id} from ${data.customer?.email} has no credit_usd. Add the credit by hand in the owner portal.`);
     }
+    const paid = paidUsd(data);
+    if (paid !== null && paid < usd * (data.currency === "USD" ? 1 : 0.8) - 0.005) {
+      return notifyOwner("Credit payment below its price", `Payment ${data.payment_id} from ${data.customer?.email} was for $${usd} of credit but paid $${paid.toFixed(2)} before tax. No credit was added. Add it by hand in the owner portal, or refund it in Dodo.`);
+    }
     return credits(db, data.customer, usd, data.payment_id);
   }
   if (event.type === "subscription.active" || event.type === "subscription.renewed") {
@@ -75,6 +79,16 @@ async function handle(db, event) {
 }
 
 // ---- AI credits ----
+
+// What the buyer paid before tax, in dollars, or null when Dodo doesn't say in dollars. In another
+// currency (adaptive pricing) it's the dollars Dodo settled, after conversion and fees, so the
+// caller allows for those.
+function paidUsd(data) {
+  const cents = (amount, tax) => (Number.isFinite(Number(amount)) ? (Number(amount) - (Number(tax) || 0)) / 100 : null);
+  if (data.currency === "USD") return cents(data.total_amount, data.tax);
+  if (data.settlement_currency === "USD") return cents(data.settlement_amount, data.settlement_tax);
+  return null;
+}
 
 async function credits(db, customer, usd, paymentId) {
   const email = String(customer?.email || "").trim().toLowerCase();
