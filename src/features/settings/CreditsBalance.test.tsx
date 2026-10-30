@@ -19,7 +19,7 @@ describe("SayQL AI credit balance", () => {
     expect(lowCreditText(42)).toBeNull();
     expect(lowCreditText(LOW_CREDIT_USD - 0.01)).toContain("running low: $4.99 left");
     expect(lowCreditText(0)).toContain("has run out");
-    for (const usd of [0, 1]) expect(lowCreditText(usd)).toContain("hello@azenvoc.com");
+    for (const usd of [0, 1]) expect(lowCreditText(usd)).toContain("sayql.dev/#pricing");
   });
 
   it("shows what's left, with what it costs", async () => {

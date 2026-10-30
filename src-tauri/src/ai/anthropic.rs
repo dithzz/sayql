@@ -320,7 +320,7 @@ fn credits_error(status: u16, body: &str) -> AppError {
         .unwrap_or_else(|| body.to_string());
     match status {
         401 => format!("{msg} Check the credit key in Settings."),
-        402 => format!("{msg} To top it up, email hello@azenvoc.com."),
+        402 => format!("{msg} Top it up at sayql.dev/#pricing with the email you bought it with."),
         429 => format!("Too many AI requests right now: {msg}"),
         _ => format!("SayQL AI credits error {status}: {msg}"),
     }
@@ -417,7 +417,7 @@ mod tests {
             .unwrap_err()
             .to_string();
         assert!(
-            e.contains("credit has run out") && e.contains("hello@azenvoc.com"),
+            e.contains("credit has run out") && e.contains("sayql.dev/#pricing"),
             "{e}"
         );
 

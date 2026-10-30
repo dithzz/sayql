@@ -784,6 +784,13 @@ section.block { padding: 80px 0 0; }
 .faq details p { padding: 0 32px 20px 0; color: var(--color-text-muted); }
 
 /* footer */
+.credits-buy { margin-top: 24px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px 32px; padding: 24px 28px; border: 1px solid var(--color-border); border-radius: var(--radius-card); background: var(--color-surface); }
+.credits-buy > div:first-child { flex: 1 1 360px; }
+.credits-buy h3 { font-size: 17px; margin: 0 0 6px; }
+.credits-buy p { margin: 0; color: var(--color-text-muted); font-size: 15px; }
+.credits-packs { display: flex; gap: 8px; }
+[data-buy][aria-busy="true"] { opacity: 0.6; pointer-events: none; }
+.buy-status { margin: 12px 0 0; color: var(--color-danger); font-size: 14px; }
 .site-footer { margin-top: 96px; border-top: 1px solid var(--color-border-subtle); padding: 32px 0 calc(32px + env(safe-area-inset-bottom, 0px)); font-size: 14px; color: var(--color-text-muted); }
 .site-footer .wrap { display: flex; flex-wrap: wrap; align-items: center; gap: 16px 28px; }
 .site-footer nav { display: flex; flex-wrap: wrap; gap: 8px 20px; margin-left: auto; }
@@ -1244,11 +1251,23 @@ section.block { padding: 80px 0 0; }
         </ul>
         <div class="actions">
           <a class="btn btn-primary btn-lg" href="#teams">Try free for 30 days</a>
-          <a class="btn btn-lg" href="mailto:hello@azenvoc.com?subject=SayQL%20for%20teams">Buy</a>
+          <a class="btn btn-lg" href="mailto:hello@azenvoc.com?subject=SayQL%20for%20teams" data-buy="team">Buy</a>
         </div>
       </article>
     </div>
-    <p class="plans-note">No card for the trial. More than 10 people? Email us. To buy, email <a href="mailto:hello@azenvoc.com">hello@azenvoc.com</a> for a licence key. AI credits are optional and prepaid, at Anthropic's API prices plus 20%.</p>
+    <div class="credits-buy">
+      <div>
+        <h3>SayQL AI credits</h3>
+        <p>Claude in SayQL without an Anthropic account, for you or your team. Prepaid, at Anthropic's API prices plus 20%. The key arrives by email in a minute.</p>
+      </div>
+      <div class="credits-packs">
+        <a class="btn" href="mailto:hello@azenvoc.com?subject=SayQL%20AI%20credits" data-buy="credits-10">$10</a>
+        <a class="btn" href="mailto:hello@azenvoc.com?subject=SayQL%20AI%20credits" data-buy="credits-25">$25</a>
+        <a class="btn" href="mailto:hello@azenvoc.com?subject=SayQL%20AI%20credits" data-buy="credits-50">$50</a>
+      </div>
+    </div>
+    <p class="buy-status" id="buy-status" role="status" hidden></p>
+    <p class="plans-note">No card for the trial. Buy with a card above, or email <a href="mailto:hello@azenvoc.com">hello@azenvoc.com</a> for an invoice. More than 10 people? Email us. Payments are handled by Dodo Payments, our reseller, which also handles sales tax.</p>
   </div>
 </section>
 
@@ -1347,6 +1366,24 @@ section.block { padding: 80px 0 0; }
 (function () {
   var root = document.documentElement;
   var reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  /* buying: a Dodo Payments checkout; without scripts (or if it fails), the link emails us instead */
+  var buyStatus = document.getElementById("buy-status");
+  document.querySelectorAll("[data-buy]").forEach(function (a) {
+    a.addEventListener("click", function (ev) {
+      ev.preventDefault();
+      a.setAttribute("aria-busy", "true");
+      fetch("/api/checkout", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ product: a.getAttribute("data-buy") }) })
+        .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { if (!r.ok || !j.url) throw { said: j.error }; return j.url; }); })
+        .then(function (url) { location.href = url; })
+        .catch(function (e) {
+          a.removeAttribute("aria-busy");
+          // Only our own messages reach the page; anything else gets the plain fallback.
+          buyStatus.textContent = (e && e.said) || "Couldn't start the checkout. Email hello@azenvoc.com and we'll send an invoice.";
+          buyStatus.hidden = false;
+        });
+    });
+  });
 
   /* install command */
   var ic = document.getElementById("install-copy");
