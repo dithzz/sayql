@@ -3,11 +3,17 @@
 <div class="callout"><svg><use href="#i-info"/></svg><p><b>Not using a team?</b> Nothing changes. Without signing in, SayQL never contacts a team server and works exactly as before.</p></div>
 
 <h2>Set up a team server</h2>
-<p>For the person setting up SayQL for a team. You need a machine with Docker that can reach your database. On it, run:</p>
+<p>For the person setting up SayQL for a team. You need a machine with Docker that can reach your database: a small cloud server (1 GB of memory is plenty, on AWS, Google Cloud, Azure, DigitalOcean, Hetzner or similar) or a machine in your office. On it, run:</p>
 <pre><code>curl -fsSL https://sayql.dev/install | sh</code></pre>
 <ul>
-  <li>It asks for a domain, such as <code>sayql.yourcompany.com</code>. Point it at that machine and open ports 80 and 443, and HTTPS is set up for you. Press Enter instead to try it on that machine first.</li>
-  <li>It prints a one-time admin page link. Open it: you're signed in as the admin.</li>
+  <li>It asks how your team will reach the server:
+    <ul>
+      <li><b>Your own domain</b>, such as <code>sayql.yourcompany.com</code>. Best for a company. The installer shows the DNS record to add, waits until the name points at the machine, and gets the HTTPS certificate for you.</li>
+      <li><b>A free address for this machine</b>, made from its IP, such as <code>203-0-113-5.sslip.io</code>. Nothing to set up in DNS, so it's the quickest way to get your team in. You can switch to your own domain later.</li>
+      <li><b>Only this machine</b>, to try SayQL first. Nobody else can reach it.</li>
+    </ul>
+    For the first two, open ports 80 and 443 to the machine: in its firewall, in your cloud's security group or firewall rules, or as port forwarding on your office router.</li>
+  <li>It checks the server is reachable over HTTPS from the internet and, if it isn't, says what to fix. Then it prints a one-time admin page link. Open it: you're signed in as the admin.</li>
   <li>On the admin page, under <b>Connections</b>, add a database. The form shows the SQL to create a read-only login for it; run that first. Click <b>Test</b>.</li>
   <li>Under <b>People</b>, invite your team and click <b>Copy message</b>: the link and what to do, ready for email or chat. The link opens SayQL, or helps them download it first (below).</li>
   <li>To use the team's databases in SayQL yourself, click <b>Open SayQL with this account</b> on the admin page's <b>Overview</b>.</li>
@@ -15,6 +21,34 @@
   <li>Every new server is free for 30 days, for up to 10 people. To buy, use <b>Buy</b> under <a href="/#pricing">Pricing</a> (card, through Dodo Payments) or email <a href="mailto:hello@azenvoc.com">hello@azenvoc.com</a> for an invoice; paste the licence key you're emailed on the admin page's <b>Overview</b>. Nothing restarts and nothing is lost.</li>
 </ul>
 <p>Your data stays on your network: the server runs there, and the licence is checked offline. To update, run the same command again.</p>
+
+<h3 id="server-domain">Your domain's DNS record</h3>
+<p>Where your domain's DNS is managed, add an <b>A</b> record with the name you chose and the machine's public IP address as its value. The installer prints both. Some providers want only the first part of the name, such as <code>sayql</code> for <code>sayql.yourcompany.com</code>.</p>
+<div class="table-wrap"><table>
+  <thead><tr><th>DNS provider</th><th>Where to add it</th></tr></thead>
+  <tbody>
+    <tr><td>Cloudflare</td><td>Your domain → <b>DNS</b> → <b>Records</b> → <b>Add record</b>. Set <b>Proxy status</b> to <b>DNS only</b> (grey cloud).</td></tr>
+    <tr><td>GoDaddy</td><td><b>My Products</b> → your domain → <b>DNS</b> → <b>Add New Record</b>.</td></tr>
+    <tr><td>AWS Route 53</td><td><b>Hosted zones</b> → your domain → <b>Create record</b>, type <b>A</b>.</td></tr>
+    <tr><td>Google Cloud DNS</td><td><b>Cloud DNS</b> → your zone → <b>Add standard</b>, type <b>A</b>.</td></tr>
+    <tr><td>Namecheap, Porkbun and others</td><td>Your domain's <b>DNS</b> or <b>Advanced DNS</b> page → add an <b>A</b> record.</td></tr>
+  </tbody>
+</table></div>
+<p>To move to another address later, change <code>SAYQL_DOMAIN</code> in <code>~/sayql/.env</code> and run the installer again. Your connections, people and audit log are kept. People who signed in at the old address sign in again at the new one.</p>
+
+<h3 id="server-proxy">Behind a VPN or your own HTTPS proxy</h3>
+<p>If the server isn't reachable from the internet, the automatic certificate can't work. Put it behind your own HTTPS proxy or load balancer, with your company's certificate, and install it like this:</p>
+<pre><code>curl -fsSL https://sayql.dev/install | SAYQL_DOMAIN=sayql.internal.yourcompany.com SAYQL_BEHIND_PROXY=1 sh</code></pre>
+<p>The server then listens on port 8080. Send <code>https://sayql.internal.yourcompany.com</code> there from your proxy.</p>
+
+<h3 id="server-troubleshooting">If the admin link doesn't open</h3>
+<ul>
+  <li><b>The name doesn't point at the machine.</b> Check the A record's value is the machine's public IP. On Cloudflare, use DNS only, not the orange cloud. DNS changes usually show up within minutes, sometimes an hour.</li>
+  <li><b>Port 80 or 443 is closed.</b> Open both in the machine's firewall and in your cloud's security group. On an office network, forward them from your router to the machine.</li>
+  <li><b>The certificate failed.</b> Run <code>cd ~/sayql &amp;&amp; docker compose logs caddy</code> to see why. Fix the cause and run the installer again.</li>
+  <li><b>The link was already used, or you lost it.</b> Get a new one: <code>cd ~/sayql &amp;&amp; docker compose exec sayql sayql-server admin invite --email you@yourcompany.com --role admin</code></li>
+</ul>
+<p>Run the installer again after any fix: it checks again and says what's still wrong. The checks ask sayql.dev how your machine looks from the internet, sending only the domain name; nothing is stored. To skip them, add <code>SAYQL_NO_CHECK=1</code> before <code>sh</code>.</p>
 
 <h2>Govern your AI agents</h2>
 <p>For admins. Claude Code, Cursor and your own bots can query your databases through the server, over MCP, under rules you set per agent.</p>
