@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import type { AuditAgent, AuditEvent } from "../../api";
+import type { AuditAgent, AuditEvent, CodeSource } from "../../api";
 import { AuditButton, AuditDialog, auditButtonLabel, auditButtonTitle } from "./AuditRun";
 import { SUGGESTIONS_CHANGED } from "./useNoteSuggestions";
 
@@ -28,11 +28,19 @@ const codex: AuditAgent = {
 };
 
 let agents: AuditAgent[] = [];
-let folder: string | null = null;
+const shop: CodeSource = {
+  id: "src_shop",
+  label: "shop",
+  kind: { type: "local", path: "/Users/me/code/shop" },
+  lastFetch: null,
+  lastCommit: null,
+  error: null,
+};
+let sources: CodeSource[] = [];
 let emit: (e: AuditEvent) => void = () => {};
-const startAudit = vi.fn((_run: string, _agent: string, _id: string, _db: string | null, _folder: string) => Promise.resolve());
+const startAudit = vi.fn((_run: string, _agent: string, _id: string, _db: string | null) => Promise.resolve());
 const cancelAudit = vi.fn((_run: string) => Promise.resolve());
-const openAuditInTerminal = vi.fn((_agent: string, _id: string, _db: string | null, _folder: string) => Promise.resolve());
+const openAuditInTerminal = vi.fn((_agent: string, _id: string, _db: string | null) => Promise.resolve());
 const openUrl = vi.fn();
 let savedModel = "opus";
 const setAuditModel = vi.fn((m: string) => {
@@ -48,11 +56,11 @@ vi.mock("../../api", async (orig) => ({
   ...(await orig<typeof import("../../api")>()),
   commands: {
     auditAgents: () => Promise.resolve(agents),
-    auditFolder: () => Promise.resolve(folder),
-    chooseAuditFolder: () => Promise.resolve("/Users/me/code/shop"),
-    startAudit: (r: string, a: string, i: string, d: string | null, f: string) => startAudit(r, a, i, d, f),
+    codeSources: () => Promise.resolve(sources),
+    addCodeFolder: () => Promise.resolve(shop),
+    startAudit: (r: string, a: string, i: string, d: string | null) => startAudit(r, a, i, d),
     cancelAudit: (r: string) => cancelAudit(r),
-    openAuditInTerminal: (a: string, i: string, d: string | null, f: string) => openAuditInTerminal(a, i, d, f),
+    openAuditInTerminal: (a: string, i: string, d: string | null) => openAuditInTerminal(a, i, d),
     auditPrompt: () => Promise.resolve("Audit the database"),
     auditModel: () => Promise.resolve(savedModel),
     setAuditModel: (m: string) => setAuditModel(m),
@@ -69,7 +77,7 @@ const target = { connectionId: "c1", name: "Shop", database: "sales" };
 
 beforeEach(() => {
   agents = [claude(), codex];
-  folder = null;
+  sources = [];
   auditPayment.mockClear();
   setAuditPayment.mockClear();
   startAudit.mockClear();
@@ -81,9 +89,9 @@ afterEach(cleanup);
 it("is called Run audit, and says in plain text what it runs", () => {
   expect(auditButtonLabel(null)).toBe("Run audit");
   expect(auditButtonLabel([claude(), codex])).toBe("Run audit");
-  expect(auditButtonTitle([claude(), codex])).toBe("Runs your installed Claude Code, read-only, in your project folder");
-  expect(auditButtonTitle([claude({ ready: false, problem: "too old" }), codex])).toBe("Runs your coding agent, read-only, in your project folder");
-  expect(auditButtonTitle(null)).toBe("Runs your coding agent, read-only, in your project folder");
+  expect(auditButtonTitle([claude(), codex])).toBe("Runs your installed Claude Code, read-only, over this database's code");
+  expect(auditButtonTitle([claude({ ready: false, problem: "too old" }), codex])).toBe("Runs your coding agent, read-only, over this database's code");
+  expect(auditButtonTitle(null)).toBe("Runs your coding agent, read-only, over this database's code");
 });
 
 it("opens the run dialog from the button, or hands it off", async () => {
@@ -97,11 +105,12 @@ it("opens the run dialog from the button, or hands it off", async () => {
   render(<AuditButton target={target} />);
   fireEvent.click(await screen.findByRole("button", { name: "Run audit on Shop" }));
   expect(await screen.findByRole("dialog", { name: "Run an audit" })).toBeTruthy();
-  expect(screen.getByText(/Runs your installed Claude Code, read-only, in your project folder/)).toBeTruthy();
+  expect(screen.getByText(/Runs your installed Claude Code, read-only, over this database's code/)).toBeTruthy();
+  expect(screen.getByText("Code sources")).toBeTruthy();
   expect(screen.getByText(/SayQL never reads your Claude Code credentials/)).toBeTruthy();
 });
 
-it("needs a folder, then streams progress and ends with the suggestions to review", async () => {
+it("needs a code source, then streams progress and ends with the suggestions to review", async () => {
   const onReview = vi.fn();
   const onClose = vi.fn();
   const changed = vi.fn();
@@ -110,15 +119,16 @@ it("needs a folder, then streams progress and ends with the suggestions to revie
   const start = await screen.findByRole("button", { name: "Start audit" });
   expect((start as HTMLButtonElement).disabled).toBe(true);
   expect(screen.getByText(/No commands, no file changes, no web/)).toBeTruthy();
-  fireEvent.click(screen.getByRole("button", { name: "Choose…" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Add folder…" }));
   expect(await screen.findByText("/Users/me/code/shop")).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "Open in Terminal" }));
-  expect(openAuditInTerminal).toHaveBeenCalledWith("claude", "c1", "sales", "/Users/me/code/shop");
+  expect(openAuditInTerminal).toHaveBeenCalledWith("claude", "c1", "sales");
 
   fireEvent.click(screen.getByRole("button", { name: "Start audit" }));
   await waitFor(() => expect(startAudit).toHaveBeenCalled());
-  const [runId, agent, id, db, dir] = startAudit.mock.calls[0];
-  expect([agent, id, db, dir]).toEqual(["claude", "c1", "sales", "/Users/me/code/shop"]);
+  const [runId, agent, id, db] = startAudit.mock.calls[0];
+  expect([agent, id, db]).toEqual(["claude", "c1", "sales"]);
+  expect(screen.getByText("shop", { selector: "code" })).toBeTruthy();
   act(() => {
     emit({ type: "line", runId: "someone-else", kind: "step", text: "Not this run" });
     emit({ type: "line", runId, kind: "step", text: "Reading src/db/orders.ts" });
@@ -154,7 +164,7 @@ it("needs a folder, then streams progress and ends with the suggestions to revie
 });
 
 it("runs on the saved model, Sonnet by default, and remembers a new choice", async () => {
-  folder = "/Users/me/code/shop";
+  sources = [shop];
   savedModel = "opus";
   setAuditModel.mockClear();
   render(<AuditDialog target={target} onClose={() => {}} />);
@@ -169,7 +179,7 @@ it("runs on the saved model, Sonnet by default, and remembers a new choice", asy
 });
 
 it("always runs on the person's own sign-in: no choice to pay with SayQL AI credits", async () => {
-  folder = "/Users/me/code/shop";
+  sources = [shop];
   savedModel = "default";
   render(<AuditDialog target={target} onClose={() => {}} />);
   const model = (await screen.findByRole("combobox", { name: "Model for the audit" })) as HTMLSelectElement;
@@ -180,6 +190,7 @@ it("always runs on the person's own sign-in: no choice to pay with SayQL AI cred
   expect(screen.queryByText(/SayQL AI credits/)).toBeNull();
   expect(screen.getByText(/uses your own Claude Code sign-in/)).toBeTruthy();
   expect(auditPayment).not.toHaveBeenCalled();
+  await screen.findByText("/Users/me/code/shop");
   const terminal = screen.getByRole("button", { name: "Open in Terminal" }) as HTMLButtonElement;
   expect(terminal.disabled).toBe(false);
   fireEvent.click(screen.getByRole("button", { name: "Start audit" }));
@@ -188,9 +199,10 @@ it("always runs on the person's own sign-in: no choice to pay with SayQL AI cred
 });
 
 it("cancels a run, and shows why one couldn't start", async () => {
-  folder = "/Users/me/code/shop";
+  sources = [shop];
   render(<AuditDialog target={target} onClose={() => {}} />);
-  fireEvent.click(await screen.findByRole("button", { name: "Start audit" }));
+  await screen.findByText("/Users/me/code/shop");
+  fireEvent.click(screen.getByRole("button", { name: "Start audit" }));
   await waitFor(() => expect(startAudit).toHaveBeenCalled());
   const runId = startAudit.mock.calls[0][0];
   fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
@@ -216,7 +228,7 @@ it("without an agent it can run, explains, links to the install page and keeps t
 });
 
 it("asks for the connection when it has none", async () => {
-  folder = "/Users/me/code/shop";
+  sources = [shop];
   const connections = [
     { id: "c1", name: "Shop" },
     { id: "c2", name: "Analytics" },
@@ -229,5 +241,5 @@ it("asks for the connection when it has none", async () => {
   await screen.findByText("/Users/me/code/shop");
   fireEvent.click(screen.getByRole("button", { name: "Start audit" }));
   await waitFor(() => expect(startAudit).toHaveBeenCalled());
-  expect(startAudit.mock.calls[0].slice(1)).toEqual(["claude", "c2", null, "/Users/me/code/shop"]);
+  expect(startAudit.mock.calls[0].slice(1)).toEqual(["claude", "c2", null]);
 });

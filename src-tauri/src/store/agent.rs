@@ -194,6 +194,7 @@ impl Store {
         }
         self.forget_note_suggestions(connection_id)?;
         self.forget_audits(connection_id)?;
+        self.forget_code_sources(connection_id)?;
         self.forget_audit_folder(connection_id)
     }
 

@@ -15,6 +15,7 @@ pub mod mcp;
 mod never_send;
 mod pii;
 mod readonly;
+mod repos;
 mod schema;
 mod sql_lex;
 mod state;
@@ -125,8 +126,11 @@ pub fn run() {
             settings::mcp_audits,
             settings::audit_prompt,
             audits::audit_agents,
-            audits::audit_folder,
-            audits::choose_audit_folder,
+            audits::code_sources,
+            audits::add_code_folder,
+            audits::add_code_repo,
+            audits::remove_code_source,
+            audits::check_code_source,
             audits::start_audit,
             audits::cancel_audit,
             audits::open_audit_in_terminal,

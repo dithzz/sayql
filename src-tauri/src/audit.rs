@@ -78,10 +78,47 @@ pub fn find_connection<'a>(list: &'a [ConnConfig], wanted: &str) -> Result<&'a C
     }
 }
 
+/// A code source as the audit is told about it: `label (origin @ commit)`, and where it is.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Source<'a> {
+    /// The short name evidence cites it by: `label:path@commit`.
+    pub label: &'a str,
+    /// The folder on this computer the agent reads.
+    pub dir: &'a str,
+    /// The repository's address, for a git source.
+    pub url: Option<&'a str>,
+    pub commit: Option<&'a str>,
+}
+
 /// The audit instructions. Without a target the app picks the connection first. `copied`:
 /// for pasting into an AI app by hand, so it says which tools to use.
 pub fn instructions(target: Option<&Target>, copied: bool) -> String {
+    instructions_for(target, copied, &[])
+}
+
+/// "backend (https://github.com/acme/api @ 1a2b3c4d): /path/to/copy".
+fn source_line(s: &Source) -> String {
+    let origin = s.url.unwrap_or(s.dir);
+    let at = match s.commit {
+        Some(c) => format!(" @ {}", &c[..c.len().min(10)]),
+        None => String::new(),
+    };
+    if s.url.is_some() {
+        format!("- {} ({origin}{at}): {}\n", s.label, s.dir)
+    } else {
+        format!("- {} ({origin}{at})\n", s.label)
+    }
+}
+
+/// [`instructions`] for a run over `sources`, the code SayQL gave the agent (none: the
+/// project the AI app is working in).
+pub fn instructions_for(target: Option<&Target>, copied: bool, sources: &[Source]) -> String {
     let mut out = String::new();
+    let here = if sources.is_empty() {
+        "the code in this project"
+    } else {
+        "its code"
+    };
     let args = match target {
         Some(t) => {
             let db = match t.database {
@@ -89,8 +126,8 @@ pub fn instructions(target: Option<&Target>, copied: bool) -> String {
                 None => String::new(),
             };
             out.push_str(&format!(
-                "Audit the database of the SayQL connection {:?} (connection_id {:?}{db}) against the code in this \
-                 project, and suggest notes that teach SayQL what the schema doesn't say.\n\n",
+                "Audit the database of the SayQL connection {:?} (connection_id {:?}{db}) against {here}, and suggest \
+                 notes that teach SayQL what the schema doesn't say.\n\n",
                 t.name, t.connection_id
             ));
             let db = match t.database {
@@ -117,14 +154,31 @@ pub fn instructions(target: Option<&Target>, copied: bool) -> String {
              isn't connected to this app yet: tell the user to set it up in SayQL under Settings → AI apps → Access.\n\n",
         );
     }
+    let (code, evidence) = if sources.is_empty() {
+        (
+            "this project's code (the repository you're working in) ".to_string(),
+            "file paths, short commit hashes, usage figures".to_string(),
+        )
+    } else {
+        let list: String = sources.iter().map(source_line).collect();
+        let example = sources[0]
+            .commit
+            .map_or(String::new(), |c| format!("@{}", &c[..c.len().min(7)]));
+        (
+            format!("the code in these sources (read them all):\n{list}"),
+            format!(
+                "files as `label:path@commit`, such as `{}:src/db/orders.ts{example}`, and usage figures",
+                sources[0].label
+            ),
+        )
+    };
     out.push_str(&format!(
         "1. Call describe_schema with {args}. For a large database it lists table names only: call it again with \
          `search` words for the tables you look into. Where the database keeps statistics it shows each table's usage \
          (reads, writes, last write, and the period they cover; SQLite keeps none), and it ends with the notes already \
          saved, each with an id such as [n_1a2b3c4d].\n\
-         2. Search this project's code (the repository you're working in) for where each table and its main columns \
-         are used: queries, ORM models, migrations, raw SQL, jobs and scripts. Use git log when you need to know when \
-         something stopped being used.\n\
+         2. Search {code}for where each table and its main columns are used: queries, ORM models, migrations, raw SQL, \
+         jobs and scripts.\n\
          3. Look for what the schema doesn't say:\n\
          - tables that are unused or retired: no references in the code and no writes in the usage period (say so \
          when usage isn't available), and what replaced them;\n\
@@ -136,7 +190,9 @@ pub fn instructions(target: Option<&Target>, copied: bool) -> String {
          suggest_note with `replaces` set to its id and the corrected note as `text`. For one that no longer applies, \
          call suggest_note with `replaces` set to its id, `remove: true`, and why as `text`.\n\
          5. For each finding, call suggest_note with {args}, the note as `text` (at most 300 characters) and your \
-         evidence (at most 600 characters): file paths, short commit hashes, usage figures. Notes are schema-level \
+         evidence (at most 600 characters): {evidence}. When a query can confirm the note, add it as `check`: one \
+         read-only SQL statement returning exactly one row with one column named `ok`, true while the note holds \
+         (`SELECT count(*) = 0 AS ok FROM orders WHERE status NOT IN ('p', 'r')`); leave it out otherwise. Notes are schema-level \
          facts: never values from rows or personal data (names, emails, amounts, ids). Status codes and enum names \
          (`1=pending`, `status IN (2,3)`), SQL, file paths and units are fine. SayQL refuses suggestions that \
          look like values. You need no rows for this; if you run a query to check something, keep its results out of the notes.\n\
@@ -220,5 +276,42 @@ mod tests {
         assert!(instructions(Some(&t), true).contains("SayQL MCP server's tools"));
         let open = instructions(None, false);
         assert!(open.contains("call list_connections") && open.contains("ask the user"));
+        // Runs read-only, without commands: nothing asks for git log.
+        assert!(!text.contains("git log"));
+        assert!(text.contains("this project's code (the repository you're working in) for where"));
+        assert!(text.contains("`check`") && text.contains("named `ok`"));
+    }
+
+    #[test]
+    fn instructions_list_the_code_sources() {
+        let t = Target {
+            connection_id: "c1",
+            name: "Shop",
+            database: None,
+        };
+        let text = instructions_for(
+            Some(&t),
+            false,
+            &[
+                Source {
+                    label: "backend",
+                    dir: "/app/repos/src_1",
+                    url: Some("https://github.com/acme/api.git"),
+                    commit: Some("1a2b3c4d5e6f7a8b9c0d"),
+                },
+                Source {
+                    label: "web",
+                    dir: "/Users/me/web",
+                    url: None,
+                    commit: None,
+                },
+            ],
+        );
+        assert!(text.contains(
+            "the code in these sources (read them all):\n- backend (https://github.com/acme/api.git @ 1a2b3c4d5e): /app/repos/src_1\n- web (/Users/me/web)\nfor where"
+        ), "{text}");
+        assert!(text.contains("`label:path@commit`, such as `backend:src/db/orders.ts@1a2b3c4`"));
+        assert!(!text.contains("this project's code"));
+        assert!(!text.contains("git log"));
     }
 }
