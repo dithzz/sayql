@@ -118,9 +118,18 @@
         if (a.active && !confirm("Turn off " + a.name + "? Their key stops working at once.")) return;
         api("ai-active", "POST", { account_id: a.id, active: !a.active }).then(load, function (e) { err("error", e.message); });
       });
+      var rekey = el("button", "New key");
+      rekey.type = "button";
+      rekey.addEventListener("click", function () {
+        if (!confirm("Give " + a.name + " a new key? Their current key stops working at once; the balance and history stay.")) return;
+        api("ai-rekey", "POST", { account_id: a.id }).then(function (r) { showKey(r.key); return load(); },
+          function (e) { err("error", e.message); });
+      });
+      var actions = el("span", null, "row-actions");
+      actions.append(rekey, toggle);
       return [a.name + (a.active ? "" : " (off)"), a.contact_email, bal, { text: m.requests, cls: "num" },
         { text: m.tokens.toLocaleString("en-US"), cls: "num" }, { text: usd(m.charged_micro), cls: "num" },
-        { text: usd(m.cost_micro), cls: "num" }, date(m.last_used), toggle];
+        { text: usd(m.cost_micro), cls: "num" }, date(m.last_used), actions];
     }, "No credit accounts yet. Create one below for a team that wants SayQL to provide the AI.");
     var sel = $("ai-topup-account");
     var keep = sel.value;
@@ -196,11 +205,19 @@
     api("ai-account", "POST", { name: f.name.value, contact_email: f.contact_email.value, initial_usd: f.initial_usd.value })
       .then(function (r) {
         f.reset();
-        $("ai-key-value").value = r.key;
-        show("ai-key", true);
+        showKey(r.key);
         return load();
       }, function (e) { err("ai-new-error", e.message); });
   });
+
+  // A key shown this once, from a new account or a new key for an existing one.
+  function showKey(key) {
+    $("ai-key-value").value = key;
+    show("ai-key", true);
+    var box = $("ai-key").closest("details");
+    if (box) box.open = true;
+    $("ai-key").scrollIntoView({ block: "center" });
+  }
 
   $("ai-key-copy").addEventListener("click", function () {
     var b = $("ai-key-copy");

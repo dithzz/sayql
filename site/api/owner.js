@@ -40,6 +40,7 @@ export default async function handler(req, res) {
     if (action === "ai-account" && req.method === "POST") return await createAiAccount(req, res, db);
     if (action === "ai-topup" && req.method === "POST") return await topUpAi(req, res, db);
     if (action === "ai-active" && req.method === "POST") return await setAiActive(req, res, db);
+    if (action === "ai-rekey" && req.method === "POST") return await rekeyAi(req, res, db);
     return res.status(404).json({ error: "No such action." });
   } catch (e) {
     console.error("owner:", action, e.message);
@@ -264,6 +265,25 @@ async function topUpAi(req, res, db) {
     p_note: String(b.note || "").trim().slice(0, 500) || null,
   });
   return res.status(200).json({ ok: true, balance_micro: balance });
+}
+
+/**
+ * A new key for an account whose key was lost or leaked: the old key stops working at once; the
+ * balance, history and on/off state stay. The new key is returned this once; only its SHA-256 is kept.
+ */
+async function rekeyAi(req, res, db) {
+  const id = Number(body(req).account_id);
+  if (!Number.isInteger(id)) return res.status(400).json({ error: "Pick an account." });
+  const key = "sqlc_" + crypto.randomBytes(24).toString("base64url");
+  const r = await fetch(`${db.url}/rest/v1/ai_accounts?id=eq.${id}`, {
+    method: "PATCH",
+    headers: headers(db, { "Content-Type": "application/json", Prefer: "return=representation" }),
+    body: JSON.stringify({ key_sha256: crypto.createHash("sha256").update(key).digest("hex") }),
+  });
+  if (!r.ok) throw new Error(`ai_accounts answered ${r.status}`);
+  const rows = await r.json();
+  if (!Array.isArray(rows) || !rows.length) return res.status(404).json({ error: "No such account." });
+  return res.status(200).json({ ok: true, key });
 }
 
 /** Turns an account off (its key stops working at once) or back on. */
