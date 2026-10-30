@@ -41,6 +41,10 @@ safely; and an AI agent with a database password can do anything. SayQL keeps th
   could change data stops and shows you the exact statement first.
 - **It knows your schema.** Tables, columns and relationships across every database you connect, so the SQL
   uses your real names and joins, not guesses.
+- **Notes that stay true.** Teach SayQL what the schema can't say ("status 3 = cancelled"), by hand or with an
+  audit that reads your code: local folders and GitHub, GitLab or Bitbucket repos. Each note knows which tables
+  and columns it's about. Rename or drop one and SayQL flags the note with the fix ready, and a note can carry a
+  query that checks it against the data.
 - **Faster than writing it yourself.** The right SQL in seconds, streaming in while you type. Simple
   requests are answered instantly on your machine, follow-ups edit the query you have ("only Canada",
   "sort by date"), and failed queries fix themselves once.
@@ -56,8 +60,9 @@ safely; and an AI agent with a database password can do anything. SayQL keeps th
   They can also hand you a query to review before anything runs.
 - **Governance for your AI agents.** [SayQL for teams](https://sayql.dev/#teams) is a server you run: each AI
   agent gets its own key, only the databases you choose and only the data you allow; private columns never leave
-  the server; every query, from people and agents, is on record; and people sign in with Google Workspace,
-  Microsoft Entra ID or Okta. Your data never reaches us.
+  the server; every query, from people and agents, is on record; shared notes and a glossary that owners approve
+  are kept true and used by every agent; and people sign in with Google Workspace, Microsoft Entra ID or Okta.
+  Your data never reaches us.
 - **Say it instead.** Click the mic and say your question. Speech is turned into text on your computer, and
   the audio never leaves it.
 - **Everything in one place.** Browse your tables, keep tabs open and save the queries you reuse. You see every

@@ -61,6 +61,16 @@
 </ul>
 <p>An agent sees what you allow wherever it runs, so choose all rows only for data you're happy to give that agent.</p>
 
+<h2 id="shared-knowledge">Shared knowledge</h2>
+<p>For admins and connection owners, with team server 0.5.0. One set of facts about each database that the schema can't tell (what a status code means, which table is current, how two tables relate), kept on your server and used by every agent behind the gateway.</p>
+<ul>
+  <li><b>Notes, glossary terms and links.</b> Open <b>Knowledge</b> on the admin page to add one. Each note knows the tables and columns it's about. A note can have a <b>check</b>: read-only SQL returning one row and one column, true while the note holds. Checks run like any query, so they're audited, refuse never-send columns, and only true or false is kept.</li>
+  <li><b>Kept true.</b> Each time the server reads a database's schema, notes whose table or column was dropped, renamed or changed are marked <b>may be out of date</b>, with the reason, and the server suggests the fix: the note rewritten with the new name, or retired. A failing check does the same. <b>It's still true</b>, <b>Check now</b> and editing a note clear the doubt.</li>
+  <li><b>Owners approve.</b> Admins choose each connection's owners. People and agents suggest notes and fixes; admins and owners accept them in the review queue, edit, retire or restore. Every change is in the note's <b>History</b>, which can't be edited.</li>
+  <li><b>Agents use them.</b> An agent's <code>describe_schema</code> includes the notes for the tables it returns, each marked checked or may be out of date, and the <code>glossary</code> tool looks terms up. Agents are told the schema wins when a note disagrees with it, and can suggest notes with <code>suggest_note</code>.</li>
+</ul>
+<p>The free app keeps its own notes on your computer (see <a href="/docs/agent-mode/#notes-stay-true">How notes stay true</a>). Shared knowledge is part of the Team plan; a team server without a licence or trial answers its routes with "no licence".</p>
+
 <h2>Sign in</h2>
 <ul>
   <li>Your team admin sends you an invite link, usually starting with <code>https://sayql.dev/join</code>. Open it and click <b>Open in SayQL</b>; if you don't have SayQL yet, the page links to the download. The server and code stay in the link: sayql.dev never sees them.</li>
