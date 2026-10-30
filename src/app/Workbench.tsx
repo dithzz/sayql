@@ -27,6 +27,7 @@ import { useSkills } from "../features/skills";
 import { hasUnsavedChanges, isPristine, useTabs, type EditorTab } from "../features/tabs";
 import { useUpdate } from "../features/updates";
 import { FeedbackDialog } from "../features/feedback";
+import { errorText } from "../lib/errors";
 import { useHandoffs } from "../features/handoff";
 import { TeamSignInDialog, teamAiDestination, teamAiOn, useTeamConnections } from "../features/team";
 import { exampleQuestions, GetStarted, OnboardingDialog, useGetStarted, type OnboardingStep } from "../features/onboarding";
@@ -409,6 +410,15 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
     openTab: (t, init) => tabs.open(t, init),
     openScript,
     openTeamSignIn: (server, code) => setDialog({ kind: "teamSignIn", server, code, key: crypto.randomUUID() }),
+    finishTeamSso: (code) =>
+      commands.teamSsoFinish(code).then(
+        (account) => {
+          setDialog((d) => (d?.kind === "teamSignIn" ? null : d));
+          setTeam(account);
+          setNotice(`Signed in to your team as ${account.email}.`);
+        },
+        (e) => setNotice(`Couldn't sign in to your team: ${errorText(e)}`),
+      ),
     notify: setNotice,
   }, scripts.loaded);
 

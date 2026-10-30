@@ -384,6 +384,7 @@ footer a { color: var(--color-text-muted); }
   <li>On the admin page, under <b>Connections</b>, add a database. The form shows the SQL to create a read-only login for it; run that first. Click <b>Test</b>.</li>
   <li>Under <b>People</b>, invite your team and click <b>Copy message</b>: the link and what to do, ready for email or chat. The link opens SayQL, or helps them download it first (below).</li>
   <li>To use the team's databases in SayQL yourself, click <b>Open SayQL with this account</b> on the admin page's <b>Overview</b>.</li>
+  <li>Optional: let people sign in with their <b>Google Workspace</b>, <b>Microsoft Entra ID</b> or <b>Okta</b> account instead of invite codes. On the admin page's <b>Sign-in</b> tab, pick your provider: it shows the redirect address to register there and what to copy back. Admins can come from a list of emails, an Okta group or an Entra app role. Sign-ins go from the browser to your provider and back to your server, never through SayQL. Needs team server 0.4.0 on HTTPS.</li>
   <li>Every new server is free for 30 days, for up to 10 people. To buy, email <a href="mailto:hello@azenvoc.com">hello@azenvoc.com</a>; paste the licence key you receive on the admin page's <b>Overview</b>. Nothing restarts and nothing is lost.</li>
 </ul>
 <p>Your data stays on your network: the server runs there, and the licence is checked offline. To update, run the same command again.</p>
@@ -394,7 +395,7 @@ footer a { color: var(--color-text-muted); }
   <li>On the admin page, open <b>Agents</b> and click <b>Add agent</b>. Give it a name, tick the connections it may use, and choose what it gets back from a query: only the row count and column names, <b>counts and summaries</b> (the default: no row values), or all rows.</li>
   <li>Copy what the page shows once: the <code>claude mcp add</code> command for Claude Code, or the config for Cursor and other MCP apps. They hold the agent's key, which starts with <code>sqa_</code>. The server keeps only a hash of it.</li>
   <li>The agent can list its connections, read the schema and run read-only queries. Columns marked never send are refused and withheld on the server, and nothing can change data.</li>
-  <li>Every query an agent runs, or tries on a connection it isn't allowed, is in the <b>Audit log</b> under <code>agent: name</code>, with the source <b>Agent (MCP)</b>.</li>
+  <li>Every query an agent runs, or tries on a connection it isn't allowed, is in the <b>Audit log</b> under <code>agent: name</code>, with the source <b>AI agent (gateway)</b>.</li>
   <li>Change an agent's setting any time, or click <b>Revoke</b>: its key stops working at once.</li>
 </ul>
 <p>An agent sees what you allow wherever it runs, so choose all rows only for data you're happy to give that agent.</p>
@@ -405,6 +406,7 @@ footer a { color: var(--color-text-muted); }
   <li>SayQL opens <b>Sign in to your team</b> filled in. Check the server is your company's, then click <b>Sign in</b>. Nothing is sent before you do.</li>
   <li>No link to click? Open <b>Settings → Team → Sign in</b> (or <b>Have a team invite? Sign in</b> in the Database Navigator) and paste the whole link, or enter the server and the code.</li>
   <li>An invite code works once and expires after 7 days. Your sign-in is kept in your system keychain.</li>
+  <li><b>Sign in with your company</b>: if your team admin turned it on, enter the server in <b>Sign in to your team</b> and click <b>Sign in with your company</b>. Your browser opens your company's sign-in page (Google, Microsoft or Okta); when you're done it asks to open SayQL, and you're signed in. No invite code needed. These sign-ins last 7 days unless your admin chose otherwise; then <b>Signed out of your team</b> appears and you sign in the same way again.</li>
   <li><b>Settings → Team</b> shows the server, your email and the team's plan and licence. <b>Sign out</b> ends the sign-in on the server and removes it from this computer.</li>
 </ul>
 
@@ -434,7 +436,9 @@ footer a { color: var(--color-text-muted); }
 <div class="table-wrap"><table>
   <thead><tr><th>Message</th><th>What to do</th></tr></thead>
   <tbody>
-    <tr><td>Signed out of your team, sign in again.</td><td>Your sign-in was revoked, or your account removed. Ask your team admin for a new invite.</td></tr>
+    <tr><td>Signed out of your team, sign in again.</td><td>Your sign-in expired (company sign-ins last 7 days by default) or was revoked. Sign in with your company again, or ask your team admin for a new invite.</td></tr>
+    <tr><td>This team signs in with your company account.</td><td>Your team admin turned off invite codes for members. Click <b>Sign in with your company</b>.</td></tr>
+    <tr><td>This sign-in expired, was already used, or was started somewhere else.</td><td>Finish the browser sign-in within 10 minutes of clicking <b>Sign in with your company</b>, then try again from SayQL.</td></tr>
     <tr><td>Your team's SayQL server runs only read-only queries</td><td>Run changes to data some other way your team agreed on.</td></tr>
     <tr><td>Your team admin marked a column in this query never send</td><td>Leave that column out of the query.</td></tr>
     <tr><td>Investigate is turned off for this connection by your team admin.</td><td>Use the Ask box or the editor there, or ask your team admin.</td></tr>

@@ -15,6 +15,7 @@ const teamConnections = vi.fn<() => Promise<ConnectionConfig[]>>();
 const teamSignOut = vi.fn<() => Promise<void>>();
 const teamSignIn = vi.fn<(server: string, code: string) => Promise<TeamAccount>>();
 const teamAi = vi.fn<() => Promise<TeamAiStatus | null>>();
+const teamSsoStart = vi.fn<(server: string) => Promise<void>>();
 vi.mock("../../api", async (orig) => ({
   ...(await orig<typeof import("../../api")>()),
   commands: {
@@ -23,6 +24,7 @@ vi.mock("../../api", async (orig) => ({
     teamSignOut: () => teamSignOut(),
     teamSignIn: (s: string, c: string) => teamSignIn(s, c),
     teamAi: () => teamAi(),
+    teamSsoStart: (s: string) => teamSsoStart(s),
   },
 }));
 const openUrl = vi.fn();
@@ -51,7 +53,7 @@ describe("SayQL Team", () => {
     expect(screen.getByText("Using SayQL with a team? Sign in to your company's SayQL server.")).toBeTruthy();
     await new Promise((r) => setTimeout(r, 10));
     expect(apply).toHaveBeenCalledWith([]);
-    for (const command of [teamStatus, teamConnections, teamSignOut, teamSignIn, teamAi]) expect(command).not.toHaveBeenCalled();
+    for (const command of [teamStatus, teamConnections, teamSignOut, teamSignIn, teamAi, teamSsoStart]) expect(command).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByText("SayQL for teams"));
     expect(openUrl).toHaveBeenCalledWith(TEAMS_URL);
@@ -113,6 +115,26 @@ describe("SayQL Team", () => {
     expect(code.value).toBe("ABCD-EFGH");
     expect(screen.getByText(/An invite link asks you to sign in/)).toBeTruthy();
     expect(teamSignIn).not.toHaveBeenCalled();
+  });
+
+  it("signs in with the company in the browser, after the server is entered", async () => {
+    teamSsoStart.mockResolvedValue();
+    render(<TeamSignInDialog onSignedIn={vi.fn()} onClose={vi.fn()} />);
+    const company = screen.getByRole("button", { name: "Sign in with your company" }) as HTMLButtonElement;
+    expect(company.disabled).toBe(true);
+    fireEvent.change(screen.getAllByRole("textbox")[0], { target: { value: "sayql.acme.test" } });
+    fireEvent.click(company);
+    await screen.findByText(/Finish signing in in your browser/);
+    expect(teamSsoStart).toHaveBeenCalledWith("sayql.acme.test");
+    expect(teamSignIn).not.toHaveBeenCalled();
+  });
+
+  it("says why when the server has no company sign-in", async () => {
+    teamSsoStart.mockRejectedValue("Your team's SayQL server doesn't have sign-in with your company turned on.");
+    render(<TeamSignInDialog server="https://sayql.acme.test" onSignedIn={vi.fn()} onClose={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Sign in with your company" }));
+    await screen.findByText(/doesn't have sign-in with your company/);
+    expect(screen.queryByText(/Finish signing in in your browser/)).toBeNull();
   });
 
   it("signed out, offers a quiet way to sign in that can be hidden", () => {

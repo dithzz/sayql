@@ -547,6 +547,8 @@ export type Handoff = { source: string | null } & (
   | { type: "openScript"; scriptId: string }
   /** A SayQL Team invite link: the sign-in dialog, filled in, for the person to confirm. */
   | { type: "teamJoin"; server: string; code: string }
+  /** The end of "Sign in with your company", only while SayQL waits for one it started. */
+  | { type: "teamSso"; server: string; code: string }
 );
 
 /** Voice input's on-device speech model. */

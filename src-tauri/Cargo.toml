@@ -1,6 +1,6 @@
 [package]
 name = "sayql"
-version = "0.4.11"
+version = "0.4.12"
 description = "AI-first database client: ask in English, get SQL as you type"
 authors = ["Adith"]
 edition = "2024"
@@ -57,6 +57,7 @@ open = "5"
 whisper-rs = "0.16"
 cpal = "0.18"
 sha2 = "0.10"
+base64 = "0.22"
 tauri-plugin-dialog = "2"
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration

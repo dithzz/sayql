@@ -552,6 +552,114 @@ fn team_invite_links_fill_the_dialog_and_nothing_else() {
     }
 }
 
+#[test]
+fn company_sign_in_links_carry_only_a_server_and_a_code() {
+    let code = "sqt_0123456789abcdefABCDEF-_xyz";
+    let h = crate::handoff::parse_team_sso(&format!(
+        "sayql://team-sso?server=https%3A%2F%2Fsayql.acme.internal&code={code}"
+    ))
+    .unwrap()
+    .unwrap();
+    assert_eq!(
+        h.action,
+        crate::handoff::Action::TeamSso(crate::handoff::TeamSso {
+            server: "https://sayql.acme.internal".into(),
+            code: code.into()
+        })
+    );
+    assert!(crate::handoff::parse_team_sso("sayql://team-join?server=a&code=b").is_none());
+    for bad in [
+        "sayql://team-sso?server=http://evil.example&code=sqt_0123456789abcdef",
+        "sayql://team-sso?server=https://a.test&code=short",
+        "sayql://team-sso?server=https://a.test&code=sqt_0123456789abcdef%20x",
+        "sayql://team-sso?server=https://a.test&code=sqt_0123456789abcdef&token=x",
+        "sayql://team-sso?server=https://a.test&code=sqt_0123456789abcdef#x",
+    ] {
+        assert!(
+            crate::handoff::parse_team_sso(bad).unwrap().is_err(),
+            "{bad}"
+        );
+    }
+}
+
+#[test]
+fn company_sign_in_uses_pkce() {
+    use base64::Engine;
+    use sha2::{Digest, Sha256};
+    let (verifier, challenge) = pkce_pair();
+    assert_eq!(verifier.len(), 64);
+    assert_eq!(challenge.len(), 43);
+    assert_eq!(
+        challenge,
+        base64::engine::general_purpose::URL_SAFE_NO_PAD
+            .encode(Sha256::digest(verifier.as_bytes()))
+    );
+    assert_ne!(pkce_pair().0, verifier, "a new verifier each time");
+    let url = sso_start_url(
+        "https://sayql.acme.internal/team",
+        &challenge,
+        "SayQL on Ana's Mac",
+    )
+    .unwrap();
+    assert_eq!(
+        url,
+        format!(
+            "https://sayql.acme.internal/team/auth/sso/start?target=app&challenge={challenge}&device=SayQL+on+Ana%27s+Mac"
+        )
+    );
+}
+
+#[tokio::test]
+async fn company_sign_in_redeems_with_the_verifier() {
+    let reply = |method: &str, path: &str, body: &Value| match (method, path) {
+        ("GET", "/api/v1/auth/sso") => (
+            200,
+            json!({ "enabled": true, "provider": "okta", "require_sso": false }),
+        ),
+        ("POST", "/api/v1/auth/sso/redeem") if body["verifier"] == "v1" && body["code"] == "c1" => {
+            (
+                200,
+                json!({ "token": "tok-sso", "user": { "id": "u_1", "email": "ana@acme.test", "name": "Ana", "role": "admin" }, "expires_in_days": 7 }),
+            )
+        }
+        ("POST", "/api/v1/auth/sso/redeem") => (
+            401,
+            json!({ "error": { "code": "unauthorized", "message": "This sign-in was started somewhere else. Sign in again from SayQL." } }),
+        ),
+        ("POST", "/api/v1/auth/redeem") => (
+            403,
+            json!({ "error": { "code": "forbidden", "message": "This team signs in with your company account." } }),
+        ),
+        _ => err(404, "not_found"),
+    };
+    let f = fake(reply).await;
+    let http = reqwest::Client::new();
+    assert!(sso_info(&http, &f.url).await.unwrap().enabled);
+    let (token, account) = sso_redeem(&http, &f.url, "c1", "v1", "d").await.unwrap();
+    assert_eq!(
+        (token.as_str(), account.role.as_str()),
+        ("tok-sso", "admin")
+    );
+    assert_eq!(
+        sso_redeem(&http, &f.url, "c1", "stolen", "d")
+            .await
+            .unwrap_err()
+            .to_string(),
+        SSO_EXPIRED
+    );
+    // With the company sign-in required, an invite says so instead of "isn't valid".
+    assert_eq!(
+        redeem(&http, &f.url, "ABCD", "d")
+            .await
+            .unwrap_err()
+            .to_string(),
+        "This team signs in with your company account."
+    );
+    // A server before 0.4.0 has no company sign-in.
+    let old = fake(|_: &str, _: &str, _: &Value| err(404, "not_found")).await;
+    assert!(!sso_info(&http, &old.url).await.unwrap().enabled);
+}
+
 /// Without sign-in, the app behaves as before: no team server is known, so nothing reads the
 /// keychain for a token or sends anything anywhere, and a `team:` id can't reach the network.
 #[tokio::test]

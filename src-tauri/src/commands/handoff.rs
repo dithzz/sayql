@@ -1,5 +1,6 @@
-//! Receives `sayql://` handoffs from AI apps (see src/handoff.rs) and team invite links, and
-//! passes the valid ones to the window, which shows them for the person to act on.
+//! Receives `sayql://` handoffs from AI apps (see src/handoff.rs), team invite links and the
+//! end of a company sign-in, and passes the valid ones to the window, which shows them for the
+//! person to act on.
 
 use crate::handoff::{self, Handoff};
 use crate::state::AppState;
@@ -15,6 +16,17 @@ pub fn receive(app: &AppHandle, links: impl IntoIterator<Item = String>) {
     let state = app.state::<AppState>();
     let mut any = false;
     for link in links {
+        if let Some(sso) = handoff::parse_team_sso(&link) {
+            match sso {
+                Ok(h) if super::team::sso_waiting(app) => {
+                    crate::state::lock(&app.state::<PendingHandoffs>().0).push(h);
+                    any = true;
+                }
+                Ok(_) => eprintln!("sayql: ignored a team sign-in link SayQL didn't start"),
+                Err(_) => eprintln!("sayql: ignored an invalid team sign-in link"),
+            }
+            continue;
+        }
         if let Some(join) = handoff::parse_team_join(&link) {
             match join {
                 Ok(h) => {

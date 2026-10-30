@@ -57,6 +57,7 @@ pub fn run() {
             let state = AppState::new(app.path().app_config_dir()?, app.path().app_data_dir()?)?;
             app.manage(state);
             app.manage(handoffs::PendingHandoffs::default());
+            app.manage(teams::PendingSso::default());
             app.manage(audits::AuditRuns::default());
             // Installers register sayql:// on Windows and Linux; this covers AppImages and dev builds.
             #[cfg(any(windows, target_os = "linux"))]
@@ -133,6 +134,8 @@ pub fn run() {
             updates::check_update,
             updates::install_update,
             teams::team_sign_in,
+            teams::team_sso_start,
+            teams::team_sso_finish,
             teams::team_status,
             teams::team_sign_out,
             teams::team_connections,
