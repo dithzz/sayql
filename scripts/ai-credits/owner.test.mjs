@@ -19,7 +19,8 @@ beforeAll(async () => {
     req.on("end", () => {
       if (req.method !== "PATCH" || !m) return res.writeHead(404).end("{}");
       const row = accounts[m[1]];
-      if (row) Object.assign(row, JSON.parse(raw));
+      // Only the column the portal changes; never copies arbitrary keys onto the row.
+      if (row) row.key_sha256 = String(JSON.parse(raw).key_sha256);
       res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify(row ? [row] : []));
     });
   });

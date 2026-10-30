@@ -58,7 +58,9 @@ function handleDb(req, raw, res) {
     return send(201, [stored]);
   }
   if (req.method === "PATCH") {
-    rows.filter((r) => matches(r, url.searchParams)).forEach((r) => Object.assign(r, JSON.parse(raw)));
+    // Only the column the webhook changes (a new key); never copies arbitrary keys onto a row.
+    const { key_sha256 } = JSON.parse(raw);
+    rows.filter((r) => matches(r, url.searchParams)).forEach((r) => (r.key_sha256 = String(key_sha256)));
     return send(204, null);
   }
   if (req.method === "DELETE") {
