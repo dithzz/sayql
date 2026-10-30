@@ -788,7 +788,13 @@ section.block { padding: 80px 0 0; }
 .credits-buy > div:first-child { flex: 1 1 360px; }
 .credits-buy h3 { font-size: 17px; margin: 0 0 6px; }
 .credits-buy p { margin: 0; color: var(--color-text-muted); font-size: 15px; }
-.credits-packs { display: flex; gap: 8px; }
+.credits-packs { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.credits-custom { display: flex; align-items: center; gap: 6px; margin-left: 4px; }
+.credits-dollar { color: var(--color-text-muted); }
+.credits-custom input { width: 84px; height: 40px; padding: 0 10px; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-bg); color: var(--color-text); font: inherit; font-size: 15px; }
+.credits-custom input::placeholder { color: var(--color-text-subtle); }
+.credits-custom input:focus { outline: 2px solid var(--color-app-accent); outline-offset: 1px; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 [data-buy][aria-busy="true"] { opacity: 0.6; pointer-events: none; }
 .buy-status { margin: 12px 0 0; color: var(--color-danger); font-size: 14px; }
 .site-footer { margin-top: 96px; border-top: 1px solid var(--color-border-subtle); padding: 32px 0 calc(32px + env(safe-area-inset-bottom, 0px)); font-size: 14px; color: var(--color-text-muted); }
@@ -1264,6 +1270,12 @@ section.block { padding: 80px 0 0; }
         <a class="btn" href="mailto:hello@azenvoc.com?subject=SayQL%20AI%20credits" data-buy="credits-10">$10</a>
         <a class="btn" href="mailto:hello@azenvoc.com?subject=SayQL%20AI%20credits" data-buy="credits-25">$25</a>
         <a class="btn" href="mailto:hello@azenvoc.com?subject=SayQL%20AI%20credits" data-buy="credits-50">$50</a>
+        <form class="credits-custom" id="credits-custom">
+          <label class="visually-hidden" for="credits-usd">Other amount in US dollars</label>
+          <span class="credits-dollar" aria-hidden="true">$</span>
+          <input id="credits-usd" name="usd" type="number" inputmode="numeric" min="5" max="1000" step="1" placeholder="Other" required>
+          <button class="btn" type="submit" data-buy="credits-custom">Buy</button>
+        </form>
       </div>
     </div>
     <p class="buy-status" id="buy-status" role="status" hidden></p>
@@ -1373,7 +1385,14 @@ section.block { padding: 80px 0 0; }
     a.addEventListener("click", function (ev) {
       ev.preventDefault();
       a.setAttribute("aria-busy", "true");
-      fetch("/api/checkout", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ product: a.getAttribute("data-buy") }) })
+      var product = a.getAttribute("data-buy");
+      var order = { product: product };
+      if (product === "credits-custom") {
+        var amount = document.getElementById("credits-usd");
+        if (!amount.reportValidity()) return;
+        order.usd = Number(amount.value);
+      }
+      fetch("/api/checkout", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(order) })
         .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { if (!r.ok || !j.url) throw { said: j.error }; return j.url; }); })
         .then(function (url) { location.href = url; })
         .catch(function (e) {
@@ -1384,6 +1403,9 @@ section.block { padding: 80px 0 0; }
         });
     });
   });
+
+  var customForm = document.getElementById("credits-custom");
+  if (customForm) customForm.addEventListener("submit", function (ev) { ev.preventDefault(); customForm.querySelector("[data-buy]").click(); });
 
   /* install command */
   var ic = document.getElementById("install-copy");

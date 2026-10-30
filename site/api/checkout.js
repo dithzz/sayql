@@ -1,6 +1,8 @@
 // POST /api/checkout {"product": "team" | "credits-25" | ...}: starts a Dodo Payments checkout for a
 // product the site sells and returns {"url": ...} to send the buyer to (Vercel function). Dodo's page
 // takes the email, card and tax details; the key is emailed by /api/dodo-webhook after payment.
+// A credit product marked "custom" (pay what you want in Dodo) also takes {"usd": whole dollars}
+// between its "min" and "max"; that's the price, and the credit the webhook adds.
 
 import { catalogue, dodo } from "./_lib/dodo.js";
 
@@ -19,14 +21,26 @@ export async function POST(request) {
   const name = String(body.product || "");
   const product = catalogue()[name];
   if (!product || !product.id) return json(400, { error: "That isn't something sayql.dev sells." });
+  const item = { product_id: product.id, quantity: 1 };
+  const metadata = { source: "sayql.dev", product: name };
+  if (product.custom) {
+    const usd = Number(body.usd);
+    const min = Number(product.min) || 5;
+    const max = Number(product.max) || 1000;
+    if (!Number.isInteger(usd) || usd < min || usd > max) {
+      return json(400, { error: `Choose a whole number of dollars from $${min} to $${max}.` });
+    }
+    item.amount = usd * 100;
+    metadata.credit_usd = String(usd);
+  }
 
   try {
     const session = await dodo("/checkouts", {
       method: "POST",
       body: JSON.stringify({
-        product_cart: [{ product_id: product.id, quantity: 1 }],
+        product_cart: [item],
         return_url: `${SITE}/thanks/?product=${encodeURIComponent(name)}`,
-        metadata: { source: "sayql.dev", product: name },
+        metadata,
       }),
     });
     if (!session.checkout_url) throw new Error("no checkout_url");

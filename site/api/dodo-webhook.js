@@ -59,7 +59,12 @@ async function handle(db, event) {
       .filter((i) => i.p && i.p.kind === "credits");
     // The Dodo account sells other products too; their payments aren't SayQL's to handle.
     if (!packs.length) return;
-    const usd = packs.reduce((sum, i) => sum + Number(i.p.usd) * i.qty, 0);
+    // A custom amount is what /api/checkout put in the order's metadata (set by us, not the buyer).
+    const custom = Number(data.metadata?.credit_usd);
+    const usd = packs.reduce((sum, i) => sum + (i.p.custom ? custom : Number(i.p.usd)) * i.qty, 0);
+    if (!(usd > 0)) {
+      return notifyOwner("Credit payment without an amount", `Payment ${data.payment_id} from ${data.customer?.email} has no credit_usd. Add the credit by hand in the owner portal.`);
+    }
     return credits(db, data.customer, usd, data.payment_id);
   }
   if (event.type === "subscription.active" || event.type === "subscription.renewed") {

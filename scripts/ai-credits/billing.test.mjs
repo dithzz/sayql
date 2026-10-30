@@ -103,6 +103,7 @@ beforeAll(async () => {
     DODO_PRODUCTS: JSON.stringify({
       team: { id: "pdt_team", kind: "team", users: 10 },
       "credits-25": { id: "pdt_c25", kind: "credits", usd: 25 },
+      "credits-custom": { id: "pdt_cx", kind: "credits", custom: true, min: 5, max: 1000 },
     }),
   });
   // Dodo's API at the fake: the module reads test mode's address, so point fetch there.
@@ -145,6 +146,19 @@ it("starts a checkout for a product the site sells, and nothing else", async () 
   expect(checkouts[0].return_url).toBe("https://sayql.dev/thanks/?product=credits-25");
   r = await checkout(new Request("https://sayql.dev/api/checkout", { method: "POST", body: JSON.stringify({ product: "pdt_c25" }) }));
   expect(r.status).toBe(400);
+});
+
+it("takes a custom credit amount in whole dollars within the limits, and credits exactly that", async () => {
+  const buy = (body) => checkout(new Request("https://sayql.dev/api/checkout", { method: "POST", body: JSON.stringify(body) }));
+  for (const usd of [4, 1001, 12.5, "abc", undefined]) expect((await buy({ product: "credits-custom", usd })).status).toBe(400);
+  const r = await buy({ product: "credits-custom", usd: 37 });
+  expect(r.status).toBe(200);
+  expect(checkouts.at(-1).product_cart).toEqual([{ product_id: "pdt_cx", quantity: 1, amount: 3700 }]);
+  expect(checkouts.at(-1).metadata).toMatchObject({ credit_usd: "37" });
+
+  const paid = { payment_id: "pay_cx", customer, product_cart: [{ product_id: "pdt_cx", quantity: 1 }], metadata: { credit_usd: "37" }, subscription_id: null };
+  expect((await event("payment.succeeded", paid)).status).toBe(200);
+  expect(tables.ai_accounts[0].balance_micro).toBe(37_000_000);
 });
 
 it("refuses a webhook with a bad signature or an old timestamp", async () => {
