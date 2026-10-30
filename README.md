@@ -41,10 +41,8 @@ safely; and an AI agent with a database password can do anything. SayQL keeps th
   could change data stops and shows you the exact statement first.
 - **It knows your schema.** Tables, columns and relationships across every database you connect, so the SQL
   uses your real names and joins, not guesses.
-- **Notes that stay true.** Teach SayQL what the schema can't say ("status 3 = cancelled"), by hand or with an
-  audit that reads your code: local folders and GitHub, GitLab or Bitbucket repos. Each note knows which tables
-  and columns it's about. Rename or drop one and SayQL flags the note with the fix ready, and a note can carry a
-  query that checks it against the data.
+- **A shared memory that stays true.** Approve a note once ("status 3 = cancelled") and every app and session
+  that goes through SayQL knows it. Rename a column and SayQL flags the notes about it, with the fix ready.
 - **Faster than writing it yourself.** The right SQL in seconds, streaming in while you type. Simple
   requests are answered instantly on your machine, follow-ups edit the query you have ("only Canada",
   "sort by date"), and failed queries fix themselves once.
