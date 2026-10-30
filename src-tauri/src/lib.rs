@@ -54,6 +54,8 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
+            // The app's identifier names its keychain item, so a test build keeps its own.
+            store::secrets::set_service(&app.config().identifier);
             let state = AppState::new(app.path().app_config_dir()?, app.path().app_data_dir()?)?;
             app.manage(state);
             app.manage(handoffs::PendingHandoffs::default());
