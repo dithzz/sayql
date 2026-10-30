@@ -1258,7 +1258,7 @@ section.block { padding: 80px 0 0; }
     <div class="credits-buy">
       <div>
         <h3>SayQL AI credits</h3>
-        <p>Claude in SayQL without an Anthropic account, for you or your team. Prepaid, at Anthropic's API prices plus 20%. The key arrives by email in a minute.</p>
+        <p>Claude in SayQL, no Anthropic account needed. Anthropic's prices plus 20%; the key is emailed to you.</p>
       </div>
       <div class="credits-packs">
         <a class="btn" href="mailto:hello@azenvoc.com?subject=SayQL%20AI%20credits" data-buy="credits-10">$10</a>
@@ -1267,7 +1267,7 @@ section.block { padding: 80px 0 0; }
       </div>
     </div>
     <p class="buy-status" id="buy-status" role="status" hidden></p>
-    <p class="plans-note">No card for the trial. Buy with a card above, or email <a href="mailto:hello@azenvoc.com">hello@azenvoc.com</a> for an invoice. More than 10 people? Email us. Payments are handled by Dodo Payments, our reseller, which also handles sales tax.</p>
+    <p class="plans-note">No card for the trial. Invoice, or more than 10 people? <a href="mailto:hello@azenvoc.com">Email us</a>.</p>
   </div>
 </section>
 
@@ -1379,7 +1379,7 @@ section.block { padding: 80px 0 0; }
         .catch(function (e) {
           a.removeAttribute("aria-busy");
           // Only our own messages reach the page; anything else gets the plain fallback.
-          buyStatus.textContent = (e && e.said) || "Couldn't start the checkout. Email hello@azenvoc.com and we'll send an invoice.";
+          buyStatus.textContent = (e && e.said) || "Checkout isn't available right now. Email hello@azenvoc.com to buy.";
           buyStatus.hidden = false;
         });
     });
