@@ -131,3 +131,17 @@ it("charges the output of a stream that breaks before its final usage", async ()
   m.push(sse({ type: "message_delta", usage: { output_tokens: 80 } }));
   expect(m.usage().output_tokens).toBe(80);
 });
+
+it("tells a key's own balance, and nothing for a bad key", async () => {
+  const get = (key) => fetch(`${h.base}/v1/balance`, { headers: { "x-api-key": key } });
+  let r = await get(GOOD_KEY);
+  expect(r.status).toBe(200);
+  expect(await r.json()).toEqual({ balance_usd: 5 });
+  r = await fetch(`${h.base}/v1/balance`, { headers: { authorization: `Bearer ${BROKE_KEY}` } });
+  expect(await r.json()).toEqual({ balance_usd: 0 });
+  r = await get("sqlc_nobody");
+  expect(r.status).toBe(401);
+  r = await get("sk-ant-not-a-credit-key");
+  expect(r.status).toBe(401);
+  expect(upstream()).toEqual([]);
+});

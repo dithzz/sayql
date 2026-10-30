@@ -179,6 +179,8 @@ export const commands = {
   /** Model ids an AI provider offers; also checks the key and base URL. */
   listModels: (provider: string, baseUrl: string, apiKey: string | null) =>
     invoke<string[]>("list_models", { provider, baseUrl, apiKey }),
+  /** What's left on the saved SayQL AI credit key, in US dollars; null without one. */
+  creditsBalance: () => invoke<number | null>("credits_balance"),
   /** "Your Claude plan": checks the installed Claude Code is recent enough and signed in. */
   checkClaudePlan: () => invoke<PlanCheck>("check_claude_plan"),
 

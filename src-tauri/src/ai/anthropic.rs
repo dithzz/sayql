@@ -288,6 +288,30 @@ pub(super) async fn check_key(
     Ok(())
 }
 
+/// What's left on a SayQL AI credit key, in US dollars (`GET {base}/v1/balance`, a SayQL route).
+pub(super) async fn credits_balance(
+    http: &reqwest::Client,
+    base: &str,
+    api_key: &str,
+) -> AppResult<f64> {
+    let resp = http
+        .get(format!("{base}/v1/balance"))
+        .header("x-api-key", api_key)
+        .timeout(std::time::Duration::from_secs(20))
+        .send()
+        .await
+        .map_err(|e| AppError::from(format!("Could not reach SayQL AI credits: {e}")))?;
+    let status = resp.status().as_u16();
+    let body = resp.text().await.unwrap_or_default();
+    if !(200..300).contains(&status) {
+        return Err(credits_error(status, &body));
+    }
+    serde_json::from_str::<Value>(&body)
+        .ok()
+        .and_then(|v| v["balance_usd"].as_f64())
+        .ok_or_else(|| "SayQL AI credits sent a balance this version of SayQL can't read.".into())
+}
+
 /// A message for a non-2xx answer from SayQL AI credits (its messages are written for people).
 fn credits_error(status: u16, body: &str) -> AppError {
     let msg = serde_json::from_str::<Value>(body)

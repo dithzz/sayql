@@ -15,6 +15,13 @@ All notable changes to SayQL are listed here. Downloads are on the
   default, then you sign in the same way again.
 - When a team requires sign-in with the company, an invite code says so instead of "isn't valid".
 
+### SayQL AI credits
+
+- **See what's left.** With a credit key, Settings → AI provider shows the balance, and SayQL warns once per
+  launch when it drops below $5, so it doesn't run out in the middle of your work. Team server 0.4.0 shows the
+  team's balance on the admin page's AI tab, with the same warning. The balance comes from the credits service
+  your AI requests already go to; nothing else is sent.
+
 ## 0.4.11 (2026-10-29)
 
 ### Team connections

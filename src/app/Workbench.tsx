@@ -22,7 +22,7 @@ import { ConnectionDialog, DATABASE_KINDS, ProdBadge, newConnection, targetKey, 
 import { DatabaseNavigator, type NavigatorScript } from "../features/navigator";
 import { CloseTabDialog, CloseTabsDialog, SaveScriptDialog, useScripts } from "../features/scripts";
 import { selectAllSql } from "../features/schema";
-import { SettingsPage, useSettings, type AiAppsTab, type SettingsSection } from "../features/settings";
+import { SettingsPage, lowCreditText, useSettings, type AiAppsTab, type SettingsSection } from "../features/settings";
 import { useSkills } from "../features/skills";
 import { hasUnsavedChanges, isPristine, useTabs, type EditorTab } from "../features/tabs";
 import { useUpdate } from "../features/updates";
@@ -158,6 +158,18 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
     },
   );
   const currentProvider = settings.aiReady ? settings.providers.find((p) => p.id === settings.provider) : undefined;
+  // On SayQL AI credits: warn once per launch when the balance is low, before it runs out mid-work.
+  const onCredits = settings.aiReady && settings.provider === "sayql";
+  useEffect(() => {
+    if (!onCredits) return;
+    commands.creditsBalance().then(
+      (usd) => {
+        const low = usd == null ? null : lowCreditText(usd);
+        if (low) setNotice(low);
+      },
+      () => {},
+    );
+  }, [onCredits]);
   /** Where the Ask box and Investigate send for a connection: the team's AI on a team connection with team AI on. */
   const destinationFor = (connectionId: string) => {
     const ai = teamAiFor(connectionId);

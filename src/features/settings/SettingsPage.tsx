@@ -11,6 +11,7 @@ import { TeamSection } from "../team";
 import { VoiceSection } from "../voice";
 import { ClaudeIntegration, type AiAppsTab } from "./ClaudeIntegration";
 import { ClaudePlanCheck } from "./ClaudePlanCheck";
+import { CreditsBalance } from "./CreditsBalance";
 import { MyActivityLog } from "./MyActivity";
 import { version } from "../../../package.json";
 import { docsUrl } from "../help";
@@ -264,6 +265,7 @@ export function SettingsPage({
               {provider.api !== "openai" ? (
                 <>
                   {provider.api === "plan" && <ClaudePlanCheck />}
+                  {provider.id === SAYQL_CREDITS && provider.hasKey && <CreditsBalance />}
                   {provider.id === "anthropic" && (
                     <Field
                       label="Workspace ID"

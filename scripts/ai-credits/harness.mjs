@@ -135,6 +135,7 @@ export async function start({ port = 0, log = path.join(os.tmpdir(), `sayql-cred
   const routes = {
     "/api/ai/v1/messages": await load("messages.js"),
     "/api/ai/v1/models": await load("models.js"),
+    "/api/ai/v1/balance": await load("balance.js"),
   };
   try {
     routes["/api/ai/v1/messages/count_tokens"] = await load("messages/count_tokens.js");

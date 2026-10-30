@@ -766,6 +766,8 @@ export function installMockBackend() {
           return null;
         case "team_sign_out":
           return null;
+        case "credits_balance":
+          return null;
         case "team_sign_in":
         case "team_sso_start":
         case "team_sso_finish":
