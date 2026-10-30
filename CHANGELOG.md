@@ -3,6 +3,40 @@
 All notable changes to SayQL are listed here. Downloads are on the
 [releases page](https://github.com/dithzz/sayql-releases/releases).
 
+## 0.5.0 (2026-10-30)
+
+### Notes that stay true
+
+- **Notes know what they're about.** When you save a note about a database, SayQL finds the tables and columns
+  it names and remembers what they were like. The note dialog shows them.
+- **Schema changes are caught.** Before each question, at most once a minute, SayQL checks whether the
+  database's schema changed (one small read-only query), and reads it again right away when a query fails
+  because a table or column doesn't exist. A note whose table or column was dropped, renamed or changed is
+  marked **may be out of date**, with the reason, and SayQL suggests the fix: the note rewritten with the new
+  name after a rename, or its removal after a drop. Nothing changes until you accept.
+- **Checks.** A note can carry a read-only query that returns true while the note holds. SayQL runs it when
+  the note is saved, weekly when you open the database, when you click **Check notes**, and when Investigate
+  asks. Only true or false is kept. A failing check marks the note out of date; a passing one shows **checked**.
+- **The schema wins.** The Ask box and Investigate now get only the notes about the tables in the question,
+  each marked checked or may be out of date, and are told to follow the schema when a note disagrees with it.
+  AI apps over MCP see the same marks.
+- **Investigate corrects notes.** It can run a note's check mid-run, and the notes it suggests (new ones, and
+  fixes to saved ones, with checks) wait for you with the other suggestions.
+- A doubtful note shows a warning sign in the navigator and a banner. Open it to see why, the suggested fix,
+  its check and its earlier versions, or choose **It's still true**.
+
+### The audit reads all your code
+
+- **Several code sources per connection:** local folders and git repositories on GitHub, GitLab, Bitbucket or
+  any host. SayQL fetches each repository with your own git login (or a read-only token kept in your
+  keychain) before the audit, and the audit reads all of them. Notes cite their evidence as
+  `source:path@commit`.
+
+### New logo
+
+- **"Shape, not data":** a database whose schema (what the AI sees) sits above rows it doesn't. New app icons,
+  and the logo across the app, sayql.dev and the docs.
+
 ## 0.4.12 (2026-10-30)
 
 ### Teams

@@ -641,7 +641,8 @@ section.block { padding: 80px 0 0; }
   .feature-row, .feature-row:nth-child(even) { grid-template-columns: 1fr; gap: 20px; }
   .feature-row:nth-child(even) .feature-text { order: 0; }
 }
-.facts { margin-top: 96px; padding-top: 40px; border-top: 1px solid var(--color-border-subtle); display: grid; grid-template-columns: repeat(3, 1fr); gap: 32px 48px; }
+.facts { margin-top: 96px; padding-top: 40px; border-top: 1px solid var(--color-border-subtle); display: grid; grid-template-columns: repeat(4, 1fr); gap: 32px 40px; }
+@media (max-width: 1100px) { .facts { grid-template-columns: 1fr 1fr; } }
 .fact-group h3 { font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-text-subtle); }
 .fact-group ul { margin: 16px 0 0; padding: 0; list-style: none; display: grid; gap: 14px; }
 .fact-group li b { display: block; font-size: 15px; font-weight: 500; }
@@ -1108,6 +1109,14 @@ section.block { padding: 80px 0 0; }
         </ul>
       </div>
       <div class="fact-group">
+        <h3>Knows your database</h3>
+        <ul>
+          <li><b>Notes that stay true</b><span>Rename a column and SayQL flags the notes about it, with the fix ready.</span></li>
+          <li><b>Learns from your code</b><span>The audit reads local folders and GitHub, GitLab or Bitbucket repos.</span></li>
+          <li><b>Checked against the data</b><span>A note can carry a query that proves it still holds.</span></li>
+        </ul>
+      </div>
+      <div class="fact-group">
         <h3>Safe by default</h3>
         <ul>
           <li><b>Half a statement never runs</b><span>A DELETE never loses its WHERE.</span></li>
@@ -1173,6 +1182,7 @@ section.block { padding: 80px 0 0; }
           <li><svg class="icon"><use href="#i-key"/></svg><div><strong>Every agent on a leash</strong><span>Its own key, only the databases you choose, counts not rows by default. Revoke in one click.</span></div></li>
           <li><svg class="icon"><use href="#i-scroll"/></svg><div><strong>Every query on record</strong><span>Which person or agent asked what, allowed or refused.</span></div></li>
           <li><svg class="icon"><use href="#i-lock"/></svg><div><strong>Private columns stay put</strong><span>Mark <code>users.email</code> private: it never leaves your server, not to an agent, not to a laptop.</span></div></li>
+          <li><svg class="icon"><use href="#i-check"/></svg><div><strong>Knowledge your agents can trust</strong><span>One set of notes and a glossary, approved by owners, with history. Kept true as your schema changes, and used by every agent behind the gateway.</span></div></li>
           <li><svg class="icon"><use href="#i-users"/></svg><div><strong>Sign in with your company</strong><span>Google Workspace, Microsoft Entra ID or Okta. Admins come from your groups; no invite codes to hand out.</span></div></li>
         </ul>
         <p class="team-next">Works with Claude Code, Cursor and any MCP agent.</p>
@@ -1245,6 +1255,7 @@ section.block { padding: 80px 0 0; }
           <li><svg class="icon"><use href="#i-check"/></svg>Everything one person needs, at work too</li>
           <li><svg class="icon"><use href="#i-check"/></svg>PostgreSQL, MySQL, SQLite and SQL Server, read-only</li>
           <li><svg class="icon"><use href="#i-check"/></svg>Ask box, Investigate, skills, MCP and voice</li>
+          <li><svg class="icon"><use href="#i-check"/></svg>Notes that stay true, learned from your code</li>
           <li><svg class="icon"><use href="#i-check"/></svg>Your own AI key, your Claude plan, a local model, or SayQL AI credits</li>
           <li><svg class="icon"><use href="#i-check"/></svg>Open source, Apache 2.0</li>
         </ul>
@@ -1258,6 +1269,7 @@ section.block { padding: 80px 0 0; }
           <li><svg class="icon"><use href="#i-check"/></svg>An agent gateway: each AI agent its own key, databases, tables and rows</li>
           <li><svg class="icon"><use href="#i-check"/></svg>A record of every query, from people and agents, with CSV export</li>
           <li><svg class="icon"><use href="#i-check"/></svg>Private columns that never leave your server</li>
+          <li><svg class="icon"><use href="#i-check"/></svg>Shared knowledge: notes and a glossary that owners approve, kept true</li>
           <li><svg class="icon"><use href="#i-check"/></svg>Sign-in with Google, Microsoft or Okta, included</li>
           <li><svg class="icon"><use href="#i-check"/></svg>One company AI key with monthly limits</li>
           <li><svg class="icon"><use href="#i-check"/></svg>Runs on your servers; your data never reaches us</li>
