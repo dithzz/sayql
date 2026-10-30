@@ -110,6 +110,7 @@ impl Answerer for Agent {
             schema_text: crate::ai::agent::prompt::agent_schema(&schema, &full, &q.question),
             schema,
             notes: Vec::new(),
+            notes_home: None,
             focus: Vec::new(),
             skill: None,
             access: AgentAccess {

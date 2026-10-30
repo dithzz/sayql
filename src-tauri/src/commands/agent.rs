@@ -1,6 +1,6 @@
 use crate::ai::Api;
 use crate::ai::agent::model::{Llm, ToolMode};
-use crate::ai::agent::run::{self, Event, Io, Reply, RunInput, StepStatus};
+use crate::ai::agent::run::{self, Event, Io, NotesHome, Reply, RunInput, StepStatus};
 use crate::ai::endpoint::endpoint;
 use crate::error::{AppError, AppResult};
 use crate::state::{AgentRun, AppState, Target};
@@ -51,6 +51,7 @@ pub async fn start_agent(
         );
     }
     let target = Target::new(id.clone(), database.clone());
+    state.ensure_fresh(&target).await;
     let live = state.schema(&target)?;
     let pool = state
         .target_pool(&target)
@@ -106,12 +107,13 @@ pub async fn start_agent(
                 })?,
         ),
     };
-    let notes = state
-        .store
-        .notes(&id, database.as_deref())?
-        .into_iter()
-        .map(|n| n.text)
-        .collect();
+    let notes_database = state.notes_database(&target);
+    let notes = state.store.notes(&id, notes_database.as_deref())?;
+    let notes_home = Some(NotesHome {
+        store: state.store.clone(),
+        connection_id: id.clone(),
+        database: notes_database,
+    });
     let focus = focus_tables.unwrap_or_default();
     let relevance = format!("{question} {}", focus.join(" "));
     let history = if follow_up == Some(true) {
@@ -134,6 +136,7 @@ pub async fn start_agent(
         ),
         schema: live.schema.clone(),
         notes,
+        notes_home,
         focus,
         skill,
         access,
@@ -272,9 +275,10 @@ pub fn list_notes(
         .notes(&id, database.as_deref().filter(|d| !d.trim().is_empty()))
 }
 
-/// Saves a database note: new (empty `id`) or edited.
+/// Saves a database note: new (empty `id`) or edited. Finds what it's about in the open
+/// database's schema, and runs its check when it has one.
 #[tauri::command]
-pub fn save_note(state: State<'_, AppState>, note: Note) -> AppResult<Note> {
+pub async fn save_note(state: State<'_, AppState>, note: Note) -> AppResult<Note> {
     state.check_connection(&note.connection_id)?;
     let id = if note.id.is_empty() {
         uuid::Uuid::new_v4().to_string()
@@ -282,11 +286,89 @@ pub fn save_note(state: State<'_, AppState>, note: Note) -> AppResult<Note> {
         note.id.clone()
     };
     let database = note.database.clone().filter(|d| !d.trim().is_empty());
-    state.store.save_note(Note {
-        id,
-        database,
-        ..note
-    })
+    let target = Target::new(note.connection_id.clone(), database.clone());
+    let schema = state.schema(&target).ok();
+    let saved = state.store.save_note_with(
+        Note {
+            id,
+            database,
+            ..note
+        },
+        schema.as_ref().map(|s| &s.schema),
+    )?;
+    Ok(checked(&state, &target, saved).await)
+}
+
+/// The note after running its check, if it has one that hasn't run since it was set.
+async fn checked(state: &AppState, target: &Target, note: Note) -> Note {
+    if note.check.as_ref().is_none_or(|c| c.last.is_some()) {
+        return note;
+    }
+    let Ok(pool) = state.target_pool(target).await else {
+        return note;
+    };
+    crate::notes::check_note(&state.store, &pool, &note.id)
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or(note)
+}
+
+/// The person says a doubtful note is still true: it's no longer doubtful, and what it's
+/// about is taken from the schema as it is now.
+#[tauri::command]
+pub fn confirm_note(state: State<'_, AppState>, id: String) -> AppResult<Note> {
+    let note = state
+        .store
+        .all_notes()?
+        .into_iter()
+        .find(|n| n.id == id)
+        .ok_or("This note was deleted.")?;
+    let target = Target::new(note.connection_id.clone(), note.database.clone());
+    let schema = state.schema(&target).ok();
+    state
+        .store
+        .update_note(&id, |n| {
+            n.suspect = None;
+            if let Some(s) = &schema {
+                n.anchors = crate::schema::anchors::resolve(&n.text, &s.schema).anchors;
+            }
+        })?
+        .ok_or_else(|| "This note was deleted.".into())
+}
+
+/// Runs one note's check now and returns the note with the result.
+#[tauri::command]
+pub async fn check_note(state: State<'_, AppState>, id: String) -> AppResult<Note> {
+    let note = state
+        .store
+        .all_notes()?
+        .into_iter()
+        .find(|n| n.id == id)
+        .ok_or("This note was deleted.")?;
+    state.check_connection(&note.connection_id)?;
+    let target = Target::new(note.connection_id.clone(), note.database.clone());
+    let pool = state.target_pool(&target).await?;
+    crate::notes::check_note(&state.store, &pool, &id)
+        .await?
+        .ok_or_else(|| "This note has no check.".into())
+}
+
+/// Reads the database's schema again (reviewing its notes against it) and runs every note
+/// check, then returns the notes.
+#[tauri::command]
+pub async fn check_notes(
+    state: State<'_, AppState>,
+    id: String,
+    database: Option<String>,
+) -> AppResult<Vec<Note>> {
+    state.check_connection(&id)?;
+    let target = Target::new(id.clone(), database);
+    state.load_schema(&target).await?;
+    let pool = state.target_pool(&target).await?;
+    let place = state.notes_database(&target);
+    crate::notes::check_all(&state.store, &pool, &id, place.as_deref(), None).await?;
+    state.store.notes(&id, place.as_deref())
 }
 
 #[tauri::command]
@@ -303,8 +385,24 @@ pub fn list_note_suggestions(state: State<'_, AppState>) -> AppResult<Vec<NoteSu
 /// Applies a suggested note: saves it as an ordinary note, replaces the note it corrects, or
 /// deletes the note it removes (then `None`).
 #[tauri::command]
-pub fn accept_note_suggestion(state: State<'_, AppState>, id: String) -> AppResult<Option<Note>> {
-    state.store.accept_note_suggestion(&id)
+pub async fn accept_note_suggestion(
+    state: State<'_, AppState>,
+    id: String,
+) -> AppResult<Option<Note>> {
+    let place = state
+        .store
+        .note_suggestions()?
+        .into_iter()
+        .find(|s| s.id == id)
+        .map(|s| Target::new(s.connection_id, s.database));
+    let schema = place.as_ref().and_then(|t| state.schema(t).ok());
+    let note = state
+        .store
+        .accept_note_suggestion_with(&id, schema.as_ref().map(|s| &s.schema))?;
+    Ok(match (note, place) {
+        (Some(n), Some(target)) => Some(checked(&state, &target, n).await),
+        (n, _) => n,
+    })
 }
 
 #[tauri::command]

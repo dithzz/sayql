@@ -54,8 +54,10 @@ prefilled New connection dialog (never pass a password; the user types it in Say
 opens SQL in a new SayQL tab for the user to review and run (use it for statements that change data). \
 list_scripts shows the user's saved scripts; open_script opens one in SayQL. export_csv saves a read-only \
 query's rows (up to 100,000) to a CSV file in the user's Downloads folder without returning them. \
-describe_schema includes notes the user saved about the database (what codes mean, how tables relate); \
-trust them. It also shows each table's usage from the database's own statistics (reads, writes, last write, \
+describe_schema includes notes the user saved about the database (what codes mean, how tables relate). \
+Use them, but the schema is current: where a note disagrees with it, follow the schema, and verify a note \
+marked \"may be out of date\" (SayQL marks a note so when a table or column it names was dropped, renamed \
+or changed, or its check failed) before relying on it. It also shows each table's usage from the database's own statistics (reads, writes, last write, \
 and the period they cover), so you can tell a live table from an abandoned one. When you learn a lasting \
 schema-level fact (a table is unused and replaced, what a status code means, how two tables relate), call \
 suggest_note with the note and your evidence: notes describe the database, never row values or personal data, \
@@ -124,6 +126,12 @@ struct SuggestNoteParams {
     /// With `replaces`: suggest deleting that note because it no longer applies; `text` says why.
     #[serde(default)]
     remove: Option<bool>,
+    /// Optional: a read-only SQL query that tests the note against the data, returning one row
+    /// with one column that is true while the note holds, e.g. "SELECT count(*) = 0 FROM orders
+    /// WHERE status NOT IN ('new','paid','cancelled')". SayQL runs it to keep the note honest;
+    /// only true or false is kept.
+    #[serde(default)]
+    check: Option<String>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -265,7 +273,8 @@ impl SayqlServer {
                           relate), with the evidence you checked. Never row values or personal data: notes \
                           that look like values are refused. To correct a saved note, pass its id from \
                           describe_schema as `replaces`; add `remove: true` to suggest deleting it (`text` says \
-                          why). It waits in SayQL until the user accepts it; accepted notes appear in \
+                          why). When the note can be tested against the data, add `check`: read-only SQL \
+                          returning one row and one column, true while the note holds. It waits in SayQL until the user accepts it; accepted notes appear in \
                           describe_schema for every later session and AI app."
     )]
     async fn suggest_note(
@@ -871,7 +880,15 @@ impl SayqlServer {
         let result = change.and_then(|change| {
             self.state
                 .store
-                .suggest_note_change(&conn.id, database.as_deref(), &p.text, &p.evidence, app, change)
+                .suggest_checked_note_change(
+                    &conn.id,
+                    database.as_deref(),
+                    &p.text,
+                    &p.evidence,
+                    app,
+                    change,
+                    p.check.as_deref(),
+                )
                 .map(|_| {
                     let what = match change {
                         Change::Add => "the note",
@@ -1859,6 +1876,7 @@ mod tests {
             evidence: String::new(),
             replaces: None,
             remove: None,
+            check: None,
         };
         server.suggest("Cursor", on_pg).unwrap();
         let s = server.state.store.note_suggestions().unwrap().remove(0);
@@ -1872,6 +1890,7 @@ mod tests {
             evidence: evidence.into(),
             replaces: None,
             remove: None,
+            check: None,
         };
         let ok = server
             .suggest(
@@ -2055,6 +2074,7 @@ mod tests {
                 database: None,
                 text: "orders_v1 is the live orders table".into(),
                 updated_at: 0,
+                ..Default::default()
             })
             .unwrap();
         assert!(
@@ -2069,6 +2089,7 @@ mod tests {
             evidence: "api/orders.ts reads orders_v2 only".into(),
             replaces: replaces.map(str::to_string),
             remove,
+            check: None,
         };
         let ok = server
             .suggest(

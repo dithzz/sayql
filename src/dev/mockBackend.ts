@@ -367,9 +367,15 @@ let notes: DbNote[] = VIDEO || FIRSTRUN
   ? []
   : [
       { id: "1f3a9c2e-5b7d-4e8f-9a01-2c3d4e5f6a7b", connectionId: "demo", database: null, updatedAt: Date.now() - 90 * 86_400_000,
-        text: "orders.status 'pending' means awaiting payment" },
+        text: "orders.status 'pending' means awaiting payment",
+        anchors: [{ table: "orders" }, { table: "orders", column: "status" }],
+        check: { sql: "SELECT count(*) > 0 FROM orders WHERE status = 'pending'", last: { ok: true, at: Date.now() - 2 * 86_400_000 } },
+        verifiedAt: Date.now() - 2 * 86_400_000 },
       { id: "7c2e1b4d-8a9f-4c3e-b2d1-0e9f8a7b6c5d", connectionId: "demo", database: null, updatedAt: Date.now() - 120 * 86_400_000,
-        text: "Use legacy_orders for orders before 2024" },
+        text: "Use legacy_orders for orders before 2024", source: "Claude Code",
+        evidence: "api/reports.ts reads legacy_orders for dates before 2024-01-01",
+        anchors: [{ table: "legacy_orders" }],
+        suspect: { reason: "the table legacy_orders no longer exists", since: Date.now() - 86_400_000 } },
     ];
 // When AI apps last fetched the audit prompt (none in the video).
 const audits: AuditRun[] = VIDEO || FIRSTRUN ? [] : [{ connectionId: "pg", database: "analytics", app: "Claude Code", at: Date.now() - 3 * 86_400_000 }];
@@ -645,6 +651,17 @@ export function installMockBackend() {
         case "delete_note":
           notes = notes.filter((n) => n.id !== a.id);
           return null;
+        case "confirm_note": {
+          notes = notes.map((n) => (n.id === a.id ? { ...n, suspect: null } : n));
+          return notes.find((n) => n.id === a.id);
+        }
+        case "check_note": {
+          const at = Date.now();
+          notes = notes.map((n) => (n.id === a.id && n.check ? { ...n, check: { ...n.check, last: { ok: true, at } }, verifiedAt: at } : n));
+          return notes.find((n) => n.id === a.id);
+        }
+        case "check_notes":
+          return notes.filter((n) => n.connectionId === a.id);
         case "list_note_suggestions":
           return suggestions;
         case "accept_note_suggestion": {

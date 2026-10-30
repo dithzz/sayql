@@ -85,6 +85,12 @@ export const commands = {
   /** Creates the note when `id` is empty; refuses notes that hold values from the data. */
   saveNote: (note: DbNote) => invoke<DbNote>("save_note", { note }),
   deleteNote: (id: string) => invoke<void>("delete_note", { id }),
+  /** The note is still true: it's no longer doubtful. */
+  confirmNote: (id: string) => invoke<DbNote>("confirm_note", { id }),
+  /** Runs one note's check now; returns the note with the result. */
+  checkNote: (id: string) => invoke<DbNote>("check_note", { id }),
+  /** Reads the schema again, reviews the notes against it and runs every check. */
+  checkNotes: (t: Target) => invoke<DbNote[]>("check_notes", { id: t.connectionId, database: t.database }),
   /** Notes AI apps suggested over MCP, on every connection, oldest first. */
   listNoteSuggestions: () => invoke<NoteSuggestion[]>("list_note_suggestions"),
   /**

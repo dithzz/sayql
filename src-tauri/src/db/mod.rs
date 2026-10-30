@@ -9,6 +9,7 @@ mod demo;
 mod execute;
 mod introspect;
 mod mssql_pool;
+pub mod schema_hash;
 pub mod usage;
 
 pub use classify::is_read_only;

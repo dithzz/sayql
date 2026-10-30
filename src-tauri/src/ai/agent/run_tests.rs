@@ -113,6 +113,7 @@ async fn go_with(
         schema,
         schema_text,
         notes: vec!["owner = memberships.role = 'owner'".into()],
+        notes_home: None,
         focus: vec![],
         skill: None,
         access,
@@ -675,6 +676,7 @@ async fn a_follow_up_continues_the_conversation() {
         schema_text: crate::schema::render_full(&schema),
         schema,
         notes: vec![],
+        notes_home: None,
         focus: vec![],
         skill: None,
         access: access(Results::Counts, false),
@@ -729,6 +731,7 @@ async fn big_tables_need_a_filter_or_a_checked_plan() {
         schema_text: crate::schema::render_full(&schema),
         schema,
         notes: vec![],
+        notes_home: None,
         focus: vec![],
         skill: None,
         access: access(Results::Counts, false),
@@ -786,6 +789,7 @@ async fn follow_ups_mask_values_the_person_quotes() {
         schema_text: crate::schema::render_full(&schema),
         schema,
         notes: vec![],
+        notes_home: None,
         focus: vec![],
         skill: None,
         access: access(Results::Rows, false),
@@ -859,6 +863,7 @@ async fn tools_work_on_every_database() {
             schema_text: crate::schema::render_full(&schema),
             schema,
             notes: vec![],
+            notes_home: None,
             focus: vec![],
             skill: None,
             access: access(Results::Rows, false),
@@ -1167,4 +1172,150 @@ async fn row_level_security_is_flagged_on_postgres() {
     ] {
         let _ = db::run_query(&admin, sql, false).await;
     }
+}
+
+/// Notes in a run: the model checks a saved note, a query on a column that no longer exists
+/// makes SayQL read the schema again (and flags the note about it), and the notes `finish`
+/// suggests (a fix to a saved note, with a check, and a new one) wait for the person.
+#[tokio::test]
+async fn a_run_checks_notes_and_suggests_fixes_for_the_person() {
+    use crate::store::Store;
+    use crate::store::agent::{Note, NoteCheck, note_ref};
+    let f = fixture().await;
+    let store = Store::new(f.dir.join("config"));
+    let schema = db::introspect(&f.pool, Kind::Sqlite).await.unwrap();
+    let save = |text: &str, check: Option<&str>| {
+        store
+            .save_note_with(
+                Note {
+                    id: uuid::Uuid::new_v4().to_string(),
+                    connection_id: "c1".into(),
+                    text: text.into(),
+                    check: check.map(|c| NoteCheck {
+                        sql: c.into(),
+                        last: None,
+                    }),
+                    ..Default::default()
+                },
+                Some(&schema),
+            )
+            .unwrap()
+    };
+    let owner = save(
+        "owner = memberships.role = 'owner'",
+        Some("SELECT count(*) > 0 FROM memberships WHERE role = 'owner'"),
+    );
+    let login = save("users.last_login_at is set on every sign-in", None);
+    crate::notes::review(&store, "c1", None, &schema).unwrap();
+    // The column is renamed after the run read the schema.
+    db::run_query(
+        &f.pool,
+        "ALTER TABLE users RENAME COLUMN last_login_at TO last_seen_at",
+        false,
+    )
+    .await
+    .unwrap();
+    let (owner_ref, login_ref) = (note_ref(&owner.id), note_ref(&login.id));
+    let turns = vec![
+        MockTurn::Tools(vec![("check_note", json!({ "note": owner_ref }))]),
+        MockTurn::Tools(vec![(
+            "run_query",
+            json!({ "sql": "SELECT max(last_login_at) FROM users", "purpose": "Last sign-in" }),
+        )]),
+        MockTurn::Tools(vec![(
+            "finish",
+            json!({
+                "answer": "Sign-ins are in users.last_seen_at.",
+                "confidence": "high",
+                "notes": [
+                    {
+                        "text": "users.last_seen_at is set on every sign-in",
+                        "replaces": login_ref,
+                        "check": "SELECT count(*) >= 0 FROM users WHERE last_seen_at IS NOT NULL",
+                        "evidence": "Step 2: last_login_at no longer exists."
+                    },
+                    "tenants.tier is the plan the tenant pays for"
+                ]
+            }),
+        )]),
+    ];
+    let input = RunInput {
+        run_id: "r1".into(),
+        question: "When did people last sign in?".into(),
+        kind: Kind::Sqlite,
+        schema_text: crate::schema::render_full(&schema),
+        schema,
+        notes: store.notes("c1", None).unwrap(),
+        notes_home: Some(run::NotesHome {
+            store: store.clone(),
+            connection_id: "c1".into(),
+            database: None,
+        }),
+        focus: vec![],
+        skill: None,
+        access: access(Results::Counts, false),
+        limits: AgentSettings {
+            skip_plan: true,
+            ..Default::default()
+        },
+        history: None,
+    };
+    let (_tx, rx) = tokio::sync::mpsc::unbounded_channel();
+    let events = Arc::new(Mutex::new(Vec::new()));
+    let sink = events.clone();
+    let mut io = Io {
+        emit: Arc::new(move |e| sink.lock().unwrap().push(e)),
+        replies: rx,
+        stop: CancellationToken::new(),
+    };
+    let mut llm = Llm::Mock(Mock::new(turns));
+    run::run(&mut llm, &f.pool, input, &mut io).await;
+    let Llm::Mock(mock) = llm else { unreachable!() };
+    let seen = mock.seen.lock().unwrap().clone();
+
+    assert!(
+        seen[0].contains(&format!("[{owner_ref}] owner")),
+        "notes go with their ids"
+    );
+    assert!(seen[1].contains("The check passed"), "{}", seen[1]);
+    let notes = store.notes("c1", None).unwrap();
+    assert!(
+        notes
+            .iter()
+            .any(|n| n.id == owner.id && n.verified_at.is_some())
+    );
+    assert!(
+        seen[2].contains("SayQL read the schema again")
+            && seen[2].contains("users.last_login_at was renamed to last_seen_at"),
+        "{}",
+        seen[2]
+    );
+    assert!(
+        notes
+            .iter()
+            .any(|n| n.id == login.id && n.suspect.is_some()),
+        "after the reread, the note about the renamed column is doubtful"
+    );
+
+    let events = events.lock().unwrap().clone();
+    let Some(Event::Done {
+        answer: Some(answer),
+        ..
+    }) = events.last()
+    else {
+        panic!("no answer: {:?}", events.last());
+    };
+    assert!(answer.notes_queued);
+    let waiting = store.note_suggestions().unwrap();
+    assert!(
+        waiting
+            .iter()
+            .any(|s| s.app == "Investigate" && s.text.starts_with("tenants.tier")),
+        "{waiting:?}"
+    );
+    assert!(
+        steps_of(&events)
+            .iter()
+            .any(|s| s.tool == "check_note" && s.status == StepStatus::Done)
+    );
 }

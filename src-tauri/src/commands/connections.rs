@@ -126,6 +126,7 @@ pub async fn test_connection(config: ConnConfig, password: Option<String>) -> Ap
 /// `database: None` opens the connection's default database.
 #[tauri::command]
 pub async fn open_database(
+    app: tauri::AppHandle,
     state: State<'_, AppState>,
     id: String,
     database: Option<String>,
@@ -133,7 +134,28 @@ pub async fn open_database(
     let target = Target::new(id, database);
     match state.schema(&target) {
         Ok(loaded) => Ok(loaded.schema.clone()),
-        Err(_) => state.load_schema(&target).await,
+        Err(_) => {
+            let schema = state.load_schema(&target).await?;
+            // Note checks that haven't run for a week run now, in the background.
+            tauri::async_runtime::spawn(async move {
+                use tauri::Manager;
+                const WEEK: u64 = 7 * 24 * 3600 * 1000;
+                let state = app.state::<AppState>();
+                let Ok(pool) = state.target_pool(&target).await else {
+                    return;
+                };
+                let place = state.notes_database(&target);
+                let _ = crate::notes::check_all(
+                    &state.store,
+                    &pool,
+                    &target.connection_id,
+                    place.as_deref(),
+                    Some(WEEK),
+                )
+                .await;
+            });
+            Ok(schema)
+        }
     }
 }
 

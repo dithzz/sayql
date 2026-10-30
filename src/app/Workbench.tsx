@@ -116,6 +116,14 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
     commands.listNotes(target).then(setNotes, () => setNotes([]));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [targetKey(target), notesVersion]);
+  // Reading a schema reviews the notes against it, so list them again after each read.
+  useEffect(() => {
+    if (schema) setNotesVersion((v) => v + 1);
+  }, [schema]);
+  // Notes something has made doubtful; their banner can be put off per database, for the session.
+  const doubtful = notes.filter((n) => n.suspect);
+  const doubtKey = `${target ? targetKey(target) : ""}:${doubtful.map((n) => n.id).join(",")}`;
+  const [hiddenDoubts, setHiddenDoubts] = useState<string[]>([]);
   // Notes AI apps suggested over MCP; an accepted one (here or in Settings) is a new note.
   const noteSuggestions = useNoteSuggestions();
   const suggestionsHere = noteSuggestions.suggestions.filter((s) => suggestionFor(s, target));
@@ -461,6 +469,28 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
         </div>
       )}
 
+      {doubtful.length > 0 && target && !hiddenDoubts.includes(doubtKey) && (
+        <div className={styles.banner}>
+          <Alert
+            tone="warning"
+            actions={
+              <>
+                <Button size="sm" onClick={() => setDialog({ kind: "note", note: doubtful[0] })}>
+                  Review
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => setHiddenDoubts((h) => [...h, doubtKey])}>
+                  Not now
+                </Button>
+              </>
+            }
+          >
+            {doubtful.length === 1 ? "1 note" : `${doubtful.length} notes`} about {databaseName ?? "this database"} may be out of
+            date: {doubtful[0].suspect?.reason}
+            {doubtful.length > 1 ? ", and more" : ""}. The AI is told to check them before relying on them.
+          </Alert>
+        </div>
+      )}
+
       {error && target && (
         <div className={styles.banner}>
           <Alert
@@ -536,6 +566,16 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
               notes={notes}
               onEditNote={(note) => setDialog({ kind: "note", note })}
               onDeleteNote={(note) => void commands.deleteNote(note.id).then(() => setNotesVersion((v) => v + 1))}
+              onCheckNotes={() => {
+                if (!target) return;
+                void commands.checkNotes(target).then(
+                  (n) => {
+                    setNotes(n);
+                    conn.ensure(target, true);
+                  },
+                  (e) => setNotice(String(e)),
+                );
+              }}
               suggestedNotes={suggestionsHere.length}
               onReviewSuggestions={() => setDialog({ kind: "noteSuggestions" })}
               onTeach={teachHere ? () => setDialog({ kind: "teach" }) : undefined}
@@ -738,13 +778,42 @@ export function Workbench({ boot }: { boot: Bootstrap }) {
       )}
       {dialog?.kind === "note" && target && (
         <NoteDialog
-          text={dialog.note?.text ?? ""}
+          key={dialog.note?.id ?? "new"}
+          note={dialog.note}
           databaseName={databaseName ?? active?.name ?? "this database"}
-          onSave={async (text) => {
+          fix={dialog.note ? noteSuggestions.suggestions.find((s) => s.replaces === dialog.note?.id) : undefined}
+          onSave={async (text, check) => {
             const base: DbNote = dialog.note ?? { id: "", connectionId: target.connectionId, database: target.database, text, updatedAt: 0 };
-            await commands.saveNote({ ...base, text });
+            await commands.saveNote({ ...base, text, check: check.trim() ? { sql: check.trim() } : null });
             setNotesVersion((v) => v + 1);
           }}
+          onConfirm={
+            dialog.note?.suspect
+              ? async () => {
+                  await commands.confirmNote(dialog.note!.id);
+                  setNotesVersion((v) => v + 1);
+                }
+              : undefined
+          }
+          onCheck={
+            dialog.note?.check
+              ? async () => {
+                  const n = await commands.checkNote(dialog.note!.id);
+                  setNotesVersion((v) => v + 1);
+                  return n;
+                }
+              : undefined
+          }
+          onAcceptFix={async (id) => void (await noteSuggestions.accept(id))}
+          onDismissFix={noteSuggestions.dismiss}
+          onDelete={
+            dialog.note
+              ? () => void commands.deleteNote(dialog.note!.id).then(() => {
+                  setNotesVersion((v) => v + 1);
+                  setDialog(null);
+                })
+              : undefined
+          }
           onClose={() => setDialog(null)}
         />
       )}

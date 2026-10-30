@@ -13,9 +13,20 @@ pub const EXPLAIN: &str = "explain_query";
 pub const ASK: &str = "ask_user";
 pub const FINISH: &str = "finish";
 pub const SHOW: &str = "show_value";
+pub const CHECK_NOTE: &str = "check_note";
 
 pub fn all() -> Vec<ToolSpec> {
     vec![
+        ToolSpec {
+            name: CHECK_NOTE,
+            description: "Runs a saved note's check against the data and says whether the note still holds. Use it before \
+                          relying on a note marked \"may be out of date\", when the note has a check.",
+            schema: json!({
+                "type": "object",
+                "properties": { "note": { "type": "string", "description": "The note's id, e.g. n_1a2b3c4d." } },
+                "required": ["note"]
+            }),
+        },
         ToolSpec {
             name: PLAN,
             description: "Before anything else: the three to six steps you will take. The person may change them.",
@@ -121,7 +132,21 @@ pub fn all() -> Vec<ToolSpec> {
                     },
                     "confidence": { "type": "string", "enum": ["high", "medium", "low"] },
                     "assumptions": { "type": "array", "items": { "type": "string" } },
-                    "notes": { "type": "array", "items": { "type": "string" }, "description": "Up to three facts about the database's structure or codes." },
+                    "notes": {
+                        "type": "array",
+                        "description": "Up to three notes: new facts about the database's codes and meanings, or fixes to saved notes that turned out wrong.",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "text": { "type": "string", "description": "The note, up to 300 characters. For a removal: why." },
+                                "replaces": { "type": "string", "description": "A saved note's id (n_…) this one corrects." },
+                                "remove": { "type": "boolean", "description": "True with replaces: the saved note is wrong and should go." },
+                                "check": { "type": "string", "description": "Optional read-only SQL returning one row, one column: true while the note holds." },
+                                "evidence": { "type": "string", "description": "What you found that shows it (step numbers, tables)." }
+                            },
+                            "required": ["text"]
+                        }
+                    },
                     "proposed_sql": { "type": "string", "description": "A statement that changes data, for the person to review. Never run." },
                     "cannot_answer": { "type": "boolean", "description": "True when the data can't answer the question." }
                 },

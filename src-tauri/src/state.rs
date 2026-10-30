@@ -70,6 +70,9 @@ pub struct AppState {
     pub init_lock: tokio::sync::Mutex<()>,
     pools: Mutex<HashMap<Target, DbPool>>,
     schemas: Mutex<HashMap<Target, Arc<LoadedSchema>>>,
+    /// When each cached schema was last confirmed current, and the database's schema
+    /// fingerprint then (`None` where it has none).
+    schema_checks: Mutex<HashMap<Target, (std::time::Instant, Option<String>)>>,
     /// The running AI generation per slot (one slot per editor tab).
     generations: Mutex<HashMap<String, JoinHandle<()>>>,
     /// Running queries the UI can stop, by the id it gave each run.
@@ -103,6 +106,7 @@ impl AppState {
             init_lock: tokio::sync::Mutex::new(()),
             pools: Mutex::new(HashMap::new()),
             schemas: Mutex::new(HashMap::new()),
+            schema_checks: Mutex::new(HashMap::new()),
             generations: Mutex::new(HashMap::new()),
             queries: Mutex::new(HashMap::new()),
             agents: Mutex::new(HashMap::new()),
@@ -337,12 +341,14 @@ impl AppState {
         Ok(pool)
     }
 
-    /// Reads `target`'s schema and caches it, with its prompt text.
+    /// Reads `target`'s schema and caches it, with its prompt text, then reviews the
+    /// database's notes against it (see [`crate::notes::review`]).
     pub async fn load_schema(&self, target: &Target) -> AppResult<Schema> {
         let kind = self.kind_of(&target.connection_id)?;
         let pool = self.target_pool(target).await?;
         let schema = db::introspect(&pool, kind).await?;
         let schema_text = schema::render_full(&schema);
+        let version = db::schema_hash::read(&pool).await;
         self.set_schema(
             target.clone(),
             LoadedSchema {
@@ -350,7 +356,59 @@ impl AppState {
                 schema_text,
             },
         );
+        lock(&self.schema_checks).insert(target.clone(), (std::time::Instant::now(), version));
+        let database = self.notes_database(target);
+        if let Err(e) = crate::notes::review(
+            &self.store,
+            &target.connection_id,
+            database.as_deref(),
+            &schema,
+        ) {
+            eprintln!("Couldn't review the notes against the schema: {e}");
+        }
         Ok(schema)
+    }
+
+    /// The database `target`'s notes are kept under (see [`crate::audit::notes_database`]).
+    pub fn notes_database(&self, target: &Target) -> Option<String> {
+        crate::audit::notes_database(
+            &self.store,
+            &target.connection_id,
+            target.database.as_deref(),
+        )
+    }
+
+    /// Makes sure the cached schema of an open `target` is current: at most once a minute,
+    /// asks the database for a cheap fingerprint of its schema and reads the schema again
+    /// when it changed. Errors leave the cached schema as it is.
+    pub async fn ensure_fresh(&self, target: &Target) {
+        const EVERY: Duration = Duration::from_secs(60);
+        let last = lock(&self.schema_checks).get(target).cloned();
+        if last.as_ref().is_some_and(|(at, _)| at.elapsed() < EVERY) || self.pool(target).is_none()
+        {
+            return;
+        }
+        let Ok(pool) = self.target_pool(target).await else {
+            return;
+        };
+        let now = db::schema_hash::read(&pool).await;
+        let unchanged = match (&last, &now) {
+            (Some((_, Some(before))), Some(after)) => before == after,
+            // No fingerprint for this database: read the whole schema again.
+            _ => false,
+        };
+        if unchanged {
+            lock(&self.schema_checks).insert(target.clone(), (std::time::Instant::now(), now));
+            return;
+        }
+        let _ = self.load_schema(target).await;
+    }
+
+    /// Reads the schema again now, whatever the last check: after the database said a table
+    /// or column doesn't exist.
+    pub async fn refresh_now(&self, target: &Target) -> AppResult<Arc<LoadedSchema>> {
+        self.load_schema(target).await?;
+        self.schema(target)
     }
 }
 

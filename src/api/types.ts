@@ -224,6 +224,19 @@ export interface TeamRules {
   neverSend: string[];
 }
 
+/** A table, or one of its columns, that a note is about; mirrors `schema::anchors::Anchor`. */
+export interface NoteAnchor {
+  table: string;
+  column?: string;
+}
+
+/** A read-only query that answers whether a note still holds: one row, one column, true or false. */
+export interface NoteCheck {
+  sql: string;
+  /** The last run; `ok` is null when it couldn't run (`error` says why). */
+  last?: { ok: boolean | null; at: number; error?: string } | null;
+}
+
 /** A fact about a database that helps answer questions on it. Never holds row values. */
 export interface DbNote {
   /** Empty for a new note. */
@@ -232,6 +245,19 @@ export interface DbNote {
   database: string | null;
   text: string;
   updatedAt: number;
+  createdAt?: number;
+  /** Who wrote it: empty for the person, else "Investigate", "SayQL" or the AI app's name. */
+  source?: string;
+  evidence?: string | null;
+  /** What it's about, found in the schema when it was saved. */
+  anchors?: NoteAnchor[];
+  /** Set when something suggests it may no longer be true. */
+  suspect?: { reason: string; since: number } | null;
+  check?: NoteCheck | null;
+  /** When its check last passed. */
+  verifiedAt?: number | null;
+  /** Its earlier texts, newest first. */
+  history?: { text: string; at: number; source: string }[];
 }
 
 /** A note an AI app suggested over MCP, waiting for the person to accept or dismiss it. */
@@ -253,6 +279,8 @@ export interface NoteSuggestion {
   replacedText?: string | null;
   /** Accepting deletes the note in `replaces`; `text` says why. */
   remove?: boolean;
+  /** A read-only query that checks the note, kept with it once accepted. */
+  check?: string | null;
 }
 
 /** When an AI app last fetched the audit prompt for a database; mirrors `store::audits::AuditRun`. */
@@ -341,6 +369,8 @@ export interface AgentAnswer {
   confidence: "high" | "medium" | "low";
   assumptions: string[];
   notes: string[];
+  /** The notes (and fixes to saved ones) wait with the other suggestions instead of being offered here. */
+  notesQueued?: boolean;
   proposedSql: string | null;
   /** The proposed statement could change data; otherwise it is a query to run yourself. */
   proposedChangesData: boolean;
