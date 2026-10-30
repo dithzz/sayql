@@ -1081,23 +1081,6 @@ section.block { padding: 80px 0 0; }
       </article>
       <article class="feature-row">
         <div class="feature-text">
-          <h3>Read-only unless you say so</h3>
-          <p>Anything that may change data stops and asks first, so an UPDATE or DELETE never runs by accident.</p>
-        </div>
-        <div class="app mini" id="demo-confirm" role="img" aria-label="Demo: SayQL asks for confirmation before running an UPDATE">
-          <div class="ed-h"><svg class="i"><use href="#i-file"/></svg><b>SQL Editor</b><span class="sub">Production</span><span class="end"><span class="run-btn" data-run><svg class="i"><use href="#i-play"/></svg>Run</span></span></div>
-          <div class="code" data-code></div>
-          <div class="backdrop" data-dialog>
-            <div class="dialog">
-              <h4>Run a statement that may change data?</h4>
-              <div class="warn"><svg class="i"><use href="#i-alert"/></svg><span>SayQL can’t confirm this only reads data on <b>Production</b>. If it changes data, SayQL can’t undo it.</span></div>
-              <div class="foot"><span class="dbtn focus">Cancel</span><span class="dbtn danger"><svg class="i"><use href="#i-alert"/></svg>Run it</span></div>
-            </div>
-          </div>
-        </div>
-      </article>
-      <article class="feature-row">
-        <div class="feature-text">
           <h3>Any AI, or a local one</h3>
           <p>Bring your own key for Claude or OpenAI, use the Claude Pro or Max plan you already have, run a model on your computer with Ollama or LM Studio, or use SayQL AI credits.</p>
         </div>
@@ -1138,6 +1121,7 @@ section.block { padding: 80px 0 0; }
       <div class="fact-group">
         <h3>Safe by default</h3>
         <ul>
+          <li><b>Read-only unless you say so</b><span>An UPDATE or DELETE stops and asks first.</span></li>
           <li><b>Half a statement never runs</b><span>A DELETE never loses its WHERE.</span></li>
           <li><b>Your rows stay with you</b><span>The AI sees table names, not rows, unless Investigate is on.</span></li>
           <li><b>Secrets in your keychain</b><span>Passwords and keys are never stored in files.</span></li>
@@ -1771,19 +1755,6 @@ section.block { padding: 80px 0 0; }
     }, function () { q.textContent = AGENT.question; stillAgent(box); });
   })();
 
-  /* ---------- confirm before anything that may change data ---------- */
-  (function () {
-    var el = document.getElementById("demo-confirm");
-    var dialog = el.querySelector("[data-dialog]"), run = el.querySelector("[data-run]");
-    el.querySelector("[data-code]").innerHTML = lines("UPDATE orders\nSET status = 'shipped'\nWHERE id = 48213;");
-    demo(el, function (later, loop) {
-      dialog.classList.remove("show");
-      later(function () { pressRun(run); }, 1000);
-      later(function () { dialog.classList.add("show"); }, 1350);
-      later(function () { dialog.classList.remove("show"); }, 5800);
-      later(loop, 6500);
-    }, function () { dialog.classList.add("show"); });
-  })();
 
   /* ---------- knowledge that stays true ---------- */
   (function () {
