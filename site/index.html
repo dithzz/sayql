@@ -471,6 +471,19 @@ p { text-wrap: pretty; }
 .bar.err { background: var(--color-danger-soft); color: var(--color-danger); }
 .bar.fix { background: var(--color-ai-soft); color: var(--color-ai); }
 .bar.ok { background: var(--color-success-soft); color: var(--color-success); }
+.bar.warn { background: var(--color-warning-soft); color: var(--color-warning); }
+/* Knowledge that stays true: a few notes, one flagged and fixed. */
+.kn-notes { list-style: none; margin: 0; padding: 6px 10px 4px; display: grid; gap: 2px; }
+.kn-notes li { display: flex; gap: 8px; align-items: flex-start; padding: 6px 4px; border-radius: var(--radius-md); font-size: 12.5px; transition: background .3s; }
+.kn-notes li small { display: block; color: var(--color-text-subtle); font-size: 11.5px; margin-top: 1px; }
+.kn-notes li.doubt { background: var(--color-warning-soft); }
+.kn-notes li.doubt small { color: var(--color-warning); }
+.kn-st { flex: none; width: 16px; height: 16px; display: inline-flex; align-items: center; justify-content: center; margin-top: 1px; }
+.kn-st .i { width: 14px; height: 14px; }
+.kn-st.ok { color: var(--color-success); }
+.kn-st.doubt { color: var(--color-warning); }
+.kn-use { margin-left: auto; padding: 2px 8px; border-radius: var(--radius-sm); background: var(--color-ai); color: #fff; font-size: 12px; font-weight: 500; transition: transform .15s; }
+.kn-use.press { transform: scale(.94); }
 
 .backdrop { position: absolute; inset: 0; background: var(--color-backdrop); display: grid; place-items: center; padding: 14px; opacity: 0; transition: opacity 200ms; }
 .backdrop.show { opacity: 1; }
@@ -1000,6 +1013,24 @@ section.block { padding: 80px 0 0; }
       </article>
       <article class="feature-row">
         <div class="feature-text">
+          <h3>Knowledge that stays true</h3>
+          <p>Agents are only as good as what they know. Teach SayQL what your schema can't say, by hand or with an audit that reads your code. Each note knows which columns it's about: rename one and SayQL flags the note with the fix ready, and a note can prove itself with a check against the data.</p>
+          <p class="fine">For teams, notes live on your server: owners approve them, every change is kept, and every agent uses the same ones.</p>
+        </div>
+        <div class="app mini" id="demo-notes" role="img" aria-label="Demo: a column is renamed, the note about it is flagged as out of date, and SayQL's suggested fix is applied">
+          <div class="ed-h"><svg class="i"><use href="#i-book"/></svg><b>Notes</b><span class="sub">Demo store (SQLite)</span></div>
+          <ul class="kn-notes">
+            <li data-n1><span class="kn-st ok"><svg class="i"><use href="#i-check"/></svg></span><span><span class="mono">orders.status</span> 'pending' means awaiting payment<small>Checked 2 days ago</small></span></li>
+            <li data-n2><span class="kn-st" data-st></span><span><span class="mono" data-col>users.last_login_at</span> is set on every sign-in<small data-why>From your code: auth/session.ts</small></span></li>
+            <li><span class="kn-st ok"><svg class="i"><use href="#i-check"/></svg></span><span>Revenue is <span class="mono">quantity × unit_price</span>, not the list price<small>Checked today</small></span></li>
+          </ul>
+          <div class="bar warn" data-changed hidden><svg class="i"><use href="#i-alert"/></svg><span>Schema changed: <b class="mono">last_login_at</b> is now <b class="mono">last_seen_at</b></span></div>
+          <div class="bar fix" data-suggest hidden><svg class="i"><use href="#i-sparkles"/></svg><span>Suggested fix ready</span><span class="kn-use" data-use>Use this text</span></div>
+          <div class="bar ok" data-fixed hidden><svg class="i"><use href="#i-check"/></svg><span>Note updated; its old text is kept in history</span></div>
+        </div>
+      </article>
+      <article class="feature-row">
+        <div class="feature-text">
           <h3>Ask in plain English</h3>
           <p>Type a question and the SQL writes itself in the editor as you type, then runs read-only. Follow up with “only Europe” and it builds on the last query.</p>
           <p class="fine">The AI sees your question and table names, not your rows. Skills like <code>/pii-safe</code> keep contact details out of the SQL.</p>
@@ -1067,19 +1098,6 @@ section.block { padding: 80px 0 0; }
       </article>
       <article class="feature-row">
         <div class="feature-text">
-          <h3>Errors fix themselves</h3>
-          <p>If the database rejects a query, SayQL corrects it and runs it again, in plain sight.</p>
-        </div>
-        <div class="app mini" id="demo-fix" role="img" aria-label="Demo: a failing query is corrected and run again">
-          <div class="ed-h"><svg class="i"><use href="#i-file"/></svg><b>SQL Editor</b><span class="sub">Demo store (SQLite)</span><span class="end"><span class="run-btn" data-run><svg class="i"><use href="#i-play"/></svg>Run</span></span></div>
-          <div class="code" data-code></div>
-          <div class="bar err" data-err hidden><svg class="i"><use href="#i-circle-x"/></svg><span>no such column: signup_date</span></div>
-          <div class="bar fix" data-fixing hidden><svg class="i"><use href="#i-sparkles"/></svg><span>Fixing the query with Opus 5.5…</span></div>
-          <div class="bar ok" data-ok hidden><svg class="i"><use href="#i-check"/></svg><span>Fixed: used <b class="mono">signed_up_at</b> and ran it again</span></div>
-        </div>
-      </article>
-      <article class="feature-row">
-        <div class="feature-text">
           <h3>Any AI, or a local one</h3>
           <p>Bring your own key for Claude or OpenAI, use the Claude Pro or Max plan you already have, run a model on your computer with Ollama or LM Studio, or use SayQL AI credits.</p>
         </div>
@@ -1106,6 +1124,7 @@ section.block { padding: 80px 0 0; }
           <li><b>Just say it</b><span>Ask out loud; it’s transcribed on your computer.</span></li>
           <li><b>Type / for commands</b><span>/explain, /fix, /improve and more.</span></li>
           <li><b>Skills</b><span>Save a rule like “never select email” once.</span></li>
+          <li><b>Errors fix themselves</b><span>If the database rejects a query, SayQL corrects it and runs it again.</span></li>
         </ul>
       </div>
       <div class="fact-group">
@@ -1181,8 +1200,8 @@ section.block { padding: 80px 0 0; }
         <ul class="team-points">
           <li><svg class="icon"><use href="#i-key"/></svg><div><strong>Every agent on a leash</strong><span>Its own key, only the databases you choose, counts not rows by default. Revoke in one click.</span></div></li>
           <li><svg class="icon"><use href="#i-scroll"/></svg><div><strong>Every query on record</strong><span>Which person or agent asked what, allowed or refused.</span></div></li>
+          <li><svg class="icon"><use href="#i-book"/></svg><div><strong>Knowledge your agents can trust</strong><span>One set of notes and a glossary, approved by owners, with history. Kept true as your schema changes, and used by every agent behind the gateway.</span></div></li>
           <li><svg class="icon"><use href="#i-lock"/></svg><div><strong>Private columns stay put</strong><span>Mark <code>users.email</code> private: it never leaves your server, not to an agent, not to a laptop.</span></div></li>
-          <li><svg class="icon"><use href="#i-check"/></svg><div><strong>Knowledge your agents can trust</strong><span>One set of notes and a glossary, approved by owners, with history. Kept true as your schema changes, and used by every agent behind the gateway.</span></div></li>
           <li><svg class="icon"><use href="#i-users"/></svg><div><strong>Sign in with your company</strong><span>Google Workspace, Microsoft Entra ID or Okta. Admins come from your groups; no invite codes to hand out.</span></div></li>
         </ul>
         <p class="team-next">Works with Claude Code, Cursor and any MCP agent.</p>
@@ -1766,23 +1785,35 @@ section.block { padding: 80px 0 0; }
     }, function () { dialog.classList.add("show"); });
   })();
 
-  /* ---------- errors fix themselves ---------- */
+  /* ---------- knowledge that stays true ---------- */
   (function () {
-    var el = document.getElementById("demo-fix");
-    var code = el.querySelector("[data-code]"), run = el.querySelector("[data-run]");
-    var err = el.querySelector("[data-err]"), fixing = el.querySelector("[data-fixing]"), ok = el.querySelector("[data-ok]");
-    var BAD = "SELECT first_name, signup_date\nFROM customers\nORDER BY signup_date DESC\nLIMIT 5;";
-    var GOOD = BAD.replace(/signup_date/g, "signed_up_at");
-    function fixed() { code.innerHTML = lines(GOOD, function (l) { return /signed_up_at/.test(l) ? " add" : ""; }); }
+    var el = document.getElementById("demo-notes");
+    var n2 = el.querySelector("[data-n2]"), st = el.querySelector("[data-st]"), col = el.querySelector("[data-col]"), why = el.querySelector("[data-why]");
+    var changed = el.querySelector("[data-changed]"), suggest = el.querySelector("[data-suggest]"), fixedBar = el.querySelector("[data-fixed]"), use = el.querySelector("[data-use]");
+    var CHECK = '<svg class="i"><use href="#i-check"/></svg>', ALERT = '<svg class="i"><use href="#i-alert"/></svg>';
+    function start() {
+      n2.classList.remove("doubt"); st.className = "kn-st"; st.innerHTML = "";
+      col.textContent = "users.last_login_at"; why.textContent = "From your code: auth/session.ts";
+      changed.hidden = suggest.hidden = fixedBar.hidden = true;
+    }
+    function flagged() {
+      n2.classList.add("doubt"); st.className = "kn-st doubt"; st.innerHTML = ALERT;
+      why.textContent = "May be out of date: users.last_login_at no longer exists";
+    }
+    function fixed() {
+      n2.classList.remove("doubt"); st.className = "kn-st ok"; st.innerHTML = CHECK;
+      col.textContent = "users.last_seen_at"; why.textContent = "Updated just now";
+      changed.hidden = suggest.hidden = true; fixedBar.hidden = false;
+    }
     demo(el, function (later, loop) {
-      code.innerHTML = lines(BAD);
-      err.hidden = fixing.hidden = ok.hidden = true;
-      later(function () { pressRun(run); }, 800);
-      later(function () { err.hidden = false; }, 1100);
-      later(function () { fixing.hidden = false; }, 2100);
-      later(function () { fixed(); err.hidden = fixing.hidden = true; ok.hidden = false; }, 3600);
-      later(loop, 7600);
-    }, function () { fixed(); ok.hidden = false; });
+      start();
+      later(function () { changed.hidden = false; }, 1200);
+      later(flagged, 2000);
+      later(function () { suggest.hidden = false; }, 3200);
+      later(function () { pressRun(use); }, 4600);
+      later(fixed, 4900);
+      later(loop, 9000);
+    }, fixed);
   })();
 
   /* ---------- pick your AI ---------- */
