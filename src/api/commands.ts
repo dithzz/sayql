@@ -9,6 +9,7 @@ import type {
   AuditPaymentView,
   AuditRun,
   Bootstrap,
+  CodeSource,
   DbNote,
   ConnectionConfig,
   DatabaseList,
@@ -144,13 +145,19 @@ export const commands = {
   auditPrompt: (connectionId: string, database: string | null) => invoke<string>("audit_prompt", { id: connectionId, database }),
   /** The coding agents SayQL knows, whether each is installed and can run an audit read-only. */
   auditAgents: () => invoke<AuditAgent[]>("audit_agents"),
-  /** The project folder last used to audit this connection. */
-  auditFolder: (connectionId: string) => invoke<string | null>("audit_folder", { id: connectionId }),
-  /** Asks for the project folder and remembers it; null when the person cancels. */
-  chooseAuditFolder: (connectionId: string) => invoke<string | null>("choose_audit_folder", { id: connectionId }),
-  /** Runs the audit with `agent` in `folder`, read-only; progress comes as `audit://event`. */
-  startAudit: (runId: string, agent: string, connectionId: string, database: string | null, folder: string) =>
-    invoke<void>("start_audit", { runId, agent, id: connectionId, database, folder }),
+  /** The code an audit of this connection reads: local folders and git repositories. */
+  codeSources: (connectionId: string) => invoke<CodeSource[]>("code_sources", { id: connectionId }),
+  /** Asks for a folder and adds it as a code source; null when cancelled. */
+  addCodeFolder: (connectionId: string) => invoke<CodeSource | null>("add_code_folder", { id: connectionId }),
+  /** Adds a git repository once git can read it. `token`: optional, read-only, kept in the keychain. */
+  addCodeRepo: (connectionId: string, repo: { url: string; branch: string; subdir: string; token: string | null; tokenUser: string | null }) =>
+    invoke<CodeSource>("add_code_repo", { id: connectionId, ...repo }),
+  removeCodeSource: (connectionId: string, sourceId: string) => invoke<void>("remove_code_source", { id: connectionId, sourceId }),
+  /** Checks the folder is there, or that git can reach the repository; returns its new status. */
+  checkCodeSource: (connectionId: string, sourceId: string) => invoke<CodeSource>("check_code_source", { id: connectionId, sourceId }),
+  /** Runs the audit with `agent` over the connection's code sources, read-only; progress comes as `audit://event`. */
+  startAudit: (runId: string, agent: string, connectionId: string, database: string | null) =>
+    invoke<void>("start_audit", { runId, agent, id: connectionId, database }),
   cancelAudit: (runId: string) => invoke<void>("cancel_audit", { runId }),
   /** The model audits run on (Sonnet until the person picks another). */
   auditModel: () => invoke<AuditModel>("audit_model"),
@@ -158,9 +165,9 @@ export const commands = {
   /** Who pays for audits: always the person's own Claude Code sign-in while paying with credits is off (unused by the UI). */
   auditPayment: () => invoke<AuditPaymentView>("audit_payment"),
   setAuditPayment: (payment: AuditPayment) => invoke<void>("set_audit_payment", { payment }),
-  /** Opens the system terminal in `folder` running the same read-only audit interactively. */
-  openAuditInTerminal: (agent: string, connectionId: string, database: string | null, folder: string) =>
-    invoke<void>("open_audit_in_terminal", { agent, id: connectionId, database, folder }),
+  /** Opens the system terminal in the first code source running the same read-only audit interactively. */
+  openAuditInTerminal: (agent: string, connectionId: string, database: string | null) =>
+    invoke<void>("open_audit_in_terminal", { agent, id: connectionId, database }),
   /** Handoffs from AI apps waiting to be shown (see the `handoff://new` event). */
   takeHandoffs: () => invoke<Handoff[]>("take_handoffs"),
 

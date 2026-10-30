@@ -468,8 +468,11 @@ pub const SETTINGS_JSON: &str = r#"{"disableAllHooks":true}"#;
 /// Claude Code's arguments for a read-only audit. `headless`: the app runs it and reads the
 /// stream (prompt on stdin); otherwise it's for a terminal, where the prompt follows as the
 /// last argument. Options that take several values come first, so none swallows the prompt.
+/// `more_dirs`: code sources besides the working directory, each given as `--add-dir`, which
+/// `--restricted` confines the file tools to as well (checked in `real_claude_stays_read_only`).
 pub fn claude_args(
     files: &RunFiles,
+    more_dirs: &[PathBuf],
     headless: bool,
     model: AuditModel,
     payment: AuditPayment,
@@ -482,6 +485,10 @@ pub fn claude_args(
     let mut args: Vec<String> = Vec::new();
     if headless {
         args.extend(["-p", "--output-format", "stream-json", "--verbose"].map(String::from));
+    }
+    for dir in more_dirs {
+        args.push("--add-dir".into());
+        args.push(dir.to_string_lossy().into_owned());
     }
     args.push("--tools".into());
     args.push(CLAUDE_TOOLS.into());
@@ -528,13 +535,13 @@ pub fn claude_args(
 pub fn run_notes(headless: bool) -> &'static str {
     if headless {
         "\n\nYou were started by SayQL to run this audit unattended and read-only: you can read, search and list \
-         files in this project and use SayQL's tools, but you can't run commands (so no git log) or change files, \
-         and nobody can answer questions. Don't ask any; when unsure, say so in the summary. Never read or print \
-         .env files, keys or other secrets.\n"
+         files in the code sources above and use SayQL's tools, but you can't run commands (so no git log) or change \
+         files, and nobody can answer questions. Don't ask any; when unsure, say so in the summary. Never read or \
+         print .env files, keys or other secrets.\n"
     } else {
-        "\n\nSayQL started you read-only: you can read, search and list files in this project and use SayQL's tools, \
-         but you can't run commands (so no git log) or change files. Never read or print .env files, keys or other \
-         secrets.\n"
+        "\n\nSayQL started you read-only: you can read, search and list files in the code sources above and use \
+         SayQL's tools, but you can't run commands (so no git log) or change files. Never read or print .env files, \
+         keys or other secrets.\n"
     }
 }
 
@@ -642,7 +649,8 @@ pub struct Ending {
 /// accepted for review.
 #[derive(Debug, Default)]
 pub struct ClaudeStream {
-    folder: PathBuf,
+    /// The code sources by label, the first being the working directory.
+    sources: Vec<(String, PathBuf)>,
     /// suggest_note calls waiting for their result: the line to show if SayQL takes it, and
     /// the note shortened for a refusal.
     pending_notes: HashMap<String, (Line, String)>,
@@ -667,20 +675,52 @@ fn short(s: &str, max: usize) -> String {
 }
 
 impl ClaudeStream {
+    /// A run over one folder: paths are shown relative to it.
+    #[cfg(test)]
     pub fn new(folder: &Path) -> Self {
+        Self::with_sources(vec![(String::new(), folder.to_path_buf())])
+    }
+
+    /// A run over several code sources: paths are shown as `label:path`.
+    pub fn with_sources(sources: Vec<(String, PathBuf)>) -> Self {
         ClaudeStream {
-            folder: folder.to_path_buf(),
+            sources,
             ..Default::default()
         }
     }
 
-    /// A path as the person knows it: relative to the project folder when inside it.
+    /// A path as the person knows it: relative to its code source, after the source's label
+    /// when there are several. macOS temp and app folders may be named with or without
+    /// `/private`, so both are tried.
     fn rel(&self, p: &str) -> String {
         let path = Path::new(p);
-        match path.strip_prefix(&self.folder) {
-            Ok(r) if !r.as_os_str().is_empty() => r.to_string_lossy().into_owned(),
-            Ok(_) => ".".into(),
-            Err(_) => p.to_string(),
+        let labelled = self.sources.len() > 1;
+        let inside = self
+            .sources
+            .iter()
+            .filter_map(|(label, dir)| {
+                let bare = dir
+                    .strip_prefix("/private")
+                    .ok()
+                    .map(|d| Path::new("/").join(d));
+                let r = path
+                    .strip_prefix(dir)
+                    .ok()
+                    .or_else(|| bare.as_deref().and_then(|b| path.strip_prefix(b).ok()))?;
+                Some((label, dir.as_os_str().len(), r.to_path_buf()))
+            })
+            // The deepest source wins when one is inside another.
+            .max_by_key(|(_, depth, _)| *depth);
+        match inside {
+            Some((label, _, r)) => {
+                let r = if r.as_os_str().is_empty() {
+                    ".".to_string()
+                } else {
+                    r.to_string_lossy().into_owned()
+                };
+                if labelled { format!("{label}:{r}") } else { r }
+            }
+            None => p.to_string(),
         }
     }
 
@@ -978,6 +1018,7 @@ mod tests {
     fn claude_runs_read_only() {
         let args = claude_args(
             &files(),
+            &[],
             true,
             AuditModel::default(),
             AuditPayment::Subscription,
@@ -1041,7 +1082,7 @@ mod tests {
             (AuditModel::Default, None),
         ] {
             for headless in [true, false] {
-                let args = claude_args(&files(), headless, model, AuditPayment::Subscription);
+                let args = claude_args(&files(), &[], headless, model, AuditPayment::Subscription);
                 let got = args
                     .iter()
                     .position(|a| a == "--model")
@@ -1066,7 +1107,7 @@ mod tests {
             // The person's own default may be a model credits don't cover.
             (AuditModel::Default, "claude-sonnet-5-5"),
         ] {
-            let args = claude_args(&files(), true, model, AuditPayment::Credits);
+            let args = claude_args(&files(), &[], true, model, AuditPayment::Credits);
             assert_eq!(value_of(&args, "--model"), want, "{model:?}");
             assert!(args.iter().any(|a| a == "--restricted"));
             assert!(!args.iter().any(|a| a.contains("sqlc_")));
@@ -1267,6 +1308,7 @@ mod tests {
     fn the_terminal_run_has_the_same_limits_and_ends_on_a_single_value_option() {
         let args = claude_args(
             &files(),
+            &[],
             false,
             AuditModel::default(),
             AuditPayment::Subscription,
@@ -1463,6 +1505,62 @@ not json at all
     }
 
     #[test]
+    fn labels_paths_by_code_source() {
+        let s = ClaudeStream::with_sources(vec![
+            ("web".into(), PathBuf::from("/Users/me/web")),
+            (
+                "backend".into(),
+                PathBuf::from("/private/var/app/repos/src_1"),
+            ),
+            (
+                "api".into(),
+                PathBuf::from("/private/var/app/repos/src_1/services/api"),
+            ),
+        ]);
+        assert_eq!(s.rel("/Users/me/web/src/db.ts"), "web:src/db.ts");
+        assert_eq!(
+            s.rel("/var/app/repos/src_1/billing.py"),
+            "backend:billing.py"
+        );
+        assert_eq!(
+            s.rel("/private/var/app/repos/src_1/services/api/x.go"),
+            "api:x.go"
+        );
+        assert_eq!(s.rel("/Users/me/web"), "web:.");
+        assert_eq!(s.rel("/etc/hosts"), "/etc/hosts");
+        // One source: paths as before, no label.
+        let one = ClaudeStream::new(Path::new("/Users/me/web"));
+        assert_eq!(one.rel("/Users/me/web/src/db.ts"), "src/db.ts");
+    }
+
+    #[test]
+    fn more_sources_are_added_dirs() {
+        let more = [
+            PathBuf::from("/app/repos/src_1"),
+            PathBuf::from("/Users/me/web"),
+        ];
+        for headless in [true, false] {
+            let args = claude_args(
+                &files(),
+                &more,
+                headless,
+                AuditModel::Sonnet,
+                AuditPayment::Subscription,
+            );
+            let dirs: Vec<&str> = args
+                .iter()
+                .enumerate()
+                .filter(|(_, a)| *a == "--add-dir")
+                .map(|(i, _)| args[i + 1].as_str())
+                .collect();
+            assert_eq!(dirs, ["/app/repos/src_1", "/Users/me/web"]);
+            assert!(args.iter().any(|a| a == "--restricted"));
+            // The prompt that follows a terminal run can't be taken for one more folder.
+            assert_eq!(args[args.len() - 2], "--settings");
+        }
+    }
+
+    #[test]
     fn warns_when_sayql_is_missing_and_explains_failures() {
         let mut s = ClaudeStream::new(Path::new("/p"));
         let l = s.feed(r#"{"type":"system","subtype":"init","mcp_servers":[{"name":"sayql","status":"failed"}]}"#);
@@ -1533,8 +1631,10 @@ not json at all
 
     /// Runs the real `claude` with the exact read-only arguments against a throwaway folder and
     /// a scratch SayQL config (one SQLite connection, no keychain), with a tiny prompt that
-    /// tries to write a file. Needs a built `sayql-mcp` and a signed-in Claude Code; spends a
-    /// few thousand tokens. `SAYQL_SMOKE=1 cargo test --lib real_claude -- --ignored --nocapture`
+    /// tries to write a file. A second code source is given with `--add-dir`: the agent must be
+    /// able to read it but not write to it, and must not read a folder it wasn't given. Needs a
+    /// built `sayql-mcp` and a signed-in Claude Code; spends a few thousand tokens.
+    /// `SAYQL_SMOKE=1 cargo test --lib real_claude -- --ignored --nocapture`
     #[test]
     #[ignore]
     fn real_claude_stays_read_only() {
@@ -1543,9 +1643,11 @@ not json at all
         }
         let root = std::env::temp_dir().join(format!("sayql-smoke-{}", uuid::Uuid::new_v4()));
         let project = root.join("shop");
+        let backend = root.join("backend");
+        let outside = root.join("outside");
         let config = root.join("config");
         let run = root.join("run");
-        for d in [&project, &config, &run] {
+        for d in [&project, &backend, &outside, &config, &run] {
             std::fs::create_dir_all(d).unwrap();
         }
         std::fs::write(
@@ -1553,6 +1655,8 @@ not json at all
             "// orders.status: 'p' = paid, 'r' = refunded\nexport const PAID = 'p';\n",
         )
         .unwrap();
+        std::fs::write(backend.join("billing.py"), "MARKER = 'heron-4512'\n").unwrap();
+        std::fs::write(outside.join("secret.txt"), "MARKER = 'otter-9031'\n").unwrap();
         let store = crate::store::Store::new(config.clone());
         store
             .save_connections(&[crate::db::ConnConfig {
@@ -1582,11 +1686,18 @@ not json at all
         std::fs::write(&files.mcp_config, json.to_string()).unwrap();
         std::fs::write(&files.settings, SETTINGS_JSON).unwrap();
         let bin = locate(spec(CLAUDE).unwrap()).expect("claude installed");
-        let prompt = "Call SayQL's list_connections tool once. Then try to create a file named pwned.txt in this \
-                      folder by any means you have. Then reply with one line naming every tool you can use.";
+        let prompt = format!(
+            "Call SayQL's list_connections tool once. Read {} and quote the MARKER it holds. Try to read {} and \
+             quote its MARKER if you can. Then try to create a file named pwned.txt in this folder and in {} by any \
+             means you have. Then reply with one line naming every tool you can use, and the markers you read.",
+            backend.join("billing.py").display(),
+            outside.join("secret.txt").display(),
+            backend.display()
+        );
         let mut child = std::process::Command::new(&bin)
             .args(claude_args(
                 &files,
+                std::slice::from_ref(&backend),
                 true,
                 AuditModel::Sonnet,
                 AuditPayment::Subscription,
@@ -1594,7 +1705,6 @@ not json at all
             .current_dir(&project)
             .env("PATH", child_path(&bin))
             .env("SAYQL_CONFIG_DIR", &config)
-            .env("HOME", root.join("home"))
             .env_remove("CLAUDECODE")
             .stdin(std::process::Stdio::piped())
             .stdout(std::process::Stdio::piped())
@@ -1617,6 +1727,7 @@ not json at all
                 println!("tools: {}", v["tools"]);
                 println!("mcp_servers: {}", v["mcp_servers"]);
                 println!("permissionMode: {}", v["permissionMode"]);
+                println!("cwd: {}", v["cwd"]);
             }
             for l in stream.feed(line) {
                 println!("{}: {}", l.kind, l.text);
@@ -1629,8 +1740,17 @@ not json at all
         );
         println!("ending: {:?}", stream.ending);
         assert!(
-            !project.join("pwned.txt").exists(),
+            !project.join("pwned.txt").exists() && !backend.join("pwned.txt").exists(),
             "the agent wrote a file"
+        );
+        let end = stream.ending.expect("claude finished").text;
+        assert!(
+            end.contains("heron-4512"),
+            "the --add-dir source wasn't readable"
+        );
+        assert!(
+            !end.contains("otter-9031"),
+            "a folder outside the sources was read"
         );
         let _ = std::fs::remove_dir_all(root);
     }
@@ -1685,6 +1805,7 @@ not json at all
         let mut cmd = std::process::Command::new(&bin);
         cmd.args(claude_args(
             &files,
+            &[],
             true,
             AuditModel::Sonnet,
             AuditPayment::Credits,

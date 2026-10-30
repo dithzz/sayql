@@ -289,6 +289,26 @@ pub fn delete_team_token() -> AppResult<()> {
     lock(&VAULT).remove(TEAM_TOKEN_ACCOUNT)
 }
 
+fn repo_account(source_id: &str) -> String {
+    format!("repo:{source_id}")
+}
+
+/// A git code source's read-only token (see crate::repos).
+pub fn repo_token(source_id: &str) -> Option<String> {
+    get(&repo_account(source_id))
+}
+
+/// Saves a code source's token; an empty one removes it.
+pub fn set_repo_token(source_id: &str, token: &str) -> AppResult<()> {
+    set(&repo_account(source_id), token.trim())
+}
+
+/// Removes a code source's token. Only the shared item holds them: no earlier version saved
+/// one as its own item.
+pub fn delete_repo_token(source_id: &str) -> AppResult<()> {
+    set(&repo_account(source_id), "")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

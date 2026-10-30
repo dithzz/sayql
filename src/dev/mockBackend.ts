@@ -2,7 +2,7 @@
 // for design work without the Rust backend. Never loaded inside the Tauri app.
 import { emit } from "@tauri-apps/api/event";
 import { mockIPC } from "@tauri-apps/api/mocks";
-import type { MyActivity, AgentAccess, AgentReply, AgentStep, AiProvider, AuditAgent, AuditRun, Bootstrap, DbNote, NoteSuggestion, QueryResult, Schema, Settings, Skill, Table } from "../api";
+import type { MyActivity, AgentAccess, AgentReply, AgentStep, AiProvider, AuditAgent, AuditRun, Bootstrap, CodeSource, DbNote, NoteSuggestion, QueryResult, Schema, Settings, Skill, Table } from "../api";
 import { EXAMPLE_SKILLS, skillError } from "../features/skills";
 import { version } from "../../package.json";
 import { isReadOnly } from "./readOnly";
@@ -529,7 +529,19 @@ function auditAgents(): AuditAgent[] {
     { id: "cursor", label: "Cursor CLI", path: null, version: null, supported: false, ready: false, installUrl: "https://cursor.com/cli", problem: null },
   ];
 }
-const auditFolders = new Map<string, string>([["pg", "/Users/you/code/analytics"]]);
+// The code each connection's audit reads: a folder and a GitHub repository for analytics.
+const codeSources = new Map<string, CodeSource[]>([
+  [
+    "pg",
+    [
+      { id: "src_analytics", label: "analytics", kind: { type: "local", path: "/Users/you/code/analytics" }, lastFetch: Date.now() - 3 * 86_400_000, lastCommit: "9f8e7d6c5b4a", error: null },
+      { id: "src_api", label: "api", kind: { type: "git", url: "https://github.com/acme/api.git", branch: "main", subdir: null, hasToken: false, tokenUser: null },
+        lastFetch: Date.now() - 3 * 86_400_000, lastCommit: "1a2b3c4d5e6f", error: null },
+    ],
+  ],
+]);
+let mockSourceId = 0;
+const sourcesOf = (id: unknown) => codeSources.get(id as string) ?? [];
 const auditStops = new Set<string>();
 let auditModel = "sonnet";
 // `?nocredits` in the mock's URL: no SayQL credit key saved.
@@ -540,6 +552,12 @@ async function mockAuditRun(runId: string, connectionId: string, database: strin
   const pause = () => new Promise((r) => setTimeout(r, 650));
   const line = (kind: "step" | "note" | "warn", text: string) => emit("audit://event", { type: "line", runId, kind, text });
   const done = (e: Record<string, unknown>) => emit("audit://event", { type: "done", runId, suggested: 0, summary: null, error: null, ...e });
+  for (const s of sourcesOf(connectionId)) {
+    if (s.kind.type !== "git") continue;
+    await line("step", `Fetching ${s.label}…`);
+    await pause();
+    s.lastFetch = Date.now();
+  }
   const steps: ["step" | "note" | "warn", string][] = [
     ["step", "Started, with SayQL's tools"],
     ["step", "Reading the schema, usage and saved notes"],
@@ -677,18 +695,41 @@ export function installMockBackend() {
         case "audit_agents":
           await new Promise((r) => setTimeout(r, 250));
           return auditAgents();
-        case "audit_folder":
-          return auditFolders.get(a.id as string) ?? null;
-        case "choose_audit_folder": {
-          const folder = a.id === "demo" ? "/Users/you/code/shop" : "/Users/you/code/analytics";
-          auditFolders.set(a.id as string, folder);
-          return folder;
+        case "code_sources":
+          return sourcesOf(a.id).map((s) => ({ ...s }));
+        case "add_code_folder": {
+          const path = a.id === "demo" ? "/Users/you/code/shop" : "/Users/you/code/analytics";
+          if (sourcesOf(a.id).some((s) => s.kind.type === "local" && s.kind.path === path)) return Promise.reject("This connection already has that code source.");
+          const source: CodeSource = { id: `src_mock${++mockSourceId}`, label: path.split("/").pop() ?? "code", kind: { type: "local", path }, lastFetch: Date.now(), lastCommit: null, error: null };
+          codeSources.set(a.id as string, [...sourcesOf(a.id), source]);
+          return source;
+        }
+        case "add_code_repo": {
+          await new Promise((r) => setTimeout(r, 250));
+          const url = String(a.url ?? "").trim();
+          if (!/^(https:\/\/|ssh:\/\/|git@)/.test(url)) return Promise.reject("Use the repository's https:// or SSH address (git@host:owner/repo.git), as its Clone button shows it.");
+          if (url.includes("private")) return Promise.reject("github.com didn't accept the sign-in. Add a read-only token for this repository, or set up git's credential helper for github.com.");
+          const subdir = String(a.subdir ?? "").trim() || null;
+          const label = (subdir ?? url).replace(/\.git$/, "").split(/[/:]/).pop() || "code";
+          const source: CodeSource = { id: `src_mock${++mockSourceId}`, label, lastFetch: null, lastCommit: null, error: null,
+            kind: { type: "git", url, branch: String(a.branch ?? "").trim(), subdir, hasToken: !!a.token, tokenUser: (a.tokenUser as string | null) ?? null } };
+          codeSources.set(a.id as string, [...sourcesOf(a.id), source]);
+          return source;
+        }
+        case "remove_code_source":
+          codeSources.set(a.id as string, sourcesOf(a.id).filter((s) => s.id !== a.sourceId));
+          return null;
+        case "check_code_source": {
+          await new Promise((r) => setTimeout(r, 150));
+          const s = sourcesOf(a.id).find((x) => x.id === a.sourceId);
+          if (!s) return Promise.reject("That code source was removed.");
+          s.error = null;
+          return { ...s };
         }
         case "start_audit": {
           const agent = auditAgents().find((x) => x.id === a.agent);
           if (!agent?.ready) return Promise.reject(agent?.problem ?? "Claude Code isn't installed on this computer, or SayQL can't find it.");
-          if (!a.folder) return Promise.reject("Choose the project folder: the one with this database's code.");
-          auditFolders.set(a.id as string, a.folder as string);
+          if (sourcesOf(a.id).length === 0) return Promise.reject("Add a code source first: a folder or repository with this database's code.");
           void mockAuditRun(a.runId as string, a.id as string, (a.database as string | null) ?? null);
           return null;
         }

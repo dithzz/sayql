@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AlertTriangle, Check, Copy, FolderOpen, Lightbulb, ScanSearch, SquareTerminal } from "lucide-react";
+import { AlertTriangle, Check, Copy, Lightbulb, ScanSearch, SquareTerminal } from "lucide-react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import {
   commands,
@@ -7,12 +7,14 @@ import {
   type AuditAgent,
   type AuditEvent,
   type AuditModel,
+  type CodeSource,
   type ConnectionConfig,
 } from "../../api";
 import { Alert, Button, Dialog, Markdown, Select, Spinner } from "../../components/ui";
 import { cx } from "../../lib/cx";
 import { errorText } from "../../lib/errors";
 import { AUDITS_CHANGED, copyAuditPrompt, type AuditTarget } from "./audit";
+import { CodeSources } from "./CodeSources";
 import { SUGGESTIONS_CHANGED } from "./useNoteSuggestions";
 import styles from "./AuditRun.module.css";
 
@@ -55,7 +57,7 @@ export function auditButtonLabel(_agents?: AuditAgent[] | null): string {
 export function auditButtonTitle(agents: AuditAgent[] | null): string {
   const ready = (agents ?? []).filter((a) => a.ready);
   const what = ready.length === 1 ? `your installed ${ready[0].label}` : "your coding agent";
-  return `Runs ${what}, read-only, in your project folder`;
+  return `Runs ${what}, read-only, over this database's code`;
 }
 
 export interface AuditButtonProps {
@@ -70,7 +72,7 @@ export interface AuditButtonProps {
   variant?: "primary" | "secondary" | "ghost";
 }
 
-/** Runs the audit with the person's coding agent, read-only, in their project folder. */
+/** Runs the audit with the person's coding agent, read-only, over the connection's code sources. */
 export function AuditButton({ target, connections, onReview, onOpen, variant = "secondary" }: AuditButtonProps) {
   const { agents } = useAuditAgents();
   const [open, setOpen] = useState(false);
@@ -113,7 +115,7 @@ function elapsed(ms: number): string {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 }
 
-/** Choose the agent and folder, start, watch the progress, then review what it suggested. */
+/** Choose the agent and the code, start, watch the progress, then review what it suggested. */
 export function AuditDialog({ target, connections = [], onReview, onClose }: AuditDialogProps) {
   const { agents, refresh } = useAuditAgents(true);
   const ready = (agents ?? []).filter((a) => a.ready);
@@ -123,7 +125,7 @@ export function AuditDialog({ target, connections = [], onReview, onClose }: Aud
   const [connectionId, setConnectionId] = useState(target?.connectionId ?? local[0]?.id ?? "");
   const database = target && target.connectionId === connectionId ? target.database : null;
   const connectionName = target?.connectionId === connectionId ? target.name : (local.find((c) => c.id === connectionId)?.name ?? "");
-  const [folder, setFolder] = useState<string | null>(null);
+  const [sources, setSources] = useState<CodeSource[]>([]);
   const [model, setModel] = useState<AuditModel>("sonnet");
   const [phase, setPhase] = useState<"setup" | "running" | "done">("setup");
   const [lines, setLines] = useState<Line[]>([]);
@@ -135,21 +137,6 @@ export function AuditDialog({ target, connections = [], onReview, onClose }: Aud
   const runId = useRef<string | null>(null);
   const logRef = useRef<HTMLOListElement>(null);
   const suggested = useRef(false);
-
-  useEffect(() => {
-    let live = true;
-    setFolder(null);
-    if (!connectionId) return;
-    Promise.resolve()
-      .then(() => commands.auditFolder(connectionId))
-      .then(
-        (f) => live && setFolder(f),
-        () => undefined,
-      );
-    return () => {
-      live = false;
-    };
-  }, [connectionId]);
 
   useEffect(() => {
     let live = true;
@@ -204,16 +191,8 @@ export function AuditDialog({ target, connections = [], onReview, onClose }: Aud
     onClose();
   };
 
-  const chooseFolder = () => {
-    setError(null);
-    commands.chooseAuditFolder(connectionId).then(
-      (f) => f && setFolder(f),
-      (e) => setError(errorText(e)),
-    );
-  };
-
   const start = () => {
-    if (!agent || !folder || !connectionId) return;
+    if (!agent || sources.length === 0 || !connectionId) return;
     const id = crypto.randomUUID();
     runId.current = id;
     setError(null);
@@ -222,7 +201,7 @@ export function AuditDialog({ target, connections = [], onReview, onClose }: Aud
     setStarted(Date.now());
     setNow(Date.now());
     setPhase("running");
-    commands.startAudit(id, agent.id, connectionId, database, folder).catch((e) => {
+    commands.startAudit(id, agent.id, connectionId, database).catch((e) => {
       runId.current = null;
       setPhase("setup");
       setError(errorText(e));
@@ -230,9 +209,9 @@ export function AuditDialog({ target, connections = [], onReview, onClose }: Aud
   };
 
   const openTerminal = () => {
-    if (!agent || !folder || !connectionId) return;
+    if (!agent || sources.length === 0 || !connectionId) return;
     setError(null);
-    commands.openAuditInTerminal(agent.id, connectionId, database, folder).catch((e) => setError(errorText(e)));
+    commands.openAuditInTerminal(agent.id, connectionId, database).catch((e) => setError(errorText(e)));
   };
 
   const copyPrompt = () => {
@@ -252,7 +231,8 @@ export function AuditDialog({ target, connections = [], onReview, onClose }: Aud
     onReview?.();
   };
 
-  const canStart = !!agent && !!folder && !!connectionId;
+  const canStart = !!agent && sources.length > 0 && !!connectionId;
+  const labels = sources.map((s) => s.label).join(", ");
   const actions =
     phase === "running" ? (
       <Button onClick={() => runId.current && void commands.cancelAudit(runId.current).catch(() => undefined)}>Cancel</Button>
@@ -277,7 +257,7 @@ export function AuditDialog({ target, connections = [], onReview, onClose }: Aud
           variant="ghost"
           icon={SquareTerminal}
           disabled={!canStart}
-          title="Open your terminal in the project folder, running the same read-only audit, to watch or answer it there"
+          title="Open your terminal in the first code source, running the same read-only audit, to watch or answer it there"
           onClick={openTerminal}
         >
           Open in Terminal
@@ -302,9 +282,10 @@ export function AuditDialog({ target, connections = [], onReview, onClose }: Aud
             ) : agent ? (
               <>
                 <p className={styles.lead}>
-                  Runs your installed {agent.label}, read-only, in your project folder. It reads your project&apos;s code and
-                  SayQL&apos;s schema and suggests notes for you to approve. It uses your own {agent.label} sign-in, however
-                  you&apos;ve set it up: SayQL never reads your {agent.label} credentials and sends no code anywhere.
+                  Runs your installed {agent.label}, read-only, over this database&apos;s code: folders on this computer and git
+                  repositories. It reads the code and SayQL&apos;s schema and suggests notes for you to approve. It uses your own{" "}
+                  {agent.label} sign-in, however you&apos;ve set it up: SayQL never reads your {agent.label} credentials and sends no
+                  code anywhere.
                 </p>
                 <div className={styles.fields}>
                   {!target && (
@@ -353,25 +334,21 @@ export function AuditDialog({ target, connections = [], onReview, onClose }: Aud
                       </p>
                     </>
                   )}
-                  <div className={styles.field}>
-                    <span className={styles.label}>Project folder</span>
-                    <div className={styles.folder}>
-                      {folder ? (
-                        <code className={styles.path} title={folder}>
-                          {folder}
-                        </code>
-                      ) : (
-                        <span className={styles.muted}>The folder with this database&apos;s code</span>
-                      )}
-                      <Button size="sm" icon={FolderOpen} disabled={!connectionId} onClick={chooseFolder}>
-                        {folder ? "Change" : "Choose…"}
-                      </Button>
-                    </div>
+                  <div className={styles.sources}>
+                    <span className={styles.label}>Code sources</span>
+                    {connectionId ? (
+                      <CodeSources connectionId={connectionId} onChange={setSources} />
+                    ) : (
+                      <span className={styles.muted}>Choose a connection first.</span>
+                    )}
                   </div>
                 </div>
                 <ul className={styles.rules} aria-label="What the agent may do">
                   <li>
-                    <Check size={13} /> Read, search and list files in this folder, and use SayQL&apos;s tools.
+                    <Check size={13} /> Read, search and list files in these sources, and use SayQL&apos;s tools.
+                  </li>
+                  <li>
+                    <Check size={13} /> Repositories are fetched first with your own git, to this computer only.
                   </li>
                   <li>
                     <Check size={13} /> No commands, no file changes, no web. SayQL starts it with these limits.
@@ -399,12 +376,12 @@ export function AuditDialog({ target, connections = [], onReview, onClose }: Aud
             <div className={styles.status}>
               {phase === "running" ? (
                 <>
-                  <Spinner /> Auditing {connectionName} in <code className={styles.path}>{folder}</code>
+                  <Spinner /> Auditing {connectionName} in <code className={styles.path}>{labels}</code>
                   <span className={styles.time}>{elapsed(Math.max(0, now - started))}</span>
                 </>
               ) : (
                 <span className={styles.muted}>
-                  {connectionName} in <code className={styles.path}>{folder}</code>
+                  {connectionName} in <code className={styles.path}>{labels}</code>
                 </span>
               )}
             </div>

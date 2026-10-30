@@ -1,6 +1,7 @@
-//! "Run audit": finds the person's coding agents, runs one read-only in a project folder
-//! with the audit instructions, streams its progress to the window as `audit://event`, and
-//! opens the same run in a terminal instead. See src/audit_runner.rs for what's enforced.
+//! "Run audit": finds the person's coding agents, runs one read-only over a connection's code
+//! sources (local folders and git repositories, fetched first) with the audit instructions,
+//! streams its progress to the window as `audit://event`, and opens the same run in a terminal
+//! instead. See src/audit_runner.rs for what's enforced, and src/repos.rs for git.
 
 use crate::agent_process::{TerminalRun, kill_tree, launch_terminal, no_window, version_of};
 use crate::ai::{SAYQL_CREDITS, endpoint};
@@ -10,8 +11,10 @@ use crate::audit_runner::{
 };
 use crate::commands::settings::mcp_binary;
 use crate::error::{AppError, AppResult};
+use crate::repos;
 use crate::state::AppState;
 use crate::store::apps::AppGate;
+use crate::store::code_sources::{CodeSource, SourceKind, default_label};
 use crate::store::secrets;
 use serde::Serialize;
 use std::collections::HashMap;
@@ -107,27 +110,49 @@ pub async fn audit_agents() -> AppResult<Vec<AgentView>> {
     Ok(out)
 }
 
-/// The project folder last used to audit this connection.
-#[tauri::command]
-pub fn audit_folder(state: State<'_, AppState>, id: String) -> AppResult<Option<String>> {
-    state.store.audit_folder(&id)
+fn now_ms() -> u64 {
+    chrono::Utc::now().timestamp_millis().max(0) as u64
 }
 
-/// Asks for the project folder and remembers it for this connection; `None` when cancelled.
+/// A git source's token from the keychain, with the user name its host expects. The keychain
+/// is only read when a token was saved.
+fn token_for(source: &CodeSource) -> Option<repos::Token> {
+    let SourceKind::Git {
+        url,
+        has_token: true,
+        token_user,
+        ..
+    } = &source.kind
+    else {
+        return None;
+    };
+    let user = token_user
+        .clone()
+        .or_else(|| repos::token_user(url).map(String::from))?;
+    Some(repos::Token {
+        user,
+        secret: secrets::repo_token(&source.id)?,
+    })
+}
+
+/// The code an audit of this connection reads, in the order added.
 #[tauri::command]
-pub async fn choose_audit_folder(
+pub fn code_sources(state: State<'_, AppState>, id: String) -> AppResult<Vec<CodeSource>> {
+    state.store.code_sources(&id)
+}
+
+/// Asks for a folder and adds it as a code source; `None` when cancelled.
+#[tauri::command]
+pub async fn add_code_folder(
     app: AppHandle,
     state: State<'_, AppState>,
     id: String,
-) -> AppResult<Option<String>> {
+) -> AppResult<Option<CodeSource>> {
     use tauri_plugin_dialog::DialogExt;
-    let mut dialog = app
+    let dialog = app
         .dialog()
         .file()
-        .set_title("Choose the project folder with this database's code");
-    if let Some(current) = state.store.audit_folder(&id)? {
-        dialog = dialog.set_directory(current);
-    }
+        .set_title("Choose a folder with this database's code");
     let (tx, rx) = tokio::sync::oneshot::channel();
     dialog.pick_folder(move |picked| {
         let _ = tx.send(picked);
@@ -138,9 +163,270 @@ pub async fn choose_audit_folder(
     let path = picked
         .into_path()
         .map_err(|e| AppError::User(format!("Could not use that folder: {e}")))?;
+    let path = path.canonicalize().unwrap_or(path);
     let path = path.to_string_lossy().into_owned();
-    state.store.set_audit_folder(&id, &path)?;
-    Ok(Some(path))
+    let label = default_label(&path);
+    let source =
+        state
+            .store
+            .add_code_source(&id, SourceKind::Local { path: path.clone() }, &label)?;
+    let commit = repos::head(std::path::Path::new(&path)).await;
+    Ok(state
+        .store
+        .update_code_source(&id, &source.id, |s| {
+            s.last_fetch = Some(now_ms());
+            s.last_commit = commit;
+        })?
+        .or(Some(source)))
+}
+
+/// Adds a git repository as a code source once git can read it (`git ls-remote`). `token`:
+/// an optional read-only token, kept in the keychain; `token_user`: the user name sent with
+/// it, needed for hosts SayQL doesn't know.
+#[tauri::command]
+#[allow(clippy::too_many_arguments)]
+pub async fn add_code_repo(
+    state: State<'_, AppState>,
+    id: String,
+    url: String,
+    branch: String,
+    subdir: String,
+    token: Option<String>,
+    token_user: Option<String>,
+) -> AppResult<CodeSource> {
+    let url = repos::check_url(&url)?;
+    let branch = repos::check_branch(&branch)?;
+    let subdir = repos::check_subdir(&subdir)?;
+    let token = token
+        .map(|t| t.trim().to_string())
+        .filter(|t| !t.is_empty());
+    let custom_user = token_user
+        .map(|u| u.trim().to_string())
+        .filter(|u| !u.is_empty());
+    let token = match token {
+        None => None,
+        Some(_) if !url.starts_with("https://") => {
+            return Err("A token works with an https:// address. For an SSH address, git uses your SSH key.".into());
+        }
+        Some(secret) => {
+            let user = match (&custom_user, repos::token_user(&url)) {
+                (Some(u), _) => u.clone(),
+                (None, Some(u)) => u.to_string(),
+                (None, None) => {
+                    return Err(format!(
+                        "Enter the user name {} expects with a token.",
+                        repos::host(&url).unwrap_or_else(|| "this server".into())
+                    )
+                    .into());
+                }
+            };
+            Some(repos::Token { user, secret })
+        }
+    };
+    repos::check_access(&url, &branch, token.as_ref()).await?;
+    let label = default_label(subdir.as_deref().unwrap_or(&url));
+    let source = state.store.add_code_source(
+        &id,
+        SourceKind::Git {
+            url,
+            branch,
+            subdir,
+            has_token: token.is_some(),
+            token_user: custom_user.filter(|_| token.is_some()),
+        },
+        &label,
+    )?;
+    if let Some(t) = &token
+        && let Err(e) = secrets::set_repo_token(&source.id, &t.secret)
+    {
+        let _ = state.store.remove_code_source(&id, &source.id);
+        return Err(e);
+    }
+    Ok(source)
+}
+
+/// Removes a code source, its token and SayQL's copy of it.
+#[tauri::command]
+pub fn remove_code_source(
+    state: State<'_, AppState>,
+    id: String,
+    source_id: String,
+) -> AppResult<()> {
+    state.store.remove_code_source(&id, &source_id)
+}
+
+/// Checks a source can still be read: the folder is there, or git can reach the repository.
+/// Its status is updated either way.
+#[tauri::command]
+pub async fn check_code_source(
+    state: State<'_, AppState>,
+    id: String,
+    source_id: String,
+) -> AppResult<CodeSource> {
+    let source = state.store.code_source(&id, &source_id)?;
+    let (commit, error) = match &source.kind {
+        SourceKind::Local { path } => {
+            let dir = std::path::Path::new(path);
+            if dir.is_dir() {
+                (repos::head(dir).await, None)
+            } else {
+                (
+                    None,
+                    Some(format!("The folder {path} isn't there any more.")),
+                )
+            }
+        }
+        SourceKind::Git { url, branch, .. } => {
+            let token = token_for(&source);
+            match repos::check_access(url, branch, token.as_ref()).await {
+                Ok(()) => (source.last_commit.clone(), None),
+                Err(e) => (source.last_commit.clone(), Some(e.to_string())),
+            }
+        }
+    };
+    let local = !source.is_git();
+    Ok(state
+        .store
+        .update_code_source(&id, &source_id, |s| {
+            if local && error.is_none() {
+                s.last_fetch = Some(now_ms());
+            }
+            s.last_commit = commit;
+            s.error = error;
+        })?
+        .unwrap_or(source))
+}
+
+/// A source ready for the run: where its code is on this computer.
+struct Ready {
+    label: String,
+    dir: PathBuf,
+    url: Option<String>,
+    commit: Option<String>,
+}
+
+/// Brings each source up to date (git sources are fetched) and records how it went. A source
+/// that fails is left out with a warning; a repository that can't be fetched is read from
+/// the copy fetched before, if any. `say(kind, text)`: progress for the window.
+async fn ready_sources(
+    state: &AppState,
+    connection_id: &str,
+    say: &(dyn Fn(&'static str, String) + Send + Sync),
+) -> AppResult<Vec<Ready>> {
+    let sources = state.store.code_sources(connection_id)?;
+    if sources.is_empty() {
+        return Err(
+            "Add a code source first: a folder or repository with this database's code.".into(),
+        );
+    }
+    let mut out = Vec::new();
+    let mut first_error = None;
+    for source in &sources {
+        let (ready, error) = match &source.kind {
+            SourceKind::Local { path } => {
+                let dir = std::path::Path::new(path);
+                match dir.canonicalize() {
+                    Ok(dir) if dir.is_dir() => {
+                        let commit = repos::head(&dir).await;
+                        (
+                            Some(Ready {
+                                label: source.label.clone(),
+                                dir,
+                                url: None,
+                                commit,
+                            }),
+                            None,
+                        )
+                    }
+                    _ => (
+                        None,
+                        Some(format!("The folder {path} isn't there any more.")),
+                    ),
+                }
+            }
+            SourceKind::Git {
+                url,
+                branch,
+                subdir,
+                ..
+            } => {
+                say("step", format!("Fetching {}…", source.label));
+                let dest = state.store.repo_dir(&source.id)?;
+                let token = token_for(source);
+                let (commit, error) = match repos::sync(url, branch, &dest, token.as_ref()).await {
+                    Ok(sha) => (Some(sha), None),
+                    Err(e) => {
+                        let old = repos::head(&dest).await;
+                        if old.is_some() {
+                            say(
+                                "warn",
+                                format!(
+                                    "Couldn't fetch {}: {e} Reading the copy fetched before.",
+                                    source.label
+                                ),
+                            );
+                        }
+                        (old, Some(e.to_string()))
+                    }
+                };
+                let dir = match subdir {
+                    Some(sub) => dest.join(sub),
+                    None => dest.clone(),
+                };
+                match (&commit, dir.canonicalize()) {
+                    (Some(_), Ok(dir)) if dir.is_dir() => (
+                        Some(Ready {
+                            label: source.label.clone(),
+                            dir,
+                            url: Some(url.clone()),
+                            commit: commit.clone(),
+                        }),
+                        error,
+                    ),
+                    (Some(_), _) => (
+                        None,
+                        Some(format!(
+                            "The repository has no folder {}.",
+                            subdir.as_deref().unwrap_or("")
+                        )),
+                    ),
+                    (None, _) => (None, error),
+                }
+            }
+        };
+        let fetched = ready.is_some() && error.is_none();
+        let commit = ready.as_ref().and_then(|r| r.commit.clone());
+        let _ = state
+            .store
+            .update_code_source(connection_id, &source.id, |s| {
+                if fetched {
+                    s.last_fetch = Some(now_ms());
+                }
+                if commit.is_some() {
+                    s.last_commit = commit;
+                }
+                s.error = error.clone();
+            });
+        match ready {
+            Some(r) => out.push(r),
+            None => {
+                if let Some(e) = &error {
+                    say("warn", format!("Leaving out {}: {e}", source.label));
+                    first_error.get_or_insert_with(|| e.clone());
+                }
+            }
+        }
+    }
+    if out.is_empty() {
+        return Err(format!(
+            "None of this connection's code sources could be read. {}",
+            first_error.unwrap_or_default()
+        )
+        .trim()
+        .to_string()
+        .into());
+    }
+    Ok(out)
 }
 
 /// The model audits run on.
@@ -221,7 +507,12 @@ fn credits(state: &AppState) -> AppResult<Option<Credits>> {
 struct Prepared {
     spec: &'static AgentSpec,
     bin: PathBuf,
+    /// The first code source: the agent's working directory.
     folder: PathBuf,
+    /// The other code sources, given as `--add-dir`.
+    more_dirs: Vec<PathBuf>,
+    /// Every source by label, for the progress lines.
+    sources: Vec<(String, PathBuf)>,
     connection_id: String,
     database: Option<String>,
     prompt: String,
@@ -238,18 +529,18 @@ async fn prepare(
     agent: &str,
     id: &str,
     database: Option<&str>,
-    folder: &str,
     headless: bool,
+    say: &(dyn Fn(&'static str, String) + Send + Sync),
 ) -> AppResult<Prepared> {
     let spec = runner::spec(agent).ok_or("SayQL doesn't know this coding agent.")?;
     if let Some(why) = spec.unsupported {
         return Err(why.into());
     }
-    let folder = PathBuf::from(folder.trim());
-    if folder.as_os_str().is_empty() || !folder.is_dir() {
-        return Err("Choose the project folder: the one with this database's code.".into());
+    if state.store.code_sources(id)?.is_empty() {
+        return Err(
+            "Add a code source first: a folder or repository with this database's code.".into(),
+        );
     }
-    let folder = folder.canonicalize()?;
     let credits = credits(state)?;
     let payment = if credits.is_some() {
         AuditPayment::Credits
@@ -297,13 +588,30 @@ async fn prepare(
     }
     let conn = state.store.connection(id)?;
     let database = audit::target_database(&state.store, &conn, database);
-    let mut prompt = audit::instructions(
+    // Fetched last, once everything else checks out.
+    let ready = ready_sources(state, &conn.id, say).await?;
+    let dirs: Vec<String> = ready
+        .iter()
+        .map(|r| r.dir.to_string_lossy().into_owned())
+        .collect();
+    let listed: Vec<audit::Source> = ready
+        .iter()
+        .zip(&dirs)
+        .map(|(r, dir)| audit::Source {
+            label: &r.label,
+            dir,
+            url: r.url.as_deref(),
+            commit: r.commit.as_deref(),
+        })
+        .collect();
+    let mut prompt = audit::instructions_for(
         Some(&Target {
             connection_id: &conn.id,
             name: &conn.name,
             database: database.as_deref(),
         }),
         false,
+        &listed,
     );
     prompt.push_str(runner::run_notes(headless));
     let sayql_mcp = mcp_binary()?;
@@ -324,13 +632,13 @@ async fn prepare(
     };
     std::fs::write(&files.mcp_config, runner::mcp_config_json(&sayql_mcp))?;
     std::fs::write(&files.settings, runner::SETTINGS_JSON)?;
-    let _ = state
-        .store
-        .set_audit_folder(&conn.id, &folder.to_string_lossy());
+    let sources: Vec<(String, PathBuf)> = ready.into_iter().map(|r| (r.label, r.dir)).collect();
     Ok(Prepared {
         spec,
         bin,
-        folder,
+        folder: sources[0].1.clone(),
+        more_dirs: sources[1..].iter().map(|(_, d)| d.clone()).collect(),
+        sources,
         connection_id: conn.id,
         database,
         prompt,
@@ -342,9 +650,9 @@ async fn prepare(
     })
 }
 
-/// Starts an audit with `agent` in `folder`; progress arrives as `audit://event` with `runId`.
+/// Starts an audit with `agent` over the connection's code sources, fetching repositories
+/// first; progress arrives as `audit://event` with `runId`.
 #[tauri::command]
-#[allow(clippy::too_many_arguments)]
 pub async fn start_audit(
     app: AppHandle,
     state: State<'_, AppState>,
@@ -353,19 +661,34 @@ pub async fn start_audit(
     agent: String,
     id: String,
     database: Option<String>,
-    folder: String,
 ) -> AppResult<()> {
-    let p = prepare(&state, &agent, &id, database.as_deref(), &folder, true).await?;
+    let say = |kind: &'static str, text: String| {
+        let _ = app.emit(
+            EVENT,
+            AuditEvent::Line {
+                run_id: run_id.clone(),
+                kind,
+                text,
+            },
+        );
+    };
+    let p = prepare(&state, &agent, &id, database.as_deref(), true, &say).await?;
     let mut cmd = tokio::process::Command::new(&p.bin);
-    cmd.args(runner::claude_args(&p.files, true, p.model, p.payment))
-        .current_dir(&p.folder)
-        .env("PATH", runner::child_path(&p.bin))
-        // Started from inside a Claude Code session (a dev build), it would refuse to nest.
-        .env_remove("CLAUDECODE")
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .kill_on_drop(true);
+    cmd.args(runner::claude_args(
+        &p.files,
+        &p.more_dirs,
+        true,
+        p.model,
+        p.payment,
+    ))
+    .current_dir(&p.folder)
+    .env("PATH", runner::child_path(&p.bin))
+    // Started from inside a Claude Code session (a dev build), it would refuse to nest.
+    .env_remove("CLAUDECODE")
+    .stdin(Stdio::piped())
+    .stdout(Stdio::piped())
+    .stderr(Stdio::piped())
+    .kill_on_drop(true);
     if let Some(c) = &p.credits {
         // The credit key goes to the agent's environment only: not its arguments, not a file.
         let env = runner::credits_env(
@@ -427,7 +750,7 @@ async fn drive(
             String::from_utf8_lossy(&buf).into_owned()
         })
     });
-    let mut stream = ClaudeStream::new(&p.folder);
+    let mut stream = ClaudeStream::with_sources(p.sources.clone());
     stream.credits = p.credits.is_some();
     let mut lines = child.stdout.take().map(|o| BufReader::new(o).lines());
     let deadline = tokio::time::sleep(runner::TIME_LIMIT);
@@ -540,18 +863,18 @@ pub fn cancel_audit(runs: State<'_, AuditRuns>, run_id: String) {
     }
 }
 
-/// Opens the system terminal in `folder`, running the agent interactively with the same
-/// read-only options and the audit instructions as its first message.
+/// Opens the system terminal in the first code source (the others added with `--add-dir`),
+/// running the agent interactively with the same read-only options and the audit
+/// instructions as its first message. Repositories are fetched first.
 #[tauri::command]
 pub async fn open_audit_in_terminal(
     state: State<'_, AppState>,
     agent: String,
     id: String,
     database: Option<String>,
-    folder: String,
 ) -> AppResult<()> {
-    let p = prepare(&state, &agent, &id, database.as_deref(), &folder, false).await?;
-    let args = runner::claude_args(&p.files, false, p.model, p.payment);
+    let p = prepare(&state, &agent, &id, database.as_deref(), false, &|_, _| {}).await?;
+    let args = runner::claude_args(&p.files, &p.more_dirs, false, p.model, p.payment);
     let prompt = p.dir.join("prompt.txt");
     std::fs::write(&prompt, &p.prompt)?;
     let path_var = runner::child_path(&p.bin);

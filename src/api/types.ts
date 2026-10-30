@@ -280,6 +280,35 @@ export interface AuditAgent {
   installUrl: string;
 }
 
+/** Where a code source's code is; mirrors `store::code_sources::SourceKind`. */
+export type CodeSourceKind =
+  | { type: "local"; path: string }
+  | {
+      type: "git";
+      url: string;
+      /** Empty: the repository's default branch. */
+      branch: string;
+      /** Only this folder of the repository is read. */
+      subdir: string | null;
+      /** A read-only token is saved in the keychain for it. */
+      hasToken: boolean;
+      tokenUser: string | null;
+    };
+
+/** Code an audit reads: a local folder or a git repository; mirrors `store::code_sources::CodeSource`. */
+export interface CodeSource {
+  id: string;
+  /** The short name the audit cites files by (`backend:src/db.ts`). */
+  label: string;
+  kind: CodeSourceKind;
+  /** When it was last fetched (a repository) or found (a folder), in ms since the Unix epoch. */
+  lastFetch: number | null;
+  /** The commit read last time. */
+  lastCommit: string | null;
+  /** Why the last fetch or check failed. */
+  error: string | null;
+}
+
 /** The model an audit runs on; mirrors `audit_runner::AuditModel`. "default" is the person's own Claude Code default. */
 export type AuditModel = "sonnet" | "opus" | "default";
 
