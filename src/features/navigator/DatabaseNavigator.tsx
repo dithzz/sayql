@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState, type MouseEvent } from "react";
 import { LayoutDashboard,
   Bot,
+  CircleCheck,
   Copy,
   Database,
   Eye,
@@ -21,6 +22,7 @@ import { LayoutDashboard,
   StickyNote,
   Table2,
   Trash2,
+  TriangleAlert,
   Type,
   Users,
   Wand2,
@@ -71,6 +73,8 @@ export interface DatabaseNavigatorProps {
   /** Edits a note, or (`null`) adds one to the open database. */
   onEditNote: (note: DbNote | null) => void;
   onDeleteNote: (note: DbNote) => void;
+  /** Reads the schema again and runs every note's check. */
+  onCheckNotes?: () => void;
   /** Notes AI apps suggested for the open database, waiting for the person. */
   suggestedNotes?: number;
   /** Opens the suggested notes to accept or dismiss. */
@@ -97,6 +101,13 @@ export interface NavigatorScript {
   orphaned: boolean;
   /** It runs on the database that's open now. */
   here: boolean;
+}
+
+/** A note's tooltip: its text, and why it may be out of date or when it was checked. */
+function noteTitle(n: DbNote): string {
+  if (n.suspect) return `${n.text}\n\nMay be out of date: ${n.suspect.reason}. Click to review.`;
+  if (n.verifiedAt) return `${n.text}\n\nChecked against the data ${new Date(n.verifiedAt).toLocaleDateString()}.`;
+  return n.text;
 }
 
 /**
@@ -230,8 +241,10 @@ export function DatabaseNavigator(p: DatabaseNavigatorProps) {
     { label: "Delete script…", icon: Trash2, danger: true, onSelect: () => p.onDeleteScript(sc.id) },
   ];
 
+  const doubtful = p.notes.filter((n) => n.suspect).length;
+
   const noteMenu = (n: DbNote): MenuEntry[] => [
-    { label: "Edit note…", icon: Pencil, onSelect: () => p.onEditNote(n) },
+    { label: n.suspect ? "Review note…" : "Edit note…", icon: Pencil, onSelect: () => p.onEditNote(n) },
     { label: "Copy", icon: Copy, onSelect: () => copy(n.text) },
     "separator",
     { label: "Delete note", icon: Trash2, danger: true, onSelect: () => p.onDeleteNote(n) },
@@ -320,17 +333,29 @@ export function DatabaseNavigator(p: DatabaseNavigatorProps) {
               expanded={!collapsed.has(`${key}:notes`)}
               icon={<StickyNote size={14} />}
               label="Notes"
-              meta={p.notes.length || undefined}
+              meta={
+                doubtful > 0 ? (
+                  <span className={styles.doubtfulBadge} title={`${doubtful} may be out of date`}>
+                    {doubtful}
+                  </span>
+                ) : (
+                  p.notes.length || undefined
+                )
+              }
               title="Facts about this database that the Ask box, Investigate and MCP use"
+              actions={
+                p.onCheckNotes &&
+                p.notes.length > 0 && <IconButton icon={RefreshCw} label="Check notes against the database now" size="sm" onClick={p.onCheckNotes} />
+              }
               onClick={() => setCollapsed((s) => toggle(s, `${key}:notes`))}
             />
             {!!p.suggestedNotes && (
               <TreeRow
                 depth={depth + 1}
                 icon={<Sparkles size={13} className={styles.suggested} />}
-                label={<span className={styles.suggested}>Suggested by AI apps</span>}
+                label={<span className={styles.suggested}>Suggested notes and fixes</span>}
                 meta={<span className={styles.badge}>{p.suggestedNotes}</span>}
-                title="Notes Claude Code, Cursor or another AI app suggested over MCP. Review them to accept or dismiss."
+                title="Notes and fixes suggested by SayQL (when the schema changed), Investigate, or an AI app such as Claude Code. Review them to accept or dismiss."
                 onClick={p.onReviewSuggestions}
               />
             )}
@@ -339,8 +364,16 @@ export function DatabaseNavigator(p: DatabaseNavigatorProps) {
                 <TreeRow
                   key={n.id}
                   depth={depth + 1}
-                  label={<span className={styles.note}>{n.text}</span>}
-                  title={n.text}
+                  icon={
+                    n.suspect ? (
+                      <TriangleAlert size={13} className={styles.doubtful} aria-label="May be out of date" />
+                    ) : n.verifiedAt ? (
+                      <CircleCheck size={13} className={styles.verified} aria-label="Checked" />
+                    ) : undefined
+                  }
+                  label={<span className={n.suspect ? styles.noteDoubtful : styles.note}>{n.text}</span>}
+                  title={noteTitle(n)}
+                  onClick={n.suspect ? () => p.onEditNote(n) : undefined}
                   onDoubleClick={() => p.onEditNote(n)}
                   onContextMenu={(e) => menu.open(e, noteMenu(n))}
                 />

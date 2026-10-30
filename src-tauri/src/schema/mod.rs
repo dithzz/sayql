@@ -5,6 +5,7 @@
 //! (MCP clients and the AI get rendered text), nothing is persisted, and `src/api/types.ts` plus the
 //! code reading it use these names, so they stay as they are. See docs/ARCHITECTURE.md.
 
+pub mod anchors;
 mod render;
 
 pub use render::{

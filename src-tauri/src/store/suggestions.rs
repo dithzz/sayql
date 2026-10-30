@@ -6,7 +6,7 @@
 //! values from the data.
 
 use super::Store;
-use super::agent::{Note, clean_note};
+use super::agent::{Note, NoteCheck, clean_check, clean_note};
 use super::note_values::{ALLOWED, REFUSED, note_value};
 use crate::error::AppResult;
 use serde::{Deserialize, Serialize};
@@ -43,6 +43,9 @@ pub struct NoteSuggestion {
     /// Accepting deletes the note in `replaces`; `text` is why.
     #[serde(default)]
     pub remove: bool,
+    /// A read-only query that checks the note (see [`super::agent::NoteCheck`]).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub check: Option<String>,
 }
 
 /// What a suggestion does to the saved notes. `Replace` and `Remove` name a saved note by the
@@ -115,8 +118,27 @@ impl Store {
         app: &str,
         change: Change<'_>,
     ) -> AppResult<NoteSuggestion> {
+        self.suggest_checked_note_change(connection_id, database, text, evidence, app, change, None)
+    }
+
+    /// [`Self::suggest_note_change`] with a query that checks the note.
+    #[allow(clippy::too_many_arguments)]
+    pub fn suggest_checked_note_change(
+        &self,
+        connection_id: &str,
+        database: Option<&str>,
+        text: &str,
+        evidence: &str,
+        app: &str,
+        change: Change<'_>,
+        check: Option<&str>,
+    ) -> AppResult<NoteSuggestion> {
         let text = clean_note(text)?;
         let evidence = clean_evidence(evidence)?;
+        let check = match check.map(str::trim).filter(|c| !c.is_empty()) {
+            Some(c) => Some(clean_check(c)?),
+            None => None,
+        };
         let database = database
             .map(str::trim)
             .filter(|d| !d.is_empty())
@@ -173,6 +195,7 @@ impl Store {
             replaced_text: target.map(|n| n.text),
             replaces,
             remove,
+            check: if remove { None } else { check },
         };
         all.push(suggestion.clone());
         self.write(FILE, &all)?;
@@ -183,6 +206,15 @@ impl Store {
     /// replaces the text of the note it replaces (a new note when that one was deleted since),
     /// or deletes the note it removes. Returns the note saved, or `None` for a removal.
     pub fn accept_note_suggestion(&self, id: &str) -> AppResult<Option<Note>> {
+        self.accept_note_suggestion_with(id, None)
+    }
+
+    /// [`Self::accept_note_suggestion`], finding the note's anchors in `schema` when given.
+    pub fn accept_note_suggestion_with(
+        &self,
+        id: &str,
+        schema: Option<&crate::schema::Schema>,
+    ) -> AppResult<Option<Note>> {
         let all = self.note_suggestions()?;
         let s = all
             .iter()
@@ -198,16 +230,31 @@ impl Store {
                 Some(target) => self.all_notes()?.into_iter().find(|n| &n.id == target),
                 None => None,
             };
+            let check = match (&s.check, &existing) {
+                (Some(sql), _) => Some(NoteCheck {
+                    sql: sql.clone(),
+                    last: None,
+                }),
+                // A replacement without a check keeps the note's own.
+                (None, Some(n)) => n.check.clone(),
+                (None, None) => None,
+            };
             Some(
-                self.save_note(Note {
-                    id: existing
-                        .map(|n| n.id)
-                        .unwrap_or_else(|| uuid::Uuid::new_v4().to_string()),
-                    connection_id: s.connection_id.clone(),
-                    database: s.database.clone(),
-                    text: s.text.clone(),
-                    updated_at: 0,
-                })?,
+                self.save_note_with(
+                    Note {
+                        id: existing
+                            .map(|n| n.id)
+                            .unwrap_or_else(|| uuid::Uuid::new_v4().to_string()),
+                        connection_id: s.connection_id.clone(),
+                        database: s.database.clone(),
+                        text: s.text.clone(),
+                        source: s.app.clone(),
+                        evidence: Some(s.evidence.clone()).filter(|e| !e.is_empty()),
+                        check,
+                        ..Default::default()
+                    },
+                    schema,
+                )?,
             )
         };
         self.dismiss_note_suggestion(id)?;
@@ -302,6 +349,7 @@ mod tests {
                 database: Some("shop".into()),
                 text: text.into(),
                 updated_at: 0,
+                ..Default::default()
             })
             .unwrap()
         };
@@ -420,6 +468,7 @@ mod tests {
                 database: None,
                 text: text.to_string(),
                 updated_at: 0,
+                ..Default::default()
             })
             .unwrap();
         }

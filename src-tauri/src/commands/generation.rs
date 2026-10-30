@@ -11,7 +11,7 @@ use tauri::{AppHandle, State};
 /// `skill` (a saved skill's slug) adds that skill's instruction to the request. Supersedes the generation still running in the same `slot` (one per editor tab).
 #[tauri::command]
 #[allow(clippy::too_many_arguments)]
-pub fn generate_sql(
+pub async fn generate_sql(
     app: AppHandle,
     state: State<'_, AppState>,
     id: String,
@@ -23,8 +23,16 @@ pub fn generate_sql(
     focus_tables: Option<Vec<String>>,
     skill: Option<String>,
 ) -> AppResult<()> {
-    let notes = state.store.notes_text(&id, database.as_deref());
-    let live = state.schema(&Target::new(id.clone(), database))?;
+    let target = Target::new(id.clone(), database);
+    // The database said a table or column doesn't exist: the schema may have changed since
+    // it was read, so read it again before the fix.
+    match &task {
+        Task::Fix { error, .. } if crate::notes::says_missing(error) => {
+            let _ = state.refresh_now(&target).await;
+        }
+        _ => state.ensure_fresh(&target).await,
+    }
+    let live = state.schema(&target)?;
     let skill = match skill {
         None => None,
         Some(slug) => Some(
@@ -61,18 +69,26 @@ pub fn generate_sql(
                 .to_string(),
         ),
     };
+    let schema_part = schema_text(
+        &live.schema,
+        &live.schema_text,
+        &question,
+        &task,
+        focus_tables.as_deref().unwrap_or(&[]),
+    );
+    // Only the notes about the tables the AI is shown, plus those about no table.
+    let tables = crate::schema::anchors::tables_in(&schema_part, &live.schema);
+    let notes = state
+        .store
+        .notes_for(&id, target.database.as_deref(), &tables)
+        .map(|n| crate::store::agent::render_notes(&n, false))
+        .unwrap_or_default();
     let request = GenRequest {
         req_id,
         endpoint,
         model,
         dialect: live.schema.dialect.clone(),
-        schema_text: schema_text(
-            &live.schema,
-            &live.schema_text,
-            &question,
-            &task,
-            focus_tables.as_deref().unwrap_or(&[]),
-        ) + &notes,
+        schema_text: schema_part + &notes,
         question,
         task,
         skill,

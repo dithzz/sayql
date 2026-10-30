@@ -9,6 +9,7 @@ pub mod code_sources;
 mod jsonl;
 pub mod my_activity;
 pub mod note_values;
+pub mod schema_snapshots;
 pub mod secrets;
 pub mod skills;
 pub mod suggestions;

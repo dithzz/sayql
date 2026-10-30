@@ -34,6 +34,29 @@ describe("DatabaseNavigator", () => {
     expect(screen.getByText("events")).toBeTruthy();
   });
 
+  it("marks notes that may be out of date, and opens one to review", () => {
+    const schema: Schema = { dialect: "SQLite", tables: [table("users", "table")] };
+    const onEditNote = vi.fn();
+    const onCheckNotes = vi.fn();
+    const doubtful = {
+      id: "n2", connectionId: "c1", database: null, text: "users.last_login_at is set on sign-in", updatedAt: 0,
+      suspect: { reason: "the column users.last_login_at no longer exists", since: 0 },
+    };
+    render(
+      <DatabaseNavigator
+        {...props({ schema, onEditNote, onCheckNotes })}
+        notes={[{ id: "n1", connectionId: "c1", database: null, text: "status 3 = cancelled", updatedAt: 0, verifiedAt: Date.now() }, doubtful]}
+      />,
+    );
+    expect(screen.getByLabelText("Checked")).toBeTruthy();
+    expect(screen.getByLabelText("May be out of date")).toBeTruthy();
+    expect(screen.getByTitle("1 may be out of date").textContent).toBe("1");
+    fireEvent.click(screen.getByText("users.last_login_at is set on sign-in"));
+    expect(onEditNote).toHaveBeenCalledWith(doubtful);
+    fireEvent.click(screen.getByLabelText("Check notes against the database now"));
+    expect(onCheckNotes).toHaveBeenCalled();
+  });
+
   const props = (over: Partial<Parameters<typeof DatabaseNavigator>[0]> = {}) => ({
     connections: [conn], activeId: "c1", databases: { c1: null }, databaseName: null, schema: null, loading: false,
     connected: true, onConnect: vi.fn(),

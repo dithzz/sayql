@@ -8,7 +8,9 @@ use super::{checks, prompt, tools};
 use crate::db::{self, DbPool, Kind, QueryResult};
 use crate::readonly;
 use crate::schema::{self, Schema, Table};
-use crate::store::agent::{AgentAccess, AgentSettings, Results, clean_note};
+use crate::store::Store;
+use crate::store::agent::{AgentAccess, AgentSettings, Note, Results, clean_note, note_ref};
+use crate::store::suggestions::Change as Suggest;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::sync::Arc;
@@ -32,7 +34,10 @@ pub struct RunInput {
     pub schema: Schema,
     /// The schema as the prompt shows it.
     pub schema_text: String,
-    pub notes: Vec<String>,
+    pub notes: Vec<Note>,
+    /// Where the notes are kept: when set, the run records note checks and doubts there and
+    /// its suggested notes wait there for the person.
+    pub notes_home: Option<NotesHome>,
     pub focus: Vec<String>,
     pub skill: Option<String>,
     pub access: AgentAccess,
@@ -40,6 +45,17 @@ pub struct RunInput {
     /// The tab's earlier run, for follow-ups and steering.
     pub history: Option<History>,
 }
+
+/// The database whose notes a run reads, and the store that keeps them.
+#[derive(Clone)]
+pub struct NotesHome {
+    pub store: Store,
+    pub connection_id: String,
+    pub database: Option<String>,
+}
+
+/// How Investigate signs the notes it suggests.
+pub const NOTES_SOURCE: &str = "Investigate";
 
 /// A finished run's conversation, kept so the next message in the tab can continue it.
 #[derive(Clone)]
@@ -159,6 +175,9 @@ pub struct Answer {
     pub assumptions: Vec<String>,
     /// Suggested database notes, already checked to hold no values.
     pub notes: Vec<String>,
+    /// The suggested notes (and any fixes to saved ones) wait with the other suggestions for
+    /// the person to accept, instead of being offered here to save.
+    pub notes_queued: bool,
     /// A statement for the person to review and run themselves; SayQL never runs it.
     pub proposed_sql: Option<String>,
     /// The proposed statement could change data (else it is a query to run with another login, say).
@@ -204,6 +223,8 @@ struct Run<'a> {
     withheld: Vec<usize>,
     /// The answer's claims about all rows were sent back once to be checked.
     reviewed: bool,
+    /// The schema was read again after a missing table or column.
+    reread: bool,
     turns: u32,
     queries: u32,
     usage: Usage,
@@ -236,6 +257,7 @@ pub async fn run(llm: &mut Llm, pool: &DbPool, mut input: RunInput, io: &mut Io)
         explained: Vec::new(),
         withheld: Vec::new(),
         reviewed: false,
+        reread: false,
         turns: 0,
         queries: 0,
         usage: Usage::default(),
@@ -303,7 +325,22 @@ impl Run<'_> {
     async fn go(&mut self) -> End {
         let dialect = self.input.schema.dialect.clone();
         let system = prompt::instructions(&dialect, self.input.access.results);
-        let mut schema = prompt::schema_block(&dialect, &self.input.schema_text, &self.input.notes);
+        // The notes about the tables the prompt shows, and those about no table; the rest come
+        // with describe_table.
+        let shown = crate::schema::anchors::tables_in(&self.input.schema_text, &self.input.schema);
+        let notes: Vec<Note> = self
+            .input
+            .notes
+            .iter()
+            .filter(|n| {
+                n.anchors.is_empty()
+                    || n.anchors
+                        .iter()
+                        .any(|a| shown.iter().any(|t| t.eq_ignore_ascii_case(&a.table)))
+            })
+            .cloned()
+            .collect();
+        let mut schema = prompt::schema_block(&dialect, &self.input.schema_text, &notes);
         if let Some(warning) = self.row_security().await {
             schema.push_str(&format!(
                 "\n\nWarning: {warning} Say so in the answer when results look empty or small."
@@ -658,12 +695,26 @@ impl Run<'_> {
                 let words = s("words");
                 let i = self.new_step(name, format!("Looking for tables about {words}"), None);
                 let mut text = readonly::describe(&self.input.schema, Some(&words));
-                let notes = self.notes_matching(&words.split_whitespace().collect::<Vec<_>>());
+                let words: Vec<&str> = words.split_whitespace().collect();
+                let tables: Vec<String> = self
+                    .input
+                    .schema
+                    .tables
+                    .iter()
+                    .filter(|t| {
+                        words.iter().any(|w| {
+                            w.len() > 2 && t.name.to_lowercase().contains(&w.to_lowercase())
+                        })
+                    })
+                    .map(Table::qualified_name)
+                    .collect();
+                let notes = self.notes_about(&tables, &words);
                 if !notes.is_empty() {
                     text.push_str(&format!("\nSaved notes:\n- {}", notes.join("\n- ")));
                 }
                 self.end_step(i, Ok(text), "sent table and column names")
             }
+            tools::CHECK_NOTE => self.check_note(&s("note")).await,
             tools::DESCRIBE => {
                 let name_in = s("table");
                 let i = self.new_step(name, format!("Reading the columns of {name_in}"), None);
@@ -673,7 +724,7 @@ impl Run<'_> {
                         if let Some(n) = t.row_estimate {
                             text.push_str(&format!("\nAbout {n} rows."));
                         }
-                        let notes = self.notes_matching(&[t.name.as_str()]);
+                        let notes = self.notes_about(&[t.qualified_name()], &[t.name.as_str()]);
                         if !notes.is_empty() {
                             text.push_str(&format!("\nSaved notes:\n- {}", notes.join("\n- ")));
                         }
@@ -730,17 +781,120 @@ impl Run<'_> {
         })
     }
 
-    fn notes_matching(&self, words: &[&str]) -> Vec<String> {
+    /// The saved notes about any of `tables` (by their anchors), and notes tied to no table
+    /// that mention one of `words`, each as the model reads it: with its id and how sure.
+    fn notes_about(&self, tables: &[String], words: &[&str]) -> Vec<String> {
         self.input
             .notes
             .iter()
             .filter(|n| {
-                words
-                    .iter()
-                    .any(|w| w.len() > 2 && n.to_lowercase().contains(&w.to_lowercase()))
+                if n.anchors.is_empty() {
+                    let text = n.text.to_lowercase();
+                    words
+                        .iter()
+                        .any(|w| w.len() > 2 && text.contains(&w.to_lowercase()))
+                } else {
+                    n.anchors
+                        .iter()
+                        .any(|a| tables.iter().any(|t| t.eq_ignore_ascii_case(&a.table)))
+                }
             })
-            .cloned()
+            .map(|n| {
+                let doubt = match &n.suspect {
+                    Some(s) => format!("(may be out of date: {}) ", s.reason),
+                    None => String::new(),
+                };
+                format!("[{}] {doubt}{}", note_ref(&n.id), n.text)
+            })
             .collect()
+    }
+
+    /// Runs a saved note's check (see `crate::notes::run_check`) and records the result.
+    async fn check_note(&mut self, reference: &str) -> (String, bool) {
+        let wanted = reference
+            .trim()
+            .trim_matches(|c| c == '[' || c == ']')
+            .to_lowercase();
+        let found = self
+            .input
+            .notes
+            .iter()
+            .position(|n| note_ref(&n.id) == wanted || n.id.to_lowercase() == wanted);
+        let i = self.new_step(tools::CHECK_NOTE, "Checking a saved note".to_string(), None);
+        let Some(at) = found else {
+            let msg = format!("No saved note has the id {reference}. Use an id like n_1a2b3c4d.");
+            return self.end_step(i, Err(msg), "sent the error");
+        };
+        let note = self.input.notes[at].clone();
+        self.steps[i].text = format!("Checking the note: {}", note.text);
+        let Some(check) = note.check.clone() else {
+            return self.end_step(
+                i,
+                Err("This note has no check. Test what it says with a query instead.".into()),
+                "sent the error",
+            );
+        };
+        self.steps[i].sql = Some(check.sql.clone());
+        let run =
+            crate::notes::run_check(self.pool, &check.sql, &self.input.access.never_send).await;
+        if let Some(home) = &self.input.notes_home
+            && let Ok(Some(updated)) = home.store.record_check(&note.id, run.clone())
+        {
+            self.input.notes[at] = updated;
+        }
+        match (run.ok, run.error) {
+            (Some(true), _) => self.end_step(i, Ok("The check passed: the note holds.".into()), "sent the result"),
+            (Some(false), _) => self.end_step(
+                i,
+                Ok("The check failed: the note may no longer be true. Don't rely on it; if you find what's true now, suggest a replacement in finish.".into()),
+                "sent the result",
+            ),
+            (None, e) => self.end_step(
+                i,
+                Err(format!("The check couldn't run: {}", e.unwrap_or_default())),
+                "sent the error",
+            ),
+        }
+    }
+
+    /// After the database said a table or column doesn't exist: reads the schema again (once
+    /// per run), reviews the saved notes against it, and says what changed.
+    async fn reread_schema(&mut self) -> Option<String> {
+        if self.reread {
+            return None;
+        }
+        self.reread = true;
+        let fresh = db::introspect(self.pool, self.input.kind).await.ok()?;
+        let before = crate::schema::anchors::Snapshot::of(&self.input.schema);
+        let changes =
+            crate::schema::anchors::diff(&before, &crate::schema::anchors::Snapshot::of(&fresh));
+        if let Some(home) = &self.input.notes_home {
+            let _ = crate::notes::review(
+                &home.store,
+                &home.connection_id,
+                home.database.as_deref(),
+                &fresh,
+            );
+            if let Ok(notes) = home
+                .store
+                .notes(&home.connection_id, home.database.as_deref())
+            {
+                self.input.notes = notes;
+            }
+        }
+        self.input.schema = fresh;
+        if changes.is_empty() {
+            return Some("SayQL read the schema again: it hasn't changed.".into());
+        }
+        let lines: Vec<String> = changes
+            .iter()
+            .take(20)
+            .map(crate::schema::anchors::Change::describe)
+            .collect();
+        Some(format!(
+            "SayQL read the schema again; it changed since the run started:\n- {}\nUse describe_table for the current columns.",
+            lines.join("\n- ")
+        ))
     }
 
     /// The SQL with real values in place of tokens, if it may run: one read-only statement
@@ -775,11 +929,23 @@ impl Run<'_> {
         let r = readonly::run_limited_checked(self.pool, sql, ROWS_READ, secs, &self.io.stop).await;
         // Database messages can quote values; the model gets a fixed message for the kind of
         // error (see ai/redact.rs).
-        r.map_err(|e| match e.full.as_str() {
+        let e = match r {
+            Ok(v) => return Ok(v),
+            Err(e) => e,
+        };
+        let mut msg = match e.full.as_str() {
             crate::team::WRITE_REFUSED => readonly::AGENT_WRITE_REFUSED.to_string(),
             readonly::STOPPED => readonly::STOPPED.to_string(),
             _ => self.masker.remask_text(&e.safe),
-        })
+        };
+        // A missing table or column: the schema may have changed under the run.
+        if crate::notes::says_missing(&e.full)
+            && let Some(more) = self.reread_schema().await
+        {
+            msg.push('\n');
+            msg.push_str(&more);
+        }
+        Err(msg)
     }
 
     async fn query(&mut self, sql: &str, purpose: &str) -> Result<(String, bool), Stop> {
@@ -1234,6 +1400,57 @@ impl Run<'_> {
         })
     }
 
+    /// The notes `finish` suggests: new facts, and fixes to saved notes (`replaces` or `remove`
+    /// with a note's id), each optionally with a check. Checked as the model wrote them: a token
+    /// means the note holds a value from the data. Where the notes are kept, they wait with the
+    /// other suggestions for the person (returns true); otherwise they're offered in the answer.
+    fn suggest_notes(&self, raw: &Value) -> (Vec<String>, bool) {
+        let items: Vec<&Value> = raw.as_array().into_iter().flatten().take(3).collect();
+        let Some(home) = &self.input.notes_home else {
+            let texts = items
+                .iter()
+                .filter_map(|v| v.as_str().or_else(|| v["text"].as_str()))
+                .filter_map(|n| clean_note(n).ok())
+                .collect();
+            return (texts, false);
+        };
+        let mut texts = Vec::new();
+        for v in items {
+            let (text, replaces, remove, check, evidence) = match v {
+                Value::String(s) => (s.as_str(), None, false, None, None),
+                o => (
+                    o["text"].as_str().unwrap_or(""),
+                    o["replaces"].as_str().filter(|r| !r.trim().is_empty()),
+                    o["remove"].as_bool().unwrap_or(false),
+                    o["check"].as_str(),
+                    o["evidence"].as_str(),
+                ),
+            };
+            let change = match (replaces, remove) {
+                (Some(r), true) => Suggest::Remove(r),
+                (Some(r), false) => Suggest::Replace(r),
+                (None, _) => Suggest::Add,
+            };
+            // Evidence that quotes a value (a token) is replaced, not allowed to sink the note.
+            let evidence = evidence
+                .filter(|e| crate::store::note_values::note_value(e).is_none())
+                .unwrap_or("Found while answering a question in Investigate.");
+            let made = home.store.suggest_checked_note_change(
+                &home.connection_id,
+                home.database.as_deref(),
+                text,
+                evidence,
+                NOTES_SOURCE,
+                change,
+                check,
+            );
+            if let Ok(s) = made {
+                texts.push(s.text);
+            }
+        }
+        (texts, true)
+    }
+
     fn answer(&self, input: &Value) -> Answer {
         let text = self
             .masker
@@ -1303,14 +1520,7 @@ impl Run<'_> {
             });
         }
         // Checked as the model wrote them: a token means the note holds a value from the data.
-        let notes = input["notes"]
-            .as_array()
-            .into_iter()
-            .flatten()
-            .filter_map(|v| v.as_str())
-            .filter_map(|n| clean_note(n).ok())
-            .take(3)
-            .collect();
+        let (notes, notes_queued) = self.suggest_notes(&input["notes"]);
         let proposed_sql = input["proposed_sql"]
             .as_str()
             .map(str::trim)
@@ -1335,6 +1545,7 @@ impl Run<'_> {
             confidence,
             assumptions: strings("assumptions"),
             notes,
+            notes_queued,
             proposed_sql,
             cannot_answer: cannot,
             model: self.llm.model_name().to_string(),

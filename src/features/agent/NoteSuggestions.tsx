@@ -71,6 +71,11 @@ export function NoteSuggestions({ suggestions, place, onAccept, onDismiss }: Not
                   <span className={styles.label}>Evidence:</span> {s.evidence}
                 </p>
               )}
+              {s.check && (
+                <p className={styles.evidence}>
+                  <span className={styles.label}>Check:</span> <code>{s.check}</code>
+                </p>
+              )}
               <div className={styles.actions}>
                 <Button size="sm" variant="ghost" icon={X} disabled={busy === s.id} onClick={() => act(s.id, onDismiss)}>
                   Dismiss

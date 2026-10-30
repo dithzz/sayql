@@ -24,6 +24,7 @@ import { Alert, Badge, Button, EmptyState, Panel, Spinner, TextInput } from "../
 import { cx } from "../../lib/cx";
 import { isActive, type AgentRunState } from "./agentRun";
 import styles from "./AgentPanel.module.css";
+import { useNoteSuggestions } from "./useNoteSuggestions";
 
 export interface AgentPanelProps {
   run: AgentRunState;
@@ -385,13 +386,59 @@ function AnswerCard({
           </Button>
         </div>
       )}
-      {answer.notes.length > 0 && <SuggestedNotes notes={answer.notes} onSave={onSaveNote} />}
+      {answer.notes.length > 0 &&
+        (answer.notesQueued ? <QueuedNotes notes={answer.notes} /> : <SuggestedNotes notes={answer.notes} onSave={onSaveNote} />)}
       <div className={styles.buttons}>{actions}</div>
       <span className={styles.muted}>
         <Database size={11} /> {answer.model} · {(answer.usage.input + answer.usage.output).toLocaleString()} tokens
         {answer.usage.cached > 0 && ` (+${answer.usage.cached.toLocaleString()} from cache)`}
       </span>
     </section>
+  );
+}
+
+/**
+ * The notes the run suggested, waiting with the other suggestions: new facts, and fixes to
+ * saved notes it found wrong. Accepting one here is the same as accepting it in the navigator.
+ */
+function QueuedNotes({ notes }: { notes: string[] }) {
+  const { suggestions, accept, dismiss } = useNoteSuggestions();
+  const [done, setDone] = useState<Record<string, string>>({});
+  const mine = suggestions.filter((s) => s.app === "Investigate" && notes.includes(s.text));
+  const finished = notes.filter((n) => done[n]);
+  if (mine.length === 0 && finished.length === 0) return null;
+  const settle = (text: string, f: Promise<unknown>, label: string) =>
+    f.then(
+      () => setDone((d) => ({ ...d, [text]: label })),
+      (e) => setDone((d) => ({ ...d, [text]: String(e) })),
+    );
+  return (
+    <div className={styles.notes}>
+      <span className={styles.muted}>
+        <StickyNote size={12} /> Suggested notes for this database. Accepted notes help every later question here.
+      </span>
+      {finished.map((n) => (
+        <div key={n} className={styles.note}>
+          <span>{n}</span>
+          <Badge tone={done[n] === "accepted" ? "success" : "neutral"}>{done[n]}</Badge>
+        </div>
+      ))}
+      {mine
+        .filter((s) => !done[s.text])
+        .map((s) => (
+          <div key={s.id} className={styles.note}>
+            <span>
+              {s.replaces && <Badge tone="ai">{s.remove ? "remove a note" : "fixes a note"}</Badge>} {s.text}
+            </span>
+            <Button size="sm" variant="ghost" icon={Save} onClick={() => settle(s.text, accept(s.id), "accepted")}>
+              Accept
+            </Button>
+            <Button size="sm" variant="ghost" icon={X} onClick={() => settle(s.text, dismiss(s.id), "dismissed")}>
+              Dismiss
+            </Button>
+          </div>
+        ))}
+    </div>
   );
 }
 

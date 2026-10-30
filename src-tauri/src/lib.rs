@@ -13,6 +13,7 @@ mod error;
 pub mod handoff;
 pub mod mcp;
 mod never_send;
+mod notes;
 mod pii;
 mod readonly;
 mod repos;
@@ -101,6 +102,9 @@ pub fn run() {
             agent::list_notes,
             agent::save_note,
             agent::delete_note,
+            agent::check_note,
+            agent::confirm_note,
+            agent::check_notes,
             agent::list_note_suggestions,
             agent::accept_note_suggestion,
             agent::dismiss_note_suggestion,
