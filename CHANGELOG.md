@@ -3,7 +3,7 @@
 All notable changes to SayQL are listed here. Downloads are on the
 [releases page](https://github.com/dithzz/sayql-releases/releases).
 
-## 0.5.0 (2026-10-30)
+## 0.5.1 (2026-10-30)
 
 ### Notes that stay true
 
