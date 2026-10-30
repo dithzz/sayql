@@ -163,6 +163,28 @@ it("takes a custom credit amount in whole dollars within the limits, and credits
   expect(tables.ai_accounts[0].balance_micro).toBe(37_000_000);
 });
 
+it("adds no credit when the payment was less than the credit's price, and tells the owner", async () => {
+  const custom = (payment_id, money) => ({
+    payment_id, customer, product_cart: [{ product_id: "pdt_cx", quantity: 1 }], metadata: { credit_usd: "100" }, subscription_id: null, ...money,
+  });
+  // $1 paid for $100 of credit.
+  expect((await event("payment.succeeded", custom("pay_low", { currency: "USD", total_amount: 118, tax: 18 }))).status).toBe(200);
+  expect(tables.ai_accounts).toHaveLength(0);
+  expect(mails.at(-1).subject).toBe("Credit payment below its price");
+  expect(mails.some((m) => keyIn(m.text))).toBe(false);
+
+  // Paid in full, tax on top.
+  await event("payment.succeeded", custom("pay_ok", { currency: "USD", total_amount: 11800, tax: 1800 }));
+  expect(tables.ai_accounts[0].balance_micro).toBe(100_000_000);
+
+  // Paid in rupees: Dodo settles dollars after conversion and fees, which is allowed for.
+  await event("payment.succeeded", custom("pay_inr", { currency: "INR", total_amount: 1000000, tax: 152542, settlement_currency: "USD", settlement_amount: 9400, settlement_tax: 0 }));
+  expect(tables.ai_accounts[0].balance_micro).toBe(200_000_000);
+  // ...but not a rupee payment worth far less.
+  await event("payment.succeeded", custom("pay_inr_low", { currency: "INR", total_amount: 10000, tax: 0, settlement_currency: "USD", settlement_amount: 110, settlement_tax: 0 }));
+  expect(tables.ai_accounts[0].balance_micro).toBe(200_000_000);
+});
+
 it("refuses a webhook with a bad signature or an old timestamp", async () => {
   expect((await event("payment.succeeded", pack(), { secret: "whsec_" + Buffer.from("wrong").toString("base64") })).status).toBe(401);
   expect((await event("payment.succeeded", pack(), { ts: Math.floor(Date.now() / 1000) - 3600 })).status).toBe(401);
