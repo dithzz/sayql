@@ -57,7 +57,8 @@ async function handle(db, event) {
     const packs = (data.product_cart || [])
       .map((i) => ({ p: productById(i.product_id), qty: Number(i.quantity) || 1 }))
       .filter((i) => i.p && i.p.kind === "credits");
-    if (!packs.length) return notifyOwner("Payment for a product sayql.dev doesn't know", `Payment ${data.payment_id} from ${data.customer?.email}. Check DODO_PRODUCTS.`);
+    // The Dodo account sells other products too; their payments aren't SayQL's to handle.
+    if (!packs.length) return;
     const usd = packs.reduce((sum, i) => sum + Number(i.p.usd) * i.qty, 0);
     return credits(db, data.customer, usd, data.payment_id);
   }

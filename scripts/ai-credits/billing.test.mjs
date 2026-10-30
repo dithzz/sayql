@@ -172,6 +172,14 @@ it("emails a new credit key at once, and a top-up to the same email adds to it",
   expect(keyIn(topUp.text)).toBeUndefined();
 });
 
+it("ignores payments and subscriptions for other products on the same Dodo account", async () => {
+  const other = { ...pack("pay_other"), product_cart: [{ product_id: "pdt_someone_else", quantity: 1 }] };
+  expect((await event("payment.succeeded", other)).status).toBe(200);
+  expect((await event("subscription.active", { ...sub(), product_id: "pdt_someone_else" })).status).toBe(200);
+  expect(tables.ai_accounts).toEqual([]);
+  expect(mails).toEqual([]);
+});
+
 it("handles a repeated webhook once", async () => {
   await event("payment.succeeded", pack(), { id: "msg_same" });
   await event("payment.succeeded", pack(), { id: "msg_same" });
