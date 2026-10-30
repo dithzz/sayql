@@ -9,6 +9,8 @@
 
 ### Let agents into your database. Not your data.
 
+<sub>A product of <a href="https://azenvoc.com">Azenvoc</a></sub>
+
 The governance layer between AI agents and your databases.<br>
 They get your schema and the numbers they need, not your rows, unless you say so.
 

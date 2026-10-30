@@ -400,7 +400,7 @@ export function SettingsPage({
             <>
               <h2 className={styles.title}>About</h2>
               <p className={styles.about}>
-                SayQL Community Edition {version}. Free and open source under the Apache License 2.0. The license,
+                SayQL Community Edition {version}, a product of Azenvoc. Free and open source under the Apache License 2.0. The license,
                 privacy notice and third-party notices are included with the app.
               </p>
               <div className={styles.aboutActions}>
